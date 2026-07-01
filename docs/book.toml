@@ -1,0 +1,13 @@
+[book]
+title = "AGI Clean-Room Reverse Engineering"
+authors = ["Clean-room reverse engineering notes"]
+description = "Clean-room notes and specifications for reverse engineering the SQ2 AGI interpreter."
+language = "en"
+src = "src"
+
+[build]
+build-dir = "book"
+create-missing = false
+
+[output.html]
+no-section-label = true
