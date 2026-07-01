@@ -16,3 +16,7 @@ Current documentation:
   [Clean-Room Executable Notes](./clean_room_executable_notes.md).
 - The current readable decompilation of the loader is in
   [SIERRA.COM Loader](./loader_decompilation.md).
+- Notes on the decrypted interpreter executable, startup, and overlay loading
+  are in [Decrypted AGI Executable](./agi_executable.md).
+- Notes on directory and volume resource files are in
+  [Resource Files](./resource_files.md).

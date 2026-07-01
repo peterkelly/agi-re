@@ -1,0 +1,239 @@
+# Resource file notes
+
+This page records clean-room observations about the SQ2 resource directory and
+volume files. It is based on local `SQ2/*DIR`, `SQ2/VOL.*`, `SQ2/AGIDATA.OVL`,
+and the decrypted executable.
+
+## Directory file loading
+
+The decrypted executable references these AGIDATA strings:
+
+| AGIDATA offset | String |
+| --- | --- |
+| `0x116a` | `logdir` |
+| `0x1172` | `viewdir` |
+| `0x117a` | `picdir` |
+| `0x1182` | `snddir` |
+
+The routine at image offset `0x4305` loads all four directory files with the
+whole-file loader at image offset `0x3113`.
+
+Observed load order and destination pointers:
+
+| File string | Pointer destination |
+| --- | --- |
+| `logdir` | `[0x11b2]` |
+| `picdir` | `[0x11b6]` |
+| `viewdir` | `[0x11b4]` |
+| `snddir` | `[0x11b8]` |
+
+The whole-file loader at image offset `0x3113`:
+
+```text
+load_whole_file(path, optional_destination):
+    handle = dos_open(path, mode=0)
+    if open fails:
+        display/retry error using AGIDATA string 0x0eef
+
+    size = dos_seek(handle, offset=0, origin=end)
+    dos_seek(handle, offset=0, origin=start)
+    [0x0f1a] = size
+
+    if optional_destination == 0:
+        optional_destination = allocate(size)
+
+    bytes_read = dos_read(handle, optional_destination, size)
+    if bytes_read != size:
+        display/retry disk error path
+
+    dos_close(handle)
+    return optional_destination
+```
+
+The exact retry behavior still needs refinement, but the open, seek-to-end,
+seek-to-start, optional allocation, full read, and close steps are directly
+visible in the disassembly.
+
+## Directory entry accessors
+
+The four accessors multiply a resource number by three, add the result to the
+loaded directory base pointer, and reject entries whose first byte has a high
+nibble of `0xf`.
+
+| Image offset | Directory base | Missing-resource string |
+| --- | --- | --- |
+| `0x4371` | `[0x11b2]` (`logdir`) | `logic` at AGIDATA offset `0x1140` |
+| `0x43a5` | `[0x11b4]` (`viewdir`) | `view` at AGIDATA offset `0x1146` |
+| `0x43d9` | `[0x11b6]` (`picdir`) | `picture` at AGIDATA offset `0x114b` |
+| `0x440d` | `[0x11b8]` (`snddir`) | `sound` at AGIDATA offset `0x1153` |
+
+The shared check at image offset `0x434e`:
+
+```text
+entry_or_null(entry):
+    if (entry[0] & 0xf0) == 0xf0:
+        return 0
+    return entry
+```
+
+So an absent resource directory entry is represented by a first byte whose high
+nibble is `0xf`; in the SQ2 files observed so far this commonly appears as
+`ff ff ff`.
+
+## Directory entry format
+
+Each loaded directory is an array of 3-byte entries.
+
+The local SQ2 bytes support this interpretation:
+
+```text
+byte0 high nibble: volume number
+byte0 low nibble plus byte1 plus byte2: 20-bit offset in that VOL file
+
+volume = byte0 >> 4
+offset = ((byte0 & 0x0f) << 16) | (byte1 << 8) | byte2
+```
+
+Evidence from local samples:
+
+| Directory | Entry | Raw bytes | Decoded target | Bytes at target |
+| --- | --- | --- | --- | --- |
+| `LOGDIR` | 0 | `10 6d 1b` | `VOL.1` offset `0x06d1b` | `12 34 01 b2` |
+| `PICDIR` | 1 | `10 96 8e` | `VOL.1` offset `0x0968e` | `12 34 01 a2` |
+| `VIEWDIR` | 0 | `00 9a 51` | `VOL.0` offset `0x09a51` | `12 34 00 1e` |
+| `SNDDIR` | 1 | `10 00 00` | `VOL.1` offset `0x00000` | `12 34 01 51` |
+
+Many sampled entries across all four directories point to locations in `VOL.*`
+whose first two bytes are `12 34`. The third byte in the sampled headers matches
+the decoded volume number.
+
+Observed directory sizes:
+
+| File | Size | Entry count |
+| --- | ---: | ---: |
+| `LOGDIR` | 426 | 142 |
+| `PICDIR` | 444 | 148 |
+| `VIEWDIR` | 720 | 240 |
+| `SNDDIR` | 210 | 70 |
+
+Two entries at the ends of `LOGDIR` and `PICDIR` do not have an absent high
+nibble, but decode beyond the end of `VOL.0`:
+
+| Directory | Entry | Raw bytes | Decoded target |
+| --- | ---: | --- | --- |
+| `LOGDIR` | 141 | `01 ff ff` | `VOL.0` offset `0x1ffff` |
+| `PICDIR` | 147 | `02 ff ff` | `VOL.0` offset `0x2ffff` |
+
+The current working interpretation is only that the executable's generic
+directory-entry check would not reject these bytes. No observed local call path
+has attempted to load these resource numbers yet.
+
+## Volume file handles
+
+The routine at image offset `0x3080` loops over volume numbers `0` through `4`.
+For each number it formats AGIDATA string `0x0ee8` (`vol.%d`) into a local
+buffer, opens the resulting filename with the DOS open wrapper at `0x5cce`, and
+stores the returned handle in a table starting at `[0x0f04]`.
+
+The routine at image offset `0x30d6` loops over the same five handle slots and
+closes every handle not equal to `0xffff`, then resets the slot to `0xffff`.
+
+SQ2 contains `VOL.0`, `VOL.1`, `VOL.2`, and a tiny `VOL.3`; there is no `VOL.4`
+in the current directory. The interpreter still has five handle slots.
+
+## Volume record header and generic reader
+
+The generic resource reader starts at image offset `0x2e56`. A retry wrapper at
+image offset `0x2e32` calls it until it returns a non-zero pointer or sets error
+state `[0x0f02]` to `5`.
+
+Given a non-null directory entry pointer and an optional destination pointer,
+the reader:
+
+```text
+read_volume_resource(entry, optional_destination):
+    if volume handles are not open:
+        open VOL.0 through VOL.4
+
+    volume = entry[0] >> 4
+    handle = volume_handles[volume]
+    offset = ((entry[0] & 0x0f) << 16) | (entry[1] << 8) | entry[2]
+
+    seek(handle, offset, origin=start)
+    header = read(handle, 5)
+
+    require header[0] == 0x12
+    require header[1] == 0x34
+    require header[2] == volume
+
+    payload_length = header[3] | (header[4] << 8)
+    [0x0f1a] = payload_length
+
+    if optional_destination == 0:
+        optional_destination = allocate(payload_length)
+
+    require read(handle, optional_destination, payload_length) == payload_length
+    return optional_destination
+```
+
+The little-endian length is pinned down by the stack offsets in the disassembly:
+the 5-byte header is read to `[bp-0x0f]..[bp-0x0b]`; image offsets
+`0x2f73..0x2f85` compute `([bp-0x0b] << 8) + [bp-0x0c]`. Since `[bp-0x0c]` is
+the fourth header byte and `[bp-0x0b]` is the fifth, this is
+`header[3] | (header[4] << 8)`.
+
+Local samples confirm the same layout. `SNDDIR` entry 1 points to `VOL.1`
+offset `0x00000`; the header bytes are `12 34 01 51 00`, so the payload length
+is `0x0051`. The next sound entry starts at `0x00056`, exactly 5 header bytes
+plus `0x51` payload bytes later.
+
+The resulting volume record layout is:
+
+```text
+byte 0: 0x12
+byte 1: 0x34
+byte 2: volume number
+byte 3: payload length low byte
+byte 4: payload length high byte
+byte 5..: payload bytes
+```
+
+Sampled validation over present entries:
+
+| Directory | Present entries | Bad magic | Bad volume byte | Out of range |
+| --- | ---: | ---: | ---: | ---: |
+| `LOGDIR` | 119 | 0 | 0 | 1 |
+| `PICDIR` | 75 | 0 | 0 | 1 |
+| `VIEWDIR` | 203 | 0 | 0 | 0 |
+| `SNDDIR` | 49 | 0 | 0 | 0 |
+
+The two out-of-range entries are the end entries shown in the directory-format
+section above.
+
+## Resource load call graph
+
+Four higher-level loaders call the directory accessors and then the generic
+reader:
+
+| Resource type | Loader | Existing-cache lookup | Directory accessor | Generic reader call |
+| --- | --- | --- | --- | --- |
+| Logic | `0x119a` | `0x110f` | `0x4371` | `0x11e0 -> 0x2e32` |
+| View | `0x39f7` | `0x3979` | `0x43a5` | `0x3a54 -> 0x2e32` |
+| Picture | `0x4a3b` | `0x49e8` | `0x43d9` | `0x4a90 -> 0x2e32` |
+| Sound | `0x5126` | `0x50d8` | `0x440d` | `0x5185 -> 0x2e32` |
+
+The loaded resource payload returned by `0x2e32` does not include the 5-byte
+`VOL.*` record header; it begins at the resource-type-specific payload.
+
+Early payload observations from these loaders:
+
+- Logic payloads begin with a little-endian offset. Loader `0x119a` treats
+  `payload + 2` as an instruction/data pointer, reads the first two payload
+  bytes as a little-endian offset, then reads one byte at
+  `payload + 2 + offset` into the logic cache record.
+- Sound loader `0x5126` reads the first four little-endian words in the sound
+  payload as offsets relative to the payload base and stores four derived
+  pointers in its cache record.
+- View and picture loaders store the returned payload pointer directly in their
+  cache records. Further payload parsing is done by later routines and remains
+  to be decoded.
