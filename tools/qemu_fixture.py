@@ -177,6 +177,44 @@ def build_synthetic_picture_fixture(
     return destination
 
 
+def build_synthetic_picture_view_fixture(
+    picture_payload: bytes,
+    picture_no: int,
+    view_no: int,
+    group_no: int,
+    frame_no: int,
+    x: int,
+    baseline_y: int,
+    priority: int,
+    destination: Path,
+    control: int | None = None,
+) -> Path:
+    copy_sq2_tree(destination)
+    logic_payload = picture_view_logic_payload(
+        picture_no,
+        view_no,
+        group_no,
+        frame_no,
+        x,
+        baseline_y,
+        priority,
+        control,
+    )
+    logic_record = volume_record(logic_payload, volume=3)
+    picture_offset = len(logic_record)
+    picture_record = volume_record(picture_payload, volume=3)
+    (destination / "VOL.3").write_bytes(logic_record + picture_record)
+
+    logdir = (destination / "LOGDIR").read_bytes()
+    (destination / "LOGDIR").write_bytes(patch_logdir_entry_zero(logdir, volume=3, offset=0))
+
+    picdir = (destination / "PICDIR").read_bytes()
+    (destination / "PICDIR").write_bytes(
+        patch_dir_entry(picdir, picture_no, volume=3, offset=picture_offset)
+    )
+    return destination
+
+
 def main() -> None:
     parser = argparse.ArgumentParser()
     subparsers = parser.add_subparsers(dest="command", required=True)
@@ -200,6 +238,18 @@ def main() -> None:
     synthetic_picture.add_argument("payload", type=Path)
     synthetic_picture.add_argument("--picture", type=int, default=0)
     synthetic_picture.add_argument("--output", type=Path)
+
+    synthetic_picture_view = subparsers.add_parser("synthetic-picture-view")
+    synthetic_picture_view.add_argument("payload", type=Path)
+    synthetic_picture_view.add_argument("picture", type=int)
+    synthetic_picture_view.add_argument("view", type=int)
+    synthetic_picture_view.add_argument("group", type=int)
+    synthetic_picture_view.add_argument("frame", type=int)
+    synthetic_picture_view.add_argument("x", type=int)
+    synthetic_picture_view.add_argument("baseline_y", type=int)
+    synthetic_picture_view.add_argument("priority", type=int)
+    synthetic_picture_view.add_argument("--control", type=int)
+    synthetic_picture_view.add_argument("--output", type=Path)
 
     args = parser.parse_args()
     if args.command == "picture":
@@ -226,6 +276,24 @@ def main() -> None:
     elif args.command == "synthetic-picture":
         output = args.output or Path("build/qemu-fixtures") / f"synthetic_picture_{args.picture:03d}"
         build_synthetic_picture_fixture(args.payload.read_bytes(), output, args.picture)
+        print(output)
+    elif args.command == "synthetic-picture-view":
+        output = args.output or (
+            Path("build/qemu-fixtures")
+            / f"synthetic_picture_{args.picture:03d}_view_{args.view:03d}_{args.group:02d}_{args.frame:02d}"
+        )
+        build_synthetic_picture_view_fixture(
+            args.payload.read_bytes(),
+            args.picture,
+            args.view,
+            args.group,
+            args.frame,
+            args.x,
+            args.baseline_y,
+            args.priority,
+            output,
+            args.control,
+        )
         print(output)
 
 

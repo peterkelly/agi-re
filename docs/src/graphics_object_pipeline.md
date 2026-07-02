@@ -467,6 +467,19 @@ higher control/priority value or reaches the lower buffer limit, then uses that
 value for the same comparison. This ties object drawing to the high-nibble
 control data produced by picture decoding.
 
+QEMU probes using controlled synthetic pictures validate both priority-gate
+branches. On the default cleared picture buffer, whose high nibble is `4`, an
+object with priority `3` is hidden while priority `4` draws. On a synthetic
+picture filled to control priority `6`, priority `5` is hidden while priority
+`6` draws. A third pair writes control `2` at the object's destination row and
+control `6` one row below; priority `5` is hidden and priority `6` draws,
+confirming that low-control destination cells use the downward scan before the
+same less-than-or-equal comparison. Two additional probes intentionally used
+different low/high nibbles in the transient object's staged priority/control
+byte: low `3` with high `6` remained hidden on a control-4 background, and low
+`6` with high `3` drew on a control-6 background. For visible overlay gating,
+the draw routine therefore uses the low nibble of object byte `+0x24`.
+
 The local compatibility helper now models this object-frame composition at the
 buffer level. It takes a decoded frame, a left X, a baseline Y, and a priority
 nibble, computes `top = baseline_y - frame.height + 1`, skips pixels whose
@@ -836,8 +849,8 @@ same seven values through variables. The values are staged in globals
 | `0x0eb0` | Derived subresource/frame index. |
 | `0x0eb1` | X coordinate. |
 | `0x0eb2` | Y coordinate. |
-| `0x0eb3` low nibble | Priority/control low nibble. |
-| `0x0eb3` high nibble | Priority/control high nibble. |
+| `0x0eb3` low nibble | Visible overlay priority nibble. |
+| `0x0eb3` high nibble | Staged control/secondary priority nibble; not used for visible overlay gating in the current QEMU probes. |
 
 Helper `0x2d52` logs several staged pairs through `0x70b1`, then initializes
 the record at `0x0eb4` through the normal view/object helpers:

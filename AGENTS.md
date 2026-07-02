@@ -80,6 +80,7 @@ qemu-system-i386 -m 16 -boot c \
 - With that command DOS sees the host directory as `D:`. A fixture under `build/qemu-share/PIC001` can be run with `D:`, `cd \PIC001`, `SIERRA`.
 - Caveat: QEMU `savevm` does not work with writable vvfat (`fat:rw:`), and the generated AGI fixtures do not return to DOS after drawing. For true no-reboot batches, use a QEMU snapshot at the DOS prompt and a disposable qcow2 clone of `build/dos622/dos622.img` with prebuilt fixtures copied into the boot partition. The secondary `D:` qcow2/FAT-disk probe was not usable from DOS; preloading fixtures onto disposable `C:` qcow2 did work.
 - Build and run a one-boot view/object snapshot batch with `python3 -B tools/view_batch.py --snapshot --dos-prefix VS --output build/view-batch/batches/view_snapshot.json --boot-wait 5 --draw-wait 8`.
+- Run targeted object overlay priority probes with `python3 -B tools/object_overlay_probe.py --dos-prefix OP --output build/object-overlay-probes/batches/name.json --boot-wait 5 --draw-wait 8`.
 - Generate original-engine fixture game directories with `python3 -B tools/qemu_fixture.py picture N --output build/qemu-fixtures/picture_NNN`.
 - Compare original-engine picture captures with the local renderer using `python3 -B tools/compare_picture_capture.py N capture.ppm`.
 - Generate synthetic picture fuzz corpora with `python3 -B tools/picture_fuzz.py generate --count 1024 --seed 4097 --output build/picture-fuzz/corpus --clean`.

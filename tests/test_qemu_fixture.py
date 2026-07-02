@@ -14,6 +14,7 @@ sys.path.insert(0, str(ROOT / "tools"))
 
 from qemu_fixture import (  # noqa: E402
     SCRATCH_VAR,
+    build_synthetic_picture_view_fixture,
     build_synthetic_picture_fixture,
     patch_dir_entry,
     patch_logdir_entry_zero,
@@ -110,6 +111,27 @@ class QemuFixtureTests(unittest.TestCase):
             self.assertEqual((fixture / "LOGDIR").read_bytes()[:3], bytes([0x30, 0x00, 0x00]))
             picture_entry = (fixture / "PICDIR").read_bytes()[:3]
             self.assertEqual(picture_entry, bytes([0x30, 0x00, len(logic_record)]))
+
+    def test_synthetic_picture_view_fixture_patches_picture_and_logic(self) -> None:
+        payload = bytes([0xFF])
+        with tempfile.TemporaryDirectory() as temp_dir:
+            fixture = build_synthetic_picture_view_fixture(
+                payload,
+                0,
+                11,
+                0,
+                0,
+                20,
+                80,
+                4,
+                Path(temp_dir) / "fixture",
+            )
+            vol3 = (fixture / "VOL.3").read_bytes()
+            logic_record = volume_record(picture_view_logic_payload(0, 11, 0, 0, 20, 80, 4), volume=3)
+            self.assertTrue(vol3.startswith(logic_record))
+            self.assertEqual(vol3[len(logic_record) :], volume_record(payload, volume=3))
+            self.assertEqual((fixture / "LOGDIR").read_bytes()[:3], bytes([0x30, 0x00, 0x00]))
+            self.assertEqual((fixture / "PICDIR").read_bytes()[:3], bytes([0x30, 0x00, len(logic_record)]))
 
     def test_synthetic_qemu_scaled_picture_capture_compares_equal(self) -> None:
         rendered = render_picture(1)

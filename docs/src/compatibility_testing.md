@@ -186,6 +186,20 @@ python3 -B tools/view_batch.py --snapshot --dos-prefix VS --output build/view-ba
 The first snapshot-mode view/object smoke ran the six built-in cases and all
 six matched from one QEMU boot.
 
+Run targeted object overlay priority probes with controlled synthetic picture
+backgrounds:
+
+```bash
+python3 -B tools/object_overlay_probe.py --dos-prefix OP --output build/object-overlay-probes/batches/priority_scan_down.json --boot-wait 5 --draw-wait 8
+```
+
+The first eight object overlay probes matched QEMU with 0 mismatches. They
+cover default control priority 4 versus object priorities 3 and 4, full-screen
+control priority 6 versus object priorities 5 and 6, low/high staged nibble
+mismatches proving visible priority uses the low nibble, and the low-control
+downward-scan path where a destination cell with control 2 finds a control-6
+barrier one row below.
+
 Compare an existing QEMU capture without rerunning QEMU:
 
 ```bash
@@ -248,6 +262,11 @@ python3 -B tools/picture_fuzz.py compare-capture base_004_clamped_absolute build
   from low-control cells. They also lock down the top-edge adjustment observed
   through QEMU: when a cel would start above row 0, the overlay path shifts
   `left` by the negative top and raises `baseline_y` so the top becomes 0.
+- Targeted QEMU object overlay probes now validate direct priority gating,
+  visible-priority low-nibble selection, and the downward scan from low-control
+  cells. The confirmed rule is that an object pixel draws when the discovered
+  existing priority/control value is less than or equal to the object's low
+  priority nibble.
 - `tests/test_picture_fuzz.py` covers deterministic fuzz generation, manifest
   writing, Python render-result recording, scaled synthetic capture comparison
   without booting QEMU, QEMU unsafe-case rejection, and mocked batch reporting.

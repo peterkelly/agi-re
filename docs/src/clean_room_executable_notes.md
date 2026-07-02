@@ -2921,3 +2921,31 @@ Documented result:
 - Verified `tools/picture_fuzz.py batch-qemu --snapshot` with
   `base_016_visual_fill_box` and `base_019_pattern_edge_rectangle`: both cases
   matched with 0 mismatches from one QEMU boot.
+
+## 2026-07-02: object overlay priority probes
+
+Commands run from `/Users/peter/ai/agi/reverse`:
+
+- `python3 -B -m unittest discover -s tests`
+- `python3 -B tools/object_overlay_probe.py --dos-prefix OP --output build/object-overlay-probes/batches/base_priority.json --boot-wait 5 --draw-wait 8`
+- `python3 -B tools/object_overlay_probe.py --dos-prefix OQ --output build/object-overlay-probes/batches/priority_scan_down.json --boot-wait 5 --draw-wait 8`
+- `python3 -B tools/object_overlay_probe.py --dos-prefix OR --output build/object-overlay-probes/batches/priority_nibbles.json --boot-wait 5 --draw-wait 8`
+
+Documented result:
+
+- Added `build_synthetic_picture_view_fixture()` to `tools/qemu_fixture.py`.
+  This patches both `LOGDIR[0]` and a chosen `PICDIR` entry so the original
+  engine can draw a generated picture resource and then overlay a chosen view
+  cel through action `0x7a` (`setup_transient_object`).
+- Added `tools/object_overlay_probe.py`, a snapshot-backed QEMU harness for
+  targeted object overlay cases with controlled synthetic picture backgrounds.
+- The eight built-in priority probes matched QEMU with 0 mismatches. The cases
+  confirm:
+  - default cleared control priority `4` hides object priority `3` and allows
+    object priority `4`;
+  - full-screen synthetic control priority `6` hides object priority `5` and
+    allows object priority `6`;
+  - visible overlay gating uses the low nibble of object byte `+0x24`, not the
+    high nibble staged by operand 7 of action `0x7a`;
+  - when the destination cell contains low control `2`, the overlay routine
+    scans downward to a control-`6` row and applies the same comparison there.

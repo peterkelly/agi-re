@@ -898,3 +898,58 @@ Progress updates and outcomes:
     `python3 -B tools/picture_fuzz.py batch-qemu --snapshot --case base_016_visual_fill_box --case base_019_pattern_edge_rectangle --dos-prefix FS --output build/picture-fuzz/batches/snapshot_smoke.json --boot-wait 5 --draw-wait 8`.
     QEMU booted once from the generated snapshot qcow2, restored the DOS prompt
     between the two cases, and both captures compared with 0 mismatches.
+
+99. Reported: "I found a useful next lever: the fixture builder can currently
+    combine a real SQ2 picture with a view, or a synthetic picture alone, but
+    not a synthetic picture plus a view. Adding that combined fixture will let
+    us create tiny controlled priority/control backgrounds and compare object
+    overlay behavior against the original engine."
+
+    Action/result: Began adding a synthetic-picture-plus-view fixture path and
+    targeted object overlay probes so priority/control behavior can be tested
+    against QEMU with controlled picture backgrounds.
+
+100. Reported: "The first four priority threshold probes matched exactly,
+     which is a strong signal that the basic `existing_priority <=
+     object_priority` rule is right. I'm adding one more pair that targets the
+     stranger part of the routine: when the destination cell has a low control
+     nibble, it scans downward to find a real priority barrier."
+
+     Action/result: Ran
+     `python3 -B tools/object_overlay_probe.py --dos-prefix OP --output build/object-overlay-probes/batches/base_priority.json --boot-wait 5 --draw-wait 8`.
+     The default-control priority 3/4 pair and full-screen-control-6 priority
+     5/6 pair all matched QEMU with 0 mismatches. Added two scan-down cases
+     that place control 2 at the object's top row and control 6 one row below.
+
+101. Reported: "The QEMU result confirms both branches of the priority gate we
+     cared about: direct high-priority comparison and low-control downward
+     scanning. I'm folding that into the docs now as confirmed compatibility
+     evidence rather than just a code hypothesis."
+
+     Action/result: Ran
+     `python3 -B tools/object_overlay_probe.py --dos-prefix OQ --output build/object-overlay-probes/batches/priority_scan_down.json --boot-wait 5 --draw-wait 8`.
+     All six object overlay probes matched QEMU with 0 mismatches, including
+     the two low-control scan-down cases. Updated the graphics/object pipeline,
+     compatibility testing notes, clean-room executable notes, and AGENTS tool
+     instructions.
+
+102. Reported: "The `0x7a` path stages two nibbles into object byte `+0x24`:
+     the sixth operand as the low nibble and the seventh as the high nibble. I'm
+     adding two mismatch probes now to confirm which nibble controls visible
+     overlay priority, because that matters for the spec."
+
+     Action/result: Added two object overlay probes with intentionally
+     different operand-6 and operand-7 values: priority `3`/control `6` on a
+     default control-4 background, and priority `6`/control `3` on a
+     control-6-filled background.
+
+103. Reported: "The nibble-discriminator cases matched too. That confirms
+     visible object priority comes from the low nibble staged by operand 6; the
+     high nibble from operand 7 does not control whether the cel pixels draw in
+     these probes."
+
+     Action/result: Ran
+     `python3 -B tools/object_overlay_probe.py --dos-prefix OR --output build/object-overlay-probes/batches/priority_nibbles.json --boot-wait 5 --draw-wait 8`.
+     All eight object overlay probes matched QEMU with 0 mismatches. Updated the
+     graphics/object pipeline, compatibility notes, and clean-room executable
+     notes to describe the low-nibble visible-priority result.
