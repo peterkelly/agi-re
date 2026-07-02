@@ -109,6 +109,25 @@ def setup_persistent_object_actions(
     return code
 
 
+def setup_transient_object_action(
+    view_no: int,
+    group_no: int,
+    frame_no: int,
+    x: int,
+    baseline_y: int,
+    priority: int,
+    control: int | None = None,
+) -> bytes:
+    values = [view_no, group_no, frame_no, x, baseline_y, priority]
+    if control is not None:
+        values.append(control)
+    if any(not 0 <= value <= 0xFF for value in values):
+        raise ValueError("fixture operands must fit in one byte")
+    if control is None:
+        control = priority
+    return bytes([0x7A, view_no, group_no, frame_no, x, baseline_y, priority, control])
+
+
 def move_object_to_action(
     object_no: int,
     target_x: int,

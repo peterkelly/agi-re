@@ -1374,3 +1374,207 @@ Progress updates and outcomes:
      `0x48..0x4b`. The handlers set object byte `+0x23`, object flag bits, and
      optional completion flag byte `+0x27`; this records the setup side only.
      Automatic frame-cycling runtime consumers remain a follow-up target.
+
+## Logic interpreter opcode coverage and QEMU probes
+
+149. Reported: "I'll pick this back up from the current workspace state: first
+     I'm going to re-read the local instructions and inspect the new probe/doc
+     changes, then I'll run the fast checks before putting QEMU back in the
+     loop."
+
+     Action/result: Re-read `AGENTS.md`, inspected the working tree, reviewed
+     `tools/logic_interpreter_probe.py`, and checked the handoff chapter
+     `docs/src/current_status.md`.
+
+150. Reported: "The handoff page and AGENTS notes are consistent: the immediate
+     gap is full logic opcode coverage plus executable-backed probes. I've also
+     confirmed there's already a new QEMU logic probe in progress, so I'm going
+     to stabilize that rather than starting a parallel harness."
+
+     Action/result: Reviewed the rest of `tools/logic_interpreter_probe.py`,
+     its unit tests, and the current `logic_bytecode.md` opcode entries.
+
+151. Reported: "The docs already use paragraph-style opcode entries and the
+     condition range is documented. One concrete audit miss remains from the
+     earlier pass: action `0x00` is explained structurally but not yet
+     represented as a normal action entry, and I'll fold that in while covering
+     the rest."
+
+     Action/result: Ran `python3 -B -m unittest discover -s tests`; all 84
+     tests passed before the new edits.
+
+152. Reported: "The Python suite is still green after the self-loop change. I'm
+     starting the QEMU snapshot batch now; this is the meaningful check for
+     whether the synthetic logic resources are exposing interpreter behavior
+     cleanly."
+
+     Action/result: Started
+     `python3 -B tools/logic_interpreter_probe.py --dos-prefix LJ --output build/logic-interpreter-probes/batches/control_flow_002.json --boot-wait 5 --draw-wait 8`.
+
+153. Reported: "QEMU has built the four fixture directories and is running them
+     from the snapshot disk. While it runs, the specific uncertainty I'm testing
+     is whether a one-shot transient draw has to be held in a live interpreter
+     loop to be visible at screenshot time."
+
+     Action/result: The QEMU batch completed with 4 matches, 0 mismatches, and
+     0 errors. The passing cases were `jump_skips_first_draw`,
+     `if_false_skips_then_draw`, `not_condition_runs_then_draw`, and
+     `or_group_true_runs_then_draw`.
+
+154. Reported: "Good, the QEMU batch now matches 4/4. That means the
+     interpreter-control fixtures are viable, and the earlier failures were
+     fixture lifetime artifacts rather than evidence against the jump/NOT/OR
+     interpretation. Next I'm auditing every opcode label against the docs so
+     the 'all opcodes' pass is explicit rather than vibes in a trench coat."
+
+     Action/result: Ran an opcode-label audit comparing
+     `tools/disassemble_logic.py` against `docs/src/logic_bytecode.md`.
+
+155. Reported: "The existing `logic_bytecode.md` is already much further along
+     than the handoff note implied: it has labels and observed behavior for the
+     whole action range through `0xaf`, with only the structural `0x00` missing
+     from the normal entry list. I'm going to make that coverage
+     machine-checkable enough to trust."
+
+     Action/result: Confirmed the action-name map has 176 entries and no range
+     gaps from `0x00..0xaf`; the condition-name map has 19 entries and no gaps
+     from `0x00..0x12`.
+
+156. Reported: "The audit came back clean except for exactly one missing normal
+     entry: `0x00` (`end`). The action label map covers every byte from `0x00`
+     through `0xaf`; the condition label map covers every valid-looking
+     condition entry from `0x00` through `0x12`."
+
+     Action/result: Prepared documentation and unit-test edits to add the
+     missing `0x00` entry and lock the coverage audit into the test suite.
+
+157. Reported: "I'm going to make three small documentation/test edits now: add
+     the missing `0x00` action entry, add a regression test that fails if any
+     opcode label drops out of the docs, and record the QEMU control-flow probe
+     plus the self-loop correction in the evidence/progress chapters."
+
+     Action/result: Added the `0x00` (`end`) action entry and coverage audit to
+     `logic_bytecode.md`, added `tests/test_logic_doc_coverage.py`, and
+     documented the logic-interpreter QEMU probe in the compatibility/current
+     status/progress chapters.
+
+158. Reported: "One nuance I want to make explicit before calling this done:
+     'all opcodes' should include the invalid/structural byte ranges too, not
+     just the named action table. I'm adding a short dispatch-range note so
+     future readers know what happens to bytes outside the valid
+     action/condition catalogs."
+
+     Action/result: Added dispatch-range paragraphs to `logic_bytecode.md` for
+     action bytes `0x00`, `0x01..0xaf`, `0xb0..0xfb`, `0xfc`, `0xfd`, `0xfe`,
+     and `0xff`, plus condition bytes `0x00..0x12`, `0x13..0x25`,
+     `0x26..0xfb`, and structural markers `0xfc..0xff`.
+
+159. Reported: "That range note is in place now: valid actions, invalid action
+     bytes, structural bytes, valid condition predicates, reserved condition
+     bytes, and condition markers are all spelled out separately. I'm adding
+     that last update to the progress record and rerunning verification."
+
+     Action/result: Verification rerun follows this documentation update.
+
+160. Reported: "I'll take this as an implementation pass, not a proposal:
+     expand the logic probe harness, add deterministic opcode-family cases,
+     attach each case to docs/evidence levels, then verify with unit tests,
+     mdBook, and QEMU where practical. First I'm reading the current harness
+     and helper patterns so the new cases fit the existing machinery cleanly."
+
+     Action/result: Reviewed `tools/logic_interpreter_probe.py`,
+     `tools/qemu_fixture.py`, `tests/test_logic_interpreter_probe.py`, and the
+     logic-bytecode/compatibility status docs.
+
+161. Reported: "The probe design is promising: most arithmetic/flag/condition
+     opcodes can be validated by doing the operation, then drawing the object
+     only if a condition observes the expected state. If the interpreter
+     disagrees, the screenshot stays blank and the comparison fails loudly."
+
+     Action/result: Designed the expanded logic probe cases around guarded
+     transient drawing through condition blocks.
+
+162. Reported: "One wrinkle with self-looped fixtures: mutating opcodes like
+     `inc` would keep changing state every cycle. I'm making each arithmetic
+     case reset its inputs before the tested action, so the condition remains
+     true on every interpreter pass and the transient draw is stable at capture
+     time."
+
+     Action/result: Added reset-before-test bytecode patterns for mutable
+     variable, flag, and object-field probes.
+
+163. Reported: "I'm editing the logic probe now: adding bytecode builders for
+     variable, flag, comparison, and simple object-field checks, then folding
+     those into the default QEMU batch so they run with the existing
+     control-flow cases."
+
+     Action/result: Expanded `tools/logic_interpreter_probe.py` to 27 default
+     cases covering control flow, variable arithmetic, indirect variables,
+     flags, comparison predicates, and selected object-field getters/setters.
+
+164. Reported: "The default logic batch now includes control flow plus
+     arithmetic, indirect-variable, flag, comparison, and three simple
+     object-field probes. I'm running the fast unit tests first; then I'll send
+     the expanded batch through QEMU and correct anything the original engine
+     disagrees with."
+
+     Action/result: Ran the logic probe unit tests successfully and confirmed
+     the expanded default batch contains 27 unique cases.
+
+165. Reported: "The expanded batch has 27 cases and the local probe tests pass.
+     I'm launching QEMU now; the object-field cases are the most likely to teach
+     us something because they touch engine object records without drawing
+     persistent objects."
+
+     Action/result: Started
+     `python3 -B tools/logic_interpreter_probe.py --dos-prefix LK --output build/logic-interpreter-probes/batches/opcode_families_001.json --boot-wait 5 --draw-wait 8 --stop-on-failure`.
+
+166. Reported: "QEMU has all 27 fixture directories loaded into the snapshot
+     disk and is stepping through them. I used `--stop-on-failure` for this
+     first pass, so if one case is wrong we get the earliest useful failure
+     instead of a pile of downstream noise."
+
+     Action/result: QEMU continued executing the one-boot snapshot batch.
+
+167. Reported: "The expanded QEMU run is green: 27/27 exact visual matches.
+     That gives us executable evidence for the core arithmetic opcodes,
+     indirect variable forms, flag opcodes, comparison predicates, and a few
+     simple object-field getter/setter pairs. Next I'm turning that into an
+     evidence matrix so the docs distinguish 'QEMU validated' from
+     'source-backed only.'"
+
+     Action/result: Saved the matching report at
+     `build/logic-interpreter-probes/batches/opcode_families_001.json`.
+
+168. Reported: "I'm adding a small generator for the evidence matrix rather
+     than hand-maintaining a 176-row table. The generator uses only the local
+     dispatch table and our local opcode-label map, then annotates rows with the
+     QEMU probes we have actually run."
+
+     Action/result: Added `tools/logic_opcode_evidence.py`, linked the generated
+     chapter from `SUMMARY.md`, and added a unit test that checks the generated
+     evidence matrix is current.
+
+169. Reported: "The generator is in place and linked into the book. I'm
+     generating the evidence chapter now, then I'll wire the run result into the
+     compatibility/evidence notes."
+
+     Action/result: Generated `docs/src/logic_opcode_evidence.md` and verified
+     it with `python3 -B tools/logic_opcode_evidence.py --check`.
+
+170. Reported: "The generated matrix now covers every action row `0x00..0xaf`,
+     all known condition rows `0x00..0x12`, and the invalid/structural byte
+     ranges. I'm tightening the tests around the new probe cases so the
+     expanded default batch doesn't accidentally shrink later."
+
+     Action/result: Expanded `tests/test_logic_interpreter_probe.py` to assert
+     representative variable, flag, comparison, arithmetic, control-flow, and
+     object-field cases remain in the default batch.
+
+171. Reported: "I'm updating the documentation trail with the exact QEMU batch
+     name and the new evidence chapter. This is the clean-room receipt: what
+     ran, what matched, and what remains source-backed rather than
+     emulator-backed."
+
+     Action/result: Updated compatibility, current-status, logic-bytecode, and
+     progress docs with the expanded logic probe and evidence matrix.

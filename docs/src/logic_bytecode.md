@@ -5,6 +5,10 @@ payload bytecode. It is based on local disassembly of
 `build/cleanroom/AGI.decrypted.exe`, the runtime tables in `SQ2/AGIDATA.OVL`,
 and decoded SQ2 logic payloads.
 
+For a compact generated coverage index that lists every action opcode, every
+known condition opcode, operand shapes, and current evidence level, see
+[Logic Opcode Evidence Matrix](./logic_opcode_evidence.md).
+
 ## Runtime tables
 
 After startup, `DS` points at `AGIDATA.OVL`. Both bytecode dispatchers use
@@ -98,6 +102,28 @@ Action execution is delegated to `0x02c4`. That dispatcher rejects opcodes
 `0x00` and `0xfc..0xff`, reports an error for opcodes above `0xaf`, then calls
 the action table at `DS:0x061d`.
 
+Putting the observed dispatch ranges together:
+
+**Main-stream bytes `0x01..0xaf`**: Normal action opcodes. The action table
+contains one entry for each byte in this range.
+
+**Main-stream byte `0x00`**: Logic-path terminator handled before the action
+dispatcher.
+
+**Main-stream bytes `0xb0..0xfb`**: Invalid as action opcodes in this build.
+They reach the action dispatcher and take its "opcode above `0xaf`" error path.
+
+**Main-stream byte `0xfc`**: Invalid outside condition parsing. It is rejected
+by the action dispatcher as a structural/control byte.
+
+**Main-stream byte `0xfd`**: Invalid outside condition parsing. It is rejected
+by the action dispatcher as a structural/control byte.
+
+**Main-stream byte `0xfe`**: Relative jump handled by the main interpreter loop.
+
+**Main-stream byte `0xff`**: Conditional block marker handled by the main
+interpreter loop.
+
 ## Conditional blocks
 
 Opcode `0xff` introduces a condition list. The condition parser uses these
@@ -184,6 +210,30 @@ then zero fill if forced through the same 4-byte entry parser. Although the
 condition dispatcher only rejects opcodes `>= 0x26`, no valid local condition
 list uses opcodes `0x13..0x25`; for this build they are treated as
 invalid/reserved rather than real predicates.
+
+Condition-list byte ranges:
+
+**Condition bytes `0x00..0x12`**: Valid predicates in this SQ2 build, listed
+above.
+
+**Condition bytes `0x13..0x25`**: Reserved/invalid for the portable model of
+this build. The dispatcher bound would allow them, but the underlying bytes are
+not a valid dispatch-table region.
+
+**Condition bytes `0x26..0xfb`**: Rejected by the condition dispatcher if
+encountered as predicate opcodes.
+
+**Condition byte `0xfc`**: OR-group marker interpreted by the condition-list
+scanner.
+
+**Condition byte `0xfd`**: Invert-next-condition marker interpreted by the
+condition-list scanner.
+
+**Condition byte `0xfe`**: Rejected by the condition dispatcher if encountered
+as a predicate opcode.
+
+**Condition byte `0xff`**: Condition-list terminator interpreted by the
+condition-list scanner.
 
 The first seven handlers directly expose byte variable comparisons. The byte
 variable array begins at `DS:0x0009`.
@@ -461,7 +511,26 @@ All action-table entries through `0xaf` now have local labels. Some labels
 remain deliberately implementation-shaped where the handler's state mutation is
 clear but the user-facing command name is not.
 
+Coverage audit:
+
+- `tools/disassemble_logic.py` labels every action byte `0x00..0xaf`.
+- `0x00` is a structural byte handled by the main interpreter loop, not by the
+  normal action dispatcher.
+- `0xfc..0xff` are structural bytes and are rejected by the action dispatcher.
+- The current condition catalog labels all valid-looking condition-table
+  entries `0x00..0x12`; bytes `0x13..0x25` are treated as reserved/invalid in
+  this SQ2 build even though the dispatcher only rejects `>= 0x26`.
+
 Examples of action entries:
+
+**`0x00` (`end`)**: Handler: `0x5051`; Fixed operands: 0; Metadata: `0x00`
+
+This table entry points at the same no-op helper used by action `0x7f`, but the
+main interpreter loop handles opcode byte `0x00` before entering the action
+dispatcher. Runtime opcode `0x00` stores zero in the current logic record's
+resume pointer field `[logic_record+0x06]` and returns from the interpreter.
+Later bytes in the same logic payload can still be reached by a jump from
+earlier code.
 
 **`0x01` (`inc_var`)**: Handler: `0x7355`; Fixed operands: 1; Metadata: `0x80`
 

@@ -36,6 +36,7 @@ from qemu_fixture import (  # noqa: E402
     set_object_bit_0200_action,
     set_object_step_from_var_action,
     set_object_tick_from_var_action,
+    setup_transient_object_action,
     start_random_motion_action,
     stop_motion_mode_action,
     volume_record,
@@ -201,6 +202,10 @@ class QemuFixtureTests(unittest.TestCase):
         self.assertEqual(stop_motion_mode_action(2), bytes([0x55, 2]))
         self.assertEqual(set_object_step_from_var_action(1, 249), bytes([0x4F, 1, 249]))
         self.assertEqual(set_object_tick_from_var_action(1, 248), bytes([0x50, 1, 248]))
+
+    def test_setup_transient_object_action_encodes_fixed_operands(self) -> None:
+        self.assertEqual(setup_transient_object_action(11, 1, 0, 20, 80, 15), bytes([0x7A, 11, 1, 0, 20, 80, 15, 15]))
+        self.assertEqual(setup_transient_object_action(11, 1, 0, 20, 80, 15, 4), bytes([0x7A, 11, 1, 0, 20, 80, 15, 4]))
 
     def test_set_object_bit_0200_action_encodes_fixed_operand(self) -> None:
         self.assertEqual(set_object_bit_0200_action(3), bytes([0x43, 3]))

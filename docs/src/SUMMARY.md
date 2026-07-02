@@ -1,6 +1,7 @@
 # Summary
 
 - [Overview](./README.md)
+- [Current Status](./current_status.md)
 - [Progress Log](./progress_log.md)
 - [Clean-Room Executable Notes](./clean_room_executable_notes.md)
 - [SIERRA.COM Loader](./loader_decompilation.md)
@@ -12,3 +13,4 @@
 - [Compatibility Testing](./compatibility_testing.md)
 - [Logic Resources](./logic_resources.md)
 - [Logic Bytecode](./logic_bytecode.md)
+- [Logic Opcode Evidence Matrix](./logic_opcode_evidence.md)

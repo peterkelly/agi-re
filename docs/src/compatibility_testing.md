@@ -204,6 +204,41 @@ variants, `0xae` priority-table rebuild effects, and persistent object-table
 setup/drawing. It now also covers selected view 11 group/frame offsets: group
 0 frame 1, group 1 frame 0, and group 1 frame 1.
 
+Run the core logic-interpreter control-flow probes:
+
+```bash
+python3 -B tools/logic_interpreter_probe.py --dos-prefix LJ --output build/logic-interpreter-probes/batches/control_flow_002.json --boot-wait 5 --draw-wait 8
+```
+
+The first four-case batch matched QEMU with 0 mismatches. It validates visible
+effects for structural jump `0xfe`, false conditional skipping, `0xfd`
+condition inversion, and `0xfc` OR groups. These generated logic fixtures keep
+the final drawing state alive with the same self-loop shape used by the
+picture/view fixtures; ending immediately after a transient draw can produce a
+race where the screenshot no longer contains the intended transient object.
+
+Run the expanded opcode-family logic probes:
+
+```bash
+python3 -B tools/logic_interpreter_probe.py --dos-prefix LK --output build/logic-interpreter-probes/batches/opcode_families_001.json --boot-wait 5 --draw-wait 8 --stop-on-failure
+```
+
+The first 27-case opcode-family batch matched QEMU with 0 mismatches. It covers
+the original four control-flow cases plus `always_false`, byte-variable
+increment/decrement saturation, assignment, add/subtract, indirect variable
+loads/stores, multiply/divide low-byte behavior, flag immediate and
+variable-selected actions, comparison predicates `0x02..0x06`, and simple
+object-field getter/setter pairs for position, field `+0x24`, and field
+`+0x21`.
+
+Regenerate the opcode evidence matrix after updating opcode labels or probe
+annotations:
+
+```bash
+python3 -B tools/logic_opcode_evidence.py
+python3 -B tools/logic_opcode_evidence.py --check
+```
+
 Compare an existing QEMU capture without rerunning QEMU:
 
 ```bash
