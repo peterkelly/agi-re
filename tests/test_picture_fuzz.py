@@ -8,6 +8,7 @@ import sys
 import tempfile
 import unittest
 from pathlib import Path
+from unittest import mock
 
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -17,9 +18,12 @@ from agi_graphics import HEIGHT, PALETTE, WIDTH  # noqa: E402
 from picture_fuzz import (  # noqa: E402
     base_cases,
     compare_capture,
+    qemu_batch_dos_dir,
     cmd_run_qemu,
     generate_cases,
     render_payload,
+    run_qemu_batch,
+    select_batch_cases,
     write_corpus,
 )
 
@@ -100,6 +104,36 @@ class PictureFuzzTests(unittest.TestCase):
             )()
             with self.assertRaisesRegex(SystemExit, "not compatibility-spec evidence"):
                 cmd_run_qemu(args)
+
+    def test_batch_selection_filters_unsafe_and_category(self) -> None:
+        with tempfile.TemporaryDirectory() as temp_dir:
+            corpus = Path(temp_dir) / "corpus"
+            write_corpus(base_cases(), corpus, render_ppm=False)
+            selected = select_batch_cases(corpus, None, ["invalid"], None)
+        self.assertEqual([case.case_id for case in selected], ["base_014_truncated_pair"])
+
+    def test_batch_dos_dir_is_stable_short_name(self) -> None:
+        self.assertEqual(qemu_batch_dos_dir("fuzzbatch", 7), "FUZ00007")
+        self.assertEqual(qemu_batch_dos_dir("!!!", 12), "FZB00012")
+
+    def test_run_qemu_batch_records_match_report(self) -> None:
+        case = next(item for item in base_cases() if item.case_id == "base_003_visual_point")
+        with tempfile.TemporaryDirectory() as temp_dir:
+            temp = Path(temp_dir)
+            corpus = temp / "corpus"
+            fixtures = temp / "fixtures"
+            write_corpus([case], corpus, render_ppm=False)
+            rendered = render_payload(case.payload)
+
+            def fake_run_qemu(fixture: Path, _dos_dir: str, capture: Path, _boot_wait: float, _draw_wait: float) -> None:
+                self.assertTrue((fixture / "VOL.3").exists())
+                write_scaled_capture(capture, rendered.visual_nibbles)
+
+            with mock.patch("picture_fuzz.run_qemu_fixture", side_effect=fake_run_qemu):
+                results = run_qemu_batch(corpus, [case], fixtures, 0, 0.0, 0.0, "TB", True)
+        self.assertEqual(len(results), 1)
+        self.assertEqual(results[0].status, "match")
+        self.assertEqual(results[0].comparison.mismatches, 0)
 
 
 if __name__ == "__main__":

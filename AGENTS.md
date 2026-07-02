@@ -68,12 +68,25 @@ qemu-system-i386 -m 16 -boot c \
 - In the QEMU monitor, use `sendkey` to type DOS commands and `screendump path.ppm` to capture VGA output.
 - Convert screenshots with ImageMagick, for example `magick build/dos622/screen.ppm build/dos622/screen.png`.
 - Inspect PPM screenshots and generated renders with `python3 -B tools/inspect_ppm.py path.ppm`.
+- QEMU can expose a host directory to DOS as a secondary writable FAT hard disk:
+
+```bash
+qemu-system-i386 -m 16 -boot c \
+  -drive file=build/dos622/dos622.img,format=raw,if=ide,index=0,media=disk \
+  -drive file=fat:rw:build/qemu-share,format=raw,if=ide,index=1,media=disk \
+  -display vnc=127.0.0.1:5 -monitor stdio
+```
+
+- With that command DOS sees the host directory as `D:`. A fixture under `build/qemu-share/PIC001` can be run with `D:`, `cd \PIC001`, `SIERRA`.
+- Caveat: QEMU `savevm` does not work with writable vvfat (`fat:rw:`), and the generated AGI fixtures do not return to DOS after drawing. For true no-reboot batches, use a QEMU snapshot at the DOS prompt plus either a read-only CD-ROM-style share with a DOS CD-ROM driver installed, or a generated qcow2/FAT test disk containing prebuilt fixtures.
 - Generate original-engine fixture game directories with `python3 -B tools/qemu_fixture.py picture N --output build/qemu-fixtures/picture_NNN`.
 - Compare original-engine picture captures with the local renderer using `python3 -B tools/compare_picture_capture.py N capture.ppm`.
 - Generate synthetic picture fuzz corpora with `python3 -B tools/picture_fuzz.py generate --count 1024 --seed 4097 --output build/picture-fuzz/corpus --clean`.
 - Run one synthetic picture fuzz case through the original engine with `python3 -B tools/picture_fuzz.py run-qemu CASE_ID --dos-dir DOSNAME --boot-wait 5 --draw-wait 8`.
+- Run a bounded serial QEMU fuzz batch with `python3 -B tools/picture_fuzz.py batch-qemu --case CASE_ID --case OTHER_ID --dos-prefix FZB --output build/picture-fuzz/batches/name.json --boot-wait 5 --draw-wait 8`.
 - Treat `safe_for_qemu: false` fuzz cases as out of scope for compatibility evidence. They may make the original interpreter read outside the synthetic resource and enter exploit/garbage-memory behavior; do not model that as AGI semantics.
 - Run QEMU fuzz cases serially. The harness copies fixtures into the shared DOS image and QEMU binds a single local VNC display socket.
+- Keep generated `.ppm` captures out of DOS-image fixture copies; they can fill the small DOS image and are not input to the interpreter.
 - Shut QEMU down with the monitor command `quit` when finished.
 - For deeper debugging, QEMU's GDB stub may be considered, but document all setup and observations before relying on them.
 

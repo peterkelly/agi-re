@@ -154,6 +154,18 @@ Run one fuzz case in QEMU and compare the capture:
 python3 -B tools/picture_fuzz.py run-qemu base_005_exact_edge_absolute --dos-dir FZEDGE --boot-wait 5 --draw-wait 8
 ```
 
+Run a serial QEMU fuzz batch and save a JSON report:
+
+```bash
+python3 -B tools/picture_fuzz.py batch-qemu --case base_016_visual_fill_box --case base_019_pattern_edge_rectangle --dos-prefix FV --output build/picture-fuzz/batches/targeted_fill_pattern.json --boot-wait 5 --draw-wait 8
+```
+
+Run the current view/object overlay validation batch:
+
+```bash
+python3 -B tools/view_batch.py --dos-prefix VC --output build/view-batch/batches/view_base.json --boot-wait 5 --draw-wait 8
+```
+
 Compare an existing QEMU capture without rerunning QEMU:
 
 ```bash
@@ -207,28 +219,38 @@ python3 -B tools/picture_fuzz.py compare-capture base_004_clamped_absolute build
   original interpreter in QEMU to validate the bit-`0x80` frame orientation
   rewrite path. The original-engine capture matched the local mirrored-frame
   output with 0 mismatches out of 26,880 logical pixels.
+- The current six-case view batch validates normal view drawing, cached and
+  mirrored bit-`0x80` orientation, left-edge clipping, top-edge placement, and
+  a low-priority object case. After modeling the top-edge adjustment, all six
+  cases match QEMU with 0 mismatches.
 - Local object-frame composition tests cover baseline placement, transparent
   pixels, direct high-priority rejection, and downward priority/control scanning
-  from low-control cells.
+  from low-control cells. They also lock down the top-edge adjustment observed
+  through QEMU: when a cel would start above row 0, the overlay path shifts
+  `left` by the negative top and raises `baseline_y` so the top becomes 0.
 - `tests/test_picture_fuzz.py` covers deterministic fuzz generation, manifest
-  writing, Python render-result recording, and scaled synthetic capture
-  comparison without booting QEMU.
-- The current fuzz corpus command above generates 1,040 synthetic picture
-  cases: 16 curated base cases plus 1,024 deterministic random cases. Of those,
-  1,038 are marked safe for automated QEMU runs; the unsafe cases intentionally
+  writing, Python render-result recording, scaled synthetic capture comparison
+  without booting QEMU, QEMU unsafe-case rejection, and mocked batch reporting.
+- The current fuzz corpus command above generates 1,045 synthetic picture
+  cases: 21 curated base cases plus 1,024 deterministic random cases. Of those,
+  1,043 are marked safe for automated QEMU runs; the unsafe cases intentionally
   include payloads such as no terminator or missing command operands that could
   make the original interpreter treat garbage memory as picture data. These
   unsafe cases are retained only as harness guardrails and are not part of the
   behavioral model.
-- Curated QEMU fuzz cases currently matching the local renderer include:
-  `base_002_unknown_commands`, `base_003_visual_point`,
-  `base_004_clamped_absolute`, `base_005_exact_edge_absolute`,
-  `base_010_visual_control_fill`, `base_012_pattern_random`, and
-  `base_014_truncated_pair`.
+- Curated QEMU fuzz batches currently matching the local renderer include:
+  all safe base cases through `base_020_pattern_random_sequence`.
+- A 16-case random QEMU batch covering line, corner, pattern, fill, and scanner
+  categories also matched with 0 mismatches.
 - The fuzz pass exposed a diagonal-line mismatch for the two edge-line cases.
   The original engine drew the long line with 8-bit accumulator wrap; after the
   Python renderer was corrected, both captures matched with 0 mismatches out of
   26,880 logical pixels.
+- Targeted lower-right pattern fuzzing exposed that pattern plotting can feed
+  X coordinate `160` to the linear pixel writer. The original engine stores that
+  byte as X `0` on the next scanline rather than clipping it. After the local
+  renderer was changed to use linear writes for pattern pixels, circular and
+  rectangular lower-right edge cases matched QEMU with 0 mismatches.
 
 These tests are still intentionally resource-focused. They protect the parser
 and data model while the picture draw helpers are being matched against the
@@ -237,15 +259,19 @@ executable and QEMU captures.
 ## Provisional areas
 
 The view cel renderer is based on the row run-length format documented from the
-IBM object overlay and is a good candidate for early QEMU validation.
+IBM object overlay and now has a small QEMU validation batch. It still needs
+broader coverage across larger cels, right/bottom clipping, transparent-color
+variants, priority interactions with different picture control bands, and
+runtime animated-object state changes.
 
 The picture renderer is still a compatibility scaffold, but it now has direct
 QEMU fuzz coverage for scanner behavior, exact/right-lower-edge diagonal lines,
-visual/control seed fill, pseudo-random pattern plotting, and safe truncated
-coordinate data. The remaining seed-fill risk is the exact span-stack traversal
-versus the local queue implementation; fuzz cases should expand toward narrow
-barriers, odd/even mask interactions, and multi-seed fills before picture
-hashes are treated as complete original-engine parity checks.
+visual/control seed fill, bounded fill barriers, pseudo-random pattern plotting,
+lower-right pattern edge wrapping, and safe truncated coordinate data. The
+remaining seed-fill risk is the exact span-stack traversal versus the local
+queue implementation; fuzz cases should expand toward narrow barriers,
+odd/even mask interactions, and multi-seed fills before picture hashes are
+treated as complete original-engine parity checks.
 
 Future tests should prefer focused fixtures: a room or script state that draws a
 single picture, a single moving object, or a known cel at a known screen

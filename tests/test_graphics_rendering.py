@@ -173,6 +173,14 @@ class PictureRenderingTests(unittest.TestCase):
         self.assertIn((25, 1), changed)
         self.assertNotIn((0, 0), changed)
 
+    def test_pattern_edge_column_wraps_to_next_scanline(self) -> None:
+        payload = bytes([0xF0, 0x09, 0xF9, 0x17, 0xFA, 0x9F, 0xA7, 0xFF])
+        rendered = PictureRenderer(payload).render()
+        visual = rendered.visual_nibbles
+        self.assertEqual(visual[154 * WIDTH + 0], 9)
+        self.assertEqual(visual[167 * WIDTH + 0], 9)
+        self.assertNotEqual(visual[153 * WIDTH + 0], 9)
+
 
 class ViewRenderingTests(unittest.TestCase):
     def test_all_view_payloads_parse_frame_offsets(self) -> None:
@@ -254,6 +262,14 @@ class ViewRenderingTests(unittest.TestCase):
         self.assertEqual(cells[4 * WIDTH + 2], DEFAULT_CELL)
         self.assertEqual(cells[4 * WIDTH + 3], 0x53)
         self.assertEqual(cells[4 * WIDTH + 4], 0x53)
+
+    def test_draw_frame_on_buffer_adjusts_negative_top_edge(self) -> None:
+        cells = bytearray([DEFAULT_CELL] * (WIDTH * HEIGHT))
+        equivalent = bytearray([DEFAULT_CELL] * (WIDTH * HEIGHT))
+        frame = RenderedFrame(-1, 0, 0, 3, 3, 0x00, bytes([1, 1, 1] * 3))
+        draw_frame_on_buffer(cells, frame, left=4, baseline_y=1, priority=5)
+        draw_frame_on_buffer(equivalent, frame, left=3, baseline_y=2, priority=5)
+        self.assertEqual(cells, equivalent)
 
     def test_draw_frame_on_buffer_respects_existing_higher_priority(self) -> None:
         cells = bytearray([DEFAULT_CELL] * (WIDTH * HEIGHT))

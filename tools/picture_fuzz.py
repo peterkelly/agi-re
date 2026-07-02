@@ -22,6 +22,7 @@ from qemu_fixture import build_synthetic_picture_fixture
 
 DEFAULT_CORPUS = Path("build/picture-fuzz/corpus")
 DEFAULT_FIXTURES = Path("build/picture-fuzz/fixtures")
+DEFAULT_BATCH_RESULTS = Path("build/picture-fuzz/batches")
 DOS_IMAGE = Path("build/dos622/dos622.img")
 DOS_IMAGE_OFFSET = "32256"
 
@@ -60,6 +61,19 @@ class CaptureComparison:
     @property
     def matches(self) -> bool:
         return self.status == "match"
+
+
+@dataclass(frozen=True)
+class BatchCaseResult:
+    case_id: str
+    category: str
+    safe_for_qemu: bool
+    status: str
+    dos_dir: str
+    capture: str
+    elapsed_seconds: float
+    comparison: CaptureComparison | None
+    error: str | None
 
 
 def sha256(data: bytes) -> str:
@@ -105,6 +119,11 @@ def base_cases() -> list[PictureFuzzCase]:
         _case("base_013_truncated_set_visual", "Set-visual command without an operand.", bytes([0xF0]), "invalid", False),
         _case("base_014_truncated_pair", "Absolute-line command with an incomplete coordinate pair.", bytes([0xF0, 1, 0xF6, 10, 0xFF]), "invalid", True),
         _case("base_015_no_terminator", "Valid-looking commands without a picture terminator.", bytes([0xF0, 2, 0xF6, 0, 0, 30, 4]), "invalid", False),
+        _case("base_016_visual_fill_box", "Visual fill bounded by a drawn rectangular outline.", bytes([0xF0, 2, 0xF4, 10, 10, 20, 20, 10, 10, 0xF0, 3, 0xF8, 15, 15, 0xFF]), "fill"),
+        _case("base_017_visual_fill_outside_box", "Visual fill outside a drawn rectangular outline.", bytes([0xF0, 2, 0xF4, 10, 10, 20, 20, 10, 10, 0xF0, 3, 0xF8, 0, 0, 0xFF]), "fill"),
+        _case("base_018_pattern_edge_circle", "Pattern plot clamps a circular mask at the lower-right edge.", bytes([0xF0, 8, 0xF9, 7, 0xFA, 159, 167, 0xFF]), "pattern"),
+        _case("base_019_pattern_edge_rectangle", "Pattern plot clamps a rectangular mask at the lower-right edge.", bytes([0xF0, 9, 0xF9, 0x17, 0xFA, 159, 167, 0xFF]), "pattern"),
+        _case("base_020_pattern_random_sequence", "Two pseudo-random pattern plots with different seeds.", bytes([0xF0, 10, 0xF9, 0x25, 0xFA, 0x01, 50, 50, 0xE1, 52, 52, 0xFF]), "pattern"),
     ]
 
 
@@ -197,15 +216,47 @@ def write_corpus(cases: list[PictureFuzzCase], corpus: Path, render_ppm: bool) -
     (corpus / "manifest.json").write_text(json.dumps(manifest, indent=2, sort_keys=True) + "\n", encoding="ascii")
 
 
+def load_manifest(corpus: Path) -> list[dict[str, object]]:
+    return json.loads((corpus / "manifest.json").read_text(encoding="ascii"))
+
+
+def metadata_to_case(metadata: dict[str, object]) -> PictureFuzzCase:
+    return PictureFuzzCase(
+        str(metadata["case_id"]),
+        str(metadata["description"]),
+        str(metadata["payload_hex"]),
+        str(metadata["category"]),
+        bool(metadata["safe_for_qemu"]),
+    )
+
+
 def load_case(corpus: Path, case_id: str) -> PictureFuzzCase:
     metadata = json.loads((corpus / case_id / "case.json").read_text(encoding="ascii"))
-    return PictureFuzzCase(
-        metadata["case_id"],
-        metadata["description"],
-        metadata["payload_hex"],
-        metadata["category"],
-        metadata["safe_for_qemu"],
-    )
+    return metadata_to_case(metadata)
+
+
+def select_batch_cases(
+    corpus: Path,
+    case_ids: list[str] | None,
+    categories: list[str] | None,
+    max_cases: int | None,
+) -> list[PictureFuzzCase]:
+    if case_ids:
+        candidates = [load_case(corpus, case_id) for case_id in case_ids]
+    else:
+        candidates = [metadata_to_case(metadata) for metadata in load_manifest(corpus)]
+    if categories:
+        category_set = set(categories)
+        candidates = [case for case in candidates if case.category in category_set]
+    selected = [case for case in candidates if case.safe_for_qemu]
+    if max_cases is not None:
+        selected = selected[:max_cases]
+    return selected
+
+
+def qemu_batch_dos_dir(prefix: str, index: int) -> str:
+    clean = "".join(character for character in prefix.upper() if character.isalnum()) or "FZB"
+    return f"{clean[:3]}{index:05d}"[:8]
 
 
 def build_fixture(corpus: Path, case_id: str, fixture_root: Path, picture_no: int) -> Path:
@@ -290,7 +341,7 @@ def copy_fixture_to_dos(fixture: Path, dos_dir: str) -> None:
         )
         if existing.returncode != 0:
             raise RuntimeError(created.stderr + created.stdout + existing.stderr + existing.stdout)
-    files = [str(path) for path in fixture.iterdir() if path.is_file()]
+    files = [str(path) for path in fixture.iterdir() if path.is_file() and path.suffix.lower() != ".ppm"]
     subprocess.run(["mcopy", "-o", "-i", image, *files, f"::/{dos_dir}"], check=True)
 
 
@@ -344,6 +395,74 @@ def run_qemu_fixture(fixture: Path, dos_dir: str, capture: Path, boot_wait: floa
             proc.wait(timeout=10)
 
 
+def run_qemu_batch(
+    corpus: Path,
+    cases: list[PictureFuzzCase],
+    fixture_root: Path,
+    picture_no: int,
+    boot_wait: float,
+    draw_wait: float,
+    dos_prefix: str,
+    stop_on_failure: bool,
+    progress: bool = False,
+) -> list[BatchCaseResult]:
+    results: list[BatchCaseResult] = []
+    for index, case in enumerate(cases):
+        dos_dir = qemu_batch_dos_dir(dos_prefix, index)
+        fixture = fixture_root / case.case_id
+        capture = fixture / "qemu_capture.ppm"
+        started = time.monotonic()
+        comparison: CaptureComparison | None = None
+        error: str | None = None
+        status = "error"
+        if progress:
+            print(f"[{index + 1}/{len(cases)}] {case.case_id} -> {dos_dir}", file=sys.stderr, flush=True)
+        try:
+            build_synthetic_picture_fixture(case.payload, fixture, picture_no=picture_no)
+            run_qemu_fixture(fixture, dos_dir, capture, boot_wait, draw_wait)
+            comparison = compare_capture(corpus, case.case_id, capture)
+            status = comparison.status
+            error = comparison.error
+        except Exception as exc:  # noqa: BLE001 - batch harness records exact local exception.
+            error = f"{type(exc).__name__}: {exc}"
+        elapsed = round(time.monotonic() - started, 3)
+        results.append(
+            BatchCaseResult(
+                case.case_id,
+                case.category,
+                case.safe_for_qemu,
+                status,
+                dos_dir,
+                str(capture),
+                elapsed,
+                comparison,
+                error,
+            )
+        )
+        if progress:
+            detail = "" if comparison is None else f" mismatches={comparison.mismatches}"
+            print(f"[{index + 1}/{len(cases)}] {case.case_id} {status}{detail}", file=sys.stderr, flush=True)
+        if stop_on_failure and status != "match":
+            break
+    return results
+
+
+def write_batch_report(results: list[BatchCaseResult], output: Path) -> dict[str, object]:
+    output.parent.mkdir(parents=True, exist_ok=True)
+    summary = {
+        "total": len(results),
+        "matches": sum(1 for result in results if result.status == "match"),
+        "mismatches": sum(1 for result in results if result.status == "mismatch"),
+        "errors": sum(1 for result in results if result.status == "error"),
+    }
+    report = {
+        "summary": summary,
+        "results": [asdict(result) for result in results],
+    }
+    output.write_text(json.dumps(report, indent=2, sort_keys=True) + "\n", encoding="ascii")
+    return report
+
+
 def cmd_generate(args: argparse.Namespace) -> None:
     if args.clean and args.output.exists():
         shutil.rmtree(args.output)
@@ -385,6 +504,29 @@ def cmd_run_qemu(args: argparse.Namespace) -> None:
         raise SystemExit(1)
 
 
+def cmd_batch_qemu(args: argparse.Namespace) -> None:
+    cases = select_batch_cases(args.corpus, args.case, args.category, args.max_cases)
+    if not cases:
+        raise SystemExit("no safe fuzz cases selected")
+    output = args.output or DEFAULT_BATCH_RESULTS / f"batch_{time.strftime('%Y%m%d_%H%M%S')}.json"
+    results = run_qemu_batch(
+        args.corpus,
+        cases,
+        args.fixture_root,
+        args.picture,
+        args.boot_wait,
+        args.draw_wait,
+        args.dos_prefix,
+        args.stop_on_failure,
+        True,
+    )
+    report = write_batch_report(results, output)
+    print(json.dumps(report["summary"], indent=2, sort_keys=True))
+    print(f"report: {output}")
+    if report["summary"]["mismatches"] or report["summary"]["errors"]:
+        raise SystemExit(1)
+
+
 def main() -> None:
     parser = argparse.ArgumentParser()
     subparsers = parser.add_subparsers(dest="command", required=True)
@@ -421,6 +563,20 @@ def main() -> None:
     run_qemu.add_argument("--boot-wait", type=float, default=5.0)
     run_qemu.add_argument("--draw-wait", type=float, default=8.0)
     run_qemu.set_defaults(func=cmd_run_qemu)
+
+    batch_qemu = subparsers.add_parser("batch-qemu")
+    batch_qemu.add_argument("--corpus", type=Path, default=DEFAULT_CORPUS)
+    batch_qemu.add_argument("--fixture-root", type=Path, default=DEFAULT_FIXTURES)
+    batch_qemu.add_argument("--picture", type=int, default=0)
+    batch_qemu.add_argument("--case", action="append")
+    batch_qemu.add_argument("--category", action="append")
+    batch_qemu.add_argument("--max-cases", type=int)
+    batch_qemu.add_argument("--dos-prefix", default="FZB")
+    batch_qemu.add_argument("--output", type=Path)
+    batch_qemu.add_argument("--boot-wait", type=float, default=5.0)
+    batch_qemu.add_argument("--draw-wait", type=float, default=8.0)
+    batch_qemu.add_argument("--stop-on-failure", action="store_true")
+    batch_qemu.set_defaults(func=cmd_batch_qemu)
 
     args = parser.parse_args()
     try:

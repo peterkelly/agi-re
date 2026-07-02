@@ -2766,3 +2766,117 @@ Documented result:
   - `base_010_visual_control_fill`: 0 mismatches;
   - `base_012_pattern_random`: 0 mismatches;
   - `base_014_truncated_pair`: 0 mismatches.
+
+## Picture fuzz batch runner and pattern edge correction
+
+Commands run from `/Users/peter/ai/agi/reverse`:
+
+- `python3 -B -m unittest tests.test_picture_fuzz`
+- `python3 -B tools/picture_fuzz.py generate --count 64 --seed 4097 --output build/picture-fuzz/corpus --clean`
+- `python3 -B tools/picture_fuzz.py batch-qemu --case base_000_stop_only --case base_001_ignored_data --case base_002_unknown_commands --case base_003_visual_point --case base_004_clamped_absolute --case base_005_exact_edge_absolute --case base_006_relative_mixed --case base_007_corner_y_first --case base_008_corner_x_first --case base_009_control_fill --case base_010_visual_control_fill --case base_011_pattern_mask --case base_012_pattern_random --case base_014_truncated_pair --dos-prefix FB --output build/picture-fuzz/batches/base_curated_001.json --boot-wait 5 --draw-wait 8`
+- `python3 -B tools/picture_fuzz.py batch-qemu --case rand_00000 --case rand_00001 --case rand_00002 --case rand_00003 --case rand_00004 --case rand_00005 --case rand_00006 --case rand_00007 --case rand_00008 --case rand_00009 --case rand_00010 --case rand_00011 --case rand_00012 --case rand_00013 --case rand_00014 --case rand_00015 --dos-prefix FR --output build/picture-fuzz/batches/random_00000_00015.json --boot-wait 5 --draw-wait 8`
+- `python3 -B tools/picture_fuzz.py batch-qemu --case base_016_visual_fill_box --case base_017_visual_fill_outside_box --case base_018_pattern_edge_circle --case base_019_pattern_edge_rectangle --case base_020_pattern_random_sequence --dos-prefix FT --output build/picture-fuzz/batches/targeted_fill_pattern_001.json --boot-wait 5 --draw-wait 8`
+- `mdir -i build/dos622/dos622.img@@32256 ::`
+- `python3 -B tools/picture_fuzz.py batch-qemu --case base_016_visual_fill_box --case base_017_visual_fill_outside_box --case base_018_pattern_edge_circle --case base_019_pattern_edge_rectangle --case base_020_pattern_random_sequence --dos-prefix FV --output build/picture-fuzz/batches/targeted_fill_pattern_003.json --boot-wait 5 --draw-wait 8`
+
+Documented result:
+
+- Added `batch-qemu` to `tools/picture_fuzz.py`. It selects only safe cases,
+  runs them serially through QEMU, prints per-case progress, and writes JSON
+  reports containing status, capture paths, elapsed seconds, mismatch boxes,
+  and mismatch samples.
+- The 14-case curated safe batch matched with 0 mismatches and 0 errors.
+- The first 16 safe random cases matched with 0 mismatches and 0 errors.
+- Added curated cases `base_016` through `base_020` for bounded fill barriers,
+  lower-right pattern edge placement, rectangular pattern masks, and multiple
+  pseudo-random pattern seeds.
+- The first targeted fill/pattern batch showed that bounded fill and
+  pseudo-random pattern sequences matched, but lower-right circle and rectangle
+  pattern plots mismatched at X `0`.
+- The mismatch proved that pattern plotting can compute X `160` and write
+  through the linear picture buffer address. This makes the byte appear at X
+  `0` on the next scanline instead of being clipped.
+- Updated `PictureRenderer.pattern_plot()` to write through a linear buffer
+  helper. After regenerating the corpus, `base_018_pattern_edge_circle` and
+  `base_019_pattern_edge_rectangle` both matched QEMU with 0 mismatches.
+- A rerun initially failed with DOS-image `Disk full` errors, not renderer
+  mismatches. The cause was old generated `.ppm` captures being copied back into
+  the DOS image with fixture files. `copy_fixture_to_dos()` now excludes `.ppm`
+  files, and generated fuzz directories were removed from the DOS image.
+
+## View/object QEMU batch validation
+
+Commands run from `/Users/peter/ai/agi/reverse`:
+
+- `python3 -B -m unittest discover -s tests`
+- `python3 -B tools/view_batch.py --dos-prefix VB --output build/view-batch/batches/view_base_001.json --boot-wait 5 --draw-wait 8`
+- Cached Python comparison of `view_011_top_clip` against alternate local
+  `left` and `baseline_y` values.
+- `python3 -B -m unittest tests.test_graphics_rendering tests.test_view_batch`
+- `python3 -B tools/view_batch.py --dos-prefix VC --output build/view-batch/batches/view_base_002.json --boot-wait 5 --draw-wait 8`
+
+Documented result:
+
+- Added `tools/view_batch.py`, a serial QEMU harness for picture-plus-view
+  fixtures. It builds fixtures with `build_picture_view_fixture()`, runs each
+  one in QEMU, compares the capture with local picture/view composition, and
+  writes a JSON report.
+- Extended `tools/compare_picture_capture.py` to include mismatch bounding
+  boxes and sample pixels in addition to mismatch counts.
+- Added `tests/test_view_batch.py` for case loading, stable DOS directory names,
+  and report summaries.
+- The first six-case view batch matched normal view drawing, cached group-0
+  bit-`0x80` drawing, mirrored group-1 bit-`0x80` drawing, left-edge clipping,
+  and a low-priority object case. The top-edge case mismatched with 75 pixels
+  in rows 0 through 4.
+- Comparing the top-edge capture against local placements found an exact match
+  at left `18`, baseline `4`, even though the fixture requested left `20`,
+  baseline `2`. Since view 11/group 0/frame 0 has height 5, the requested top
+  was `-2`; the observed overlay behavior is to add that negative top to left,
+  raise the baseline by the absolute amount, and draw from top row 0.
+- Updated `draw_frame_on_buffer()` with that top-edge adjustment and added a
+  regression test. The second view batch matched all six cases with 0
+  mismatches and 0 errors.
+
+## QEMU host-directory fixture access
+
+Commands run from `/Users/peter/ai/agi/reverse`:
+
+- `qemu-system-i386 --version`
+- Python QEMU launch probe with:
+  `-drive file=fat:rw:build/qemu-share,format=raw,if=ide,index=1,media=disk`
+- `python3 -B tools/qemu_fixture.py picture 1 --output build/qemu-share/PIC001`
+- QEMU monitor-driven run from DOS drive `D:`:
+  `D:`, `cd \PIC001`, `SIERRA`, followed by `screendump build/qemu-share/from_share_pic001.ppm`
+- `python3 -B tools/compare_picture_capture.py 1 build/qemu-share/from_share_pic001.ppm`
+- `qemu-img create -f qcow2 -F raw -b /Users/peter/ai/agi/reverse/build/dos622/dos622.img build/dos622/dos622-test.qcow2`
+- QEMU snapshot probes with writable vvfat hard disk, read-only vvfat CD-ROM,
+  and `fat:floppy:` host shares.
+
+Documented result:
+
+- QEMU 11.0.2 accepts `file=fat:rw:build/qemu-share` as a secondary IDE disk.
+  DOS 6.22 sees it as drive `D:` with volume label `QEMU VVFAT`.
+- A generated picture-1 fixture placed at `build/qemu-share/PIC001` ran
+  directly from `D:\PIC001` without copying it into the DOS hard disk image.
+  The capture `build/qemu-share/from_share_pic001.ppm` matched the local
+  picture-1 renderer with 0 mismatches.
+- The generated fixture does not return to DOS after drawing; sending `DIR`
+  after the draw left the game screen visible. Running multiple cases in one
+  guest session therefore needs a reset/restore mechanism.
+- QEMU `savevm` fails when a writable vvfat drive is attached:
+  `The vvfat (rw) format ... does not support live migration`.
+- A qcow2 overlay for the DOS boot disk can hold VM snapshots. A read-only
+  vvfat CD-ROM permits `savevm`, but the current DOS image lacks an IDE/ATAPI
+  CD-ROM driver, so `DIR D:\` reports `Invalid drive specification`.
+- `fat:floppy:` read-only host shares can be snapshotted and are visible as
+  `A:` only when the host directory fits FAT12 constraints. This is too small
+  and awkward for full AGI fixture directories; a nested fixture directory
+  appeared empty, and a root-level fixture exposed only a subset of files.
+- Practical next options:
+  - use `fat:rw:` as `D:` now to avoid mtools copies and DOS-image pollution,
+    still launching/resetting QEMU per case;
+  - install/configure a DOS CD-ROM driver and use read-only vvfat CD-ROM plus
+    `savevm`/`loadvm` for no-boot batches;
+  - or generate a qcow2/FAT test disk containing prebuilt fixtures and use
+    QEMU snapshots at the DOS prompt.

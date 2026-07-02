@@ -235,6 +235,10 @@ bits from `[0x1369]`, ANDs with the selected mask, and stores the result in the
 graphics buffer segment pointed to by `[0x136f]`. Helpers `0x526f` and `0x52ab`
 are optimized horizontal and vertical line drawers that use the same active
 draw byte and masks while restoring `[0x150b]` to the endpoint when done.
+QEMU fuzz case `base_019_pattern_edge_rectangle` confirms that this store is
+linear for pattern plotting: when the pattern mask computes X `160`, the byte is
+written as X `0` on the next scanline instead of being clipped. The final
+would-be wrap past the `0xa0 * 0xa8` buffer is not visible.
 
 General line helper `0x66e1` first checks for horizontal and vertical special
 cases and jumps to those optimized helpers. For diagonal lines, the caller has
@@ -468,6 +472,11 @@ buffer level. It takes a decoded frame, a left X, a baseline Y, and a priority
 nibble, computes `top = baseline_y - frame.height + 1`, skips pixels whose
 color equals the frame's transparent low nibble, and writes
 `(priority << 4) | color` only when the high-nibble priority gate permits it.
+QEMU validation of `add_to_pic` top-edge placement showed one extra adjustment:
+if `top` is negative, the overlay path adds that negative value to `left`, adds
+its absolute value to `baseline_y`, and draws with `top = 0`. In the observed
+case, view 11/group 0/frame 0 requested at left `20`, baseline `2` matched a
+local draw at left `18`, baseline `4`.
 This does not yet replace the full object-record/update-list pipeline, but it
 captures the central `IBM_OBJS.OVL:0x9db6` pixel rule for focused tests.
 

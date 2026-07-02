@@ -24,6 +24,8 @@ class PictureCaptureComparison:
     picture_no: int
     mismatches: int
     total: int
+    mismatch_bbox: tuple[int, int, int, int] | None = None
+    samples: list[tuple[int, int, int, int]] | None = None
 
     @property
     def matches(self) -> bool:
@@ -90,8 +92,26 @@ def compare_picture_capture(
             priority,
         )
     rendered = rendered_picture.visual_nibbles
-    mismatches = sum(1 for left, right in zip(captured, rendered) if left != right)
-    return PictureCaptureComparison(picture_no, mismatches, len(rendered))
+    mismatch_samples: list[tuple[int, int, int, int]] = []
+    min_x = WIDTH
+    min_y = HEIGHT
+    max_x = -1
+    max_y = -1
+    mismatches = 0
+    for idx, (left, right) in enumerate(zip(captured, rendered)):
+        if left == right:
+            continue
+        mismatches += 1
+        x = idx % WIDTH
+        y = idx // WIDTH
+        min_x = min(min_x, x)
+        min_y = min(min_y, y)
+        max_x = max(max_x, x)
+        max_y = max(max_y, y)
+        if len(mismatch_samples) < 16:
+            mismatch_samples.append((x, y, left, right))
+    bbox = None if mismatches == 0 else (min_x, min_y, max_x, max_y)
+    return PictureCaptureComparison(picture_no, mismatches, len(rendered), bbox, mismatch_samples)
 
 
 def main() -> None:

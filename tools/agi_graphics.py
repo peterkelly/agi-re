@@ -205,6 +205,12 @@ class PictureRenderer:
         if not (0 <= x < WIDTH and 0 <= y < HEIGHT):
             return
         idx = y * WIDTH + x
+        self.write_cell(idx)
+
+    def write_cell(self, idx: int) -> None:
+        if not (0 <= idx < len(self.cells)):
+            return
+        y = idx // WIDTH
         mask = self.odd_y_mask if (y & 1) else self.even_y_mask
         self.cells[idx] = (self.cells[idx] | self.draw_state) & mask
 
@@ -416,7 +422,7 @@ class PictureRenderer:
                         continue
                     if not (random_byte & 0x02):
                         continue
-                self.write_pixel(start_x + column, py)
+                self.write_cell(py * WIDTH + start_x + column)
 
 
 def render_picture(picture_no: int, clear: bool = True) -> RenderedPicture:
@@ -560,6 +566,10 @@ def draw_frame_on_buffer(
     priority: int,
 ) -> None:
     top = baseline_y - frame.height + 1
+    if top < 0:
+        left += top
+        baseline_y -= top
+        top = 0
     transparent = frame.control & 0x0F
     object_priority = (priority & 0x0F) << 4
     for row in range(frame.height):

@@ -502,5 +502,332 @@ Progress updates and outcomes:
 56. Reported: "Everything staged looks right: 18 files, with generated
     artifacts still untracked. I'm creating the commit now."
 
-    Action/result: Created commit `3fe576a` with message
+    Action/result: Created commit `6d55b73` with message
     `Document graphics decoding and fuzz tests`.
+
+57. Reported: "I'll take the first step from that list: make the picture fuzz
+    harness capable of running a bounded serial batch through QEMU, with
+    machine-readable results and enough summary data to drive the next
+    semantics fixes. I'm going to inspect the current harness shape, then I'll
+    add the batch path and document the workflow."
+
+    Action/result: Inspected `tools/picture_fuzz.py`,
+    `tests/test_picture_fuzz.py`, the current compatibility-testing docs, and
+    the working tree state. The only untracked directories before this pass
+    were generated local artifacts under `build/` and `002962_ms_dos_622/`.
+
+58. Reported: "I've got the shape now: `batch-qemu` will select only
+    `safe_for_qemu` cases from the manifest, optionally filter by case
+    id/category/max count, run them one at a time, and write a JSON report with
+    each case's DOS directory, capture path, status, mismatch summary, and
+    elapsed time. That should make QEMU a repeatable oracle instead of a
+    one-case-at-a-time ritual."
+
+    Action/result: Added the `batch-qemu` command, batch selection helpers,
+    stable DOS directory naming, JSON report writing, and unit tests with a
+    mocked QEMU run.
+
+59. Reported: "Got it. I'll keep pushing through the full sequence rather than
+    stopping after the batch harness: first verify and run the batch oracle,
+    then use whatever it exposes to refine picture semantics, and then move the
+    same QEMU-validation pattern toward view/cel drawing and object behavior."
+
+    Action/result: `python3 -B -m unittest tests.test_picture_fuzz` passed with
+    8 tests. Regenerated a smaller working corpus with
+    `python3 -B tools/picture_fuzz.py generate --count 64 --seed 4097 --output build/picture-fuzz/corpus --clean`,
+    producing 80 cases, 78 marked safe for QEMU. `git diff --check` passed.
+
+60. Reported: "I've logged the verification and corpus regeneration. The next
+    command may take a couple of minutes because it boots QEMU once per case and
+    deliberately runs serially."
+
+    Action/result: Ran a 14-case curated safe QEMU batch covering scanner,
+    line, corner, fill, pattern, and bounded invalid cases. The batch wrote
+    `build/picture-fuzz/batches/base_curated_001.json` and reported 14 matches,
+    0 mismatches, and 0 errors.
+
+61. Reported: "The base report is strong: all 14 curated safe cases matched,
+    including scanner, absolute and relative lines, both corner path modes,
+    control-only fill, visual-plus-control fill, both pattern modes, and a
+    bounded truncated pair. I've selected the first 16 safe random cases from
+    the regenerated corpus and am running them as the next batch."
+
+    Action/result: Selected `rand_00000` through `rand_00015` from
+    `build/picture-fuzz/corpus/manifest.json` for a random safe QEMU batch.
+
+62. Reported: "The random QEMU batch is underway. If it comes back green, that
+    gives us confidence in the current picture renderer across mixed command
+    streams; if not, the report should point directly at the next disassembly
+    target."
+
+    Action/result: Ran
+    `python3 -B tools/picture_fuzz.py batch-qemu --case rand_00000 ... --case rand_00015 --dos-prefix FR --output build/picture-fuzz/batches/random_00000_00015.json --boot-wait 5 --draw-wait 8`.
+    The report showed 16 matches, 0 mismatches, and 0 errors.
+
+63. Reported: "The random report confirms matches across line, corner, pattern,
+    fill, and scanner categories. I'm patching the runner to print per-case
+    progress during long batches, and I'm adding targeted base cases for
+    bounded fill barriers and pattern edge placement so the next QEMU pass is
+    less accidental."
+
+    Action/result: Added per-case progress printing for `batch-qemu` and added
+    new curated base cases for visual fill inside/outside a box, pattern
+    lower-right edge clamping, rectangular pattern masks, and multiple
+    pseudo-random pattern seeds.
+
+64. Reported: "The new cases are in and the batch command will now report
+    progress as it runs. I'm regenerating the corpus, running the focused tests,
+    and then I'll send the new targeted cases through QEMU."
+
+    Action/result: `python3 -B -m unittest tests.test_picture_fuzz` passed with
+    8 tests. Regenerated the working corpus; it now has 85 cases, 83 marked
+    safe for QEMU. `git diff --check` passed.
+
+65. Reported: "The streaming status is already paying off: the first targeted
+    fill-box case matched. The batch is now on the outside-box fill case."
+
+    Action/result: The targeted batch continued; both fill cases matched.
+
+66. Reported: "Good, the two bounded fill cases matched. The circular pattern
+    edge case produced a small 5-pixel mismatch, so after the batch finishes
+    I'll drill into that report and the pattern positioning logic."
+
+    Action/result: The targeted batch finished with 3 matches, 2 mismatches,
+    and 0 errors. `base_018_pattern_edge_circle` mismatched by 5 pixels and
+    `base_019_pattern_edge_rectangle` mismatched by 14 pixels; both mismatches
+    appeared at X `0` on lower screen rows.
+
+67. Reported: "The mismatch is very precise: the original engine plots column
+    160 from a lower-right pattern mask as the first pixel of the next scanline,
+    while the Python renderer clipped it away. This is a pattern-specific edge
+    behavior, not a general line-coordinate issue, so I'm going to model it in
+    the pattern plot path and lock it with a test."
+
+    Action/result: Inspected the targeted batch report and confirmed the
+    out-of-bounds pattern column wraps through the linear picture buffer. Added
+    `write_cell()` for linear buffer writes, changed pattern plotting to call it
+    directly, added a regression test for lower-right rectangular pattern wrap,
+    and documented the behavior in `graphics_object_pipeline.md`.
+
+68. Reported: "The pattern-edge fix is in place and documented. I'm running the
+    rendering tests and regenerating the corpus so the Python hashes reflect the
+    corrected pattern behavior before rerunning the targeted QEMU batch."
+
+    Action/result: `python3 -B -m unittest tests.test_graphics_rendering tests.test_picture_fuzz`
+    passed with 32 tests. Regenerated the working corpus; it remained at 85
+    cases, 83 safe for QEMU. `git diff --check` passed.
+
+69. Reported: "The targeted rerun is underway with the corrected renderer. The
+    first fill case still matches, and the run is progressing case by case with
+    the new live output."
+
+    Action/result: The rerun showed `base_016`, `base_017`, and the corrected
+    `base_018_pattern_edge_circle` all matching. The later cases failed with
+    DOS-image `Disk full` errors rather than renderer mismatches.
+
+70. Reported: "Host disk space is fine; the 'Disk full' is inside the small DOS
+    hard disk image. I also found the cause: rerunning a fixture copied its old
+    `qemu_capture.ppm` back into DOS, wasting image space. I'm patching the copy
+    step to exclude generated host captures, then I'll clear old fuzz
+    directories from the DOS image."
+
+    Action/result: Updated `copy_fixture_to_dos()` to skip generated `.ppm`
+    files when copying a fixture into the DOS image.
+
+71. Reported: "The DOS image is literally at 0 bytes free, and the root is full
+    of generated fuzz directories (`FZ*`, `FB*`, `FR*`, `FT*`, `FU*`). I'm
+    removing those disposable directories from the DOS image, leaving the base
+    DOS install and original SQ2/validation fixture directories alone."
+
+    Action/result: Removed generated fuzz directories from
+    `build/dos622/dos622.img`. The DOS image root then showed about 56 MB free.
+
+72. Reported: "The storage cleanup worked; the rerun is progressing normally
+    and the first targeted case still matches. I'm waiting for the pattern edge
+    cases now."
+
+    Action/result: Reran the targeted fill/pattern batch as
+    `targeted_fill_pattern_003.json`. All five cases matched with 0 mismatches
+    and 0 errors.
+
+73. Reported: "The targeted rerun is green: all five fill/pattern cases now
+    match the original engine. I'm updating the docs with the batch harness,
+    the DOS-image storage lesson, and the newly observed pattern linear-wrap
+    behavior before moving on to view/cel validation."
+
+    Action/result: Updated `AGENTS.md`, `compatibility_testing.md`,
+    `clean_room_executable_notes.md`, and `graphics_object_pipeline.md` with
+    batch-QEMU usage, current fuzz coverage, DOS-image cleanup notes, and the
+    pattern X-160 linear-write behavior.
+
+74. Reported: "The current capture comparator can already compose a rendered
+    view over a picture, but it only reports a mismatch count. I'm going to
+    upgrade it to report bounding boxes/samples and add a `view_batch.py` tool
+    that builds picture-view fixtures, runs them through QEMU serially, and
+    emits JSON reports like the picture fuzz runner."
+
+    Action/result: Extended picture-capture comparison results with mismatch
+    boxes and samples. Added `tools/view_batch.py` with base view/object cases,
+    fixture generation, serial QEMU execution, and JSON report writing.
+
+75. Reported: "The view batch tool is in place. I'm adding a small unit test
+    around its case loading/report path before running it against QEMU, so the
+    batch machinery itself has coverage independent of the emulator."
+
+    Action/result: Added `tests/test_view_batch.py` covering base case coverage,
+    JSON case loading, DOS directory naming, and report summary generation.
+
+76. Reported: "The view-batch unit tests are added. I'm running the full local
+    suite and mdBook now before using QEMU again."
+
+    Action/result: `python3 -B -m unittest discover -s tests` passed with
+    43 tests, `mdbook build docs` succeeded, and `git diff --check` passed.
+
+77. Reported: "The verification result is logged. Starting the six-case view
+    batch now: normal cel, mirrored cel, left/top clipping, and a low-priority
+    object case."
+
+    Action/result: Ran `python3 -B tools/view_batch.py --dos-prefix VB --output build/view-batch/batches/view_base_001.json --boot-wait 5 --draw-wait 8`.
+    Five cases matched; `view_011_top_clip` mismatched in rows 0 through 4.
+
+78. Reported: "The cached search found an exact match: the original output
+    equals drawing the cel at `left=18`, `baseline_y=4` when the fixture
+    requested `left=20`, `baseline_y=2`. In other words, when the computed top
+    is `-2`, the overlay path shifts left by that negative top and clamps the
+    top to row 0. I'm encoding that as a provisional `add_to_pic`/overlay
+    placement rule and will rerun the view batch."
+
+    Action/result: Updated object-frame composition to adjust `left` and
+    `baseline_y` when the computed top is negative. Added a regression test and
+    documented the QEMU-observed top-edge adjustment.
+
+79. Reported: "The top-edge adjustment is modeled and tested locally. I'm
+    running the relevant tests, then I'll rerun the view batch to verify the
+    QEMU mismatch is gone."
+
+    Action/result: `python3 -B -m unittest tests.test_graphics_rendering tests.test_view_batch`
+    passed with 29 tests, and `git diff --check` passed.
+
+80. Reported: "The test result is logged. Starting the QEMU rerun for the view
+    batch with the corrected top-edge model."
+
+    Action/result: Reran `tools/view_batch.py` as
+    `build/view-batch/batches/view_base_002.json`. All six cases matched with
+    0 mismatches and 0 errors.
+
+81. Reported: "The corrected view batch is fully green: all six cases match,
+    including the top-edge placement case. I'm documenting the view-batch
+    harness and the observed object top-edge rule, then I'll do the full
+    verification pass."
+
+    Action/result: Updated `compatibility_testing.md` and
+    `clean_room_executable_notes.md` with view-batch commands, coverage,
+    results, and the top-edge object placement rule.
+
+82. Reported: "That's a great optimization target. I'm going to pause the
+    broader reverse-engineering loop and investigate QEMU host-directory options
+    for DOS specifically; the likely candidate is QEMU's virtual FAT block
+    device, which should appear to DOS as another drive. If that works, the next
+    harness shape is 'boot once, run many prebuilt fixture directories from a
+    shared drive.'"
+
+    Action/result: Checked local QEMU version (`11.0.2`) and help output. DOS
+    cannot use QEMU 9p/virtfs directly without a guest driver, so the practical
+    candidate is a QEMU FAT-backed block device exposed as a secondary DOS disk.
+
+83. Reported: "QEMU accepts the FAT-backed secondary drive syntax. Now I'm
+    booting DOS with that share attached and sending a `DIR D:\` command, then
+    I'll capture the VGA screen to confirm DOS can actually see the host file."
+
+    Action/result: Booted QEMU with
+    `-drive file=fat:rw:build/qemu-share,format=raw,if=ide,index=1,media=disk`.
+    DOS saw the host directory as drive `D:` with volume label `QEMU VVFAT` and
+    listed `HOST.TXT`.
+
+84. Reported: "The screenshot confirms it: DOS sees the host directory as `D:`
+    with volume label `QEMU VVFAT`, and `HOST.TXT` is visible. Next I'm testing
+    the part that matters for our harness: running an AGI fixture directly from
+    that shared `D:` drive without copying it into the DOS image."
+
+    Action/result: Built `build/qemu-share/PIC001` and ran it from
+    `D:\PIC001` in QEMU. The capture
+    `build/qemu-share/from_share_pic001.ppm` compared against picture 1 with
+    0 mismatches.
+
+85. Reported: "Running from the shared drive works: the AGI fixture on
+    `D:\PIC001` produced a capture with 0 mismatches against the local renderer.
+    The remaining question for 'boot once' is whether the generated fixture
+    returns to DOS after drawing; I'm testing that by sending another DOS
+    command after the draw and capturing the screen."
+
+    Action/result: Sending `DIR` after running `SIERRA` left the game screen
+    visible. The generated fixture does not return to DOS, so multi-case
+    no-boot runs need `loadvm`/reset or a different fixture script.
+
+86. Reported: "A QEMU internal snapshot with `fat:rw:` fails because writable
+    vvfat does not support live migration/snapshotting. That's not fatal: for
+    test inputs we only need the host share read-only inside DOS, and we can put
+    the boot disk on a qcow2 overlay that stores VM snapshots. I'm testing that
+    combination next."
+
+    Action/result: Created `build/dos622/dos622-test.qcow2` as a qcow2 overlay
+    over the raw DOS disk. Read-only vvfat as an IDE disk still failed, but
+    read-only vvfat as an IDE CD-ROM allowed `savevm`.
+
+87. Reported: "Useful result: `fat:...` as a read-only IDE disk still fails,
+    but exposing it as a read-only IDE CD-ROM allows QEMU `savevm`. Now I'm
+    checking whether this DOS install can actually see that CD-ROM-style drive
+    as `D:`; if not, we can still use snapshots with another share mechanism,
+    but not this one directly."
+
+    Action/result: DOS reported `Invalid drive specification` for the
+    CD-ROM-style share because the current image has MSCDEX but no IDE/ATAPI
+    CD-ROM driver configured.
+
+88. Reported: "There’s MSCDEX, but no IDE/ATAPI CD-ROM driver in the DOS image.
+    A better idea for a read-only, snapshot-compatible host directory is to
+    expose the QEMU FAT share as a floppy, because DOS can see floppy drives
+    without MSCDEX; I'm testing whether QEMU's vvfat floppy is large enough and
+    visible."
+
+    Action/result: Plain `if=floppy` produced invalid media. `fat:floppy:` was
+    accepted only when the host directory fit FAT12 capacity. A nested full
+    fixture directory appeared empty, and a root-level fixture exposed only a
+    subset of files, making this path unsuitable for full AGI fixtures.
+
+89. Reported: "The root-level floppy share is visible but not usable for full
+    AGI fixtures: DOS only sees a small subset of the files. So the clean result
+    is: host directory mounting works well as a secondary `D:` hard disk with
+    `fat:rw:...`; snapshot-based no-reboot runs need either a DOS CD-ROM driver
+    for read-only vvfat CD-ROM, or a generated qcow2/FAT test disk instead of a
+    live host directory. I'm documenting the exact working and non-working
+    combinations now."
+
+    Action/result: Updated `AGENTS.md` and this evidence log with the working
+    `fat:rw:` command, the successful run from `D:`, and the limitations around
+    QEMU snapshots, CD-ROM drivers, and floppy-sized vvfat shares.
+
+90. Reported: "I'll commit the source, tests, and docs from this pass, leaving
+    the generated QEMU shares, captures, qcow overlay, `build/`, installer
+    images, and `__pycache__` out of the commit. I'm checking the exact staged
+    set first so the commit doesn't accidentally pick up emulator artifacts."
+
+    Action/result: `git status --short --untracked-files=all` showed the
+    expected generated artifacts under `build/`, the DOS installer images under
+    `002962_ms_dos_622/`, and Python cache files. `git diff --check` passed.
+
+91. Reported: "The staged set is exactly 12 source/docs/test files; generated
+    artifacts remain untracked. I'm running the full tests, mdBook, and cached
+    diff whitespace check before committing."
+
+    Action/result: `python3 -B -m unittest discover -s tests` passed with
+    44 tests, `mdbook build docs` succeeded, and `git diff --cached --check`
+    passed.
+
+92. Reported: "The final staged diff is clean. I'm committing it with a message
+    that covers the two main pieces: QEMU validation batches and host-share
+    investigation."
+
+    Action/result: Created a commit with message
+    `Add QEMU validation batches`; it was then amended to include this progress
+    log entry.
