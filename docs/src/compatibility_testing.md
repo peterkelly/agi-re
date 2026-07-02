@@ -160,11 +160,31 @@ Run a serial QEMU fuzz batch and save a JSON report:
 python3 -B tools/picture_fuzz.py batch-qemu --case base_016_visual_fill_box --case base_019_pattern_edge_rectangle --dos-prefix FV --output build/picture-fuzz/batches/targeted_fill_pattern.json --boot-wait 5 --draw-wait 8
 ```
 
+Run a known-ahead fuzz batch through a disposable qcow2 boot disk and QEMU
+internal snapshots:
+
+```bash
+python3 -B tools/picture_fuzz.py batch-qemu --snapshot --case base_016_visual_fill_box --case base_019_pattern_edge_rectangle --dos-prefix FS --output build/picture-fuzz/batches/targeted_fill_pattern_snapshot.json --boot-wait 5 --draw-wait 8
+```
+
+The first snapshot-mode fuzz smoke used `base_016_visual_fill_box` and
+`base_019_pattern_edge_rectangle`; both matched with 0 mismatches from one QEMU
+boot.
+
 Run the current view/object overlay validation batch:
 
 ```bash
 python3 -B tools/view_batch.py --dos-prefix VC --output build/view-batch/batches/view_base.json --boot-wait 5 --draw-wait 8
 ```
+
+Run the same view/object cases with one QEMU boot and internal snapshots:
+
+```bash
+python3 -B tools/view_batch.py --snapshot --dos-prefix VS --output build/view-batch/batches/view_snapshot.json --boot-wait 5 --draw-wait 8
+```
+
+The first snapshot-mode view/object smoke ran the six built-in cases and all
+six matched from one QEMU boot.
 
 Compare an existing QEMU capture without rerunning QEMU:
 

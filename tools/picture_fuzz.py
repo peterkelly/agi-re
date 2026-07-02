@@ -18,11 +18,14 @@ from agi_graphics import HEIGHT, PALETTE, WIDTH, PictureRenderer, RenderedPictur
 from compare_picture_capture import downsample_qemu_picture_nibbles
 from ppm_tools import read_ppm
 from qemu_fixture import build_synthetic_picture_fixture
+from qemu_snapshot import SnapshotFixtureCase, build_snapshot_boot_disk, run_snapshot_qemu_cases
 
 
 DEFAULT_CORPUS = Path("build/picture-fuzz/corpus")
 DEFAULT_FIXTURES = Path("build/picture-fuzz/fixtures")
 DEFAULT_BATCH_RESULTS = Path("build/picture-fuzz/batches")
+DEFAULT_SNAPSHOT_RAW = Path("build/picture-fuzz/snapshot/picture_fuzz.raw")
+DEFAULT_SNAPSHOT_QCOW = Path("build/picture-fuzz/snapshot/picture_fuzz.qcow2")
 DOS_IMAGE = Path("build/dos622/dos622.img")
 DOS_IMAGE_OFFSET = "32256"
 
@@ -447,6 +450,71 @@ def run_qemu_batch(
     return results
 
 
+def run_qemu_snapshot_batch(
+    corpus: Path,
+    cases: list[PictureFuzzCase],
+    fixture_root: Path,
+    picture_no: int,
+    boot_wait: float,
+    draw_wait: float,
+    dos_prefix: str,
+    stop_on_failure: bool,
+    snapshot_raw: Path,
+    snapshot_qcow: Path,
+    progress: bool = False,
+) -> list[BatchCaseResult]:
+    qemu_cases: list[SnapshotFixtureCase] = []
+    started_at: dict[str, float] = {}
+    for index, case in enumerate(cases):
+        dos_dir = qemu_batch_dos_dir(dos_prefix, index)
+        fixture = fixture_root / case.case_id
+        capture = fixture / "qemu_capture.ppm"
+        started_at[case.case_id] = time.monotonic()
+        if progress:
+            print(f"[{index + 1}/{len(cases)}] build {case.case_id} -> {dos_dir}", file=sys.stderr, flush=True)
+        build_synthetic_picture_fixture(case.payload, fixture, picture_no=picture_no)
+        qemu_cases.append(SnapshotFixtureCase(dos_dir, fixture, capture))
+
+    if progress:
+        print(f"building snapshot disk: {snapshot_qcow}", file=sys.stderr, flush=True)
+    build_snapshot_boot_disk(qemu_cases, snapshot_raw, snapshot_qcow)
+    if progress:
+        print(f"running {len(qemu_cases)} cases from one QEMU snapshot", file=sys.stderr, flush=True)
+    run_snapshot_qemu_cases(snapshot_qcow, qemu_cases, boot_wait, draw_wait)
+
+    results: list[BatchCaseResult] = []
+    for index, (case, qemu_case) in enumerate(zip(cases, qemu_cases)):
+        comparison: CaptureComparison | None = None
+        error: str | None = None
+        status = "error"
+        try:
+            comparison = compare_capture(corpus, case.case_id, qemu_case.capture)
+            status = comparison.status
+            error = comparison.error
+        except Exception as exc:  # noqa: BLE001 - batch harness records exact local exception.
+            error = f"{type(exc).__name__}: {exc}"
+        elapsed = round(time.monotonic() - started_at[case.case_id], 3)
+        results.append(
+            BatchCaseResult(
+                case.case_id,
+                case.category,
+                case.safe_for_qemu,
+                status,
+                qemu_case.dos_dir,
+                str(qemu_case.capture),
+                elapsed,
+                comparison,
+                error,
+            )
+        )
+        if progress:
+            detail = "" if comparison is None else f" mismatches={comparison.mismatches}"
+            print(f"[{index + 1}/{len(cases)}] {case.case_id} {status}{detail}", file=sys.stderr, flush=True)
+        if stop_on_failure and status != "match":
+            break
+    return results
+
+
 def write_batch_report(results: list[BatchCaseResult], output: Path) -> dict[str, object]:
     output.parent.mkdir(parents=True, exist_ok=True)
     summary = {
@@ -509,17 +577,32 @@ def cmd_batch_qemu(args: argparse.Namespace) -> None:
     if not cases:
         raise SystemExit("no safe fuzz cases selected")
     output = args.output or DEFAULT_BATCH_RESULTS / f"batch_{time.strftime('%Y%m%d_%H%M%S')}.json"
-    results = run_qemu_batch(
-        args.corpus,
-        cases,
-        args.fixture_root,
-        args.picture,
-        args.boot_wait,
-        args.draw_wait,
-        args.dos_prefix,
-        args.stop_on_failure,
-        True,
-    )
+    if args.snapshot:
+        results = run_qemu_snapshot_batch(
+            args.corpus,
+            cases,
+            args.fixture_root,
+            args.picture,
+            args.boot_wait,
+            args.draw_wait,
+            args.dos_prefix,
+            args.stop_on_failure,
+            args.snapshot_raw,
+            args.snapshot_qcow,
+            True,
+        )
+    else:
+        results = run_qemu_batch(
+            args.corpus,
+            cases,
+            args.fixture_root,
+            args.picture,
+            args.boot_wait,
+            args.draw_wait,
+            args.dos_prefix,
+            args.stop_on_failure,
+            True,
+        )
     report = write_batch_report(results, output)
     print(json.dumps(report["summary"], indent=2, sort_keys=True))
     print(f"report: {output}")
@@ -576,6 +659,9 @@ def main() -> None:
     batch_qemu.add_argument("--boot-wait", type=float, default=5.0)
     batch_qemu.add_argument("--draw-wait", type=float, default=8.0)
     batch_qemu.add_argument("--stop-on-failure", action="store_true")
+    batch_qemu.add_argument("--snapshot", action="store_true")
+    batch_qemu.add_argument("--snapshot-raw", type=Path, default=DEFAULT_SNAPSHOT_RAW)
+    batch_qemu.add_argument("--snapshot-qcow", type=Path, default=DEFAULT_SNAPSHOT_QCOW)
     batch_qemu.set_defaults(func=cmd_batch_qemu)
 
     args = parser.parse_args()

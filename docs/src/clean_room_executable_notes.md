@@ -2880,3 +2880,44 @@ Documented result:
     `savevm`/`loadvm` for no-boot batches;
   - or generate a qcow2/FAT test disk containing prebuilt fixtures and use
     QEMU snapshots at the DOS prompt.
+
+## QEMU snapshot fixture disk
+
+Commands run from `/Users/peter/ai/agi/reverse`:
+
+- Built a picture-only fixture and a picture-plus-view fixture:
+  `python3 -B tools/qemu_fixture.py picture 1 --output build/qcow-fixture-test/fixtures/PIC001`
+  and
+  `python3 -B tools/qemu_fixture.py picture-view 1 11 0 0 20 80 15 --output build/qcow-fixture-test/fixtures/VIEW11`.
+- Probed a partitionless FAT image, an MBR-partitioned FAT image starting at
+  sector 63, and a DOS-geometry-like secondary hard disk. All could either be
+  manipulated by mtools or attached to QEMU, but DOS did not expose them as a
+  usable `D:` drive.
+- Copied `build/dos622/dos622.img` to a disposable raw image, copied fixture
+  directories into its DOS partition with mtools at offset `32256`, converted
+  it to qcow2, booted it as `C:`, ran `savevm ready`, then used `loadvm ready`
+  between `PIC001` and `VIEW11`.
+- Compared the captures with:
+  `python3 -B tools/compare_picture_capture.py 1 build/qcow-fixture-test/snapshot_pic001.ppm`
+  and
+  `python3 -B tools/compare_picture_capture.py 1 build/qcow-fixture-test/snapshot_view11.ppm --view 11 0 0 --view-x 20 --view-baseline-y 80 --view-priority 15`.
+
+Documented result:
+
+- The secondary qcow2/FAT fixture disk approach is not yet usable with DOS 6.22
+  in this setup.
+- A disposable qcow2 clone of the DOS boot disk with fixture directories
+  preloaded onto `C:` supports QEMU internal snapshots.
+- Both snapshot-run captures matched with 0 mismatches, proving that one QEMU
+  boot plus `savevm`/`loadvm` can replace repeated boots for batches whose
+  fixture set is known in advance.
+- Added `tools/qemu_snapshot.py` and `tools/view_batch.py --snapshot` to make
+  this reusable for the view/object validation cases.
+- Added `tools/picture_fuzz.py batch-qemu --snapshot` so known-ahead fuzz
+  batches can use the same one-boot fixture disk rather than rebooting QEMU for
+  each case.
+- Verified the reusable path with `tools/view_batch.py --snapshot`: all six
+  built-in view/object cases matched from one QEMU boot.
+- Verified `tools/picture_fuzz.py batch-qemu --snapshot` with
+  `base_016_visual_fill_box` and `base_019_pattern_edge_rectangle`: both cases
+  matched with 0 mismatches from one QEMU boot.

@@ -831,3 +831,70 @@ Progress updates and outcomes:
     Action/result: Created a commit with message
     `Add QEMU validation batches`; it was then amended to include this progress
     log entry.
+
+93. Reported: "I'll build and test the qcow2 fixture-disk path end to end:
+    create a normal FAT disk image with prebuilt AGI fixture directories, attach
+    it as `D:`, verify DOS can see and run from it, then test `savevm/loadvm`
+    around repeated fixture runs. If it works, I'll fold that into the
+    harness/docs so we can stop paying the full boot cost per case."
+
+    Action/result: Confirmed `mformat`, `mcopy`, `mdir`, `mmd`, `mdel`, `mrd`,
+    `qemu-img`, and `qemu-system-i386` are installed. The working tree only had
+    generated artifacts under `build/`, `002962_ms_dos_622/`, and
+    `tools/__pycache__/` before this pass.
+
+94. Reported: "DOS doesn't accept a partitionless FAT image as a hard disk, so
+    we do need an MBR-style partition. I'm creating a raw disk with a simple
+    FAT16 partition starting at sector 63, formatting that partition with
+    mtools, then converting it to qcow2."
+
+    Action/result: A partitioned secondary qcow2 fixture disk could be read by
+    mtools, but DOS either treated sector 0 as a garbage FAT boot sector or
+    reported `Not ready reading drive D`, even with DOS-like partition metadata
+    and forced IDE CHS.
+
+95. Reported: "Forcing IDE geometry didn't fix the second-disk case. I'm
+    switching to the more robust variant: create a disposable qcow2 clone of the
+    DOS boot disk with fixture directories preloaded onto `C:` itself. That
+    still gives us the important property: one boot, `savevm` at the DOS prompt,
+    then `loadvm` between fixture runs."
+
+    Action/result: Copied `build/dos622/dos622.img` to a disposable raw image,
+    copied `PIC001` and `VIEW11` fixture directories into its DOS partition,
+    converted it to qcow2, booted once, saved VM state at the DOS prompt, ran
+    `PIC001`, loaded the saved VM, ran `VIEW11`, and compared both captures.
+    Both matched with 0 mismatches.
+
+96. Reported: "The implementation pivot is clear: a generic helper will create
+    a disposable qcow2 clone of the boot disk, preload DOS fixture directories
+    with mtools, boot once, `savevm ready`, and `loadvm ready` between cases.
+    Then `view_batch.py --snapshot` can use it without changing the comparison
+    logic."
+
+    Action/result: Added `tools/qemu_snapshot.py` for disposable boot-disk
+    cloning, mtools fixture preloading, and one-boot snapshot QEMU execution.
+    Added `tools/view_batch.py --snapshot` plus local unit coverage for the
+    snapshot helper's fixture filtering, mtools image syntax, and monitor key
+    names.
+
+97. Reported: "The view/object snapshot smoke passed: all six cases matched
+    with zero errors. I'm going to extend the same one-boot mode to the picture
+    fuzz batch command too, because that is where the boot cost really hurts."
+
+    Action/result: Ran
+    `python3 -B tools/view_batch.py --snapshot --dos-prefix VS --output build/view-batch/batches/view_snapshot_smoke.json --boot-wait 5 --draw-wait 8`.
+    QEMU booted once from the generated snapshot qcow2, restored the DOS prompt
+    between the six built-in view/object cases, and all captures matched.
+    Extended `tools/picture_fuzz.py batch-qemu` with `--snapshot`, using the
+    shared qcow2 boot-disk snapshot helper. Added a mocked unit test proving
+    snapshot-mode fuzz reports are compared and recorded through the existing
+    batch-result path.
+
+98. Reported: "The real fuzz snapshot smoke passed too: both synthetic picture
+    cases matched the original engine with zero mismatches from one QEMU boot.
+    I'm recording that result now and then I'll do one final status/check pass."
+
+    Action/result: Ran
+    `python3 -B tools/picture_fuzz.py batch-qemu --snapshot --case base_016_visual_fill_box --case base_019_pattern_edge_rectangle --dos-prefix FS --output build/picture-fuzz/batches/snapshot_smoke.json --boot-wait 5 --draw-wait 8`.
+    QEMU booted once from the generated snapshot qcow2, restored the DOS prompt
+    between the two cases, and both captures compared with 0 mismatches.

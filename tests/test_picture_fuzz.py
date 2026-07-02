@@ -23,6 +23,7 @@ from picture_fuzz import (  # noqa: E402
     generate_cases,
     render_payload,
     run_qemu_batch,
+    run_qemu_snapshot_batch,
     select_batch_cases,
     write_corpus,
 )
@@ -131,6 +132,39 @@ class PictureFuzzTests(unittest.TestCase):
 
             with mock.patch("picture_fuzz.run_qemu_fixture", side_effect=fake_run_qemu):
                 results = run_qemu_batch(corpus, [case], fixtures, 0, 0.0, 0.0, "TB", True)
+        self.assertEqual(len(results), 1)
+        self.assertEqual(results[0].status, "match")
+        self.assertEqual(results[0].comparison.mismatches, 0)
+
+    def test_run_qemu_snapshot_batch_records_match_report(self) -> None:
+        case = next(item for item in base_cases() if item.case_id == "base_003_visual_point")
+        with tempfile.TemporaryDirectory() as temp_dir:
+            temp = Path(temp_dir)
+            corpus = temp / "corpus"
+            fixtures = temp / "fixtures"
+            write_corpus([case], corpus, render_ppm=False)
+            rendered = render_payload(case.payload)
+
+            def fake_snapshot_run(_disk: Path, qemu_cases: list[object], _boot_wait: float, _draw_wait: float) -> None:
+                for qemu_case in qemu_cases:
+                    write_scaled_capture(qemu_case.capture, rendered.visual_nibbles)
+
+            with mock.patch("picture_fuzz.build_snapshot_boot_disk"), mock.patch(
+                "picture_fuzz.run_snapshot_qemu_cases",
+                side_effect=fake_snapshot_run,
+            ):
+                results = run_qemu_snapshot_batch(
+                    corpus,
+                    [case],
+                    fixtures,
+                    0,
+                    0.0,
+                    0.0,
+                    "TS",
+                    True,
+                    temp / "snapshot.raw",
+                    temp / "snapshot.qcow2",
+                )
         self.assertEqual(len(results), 1)
         self.assertEqual(results[0].status, "match")
         self.assertEqual(results[0].comparison.mismatches, 0)

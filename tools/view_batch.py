@@ -13,10 +13,13 @@ from pathlib import Path
 from compare_picture_capture import PictureCaptureComparison, compare_picture_capture
 from picture_fuzz import run_qemu_fixture
 from qemu_fixture import build_picture_view_fixture
+from qemu_snapshot import SnapshotFixtureCase, build_snapshot_boot_disk, run_snapshot_qemu_cases
 
 
 DEFAULT_FIXTURES = Path("build/view-batch/fixtures")
 DEFAULT_RESULTS = Path("build/view-batch/batches")
+DEFAULT_SNAPSHOT_RAW = Path("build/view-batch/snapshot/view_batch.raw")
+DEFAULT_SNAPSHOT_QCOW = Path("build/view-batch/snapshot/view_batch.qcow2")
 
 
 @dataclass(frozen=True)
@@ -115,6 +118,66 @@ def run_batch(
     return results
 
 
+def run_snapshot_batch(
+    cases: list[ViewBatchCase],
+    fixture_root: Path,
+    boot_wait: float,
+    draw_wait: float,
+    dos_prefix: str,
+    stop_on_failure: bool,
+    snapshot_raw: Path,
+    snapshot_qcow: Path,
+) -> list[ViewBatchResult]:
+    qemu_cases: list[SnapshotFixtureCase] = []
+    started_at: dict[str, float] = {}
+    results: list[ViewBatchResult] = []
+    for index, case in enumerate(cases):
+        dos_dir = qemu_batch_dos_dir(dos_prefix, index)
+        fixture = fixture_root / case.case_id
+        capture = fixture / "qemu_capture.ppm"
+        started_at[case.case_id] = time.monotonic()
+        print(f"[{index + 1}/{len(cases)}] build {case.case_id} -> {dos_dir}", file=sys.stderr, flush=True)
+        build_picture_view_fixture(
+            case.picture_no,
+            case.view_no,
+            case.group_no,
+            case.frame_no,
+            case.x,
+            case.baseline_y,
+            case.priority,
+            fixture,
+            case.control,
+        )
+        qemu_cases.append(SnapshotFixtureCase(dos_dir, fixture, capture))
+
+    print(f"building snapshot disk: {snapshot_qcow}", file=sys.stderr, flush=True)
+    build_snapshot_boot_disk(qemu_cases, snapshot_raw, snapshot_qcow)
+    print(f"running {len(qemu_cases)} cases from one QEMU snapshot", file=sys.stderr, flush=True)
+    run_snapshot_qemu_cases(snapshot_qcow, qemu_cases, boot_wait, draw_wait)
+
+    for index, (case, qemu_case) in enumerate(zip(cases, qemu_cases)):
+        comparison: PictureCaptureComparison | None = None
+        error: str | None = None
+        status = "error"
+        try:
+            comparison = compare_picture_capture(
+                case.picture_no,
+                qemu_case.capture,
+                view=(case.view_no, case.group_no, case.frame_no, case.x, case.baseline_y, case.priority),
+            )
+            status = "match" if comparison.matches else "mismatch"
+        except Exception as exc:  # noqa: BLE001 - batch harness records exact local exception.
+            error = f"{type(exc).__name__}: {exc}"
+        elapsed = round(time.monotonic() - started_at[case.case_id], 3)
+        print(f"[{index + 1}/{len(cases)}] {case.case_id} {status}", file=sys.stderr, flush=True)
+        results.append(
+            ViewBatchResult(case.case_id, status, qemu_case.dos_dir, str(qemu_case.capture), elapsed, comparison, error)
+        )
+        if stop_on_failure and status != "match":
+            break
+    return results
+
+
 def write_report(results: list[ViewBatchResult], output: Path) -> dict[str, object]:
     output.parent.mkdir(parents=True, exist_ok=True)
     report = {
@@ -139,16 +202,32 @@ def main() -> None:
     parser.add_argument("--boot-wait", type=float, default=5.0)
     parser.add_argument("--draw-wait", type=float, default=8.0)
     parser.add_argument("--stop-on-failure", action="store_true")
+    parser.add_argument("--snapshot", action="store_true")
+    parser.add_argument("--snapshot-raw", type=Path, default=DEFAULT_SNAPSHOT_RAW)
+    parser.add_argument("--snapshot-qcow", type=Path, default=DEFAULT_SNAPSHOT_QCOW)
     args = parser.parse_args()
 
-    results = run_batch(
-        load_cases(args.cases),
-        args.fixture_root,
-        args.boot_wait,
-        args.draw_wait,
-        args.dos_prefix,
-        args.stop_on_failure,
-    )
+    cases = load_cases(args.cases)
+    if args.snapshot:
+        results = run_snapshot_batch(
+            cases,
+            args.fixture_root,
+            args.boot_wait,
+            args.draw_wait,
+            args.dos_prefix,
+            args.stop_on_failure,
+            args.snapshot_raw,
+            args.snapshot_qcow,
+        )
+    else:
+        results = run_batch(
+            cases,
+            args.fixture_root,
+            args.boot_wait,
+            args.draw_wait,
+            args.dos_prefix,
+            args.stop_on_failure,
+        )
     report = write_report(results, args.output)
     print(json.dumps(report["summary"], indent=2, sort_keys=True))
     print(f"report: {args.output}")
