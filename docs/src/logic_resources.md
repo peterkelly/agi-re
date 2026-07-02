@@ -9,6 +9,23 @@ executable.
 
 The high-level logic loader starts at image offset `0x119a`.
 
+Logic cache records are 10 bytes and are linked from word `[0x0977]`:
+
+```text
++0x00: next logic cache record, or 0
++0x02: logic number byte
++0x03: message count byte
++0x04: bytecode base pointer, payload + 2
++0x06: current interpreter instruction pointer
++0x08: message offset table base pointer
+```
+
+Helper `0x110f(logic_number)` scans the list. While scanning, it also stores
+the link slot that led to the current record in `[0x0983]`. On a miss, that
+slot is where a newly allocated record should be linked. For the first record
+the slot is the global root `[0x0977]`; for later records it is the previous
+record's `+0x00` field.
+
 Observed load path:
 
 ```text
@@ -17,7 +34,10 @@ load_logic(number):
     if existing:
         return existing
 
+    suspend_update_lists()                      # 0x6a54
     record = allocate(10)
+    *last_link_slot = record                    # [0x0983]
+    record[0x00] = 0
     record[0x02] = number
 
     dir_entry = logic_directory_entry(number)   # 0x4371
@@ -33,10 +53,14 @@ load_logic(number):
     record[0x08] = count_position + 1
 
     if message_count != 0:
+        old_current = current_logic             # [0x0981]
+        current_logic = record
         end = message_pointer(0)                # 0x21f0
         text_start = record[0x08] + (message_count + 1) * 2
         xor_range(text_start, end)              # 0x07ab
+        current_logic = old_current
 
+    rebuild_update_lists()                      # 0x6a8e
     return record
 ```
 
@@ -105,9 +129,92 @@ For logic 2, table entry 0 is `0x0a01`, and `table_base + 0x0a01` equals the
 payload length. Entry 1 is `0x0048`, which points exactly at the first decrypted
 message byte because `table_base + 0x0048 == text_start`.
 
-## Open questions
+The bytecode beginning at `payload + 2` is interpreted by the main logic loop
+at image offset `0x293c`; see the logic bytecode notes for opcode dispatch and
+condition parsing.
 
-The bytecode beginning at `payload + 2` is not decoded yet. The next step is to
-follow the instruction interpreter around image offset `0x07e3`, where a byte
-is loaded from `SI`, compared against `0x26`, and used to dispatch through a
-function table near image offset `0x08fd`.
+## Call and cache lifetime
+
+Action helpers `0x113d` and `0x1159` load a logic resource through
+`0x117d(logic_number)`. That wrapper calls the loader above and records the
+pair `(0, logic_number)` through helper `0x70b1`. It leaves the logic cache
+record linked from `[0x0977]`.
+
+Action helpers `0x125a` and `0x1280` use a different path,
+`0x12ae(logic_number)`, for invoking another logic resource as a subroutine:
+
+```text
+call_logic(number):
+    old_current = current_logic                 # [0x0981]
+    cached = find_cached_logic(number)          # 0x110f
+
+    if cached:
+        current_logic = cached
+        loaded_for_call = false
+    else:
+        saved_link_slot = last_link_slot        # [0x0983]
+        current_logic = load_logic(number)      # 0x119a
+        loaded_for_call = true
+
+    if word[0x1d10] == 2:
+        word[0x1d10] = 1
+    if number == 0:
+        word[0x1d20] = 1
+
+    result = interpret(current_logic)           # 0x293c
+
+    if loaded_for_call:
+        *saved_link_slot = 0
+        suspend_update_lists()                  # 0x6a54
+        heap_rewind_to(current_logic)           # 0x143c
+        rebuild_update_lists()                  # 0x6a8e
+
+    current_logic = old_current
+    return result
+```
+
+The action handlers propagate the interpreter result: if `0x12ae` returns zero,
+the action dispatcher receives zero as the next instruction pointer and the
+current logic loop stops. A nonzero result advances to the next action.
+
+This shows two distinct lifetimes:
+
+- Logic loaded through `0x117d` remains cached.
+- Logic that is first encountered through `0x12ae` is temporary. After the
+  nested interpreter returns, the record is unlinked and the heap top is rewound
+  to the start of that record.
+
+## Saved interpreter positions
+
+Routine `0x1364` serializes the loaded logic list into a table at `0x0985`.
+Each entry is four bytes:
+
+```text
++0x00: logic number as a word
++0x02: current_ip - bytecode_base
+```
+
+It walks `[0x0977]`, emits one entry for each cache record, appends a terminator
+word `0xffff`, and returns the total table byte count, including the terminator
+entry. Routine `0x13a5(record)` performs the reverse lookup for one record: if
+it finds a matching logic number in `0x0985`, it restores
+`record[0x06] = record[0x04] + saved_offset`.
+
+## Heap marks used by logic loading
+
+The logic cache records and resource payloads are allocated from a bump pointer
+stored at `[0x0a55]`. The observed helpers are:
+
+| Helper | Observed role |
+| --- | --- |
+| `0x13d6(size)` | Allocate `size` bytes from `[0x0a55]`; check against heap limit `[0x0a5b]`; update memory-status byte `[0x0011]`. |
+| `0x1430` | Return the current heap pointer `[0x0a55]`. |
+| `0x143c(ptr)` | Rewind or set `[0x0a55]` to `ptr`. |
+| `0x144b` | Save the current heap pointer in `[0x0a5d]`. |
+| `0x145a` | Restore `[0x0a55]` from `[0x0a5d]` if it is nonzero, then clear `[0x0a5d]`. |
+| `0x1476` | Store the current heap pointer in `[0x0a59]`. |
+| `0x1485` | Free update-list nodes, clear `[0x0a5d]`, restore `[0x0a55]` from `[0x0a59]`, and refresh memory status. |
+| `0x14a0` | Compute free heap bytes as `[0x0a5b] - [0x0a55]` and store the high byte in byte variable `[0x0011]`. |
+
+The broad state-switch path uses `0x1485`, while temporary call-logic cleanup
+uses the more direct `0x143c(record)`.

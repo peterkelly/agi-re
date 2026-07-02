@@ -307,7 +307,7 @@ Documented result:
 - The main logic interpreter at image offset `0x293c` executes from
   `logic_record[0x06]`.
 - Main bytecode structural opcodes:
-  - `0x00`: terminate current logic execution.
+  - `0x00` (`end`): terminate current logic execution.
   - `0xfe`: little-endian relative jump.
   - `0xff`: conditional block.
 - The action dispatcher at image offset `0x02c4` uses the table at
@@ -346,22 +346,22 @@ Documented result:
   - `0x74fc`: toggle flag bit.
   - `0x7502`: test flag bit.
   - `0x752a`: clear `0x20` bytes of flags starting at `0x0109`.
-- Condition opcode `0x07` tests an immediate flag number; condition opcode
-  `0x08` tests a flag number read from the byte-variable array rooted at
+- Condition opcode `0x07` (`flag_set`) tests an immediate flag number; condition opcode
+  `0x08` (`flag_set_var`) tests a flag number read from the byte-variable array rooted at
   `DS:0x0009`.
 - Decoded variable actions:
-  - `0x01`: saturated increment of `var[arg0]`.
-  - `0x02`: saturated decrement of `var[arg0]`.
-  - `0x03`: assign immediate to variable.
-  - `0x04`: assign variable to variable.
-  - `0x05`/`0x06`: add immediate or variable.
-  - `0x07`/`0x08`: subtract immediate or variable.
-  - `0x09`, `0x0a`, `0x0b`: indirect variable assignment forms.
-  - `0xa5`/`0xa6`: multiply by immediate or variable, storing the low byte.
-  - `0xa7`/`0xa8`: divide by immediate or variable, storing the 8-bit quotient.
+  - `0x01` (`inc_var`): saturated increment of `var[arg0]`.
+  - `0x02` (`dec_var`): saturated decrement of `var[arg0]`.
+  - `0x03` (`assignn`): assign immediate to variable.
+  - `0x04` (`assignv`): assign variable to variable.
+  - `0x05` (`addn`)/`0x06` (`addv`): add immediate or variable.
+  - `0x07` (`subn`)/`0x08` (`subv`): subtract immediate or variable.
+  - `0x09` (`indirect_assignv`), `0x0a` (`assign_indirectv`), `0x0b` (`indirect_assignn`): indirect variable assignment forms.
+  - `0xa5` (`muln`)/`0xa6` (`mulv`): multiply by immediate or variable, storing the low byte.
+  - `0xa7` (`divn`)/`0xa8` (`divv`): divide by immediate or variable, storing the 8-bit quotient.
 - Decoded flag actions:
-  - `0x0c`/`0x0d`/`0x0e`: set, clear, or toggle an immediate flag number.
-  - `0x0f`/`0x10`/`0x11`: set, clear, or toggle a flag number read from a
+  - `0x0c` (`set_flag`)/`0x0d` (`clear_flag`)/`0x0e` (`toggle_flag`): set, clear, or toggle an immediate flag number.
+  - `0x0f` (`set_flag_var`)/`0x10` (`clear_flag_var`)/`0x11` (`toggle_flag_var`): set, clear, or toggle a flag number read from a
     variable.
 - Added conservative object/view action notes:
   - `0x23` calls helper `0x0a06`, which validates a 43-byte object entry,
@@ -388,25 +388,28 @@ Additional commands run from `/Users/peter/ai/agi/reverse`:
 Documented result:
 
 - Updated `docs/src/logic_bytecode.md` with another batch of action semantics.
-- Action `0x14` loads a logic resource by immediate number via `0x117d`;
-  action `0x15` does the same with a variable-sourced number.
-- Action `0x16` invokes helper `0x12ae`, which locates or loads a logic
+- Action `0x14` (`load_logic`) loads a logic resource by immediate number via `0x117d`;
+  action `0x15` (`load_logic_var`) does the same with a variable-sourced number.
+- Action `0x16` (`call_logic`) invokes helper `0x12ae`, which locates or loads a logic
   resource and calls the main interpreter at `0x293c` on that logic, preserving
-  the previous current logic pointer at `[0x0981]`; action `0x17` uses a
+  the previous current logic pointer at `[0x0981]`; action `0x17` (`call_logic_var`) uses a
   variable-sourced logic number.
-- Actions `0x1e` and `0x1f` call the view-like resource loader `0x39f7` with
+- Actions `0x1e` (`load_view`) and `0x1f` (`load_view_var`) call the view-like resource loader `0x39f7` with
   immediate or variable-sourced resource numbers.
-- Action `0x62` calls the sound-like resource loader `0x5126`, which uses the
+- Action `0x62` (`load_sound`) calls the sound-like resource loader `0x5126`, which uses the
   sound directory accessor `0x440d`, generic volume reader `0x2e32`, and builds
-  four internal pointers from the payload. Action `0x64` clears an active
+  four internal pointers from the payload. Action `0x64` (`stop_sound_or_clear_sound_state`) clears an active
   sound-like state through helper `0x5234`.
-- Actions `0x21`, `0x22`, `0x3f`, `0x40`, `0x51`, `0x52`, and `0x93` update
+- Actions `0x21` (`reset_object_state`), `0x22` (`clear_all_object_bits`),
+  `0x3f` (`set_global_012d`), `0x40` (`set_object_bit_0100`),
+  `0x51` (`move_object_to`), `0x52` (`move_object_to_var`),
+  and `0x93` (`set_object_pos_dirty`) update
   object/global state fields and object word flags. Field names remain
   provisional.
-- Actions `0x7a` and `0x7b` fill globals `0x0eae..0x0eb3`, combine one operand
+- Actions `0x7a` (`setup_transient_object`) and `0x7b` (`setup_transient_object_var`) fill globals `0x0eae..0x0eb3`, combine one operand
   into the high nibble of `0x0eb3`, then call helper `0x2d52`, which uses the
   object/resource helpers `0x3ae7`, `0x3bb7`, and `0x3ccb`.
-- Action `0x82` stores a generated value in a variable within an inclusive
+- Action `0x82` (`random_range_to_var`) stores a generated value in a variable within an inclusive
   range. Helper `0x71c0` seeds a 16-bit state at `0x1711` from BIOS interrupt
   `1a` if needed, advances that state, and returns an 8-bit mixed value.
 - Inferred the dispatch-table metadata bit rule from decoded handlers and
@@ -431,34 +434,1705 @@ Documented result:
 - Updated `docs/src/logic_bytecode.md`.
 - Corrected the interpretation of the `0x0e` variable-length skip rule. It
   applies to condition-list scanning paths, not to ordinary action opcode
-  `0x0e`; action `0x0e` remains the one-byte immediate flag toggle handler at
+  `0x0e` (`toggle_flag`); action `0x0e` (`toggle_flag`) remains the one-byte immediate flag toggle handler at
   `0x7492`.
-- Refined linear bytecode listing behavior: action `0x00` ends the current
+- Refined linear bytecode listing behavior: action `0x00` (`end`) ends the current
   execution path, but later bytes in the same logic code area can still be
   branch targets, so the local static disassembler keeps scanning after `0x00`.
-- Decoded condition opcode `0x0e` as a variable-length parsed-input word
+- Decoded condition opcode `0x0e` (`input_word_sequence`) as a variable-length parsed-input word
   sequence test. Its operand stream is a byte count followed by that many
   little-endian word IDs. Handler `0x095c` compares those word IDs with a
   parsed input-word buffer rooted at `DS:0x0c7b`, using word `[0x0ca3]` as the
   parsed-word count. Operand word `0x270f` terminates the test successfully,
   and operand word `0x0001` behaves as a wildcard for one parsed word. On full
   match the handler sets flag 4.
-- Decoded action `0x65` as immediate message display and action `0x66` as
+- Decoded action `0x65` (`display_message`) as immediate message display and action `0x66` (`display_message_var`) as
   variable-sourced message display. Both resolve the current logic message
   through helper `0x21f0` and pass the string pointer to display helper
   `0x1ce8`.
-- Decoded actions `0x97` and `0x98` as configured message display variants.
+- Decoded actions `0x97` (`display_message_configured`) and
+  `0x98` (`display_message_configured_var`) as configured message display variants.
   They set temporary globals `[0x0d0b]`, `[0x0d0d]`, and `[0x0d09]` from three
   operand bytes before display, then reset those globals to `0xffff`.
 - Added more conservative object-action notes:
-  - `0x24`: deactivates/removes an active object by clearing bit `0x0001` in
+  - `0x24` (`deactivate_object`): deactivates/removes an active object by clearing bit `0x0001` in
     `[object+0x25]` and calling list/graphics helpers.
-  - `0x2f`: calls helper `0x3ccb` with an immediate operand and clears object
+  - `0x2f` (`set_object_derived_resource_2`): calls helper `0x3ccb` with an immediate operand and clears object
     bit `0x1000`.
-  - `0x36`, `0x37`, `0x38`, and `0x39`: set, set-from-variable, clear, or read
+  - `0x36` (`set_object_field_24`), `0x37` (`set_object_field_24_var`), `0x38` (`clear_object_bit_0004`), and `0x39` (`get_object_field_24`): set, set-from-variable, clear, or read
     object byte `[+0x24]` with bit `0x0004` in `[+0x25]`.
-  - `0x43` and `0x44`: set or clear object bit `0x0200`.
-  - `0x58` and `0x59`: set or clear object bit `0x0002`.
+  - `0x43` (`set_object_bit_0200`) and `0x44` (`clear_object_bit_0200`): set or clear object bit `0x0200`.
+  - `0x58` (`set_object_bit_0002`) and `0x59` (`clear_object_bit_0002`): set or clear object bit `0x0002`.
 - The local stats pass reports `LOGDIR` entry 141 as an invalid-looking target:
   it decodes to `VOL.0` offset `0x1ffff`, where no valid `12 34` volume header
   is present.
+
+## 2026-07-01: additional object and picture action handlers
+
+Additional local tools and artifacts used:
+
+- The MS-DOS 6.22 hard disk image at `build/dos622/dos622.img` was created
+  locally with QEMU and mtools.
+- SQ2 was copied into that image under `C:\SQ2`.
+- QEMU was used to boot DOS, run `SIERRA.COM`, and capture screenshots showing
+  the title sequence and intro scene. This confirmed that the local DOS/QEMU
+  setup can execute the game, but the handler work below is still based on
+  static disassembly.
+
+Additional commands run from `/Users/peter/ai/agi/reverse`:
+
+- `python3 -B tools/disassemble_logic.py --stats`
+- `python3 -B tools/disassemble_logic.py 0 1 2`
+- Focused Rizin disassembly around image offsets `0x1700`, `0x4a00`,
+  `0x6a80`, and `0x6c80`.
+- Focused `ndisasm` disassembly around image offsets `0x47e0`, `0x497b`,
+  `0x4b80`, `0x6b80`, `0x6c54`, `0x6e02`, `0x6f3e`, `0x7000`, `0x74b0`, and
+  `0x7e00`.
+- Additional focused `ndisasm` disassembly around image offsets `0x2250`,
+  `0x7dba`, `0x911d`, `0x91cf`, and `0x93b1`. These runs used file skips
+  equal to image offset plus `0x200`; an earlier shifted dump around the
+  `0x7dba` area was rejected after the exact handler offset was rechecked.
+- Local Python dump of selected action table entries from
+  `SQ2/AGIDATA.OVL` offset `0x061d`, covering opcodes `0x18..0x1b`,
+  `0x2d..0x2e`, and `0x3a..0x57`.
+
+Documented result:
+
+- Updated `tools/disassemble_logic.py` with conservative names for newly
+  decoded common action opcodes.
+- Updated `docs/src/logic_bytecode.md`.
+- Added picture-like action notes:
+  - `0x18` (`load_picture_var`): variable-sourced picture-like resource load through helper
+    `0x4a3b`.
+  - `0x19` (`prepare_picture_var`): variable-sourced picture-like resource preparation through helper
+    `0x4acf`.
+  - `0x1a` (`show_picture_like`): picture/display finalization-like action that clears flag 15,
+    calls helpers `0x1f2b` and `0x5546`, and sets `[0x1216] = 1`.
+  - `0x1b` (`discard_picture_var`): variable-sourced picture-like resource unlink/release helper.
+- Added object bit actions:
+  - `0x2d` (`set_object_bit_2000`)/`0x2e` (`clear_object_bit_2000`): set/clear object bit `0x2000`.
+  - `0x3a` (`clear_object_bit_0010`)/`0x3b` (`set_object_bit_0010`): clear/set object bit `0x0010` through helpers that wrap
+    the update in redraw/cache calls.
+  - `0x3d` (`set_object_bit_0008`)/`0x3e` (`clear_object_bit_0008`): set/clear object bit `0x0008`.
+  - `0x40` (`set_object_bit_0100`): set object bit `0x0100`.
+  - `0x41` (`set_object_bit_0800`): set object bit `0x0800`.
+  - `0x42` (`clear_object_bits_0900`): clear object bits `0x0100` and `0x0800`.
+  - `0x46` (`clear_object_bit_0020`)/`0x47` (`set_object_bit_0020`): clear/set object bit `0x0020`.
+- Added object field/action notes:
+  - `0x45` (`object_distance_to_var`): computes a capped distance-like value between two active objects
+    and stores it in a variable, or stores `0xff` if either object is inactive.
+  - `0x48..0x4b`: set object byte `[+0x23]` to modes 0, 1, 3, or 2, with the
+    mode 1 and mode 2 forms also setting bits `0x1030`, storing an immediate
+    in `[+0x27]`, and clearing the corresponding flag.
+  - `0x4c` (`set_object_field_1f_var`), `0x4f` (`set_object_field_1e_var`), `0x50` (`set_object_field_01_var`), `0x56` (`set_object_field_21_var`), and `0x57` (`get_object_field_21`): move values between
+    variables and object bytes `[+0x1f]`, `[+0x1e]`, `[+0x01]`, and `[+0x21]`.
+  - `0x4d` (`clear_object_fields_21_22`), `0x4e` (`clear_object_field_22_and_global`), `0x53` (`approach_first_object_until_near`), `0x54` (`start_random_motion`), `0x55` (`stop_motion_mode`), `0x83` (`clear_global_0139`), and `0x84` (`set_global_0139_and_clear_object0_field_22`): update
+    object byte `[+0x22]` and related globals, especially `[0x0139]`.
+- Added interpreter/resource-control notes:
+  - `0x12` (`switch_room_like`)/`0x13` (`switch_room_like_var`): broad room/state switch helpers that stop active sound,
+    reset object entries, update byte variable 0, load the target logic, set
+    flag 5, clear the status table at `0x1218`, and call redraw/reinit helpers.
+  - `0x63` (`start_sound_with_flag`): starts a sound-like resource and associates a flag with completion
+    or active-state handling by storing it in `[0x126a]`.
+- Added formatted-message and menu/list-like UI notes:
+  - `0x67` (`display_formatted_message`)/`0x68` (`display_formatted_message_var`): configured formatted-message display helpers. They call
+    setup helper `0x2b28`, pass two placement/configuration values to
+    `0x2b0d`, resolve a current-logic message through `0x21f0`, format/copy it
+    into a large stack buffer via `0x1f54`, send it to `0x2390`, then call
+    cleanup helper `0x2b4f`. The `0x68` form reads all three operands through
+    variables.
+  - `0x9c` (`add_menu_heading_like`): allocates and links an 18-byte top-level node that stores a
+    message pointer, active marker, and position-like value.
+  - `0x9d` (`add_menu_item_like`): allocates and links a 14-byte item node under the current
+    top-level node, storing message pointer, item id, active marker, and
+    row/column-like values.
+  - `0x9e` (`finalize_menu_like`): finalizes the menu/list-like structure and sets `[0x1d2a] = 1`,
+    after which later additions are ignored by the handlers.
+  - `0x9f` (`enable_menu_item_like`)/`0xa0` (`disable_menu_item_like`): walk the menu/list-like structure and set or clear the
+    active marker on item nodes whose stored id matches the operand.
+  - `0xa1` (`mark_menu_if_flag_0e`): tests flag `0x0e`; if set, writes `[0x1d22] = 1`.
+- Corrected action `0x94` (`set_object_pos_dirty_var`): exact disassembly at image offset `0x7dba` shows
+  that it is the variable-coordinate counterpart to `0x93`, storing
+  `var[arg1]` and `var[arg2]` into object fields `[+0x03]` and `[+0x05]`,
+  setting bit `0x0400`, and calling helper `0x593a`.
+
+## 2026-07-01: text-window and auxiliary table action handlers
+
+Additional commands run from `/Users/peter/ai/agi/reverse`:
+
+- `python3 -B tools/disassemble_logic.py --stats`
+- `python3 -B tools/disassemble_logic.py 0 1 2 3 4 5 6 7 8 9 10`
+- Local Python dump of selected action table entries from
+  `SQ2/AGIDATA.OVL` offset `0x061d`, covering opcodes `0x5a..0x61`,
+  `0x69..0x71`, `0x76..0x79`, `0x81`, and `0xa2..0xa4`.
+- Focused `ndisasm` disassembly around image offsets `0x2b78`, `0x34bd`,
+  `0x3547`, `0x382e`, `0x386f`, `0x4c3d`, `0x5e9b`, `0x5ebf`, `0x7538`,
+  `0x7663`, `0x7714`, `0x7803`, `0x7a00`, and `0x7b4e`.
+
+Documented result:
+
+- Updated `tools/disassemble_logic.py` with conservative names for another
+  batch of action opcodes, mostly text-window, prompt/status, and auxiliary
+  table handlers.
+- Added an operand metadata override for action `0xa2` (`display_view_resource_text_like_var`): the table byte is
+  `0x01`, but exact handler disassembly at `0x5e9b` shows it reads the
+  resource number from `var[arg0]`.
+- Added text-window/action notes:
+  - `0x69` (`clear_text_rect`): clears/fills a text rectangle through BIOS `int 10h` service
+    `AH=0x06` via helper `0x2b78`.
+  - `0x6a` (`enable_text_attr_mode_1757`)/`0x6b` (`disable_text_attr_mode_1757`): enable/disable an alternate text-attribute mode tracked by
+    byte `[0x1757]`, then refresh related text areas.
+  - `0x6d` (`set_text_window_pair`): updates globals `[0x05d1]`, `[0x05cd]`, and `[0x05cf]` through
+    helper `0x77d5`.
+  - `0x6e` (`shake_screen_like`): display-shake-like action that either calls display-mode-specific
+    helpers or writes CRT controller ports `0x3d4/0x3d5` directly.
+  - `0x70` (`show_status_line_like`)/`0x71` (`hide_status_line_like`): show/hide a status-line-like area controlled by word
+    `[0x05d9]`.
+  - `0x77` (`disable_input_line_like`)/`0x78` (`enable_input_line_like`): disable/enable an input-line-like area controlled by word
+    `[0x05d3]`.
+  - `0xa3` (`set_global_0d0f`)/`0xa4` (`clear_global_0d0f`): set/clear word `[0x0d0f]`, which helper `0x3652` consults
+    while updating input-line display state.
+- Added auxiliary resource/table notes:
+  - `0x5a` (`set_rect_bounds_0131`)/`0x5b` (`clear_rect_bounds_0131`): set/clear a rectangle/bounds filter stored in globals
+    `[0x0131]`, `[0x0133]`, `[0x0135]`, `[0x0137]`, and `[0x013d]`.
+  - `0x5c..0x61`: manipulate byte `[+0x02]` in 3-byte entries from the table
+    rooted at `[0x0971]`, validating against end pointer `[0x0973]`.
+  - `0x79` (`map_key_event`): stores `(arg0 | arg1 << 8, arg2)` into the first free four-byte
+    slot among 39 slots rooted at `0x0145`.
+  - `0x81` (`display_view_resource_text_like`)/`0xa2` (`display_view_resource_text_like_var`): immediate and variable forms of a view-like resource
+    display/preview helper that loads the resource, builds a temporary
+    object-like record, displays a resource-derived string through `0x1ce8`,
+    and cleans up temporary allocations.
+
+## 2026-07-01: resource accessors and prompt/session handlers
+
+Additional commands run from `/Users/peter/ai/agi/reverse`:
+
+- `python3 -B tools/disassemble_logic.py --stats`
+- Local Python dump of selected action table entries from
+  `SQ2/AGIDATA.OVL` offset `0x061d`, covering opcodes `0x2f..0x35`,
+  `0x72..0x76`, `0x85..0x86`, `0x8e`, and `0x91..0x92`.
+- Focused `ndisasm` disassembly around image offsets `0x027f`, `0x0d37`,
+  `0x1335`, `0x3c8c`, `0x3e25`, `0x4de8`, `0x4e8d`, `0x5234`, `0x716a`, and
+  `0x71ed`.
+- `python3 -B tools/disassemble_logic.py --limit 200 | rg ...` was attempted
+  for call-site sampling, but the helper aborted at the known invalid `LOGDIR`
+  entry 141. The partial output before that abort was used only as supporting
+  call-site evidence; the verification pass continues to use `--stats`, which
+  records and skips the bad entry.
+
+Documented result:
+
+- Added resource-derived object accessor notes:
+  - `0x30` (`set_object_derived_resource_2_var`): variable-argument counterpart to `0x2f`, calling helper `0x3ccb`.
+    The helper selects a derived subresource/loop-like entry, updates object
+    byte `[+0x0e]`, pointer `[+0x10]`, words `[+0x1a]` and `[+0x1c]`, clamps
+    object coordinates, and sets bit `0x0400` if it adjusts them.
+  - `0x31` (`get_object_resource_loop_count`): stores `*([object+0x0c]) - 1` into a variable, apparently a count
+    from the object's loaded resource table.
+  - `0x32` (`get_object_field_0e`), `0x33` (`get_object_field_0a`), `0x34` (`get_object_field_07`), and `0x35` (`get_object_field_0b`): copy object bytes `[+0x0e]`,
+    `[+0x0a]`, `[+0x07]`, and `[+0x0b]` into variables. `0x35` was present in
+    the table but not encountered in the current SQ2 scan.
+- Added string/prompt notes:
+  - `0x72` (`set_string_slot_from_message`): copies a current-logic message into fixed string slot
+    `0x020d + arg0 * 0x28` through helper `0x4de8`.
+  - `0x76` (`prompt_number_to_var`): displays a current-logic message prompt, accepts up to four
+    characters through helper `0x0da9`, parses the result as decimal via
+    `0x4e8d`, and stores the low byte in a variable.
+  - `0x85` (`display_object_diagnostics_var`): formats several object fields into a display string using template
+    pointer `0x1713`, then displays it through `0x1ce8`.
+- Added interpreter/session-control notes:
+  - `0x86` (`confirm_and_restart_like`): stops sound state and conditionally calls helper `0x02ae`, which
+    calls `0x8275` and `0x00ae(0)`. The handler displays string `0x05e3` as a
+    confirmation path when the operand is not 1.
+  - `0x8e` (`set_global_0141_and_refresh`): stores a word at `[0x0141]` and calls refresh helper `0x707c`
+    wrapped in `0x6a54`/`0x6a8e`.
+  - `0x91` (`save_logic_resume_ip`): saves the current bytecode pointer into `[current_logic+0x06]`.
+  - `0x92` (`restore_logic_entry_ip`): restores `[current_logic+0x06]` from `[current_logic+0x04]`.
+
+## 2026-07-01: graphics and object pipeline synthesis
+
+Additional commands run from `/Users/peter/ai/agi/reverse`:
+
+- `sed -n '1,220p' AGENTS.md`
+- `rg -n "picture|draw|object|graphics|0x4a3b|0x4acf|0x6445|0x6a54|0x6a8e|0x593a|0x59fa|0x3ae7|0x3ccb|0x09ea|0x0a06" docs/src tools`
+- `ls docs/src`
+- `python3 -B tools/disassemble_logic.py --stats`
+- Focused `ndisasm` disassembly around image offsets `0x0307`, `0x09ea`,
+  `0x3979`, `0x3bb7`, `0x4a16`, `0x5200`, `0x5546`, `0x593a`, `0x6440`,
+  `0x6a20`, `0x6a54`, and `0x9097`. These runs used file skips equal to image
+  offset plus `0x200`, matching the decrypted MZ header size.
+- Additional reads of existing docs with `sed` and `rg` to avoid duplicating
+  opcode tables already captured in `logic_bytecode.md`.
+
+Documented result:
+
+- Added `docs/src/graphics_object_pipeline.md`.
+- Added the new chapter to `docs/src/SUMMARY.md`.
+- Consolidated the picture load/decode path:
+  - Action `0x18` (`load_picture_var`) calls loader `0x4a3b`, which uses cache lookup `0x49e8`,
+    directory accessor `0x43d9`, and generic reader `0x2e32`.
+  - Action `0x19` (`prepare_picture_var`) calls helper `0x4acf`, stores the selected payload pointer at
+    `[0x1377]`, wraps the operation in `0x6a54`/`0x6a8e`, and decodes the
+    picture through `0x6445`.
+  - Action `0x1a` (`show_picture_like`) clears flag 15, calls display helpers, and sets
+    `[0x1216] = 1`.
+- Documented the picture command scanner at `0x6475`, including the
+  `0xf0..0xfa` dispatch range, the `0xff` terminator, and the observed drawing
+  globals `[0x1369]`, `[0x136b]`, `[0x136c]`, `[0x136d]`, `[0x136e]`, and
+  `[0x136f]`.
+- Expanded the view/object binding model:
+  - Helper `0x3ae7` binds a cached view-like payload to object fields `+0x07`
+    and `+0x08`, copies payload byte `+0x02` into object byte `+0x0b`, and
+    delegates to `0x3bb7`.
+  - Helpers `0x3c1b`, `0x3ccb`, and `0x3d6a` select nested subresources,
+    update object pointer/size fields, and clamp object coordinates.
+- Added a field map for the 43-byte object records rooted at `[0x096b]`.
+- Documented object activation/deactivation helpers `0x0a06` and `0x0aab`,
+  including their list flushing/rebuild calls and the observed active bit
+  `0x0001`.
+- Documented placement helper `0x593a` and bounds helper `0x5a14`, including
+  the screen limits `0xa0` and `0xa7` and the horizon-like global `[0x012d]`.
+- Clarified the update-list wrappers:
+  - `0x6a26` builds list root `0x16ff` through shared builder `0x0358`.
+  - `0x6a3d` builds list root `0x1703` through shared builder `0x0358`.
+  - `0x6a54` flushes both roots through `0x0307`.
+  - `0x6a8e` rebuilds and processes both roots through `0x045e`.
+  - `0x6aab` compares current and saved object fields through `0x0488`.
+
+## 2026-07-01: view payload and object overlay rendering
+
+Additional commands run from `/Users/peter/ai/agi/reverse`:
+
+- `rg -n "0x3d6a|0x9097|0x9177|0x9db0|0x9db6|0x5762|view payload|render/update|update node|0x042f|0x0358" docs/src tools`
+- Focused `ndisasm` disassembly around main executable image offsets `0x0307`,
+  `0x0358`, `0x3d6a`, `0x587d`, and `0x9097`. A few intermediate disassembly
+  commands used mismatched `-o`/`-e` values and were rejected; the observations
+  documented here use the corrected convention `-o image_offset` and
+  `-e image_offset + 0x200`.
+- `wc -c build/cleanroom/AGI.decrypted.exe SQ2/EGA_GRAF.OVL SQ2/IBM_OBJS.OVL SQ2/AGIDATA.OVL`
+- `file SQ2/EGA_GRAF.OVL SQ2/IBM_OBJS.OVL SQ2/AGIDATA.OVL`
+- `xxd -l 128 -g 1 SQ2/EGA_GRAF.OVL`
+- `xxd -l 128 -g 1 SQ2/IBM_OBJS.OVL`
+- `ndisasm -b 16 -o 0x9db0 SQ2/IBM_OBJS.OVL`
+- `ndisasm -b 16 -o 0x9800 SQ2/EGA_GRAF.OVL`
+- `python3 -B tools/inspect_view.py 0 1 2 10 --groups 4 --frames 5`
+- `python3 -B tools/inspect_view.py --limit 12 --groups 2 --frames 3`
+- `python3 -B tools/inspect_view.py 11 --groups 4 --frames 4`
+- `python3 -B -m py_compile tools/disassemble_logic.py tools/inspect_view.py`
+
+Documented result:
+
+- Added `tools/inspect_view.py`, a deterministic local helper for printing the
+  observed view-like payload structure using only the locally derived
+  directory and volume readers.
+- Confirmed that calls to `0x9db0`, `0x9db3`, and `0x9db6` target
+  `IBM_OBJS.OVL`, which is loaded at segment `0x09db` and therefore appears at
+  near offsets starting at `0x9db0`.
+- Documented the three IBM object-overlay entry jumps:
+  - `0x9db0 -> 0x9db9`: save a screen rectangle into a node backing buffer.
+  - `0x9db3 -> 0x9df8`: restore a screen rectangle from a node backing buffer.
+  - `0x9db6 -> 0x9e35`: draw an object's selected frame into the graphics
+    buffer.
+- Documented render/update node layout from allocator `0x9097`: next pointer,
+  previous pointer, object pointer, rectangle coordinates/dimensions, and a
+  backing-buffer pointer.
+- Expanded the view-like payload format:
+  - Payload byte `+0x02` is the top-level group count.
+  - The group offset table begins at payload `+0x05`, with 16-bit offsets
+    relative to the payload base.
+  - Each group starts with a frame count, followed by 16-bit frame offsets
+    relative to the group base.
+  - Each frame begins with width, height, and a control byte, followed by
+    row-terminated encoded data.
+- Local `tools/inspect_view.py` samples matched the helper-derived layout. For
+  example, view 11 has two groups; group 0 starts at offset `0x09`, has two
+  frames, and its first frame starts at offset `0x0e` with size `20x5` and
+  control byte `0x01`.
+- Documented the current frame-data model from object overlay draw routine
+  `0x9e35`: zero bytes terminate rows; nonzero bytes use the high nibble as a
+  color-like value and the low nibble as a run length; a run whose high nibble
+  matches the frame control byte's low nibble advances without writing.
+
+## 2026-07-01: object update-list selection and movement pass
+
+Additional commands run from `/Users/peter/ai/agi/reverse`:
+
+- `sed -n '1,260p' AGENTS.md`
+- `sed -n '1,260p' docs/src/graphics_object_pipeline.md`
+- `tail -n 180 docs/src/clean_room_executable_notes.md`
+- `rg -n "0x150a|0x4719|0x56b8|0x69e4|0x6a05|0x6b44|0x6b62|0x0400|0x0051" docs/src tools`
+- Focused `ndisasm` disassembly around main executable image offsets `0x13f0`,
+  `0x4619`, `0x55b8`, `0x583a`, and `0x69c0`. Some intermediate commands used
+  mismatched file skips and were rejected; the observations below use the
+  corrected convention `-o image_offset` and `-e image_offset + 0x200` for
+  `build/cleanroom/AGI.decrypted.exe`.
+
+Documented result:
+
+- Refined the update-list predicates:
+  - Callback `0x69e4`, used by builder wrapper `0x6a26` for root `0x16ff`,
+    accepts objects when `(object[+0x25] & 0x0051) == 0x0051`.
+  - Callback `0x6a05`, used by builder wrapper `0x6a3d` for root `0x1703`,
+    accepts objects when `(object[+0x25] & 0x0051) == 0x0041`.
+  - Therefore flag bit `0x0010` partitions otherwise active/eligible objects
+    between the two update-list roots. Helpers `0x6b44` and `0x6b62` clear and
+    set that bit while wrapping the change with `0x6a54`/`0x6a8e`.
+- Documented movement pass `0x150a`:
+  - It clears event globals `[0x000e]`, `[0x000d]`, and `[0x000b]`.
+  - It scans object records from `[0x096b]` to `[0x096d]` in `0x2b`-byte
+    strides, processing only objects whose flag word satisfies
+    `(object[+0x25] & 0x0051) == 0x0051`.
+  - Object byte `+0x01` is a countdown/tick divider reloaded from byte `+0x00`.
+  - Unless bit `0x0400` is set, direction byte `+0x21`, step byte `+0x1e`, and
+    signed-delta tables at `0x0a61` and `0x0a73` produce proposed X/Y movement.
+  - Proposed movement is clamped to left, right, top, bottom, and horizon-like
+    bounds, producing boundary codes 1 through 4.
+  - The move is accepted only when `0x4719(object)` returns zero and
+    `0x56b8(object)` returns nonzero. Otherwise the previous X/Y coordinates
+    are restored and placement search helper `0x593a(object)` is called.
+  - Boundary events are written to `[0x000b]` for objects with byte `+0x02 == 0`
+    or to `[0x000d]`/`[0x000e]` for nonzero byte `+0x02`. If byte `+0x22 == 3`,
+    helper `0x16b9(object)` ends that motion/control state.
+  - The pass clears object bit `0x0400` before leaving an object.
+- Documented helper `0x4719(object)` as an object-object collision/crossing
+  test. It skips objects with bit `0x0200`, skips candidates with matching byte
+  `+0x02`, checks horizontal rectangle overlap from X and width, then checks
+  whether current and previous Y positions cross.
+- Documented helper `0x56b8(object)` as a control/priority-buffer acceptance
+  test. It may derive object byte `+0x24` from table `0x127a`, scans high
+  nibbles in the graphics/control buffer at `[0x136f]`, reacts to nibble classes
+  `0x10`, `0x20`, and `0x30`, and returns nonzero to permit a proposed move.
+- Added targeted-motion notes for helpers `0x1672`, `0x16ed`, and `0x16b9`:
+  direction-like byte `+0x21` can be computed from the current object position
+  to target fields `+0x27`/`+0x28`, and `0x16b9` restores byte `+0x1e` from
+  `+0x29` while setting completion flag `+0x2a` and clearing motion/control
+  byte `+0x22`.
+
+## 2026-07-01: graphics/control buffer helper pass
+
+Additional commands run from `/Users/peter/ai/agi/reverse`:
+
+- Focused `ndisasm` disassembly around main executable image offsets `0x4c80`,
+  `0x5200`, `0x5480`, `0x5528`, `0x5660`, `0x5700`, and `0x57c0`.
+- `xxd -s 0x52b5 -l 8 -g 2 build/cleanroom/AGI.decrypted.exe`
+- `ndisasm -b 16 -o 0x0 -e 0x200 build/cleanroom/AGI.decrypted.exe | rg "call 0x4d10|call 0x56a2|call 0x4cbb|call 0x5666|call 0x56b8|call 0x5762|call 0x57cf"`
+- A raw `xxd` read at file offset `0x127a` and an origin-shifted whole-image
+  call-site scan were rejected. The `0x127a` table described below is a runtime
+  table initialized by code, and the accepted whole-image call-site scan uses
+  `-o 0x0 -e 0x200`.
+
+Documented result:
+
+- Added a graphics/control buffer helper section to
+  `docs/src/graphics_object_pipeline.md`.
+- Documented helper `0x5257` as a buffer fill routine for the segment stored in
+  `[0x136f]`. It writes `0x3480` words, matching a `0x6900`-byte grid. Picture
+  decoding calls it with `AX = 0x4f4f`, while helper `0x5528` calls it with
+  `AX = 0x4040`.
+- Documented helper `0x5666` as the direct coordinate-to-buffer conversion
+  `DI = y * 0xa0 + x`, with `AL = y` and `AH = x`.
+- Documented helper `0x56a2` as the default initializer for the 168-byte table
+  rooted at `0x127a`: rows `0..47` map to 4, and subsequent 12-row bands map to
+  values 5 through 14.
+- Documented helper `0x4cbb(value)` as a reverse mapping from a
+  priority/control value toward a Y row. In one mode it scans the `0x127a`
+  table downward; when `[0x124a]` is nonzero it uses
+  `(value - 5) * 12 + 0x30`.
+- Documented helper `0x57cf(object)` as a post-draw buffer marker. It calls the
+  object overlay draw entry `0x9db6`, ensures object byte `+0x24` has a low
+  nibble derived from the Y table if absent, and writes the high nibble of
+  `+0x24` around the object's buffer footprint while preserving low nibbles.
+- Refined helper `0x56b8(object)`: it scans the high nibbles of the selected
+  frame width at the object's X/Y buffer row. High nibble `0x00` rejects
+  immediately; `0x10` requires object flag bit `0x0002`; `0x20` records a seen
+  class; `0x30` continues without changing the tracked class. After the scan,
+  bits `0x0100` and `0x0800` can reject the final class state, and objects with
+  byte `+0x02 == 0` update global flags 3 and 0 through `0x74ee`/`0x74f4`.
+
+## 2026-07-01: transient object and view-preview rendering pass
+
+Additional commands run from `/Users/peter/ai/agi/reverse`:
+
+- `sed -n '1,220p' AGENTS.md`
+- `sed -n '1,460p' docs/src/graphics_object_pipeline.md`
+- `tail -n 180 docs/src/clean_room_executable_notes.md`
+- `rg -n "0x57cf|0x5a14|0x5a3a|0x5fd3|0x6006|0x56b8|0x5762|0x980c|0x9812|0x9db6|0x1c54|0x2e1b|0x2e28" docs/src tools`
+- Focused `ndisasm` disassembly around main executable image offsets `0x1c20`,
+  `0x2c40`, and `0x5e80`, using `-e image_offset + 0x200`.
+- `python3 -B tools/disassemble_logic.py --limit 5 | sed -n '1,220p'`
+- Follow-up reads of the existing `0x7a`, `0x7b`, `0x81`, and `0xa2` opcode
+  notes in `docs/src/logic_bytecode.md`.
+- `python3 -B tools/inspect_view.py --limit 40 --groups 1 --frames 1`
+- `sed -n '1,260p' tools/inspect_view.py`
+
+Documented result:
+
+- Added a transient/preview object section to
+  `docs/src/graphics_object_pipeline.md`.
+- Refined the `0x7a` and `0x7b` entries in `docs/src/logic_bytecode.md`.
+- Updated `tools/inspect_view.py` to print the observed preview/display string
+  offset from `u16(payload + 0x03)`.
+- Documented actions `0x7a` (`setup_transient_object`)/`0x7b` (`setup_transient_object_var`)
+  as callers of helper `0x2d52`, which uses a
+  fixed 43-byte object-like record at `0x0eb4`.
+  - Staged byte `0x0eae` selects the view-like resource.
+  - `0x0eaf` selects the top-level group.
+  - `0x0eb0` selects the frame/derived entry.
+  - `0x0eb1` and `0x0eb2` are X/Y coordinates.
+  - The low and high nibbles of `0x0eb3` feed object byte `+0x24`.
+  - The helper binds the view through `0x3ae7`, selects group/frame through
+    `0x3bb7` and `0x3ccb`, places the object with `0x593a`, draws/marks it
+    through `0x57cf`, rebuilds update lists with `0x6a54`/`0x6a8e`, and calls
+    `0x5762`.
+- Documented the fixed transient record's initialization:
+  - Its selected frame pointer is copied to saved-frame field `+0x12`.
+  - Staged X/Y are copied into both current and saved coordinate fields.
+  - Flag word `+0x25` starts as `0x020c`, combining fixed-priority,
+    horizon-exempt, and collision-skip behavior.
+  - If the staged priority/control low nibble is zero, the helper later
+    replaces the flag word with `0x0008` before drawing/marking.
+- Refined the `0x81`/`0xa2` view-resource preview path:
+  - Helper `0x5edb` records whether the view resource was already cached,
+    temporarily sets `[0x0f18] = 1` while loading it, and initializes a
+    stack-local 43-byte object-like record with group/frame zero.
+  - The temporary preview object is centered with `x = (0x9f - width) / 2`,
+    given `y = 0xa7`, fixed priority/control byte `+0x24 = 0x0f`, and grouping
+    byte `+0x02 = 0xff`.
+  - If enough memory is available, the helper allocates a render node through
+    `0x9097`, saves the backing rectangle with `0x9db0`, draws with `0x9db6`,
+    and later restores with `0x9db3` and frees with `0x910a`.
+  - The displayed string pointer is `payload + u16(payload + 0x03)`, giving the
+    first observed consumer for view payload bytes `+0x03..+0x04`.
+  - The first 40 present SQ2 view resources sampled by `tools/inspect_view.py`
+    all had `u16(payload + 0x03) == 0`, so a nonzero local example remains to
+    be found.
+  - If the resource was not cached before the preview, the helper releases it
+    through `0x3f0d`.
+
+## 2026-07-01: object rectangle conditions and configured motion bounds
+
+Additional commands run from `/Users/peter/ai/agi/reverse`:
+
+- `sed -n '1,220p' AGENTS.md`
+- `rg -n "condition|0x0b|object_rect|rect_test|0x08c6|0x7be6|0x013d|0x0131|0x4719|0x47ef" docs/src tools`
+- `sed -n '260,360p' docs/src/logic_bytecode.md`
+- `sed -n '1,520p' docs/src/graphics_object_pipeline.md`
+- Focused `ndisasm` disassembly around main executable image offsets `0x0800`,
+  `0x0680`, `0x06c0`, `0x47e0`, and `0x7b40`, using
+  `-e image_offset + 0x200`.
+- `ndisasm -b 16 -o 0x0 -e 0x200 build/cleanroom/AGI.decrypted.exe | rg "call 0x7be6|call 0x08c6|call 0x08cc|call 0x08db|call 0x08e8|call 0x091a|call 0x47ef"`
+- Follow-up reads of the condition-name table in `tools/disassemble_logic.py`
+  and the condition documentation in `docs/src/logic_bytecode.md`.
+
+Documented result:
+
+- Refined the local names for condition opcodes `0x0b` (`object_left_baseline_in_rect`),
+  `0x10` (`object_width_baseline_in_rect`), `0x11` (`object_center_baseline_in_rect`), and
+  `0x12` (`object_right_baseline_in_rect`) in `tools/disassemble_logic.py`.
+- Expanded the condition documentation for object rectangle tests:
+  - Shared helper `0x091a` resolves object index `arg0`, loads object X into
+    `DH` and `CH`, and loads object Y into `DL`.
+  - Common comparison helper `0x08f0` checks `DH >= arg1`, `DL >= arg2`,
+    `CH <= arg3`, and `DL <= arg4`.
+  - Condition `0x0b` (`object_left_baseline_in_rect`) tests object left X/baseline Y.
+  - Condition `0x10` (`object_width_baseline_in_rect`) tests the full horizontal span from left X to
+    `x + width - 1`.
+  - Condition `0x11` (`object_center_baseline_in_rect`) tests horizontal center X.
+  - Condition `0x12` (`object_right_baseline_in_rect`) tests right X.
+- Documented the configured rectangle helper:
+  - Action `0x5a` (`set_rect_bounds_0131`) stores bounds in `[0x0131]`, `[0x0133]`, `[0x0135]`, and
+    `[0x0137]`, and sets `[0x013d] = 1`.
+  - Action `0x5b` (`clear_rect_bounds_0131`) clears `[0x013d]`.
+  - Helper `0x7be6(x, y)` returns true only for points strictly inside the
+    configured rectangle.
+  - Helper `0x06d9(object)` compares whether the object's current baseline
+    point and next step point are on the same side of that rectangle. A crossing
+    sets object bit `0x0080`, clears direction byte `+0x21`, and clears global
+    byte `[0x000f]` when the object is the first object record. No crossing
+    clears bit `0x0080`.
+
+## 2026-07-01: object dirty rectangles and graphics-overlay refresh entries
+
+Additional commands run from `/Users/peter/ai/agi/reverse`:
+
+- `git status --short`
+- `sed -n '1,240p' AGENTS.md`
+- `sed -n '1,260p' docs/src/graphics_object_pipeline.md`
+- `tail -n 120 docs/src/clean_room_executable_notes.md`
+- `rg -n "0x5762|0x970c|0x9812|0x9815|0x5546|0x5528|0x9db0|0x9db3|0x9db6|display" docs/src tools`
+- Focused `ndisasm` disassembly around main executable image offsets `0x5500`,
+  `0x5700`, and `0x9600`, using `-e image_offset + 0x200`.
+- `sed -n '430,530p' docs/src/graphics_object_pipeline.md`
+- `sed -n '160,210p' docs/src/agi_executable.md`
+- `rg -n "0x9800|0x980c|0x9812|0x9815|0x9837|JR_GRAF|CGA_GRAF|IBM_OBJS|load overlay|OVL" docs/src tools`
+- `ls -l build/cleanroom/AGI.decrypted.exe SQ2/*.OVL`
+- `ndisasm -b 16 -o 0x9800 SQ2/EGA_GRAF.OVL`
+- `ndisasm -b 16 -o 0x9800 SQ2/CGA_GRAF.OVL`
+- `ndisasm -b 16 -o 0x9800 SQ2/VG_GRAF.OVL`
+- Follow-up reads of the render/update section in
+  `docs/src/graphics_object_pipeline.md`.
+
+Documented result:
+
+- Replaced the previous tentative note about helper `0x5762` with a concrete
+  dirty-rectangle interpretation:
+  - It returns immediately unless word `[0x1216]` is nonzero.
+  - It compares the current frame pointer `object+0x10` and saved frame pointer
+    `object+0x12`, plus current/saved X/Y fields `+0x03/+0x05` and
+    `+0x16/+0x18`.
+  - It copies the current frame pointer to `+0x12`.
+  - It computes the union rectangle covering the old and new object frame
+    footprints.
+  - It calls graphics-overlay entry `0x980c` with that union rectangle.
+- Documented the common rectangle argument contract used by `0x980c` and
+  `0x9812`:
+  - `AH = left X`
+  - `AL = bottom Y`
+  - `BL = width`
+  - `BH = height`
+- Documented graphics-overlay entry `0x980c` as a rectangle copy from the
+  interpreter's logical graphics buffer segment `[0x136f]` to display memory
+  segment `[0x1371]`.
+- Documented graphics-overlay entry `0x9812` as a rectangle fill; in the EGA
+  and VGA overlays, low byte `DL` supplies the fill value.
+- Refined helpers around the full-screen display path:
+  - `0x5528` clears the logical graphics buffer with fill word `0x4040`, calls
+    graphics-overlay entry `0x980f`, rebuilds the default priority/control
+    table with `0x56a2`, then calls entry `0x9800`.
+  - `0x5546` can swap nibbles across the logical graphics buffer when
+    `[0x1755] & 1` is set, calls HGC-specific helper `0x9899` in display mode
+    2, then calls `0x980c` for the full `0xa0` by `0xa8` screen rectangle.
+  - `0x5624` converts the common coordinate tuple into display-memory offsets,
+    with display-mode branches controlled by `[0x1130]` and `[0x112e]`.
+- Added the EGA graphics overlay entry table from local disassembly of
+  `SQ2/EGA_GRAF.OVL` loaded at near origin `0x9800`:
+  - `0x9800 -> 0x9815`: set graphics mode `0x0d` and store video segment
+    `0xa000` in `[0x1371]`.
+  - `0x9803 -> 0x9835`: return to text mode and clear/configure the text
+    screen.
+  - `0x9806 -> 0x986f`: reinitialize graphics and call `0x5546`.
+  - `0x9809 -> 0x9884`: no-op in EGA.
+  - `0x980c -> 0x9885`: copy a logical-buffer rectangle to EGA display memory.
+  - `0x980f -> 0x9983`: initialize row-offset table `0x137b` and clear a
+    display-memory range.
+  - `0x9812 -> 0x9907`: fill a display rectangle.
+
+## 2026-07-01: update-list phase order and stationary object flag
+
+Additional commands run from `/Users/peter/ai/agi/reverse`:
+
+- Focused `ndisasm` disassembly around main executable image offsets `0x0300`,
+  `0x0400`, and `0x69c0`, using `-e image_offset + 0x200`.
+- `ndisasm -b 16 -o 0x0 -e 0x200 build/cleanroom/AGI.decrypted.exe | rg "4000|6a54|6a8e|6aab|045e|0488|0307|0358"`
+- Focused follow-up disassembly around image offsets `0x0b80`, `0x3f30`, and
+  `0x67f0`, using `sed` to limit the visible output.
+
+Documented result:
+
+- Refined the update-list lifecycle:
+  - `0x0307(root)` walks root nodes, restores each saved rectangle through
+    `0x9db3`, then calls `0x032d(root)` to free nodes and clear root pointers.
+  - `0x032d(root)` frees nodes through `0x910a` without doing the restore pass.
+  - `0x045e(root)` walks from the list tail backward, saving each node's
+    backing rectangle with `0x9db0` and drawing the node's object through
+    `0x9db6`.
+  - `0x6a54` restores/frees roots `0x16ff` and `0x1703` through `0x0307`.
+  - `0x6a71` frees both roots through `0x032d` without restoration.
+  - `0x6a8e` rebuilds and draws root `0x1703` first, then root `0x16ff`.
+  - `0x6aab` runs `0x0488` over root `0x1703` first, then root `0x16ff`.
+- Refined helper `0x0488(root)`:
+  - For each node it calls `0x5762(object)` before comparing saved fields.
+  - It only performs the position comparison when object byte `+0x01` equals
+    reload byte `+0x00`.
+  - If current X/Y `+0x03/+0x05` equal saved X/Y `+0x16/+0x18`, it sets flag
+    bit `0x4000`.
+  - Otherwise it copies current X/Y to saved X/Y and clears bit `0x4000`.
+- Refined object flag bit `0x4000` from a generic comparison marker to a
+  stationary/stuck marker used by later motion helpers.
+- Observed two consumers of bit `0x4000`:
+  - Helper `0x3f5a`, reached from motion/control mode byte `+0x22 == 1`, picks
+    a new random direction through `0x3fa3` when its local countdown expires or
+    when bit `0x4000` is set.
+  - The helper around `0x0bb3`, reached from the `+0x22 == 2` path, can also
+    replace direction byte `+0x21` with a random nonzero direction when bit
+    `0x4000` reports no movement.
+
+## 2026-07-01: logic cache lifetime and room-switch scheduler path
+
+Additional commands run from `/Users/peter/ai/agi/reverse`:
+
+- `git status --short`
+- `sed -n '1,220p' AGENTS.md`
+- `sed -n '1,360p' docs/src/logic_bytecode.md`
+- `sed -n '1,280p' docs/src/logic_resources.md`
+- `tail -n 220 docs/src/clean_room_executable_notes.md`
+- `rg -n "0x117d|0x119a|0x12ae|0x1364|0x13a5|0x1792|heap|cache|logic record|0x0977|0x0985|0x0983" docs/src tools/disassemble_logic.py`
+- Initial raw `ndisasm` reads around the same regions. These produced too much
+  output because `-e` is the input skip amount, not an end offset; they were
+  used only for coarse orientation.
+- Focused follow-up `ndisasm` disassembly around main executable image offsets
+  `0x10d0`, `0x117d`, `0x1364`, and `0x1792`, using the decrypted executable
+  header skip and `sed` to limit the visible output.
+
+Documented result:
+
+- Expanded `docs/src/logic_resources.md` with the 10-byte logic cache record
+  layout:
+  - `+0x00` next record pointer.
+  - `+0x02` logic number byte.
+  - `+0x03` message count byte.
+  - `+0x04` bytecode base pointer, equal to `payload + 2`.
+  - `+0x06` current interpreter instruction pointer.
+  - `+0x08` message offset table base pointer.
+- Documented helper `0x110f(logic_number)` as the logic-cache scan. It walks
+  the list rooted at `[0x0977]` and stores the link slot for the matching or
+  insertion position in `[0x0983]`.
+- Refined loader `0x119a(logic_number)`:
+  - On cache miss it calls `0x6a54`, allocates a 10-byte record through
+    `0x13d6`, links it through `[0x0983]`, loads the resource through
+    `0x4371` and `0x2e32`, derives bytecode/message pointers, temporarily sets
+    `[0x0981]` while decrypting message text, then calls `0x6a8e`.
+  - On cache hit it returns the existing record.
+- Documented call helper `0x12ae(logic_number)`:
+  - It preserves the previous current logic pointer `[0x0981]`.
+  - If the target logic is already cached, it interprets that record in place.
+  - If the target logic is missing, it loads it through `0x119a`, runs
+    interpreter `0x293c`, unlinks it afterward through the saved `[0x0983]`
+    slot, and rewinds the heap top to the start of that transient record
+    through `0x143c`.
+  - Actions `0x16` (`call_logic`) and `0x17` (`call_logic_var`) propagate a zero interpreter result as a zero
+    next-instruction pointer, stopping the current logic loop.
+- Documented routine `0x1364` as a snapshot writer for loaded logic execution
+  positions. It emits 4-byte entries at `0x0985` containing logic number and
+  `current_ip - bytecode_base`, followed by a `0xffff` terminator.
+- Documented routine `0x13a5(record)` as the matching restore path, setting
+  `record[0x06] = record[0x04] + saved_offset` when it finds the record's
+  logic number in the `0x0985` table.
+- Added heap-pointer helpers used by this path:
+  - `0x13d6(size)` allocates from `[0x0a55]`.
+  - `0x143c(ptr)` sets or rewinds `[0x0a55]`.
+  - `0x1485` restores the heap pointer from mark `[0x0a59]` after freeing
+    update-list nodes.
+  - `0x14a0` updates the free-memory status byte `[0x0011]`.
+- Refined room/state switch helper `0x1792`, reached by actions `0x12` (`switch_room_like`) and
+  `0x13` (`switch_room_like_var`):
+  - It stops active sound, restores heap/update-list state through `0x1485`,
+    calls cleanup helpers `0x4482`, `0x707c`, and `0x706d`, and resets every
+    object record's active/resource/frame state.
+  - It sets `[0x0139] = 1`, stores `0x24` in `[0x012d]`, saves old byte
+    variable 0 in byte variable 1, writes the destination logic number to byte
+    variable 0, clears bytes `[0x000d]` and `[0x000e]`, and stores object 0's
+    view/resource byte in `[0x0019]`.
+  - It loads the destination logic through `0x117d`, optionally loads the
+    logic named by `[0x1d12]`, may reposition object 0 from boundary byte
+    `[0x000b]`, sets flag 5, and calls redraw/reinitialization helpers.
+
+## 2026-07-01: input parsing action and WORDS.TOK dictionary format
+
+Additional commands run from `/Users/peter/ai/agi/reverse`:
+
+- `git status --short`
+- `sed -n '1,220p' AGENTS.md`
+- `rg -n "action_75|0x75|0x1958|0x18ac|0x0c7b|0x0c8f|0x0ca3|input_word_sequence|parsed input|word" docs/src tools/disassemble_logic.py`
+- Focused `ndisasm` disassembly around main executable image offsets `0x1800`,
+  `0x0c00`, `0x0e00`, `0x1a30`, `0x4d80`, `0x4f50`, and `0x5000`, using
+  the decrypted executable header skip and `sed` to limit output.
+- `xxd -s 0x0940 -l 0x50 -g 1 SQ2/AGIDATA.OVL`
+- `xxd -s 0x0c60 -l 0x70 -g 1 SQ2/AGIDATA.OVL`
+- `ls -l SQ2`
+- `xxd -l 160 -g 1 SQ2/WORDS.TOK`
+- `xxd -s 0x40 -l 160 -g 1 SQ2/WORDS.TOK`
+- `xxd -s 0x1a50 -l 160 -g 1 SQ2/WORDS.TOK`
+- Local Python sanity check of the inferred `WORDS.TOK` decoder, followed by
+  the deterministic script `tools/inspect_words.py`.
+- `python3 -B tools/inspect_words.py --limit 60`
+- `python3 -B tools/inspect_words.py --prefix look --limit 20`
+- `python3 -B tools/inspect_words.py --id 0x0001 --limit 20`
+- `python3 -B tools/inspect_words.py --prefix get --limit 20`
+
+Documented result:
+
+- Added `tools/inspect_words.py`, a deterministic local inspector for
+  `SQ2/WORDS.TOK` based on the parser format inferred from the executable.
+- Named action opcode `0x75` (`parse_string_slot`) as `parse_string_slot` in
+  `tools/disassemble_logic.py`.
+- Expanded `docs/src/logic_bytecode.md` with the producer side for condition
+  opcode `0x0e`.
+- Documented action `0x75` (`parse_string_slot`) at image offset `0x1958`:
+  - It clears flags 2 and 4.
+  - It reads one immediate string-slot index.
+  - If the index is below 12, it parses fixed string slot
+    `0x020d + index * 0x28` through helper `0x18ac`.
+- Documented parser helper `0x18ac`:
+  - It clears parsed-word ID table `0x0c7b` and parsed-word pointer table
+    `0x0c8f`.
+  - It normalizes the input string into buffer `0x0ca7` through helper
+    `0x199d`.
+  - It fills `0x0c7b`, `0x0c8f`, word `[0x0ca3]`, and byte variable
+    `[0x0012]`, then sets flag 2 when a parse result exists.
+- Documented normalization helper `0x199d`:
+  - Bytes at `DS:0x0c67` are separators. SQ2 contains
+    `20 2c 2e 3f 21 28 29 3b 3a 5b 5d 7b 7d 00`.
+  - Bytes at `DS:0x0c75` are ignored punctuation. SQ2 contains
+    `27 60 2d 22 00`.
+  - It collapses separator runs to single spaces, removes ignored punctuation,
+    trims a trailing space, and zero-terminates the normalized buffer.
+- Documented dictionary lookup helper `0x1a6b` and the `WORDS.TOK` format:
+  - Startup loads `WORDS.TOK` into memory and stores the base pointer at
+    `[0x0ca5]`.
+  - The file begins with 26 big-endian offsets for lowercase initial letters.
+    The local SQ2 file has a zero offset for `x`.
+  - Entries are prefix-compressed as `u8 prefix_len`, encoded suffix bytes with
+    the final byte marked by bit 7, and a big-endian 16-bit word ID.
+  - Decoding each suffix byte with `(byte & 0x7f) ^ 0x7f` yields the lowercase
+    character.
+  - Local inspection found 1,099 entries. Sample decoded IDs include
+    `look -> 0x0002`, `get -> 0x0005`, and `anyword -> 0x0001`.
+- Refined parsed-input behavior:
+  - Recognized nonzero dictionary IDs are appended to `0x0c7b`.
+  - ID zero words are ignored, including the special single-letter `a` and
+    `i` paths in helper `0x1a6b`.
+  - An unrecognized token stores its pointer in `0x0c8f`, records its one-based
+    position in `[0x0012]` and `[0x0ca3]`, and stops parsing.
+  - Condition `0x0e` (`input_word_sequence`) consumes the parsed IDs from `0x0c7b` and uses dictionary
+    ID `0x0001` as a wildcard word.
+
+## 2026-07-01: raw input event queue and condition 0x0d
+
+Additional commands run from `/Users/peter/ai/agi/reverse`:
+
+- `rg -n "0x0d|input_or_event_check|0x09be|0x459e|0x001c|0x45d7|0x382e|0x37f7|event|input" docs/src tools`
+- Focused `ndisasm` disassembly around main executable image offsets `0x09a0`,
+  `0x43f0`, `0x4500`, `0x4660`, `0x5a40`, `0x7f70`, and `0x3200`, using the
+  decrypted executable header skip and `sed` to limit output.
+- Full-executable `ndisasm` call-site search for calls to `0x44a9`, `0x44f9`,
+  `0x459e`, `0x4529`, `0x4566`, `0x45d7`, `0x45f0`, `0x4618`, `0x467f`, and
+  `0x466f`.
+- A focused `ndisasm` read around `0x6100` was rejected because it used the
+  wrong file skip. Follow-up reads around image offsets `0x5f80`, `0x8e80`,
+  and `0x93d0` used the corrected `image_offset + 0x200` skip.
+- `xxd -s 0x16b0 -l 0x50 -g 2 SQ2/AGIDATA.OVL`
+- `xxd -s 0x16d0 -l 0x50 -g 2 SQ2/AGIDATA.OVL`
+- `xxd -s 0x11ba -l 0x70 -g 2 SQ2/AGIDATA.OVL`
+- Focused `ndisasm` disassembly around image offset `0x0c44`, showing action
+  handler `0x73`. A follow-up read around `0x0e7e` used the wrong skip and was
+  rejected; no conclusions from that shifted read were documented.
+- Corrected focused `ndisasm` disassembly around image offset `0x0e7e`.
+- `python3 -B tools/disassemble_logic.py --limit 142 | rg -n "\b8f\b|action_8f|logic="`
+- `python3 -B tools/disassemble_logic.py --limit 142 | sed -n '/action_8f/,+4p'`
+
+Documented result:
+
+- Renamed condition opcode `0x0d` (`raw_key_event_available`) in `tools/disassemble_logic.py` to
+  `raw_key_event_available`.
+- Renamed action opcode `0x79` (`map_key_event`) in `tools/disassemble_logic.py` to
+  `map_key_event`.
+- Expanded `docs/src/logic_bytecode.md` with the raw event queue:
+  - Event records are 4 bytes: type word at `+0`, value word at `+2`.
+  - Queue storage is `0x11ba..0x1209`.
+  - Word `[0x120a]` is the write pointer, and word `[0x120c]` is the read
+    pointer.
+  - Helper `0x44a9(type, value)` enqueues one record unless the queue is full.
+  - Helper `0x44f9()` dequeues one record or returns zero when empty.
+- Documented condition handler `0x09be`:
+  - It first checks byte `[0x001c]`.
+  - If empty, it calls helper `0x459e`.
+  - Helper `0x459e` dequeues events, normalizes some key values through
+    `0x4634`, returns the event value for type-1 records, returns zero for no
+    event, and returns `0xffff` for non-type-1 records.
+  - Handler `0x09be` loops past `0xffff`, stores a nonzero low byte in
+    `[0x001c]`, and returns true.
+- Documented keyboard helper `0x5a89` as the BIOS `int 16h` polling path:
+  - It returns zero when no key is waiting.
+  - It returns the low ASCII byte when the key has nonzero ASCII.
+  - It preserves the BIOS scan-code word when ASCII is zero.
+- Documented helper `0x467f` as the BIOS-key drain into the event queue:
+  - Key words found in table `DS:0x16b3` are enqueued as type 2 with a mapped
+    direction-like value.
+  - Other key words are enqueued as type 1 with the raw value.
+  - The local `0x16b3` table maps key words `0x4800`, `0x4900`, `0x4d00`,
+    `0x5100`, `0x5000`, `0x4f00`, `0x4b00`, and `0x4700` to values `1..8`.
+- Documented helper `0x4566(event_record)`:
+  - For type-1 events, it scans script-populated four-byte slots rooted at
+    `0x0145`.
+  - On a match between event value and slot word `+0`, it changes the event
+    type to 3 and replaces the event value with slot word `+2`.
+  - Action `0x79` (`map_key_event`) appends those mapping slots.
+- Documented display-mode-specific helper `0x46e8(event_record)`:
+  - When `[0x112e] == 2`, it scans table `DS:0x16d7`.
+  - Matching type-1 values are changed to type 2 with mapped values.
+  - The local table maps ASCII digit key words `8,9,6,3,2,1,4,7` to values
+    `1..8`.
+- Named action opcode `0x73` (`prompt_string_to_slot`) as `prompt_string_to_slot`:
+  - It reads fixed string slot `arg0`, message number `arg1`, placement-like
+    bytes `arg2` and `arg3`, and max-length byte `arg4`.
+  - It clears the destination slot `0x020d + arg0 * 0x28`.
+  - It displays the resolved current-logic message, optionally after calling
+    `0x2b0d(arg2, arg3)` when `arg2 < 0x19`.
+  - It accepts edited text through helper `0x0da9`, using
+    `min(arg4 + 1, 0x28)` as the accepted length.
+- Recorded a tentative observation for action opcode `0x8f` (`action_8f`) without assigning a
+  name:
+  - Handler `0x0e7e` reads one message-number operand.
+  - It resolves that current-logic message through `0x21f0`.
+  - It calls `0x4de8(destination=0x0002, source=message, count=7)`.
+  - It then calls helper `0x5b49`.
+  - The one local occurrence is in logic 140 before action `0x6f` (`set_input_line_config`) and string
+    setup actions; the role remains open.
+
+## Follow-up on action `0x6f` (`set_input_line_config`), action `0x8f` (`action_8f`), and DOS path helpers
+
+Additional commands run from `/Users/peter/ai/agi/reverse`:
+
+- `git status --short`
+- `sed -n '1,220p' AGENTS.md`
+- `rg -n "0x6f|0x8f|action_6f|action_8f|Text-window|input-line|DOS file|file helper" docs/src tools/disassemble_logic.py`
+- Corrected focused `ndisasm` disassemblies around image offsets `0x0e7e`,
+  `0x78f0`, and `0x5b49`, using the decrypted executable header skip and
+  `sed` to limit the displayed output.
+- `xxd -s 0x5d6c -l 0x10 -g 1 build/cleanroom/AGI.decrypted.exe`
+- `xxd -s 0x1320 -l 0x60 -g 1 SQ2/AGIDATA.OVL`
+- `python3 -B tools/disassemble_logic.py --limit 141 | sed -n '/action_8f/,+8p'`
+- `rg -n "0x5dd|0x05dd|0x05d5|0x05db|0x1379|0x5df|0x05df" docs/src`
+
+Documented result:
+
+- Named action opcode `0x6f` (`set_input_line_config`) in `tools/disassemble_logic.py` as
+  `set_input_line_config`.
+- Documented handler `0x78f0`:
+  - It stores `arg0` in `[0x05dd]`, `arg0 + 0x15` in `[0x05df]`, `arg1` in
+    `[0x05d5]`, and `arg2` in `[0x05db]`.
+  - It computes `[0x1379]` from `arg0`, normally as `arg0 << 3`.
+  - In display mode `[0x1130] == 2`, `[0x1379]` is `arg0 * 6` for `arg0 <= 1`
+    and is clamped to 6 for larger values.
+  - Nearby redraw helpers use these globals for input-line/status text areas,
+    so the final user-facing meaning remains provisional.
+- Refined the action `0x8f` (`action_8f`) observation:
+  - Handler `0x0e7e` copies the resolved message into absolute buffer `0x0002`
+    and calls `0x5b49`.
+  - Helper `0x5b49` compares bytes at `0x0002` against the embedded `SQ2\0`
+    string at image offset `0x5b6c`.
+  - On the first mismatch it calls helper `0x02ae`, already observed in
+    restart/exit-like paths.
+  - This looks like a game-signature/configuration guard, but the exact runtime
+    role remains open until dynamically traced.
+- Expanded `docs/src/agi_executable.md` with the DOS file wrapper cluster from
+  image offsets `0x5cad..0x5e73`, the shared pre-call helper `0x5e8d`, and the
+  savegame/path helpers around `0x5b73` and `0x5bdd`.
+
+## Follow-up on relative object positioning and state-file actions
+
+Additional commands run from `/Users/peter/ai/agi/reverse`:
+
+- `git status --short`
+- `sed -n '1,220p' AGENTS.md`
+- `sed -n '1,260p' docs/src/graphics_object_pipeline.md`
+- `sed -n '500,580p' docs/src/logic_bytecode.md`
+- `python3 -B tools/disassemble_logic.py --stats | rg " action_|^28 |^7c |^7d |^7e |^80 |^87 |^88 |^89 |^8a |^8b |^8c |^8d |^96 |^a9 |^9a |^6c "`
+- Correct focused `ndisasm` disassemblies around image offsets `0x7ce7`,
+  `0x3726`, `0x3753`, `0x38b4`, `0x2472`, `0x2512`, `0x2753`, `0x28c6`,
+  `0x26b0`, `0x31d8`, and `0x1f2b`, using the decrypted executable header
+  skip of `image_offset + 0x200`.
+- Two preliminary `ndisasm` probes around image offsets `0x3726` and `0x0257`
+  were rejected because the file skip was wrong; no conclusions from those
+  shifted outputs were used.
+- `python3 -B tools/disassemble_logic.py --limit 141 | rg -n "action (28|7c|7d|7e|80|87|88|89|8a|8b|8c|8d|96|a9|9a|6c)" -C 5`
+- `xxd -s 0x0d20 -l 0xe0 -g 1 SQ2/AGIDATA.OVL`
+- `xxd -s 0x1c60 -l 0x50 -g 1 SQ2/AGIDATA.OVL`
+- `xxd -s 0x0a90 -l 0x70 -g 1 SQ2/AGIDATA.OVL`
+- `sed -n '170,230p' tools/disassemble_logic.py`
+- `sed -n '440,545p' docs/src/logic_bytecode.md`
+- `sed -n '604,650p' docs/src/logic_bytecode.md`
+- `sed -n '45,125p' docs/src/agi_executable.md`
+- `sed -n '200,235p' docs/src/graphics_object_pipeline.md`
+- One `rg` probe for a markdown backtick pattern in
+  `docs/src/graphics_object_pipeline.md` failed due shell quoting; it produced
+  no evidence and was replaced by the `sed` read above.
+
+Documented result:
+
+- Named action opcode `0x28` (`add_object_pos_from_vars`) as `add_object_pos_from_vars`.
+  - Handler `0x7ce7` reads object index `arg0`.
+  - It reads signed deltas from byte variables named by `arg1` and `arg2`.
+  - It adds them to object fields `[+0x03]` and `[+0x05]`, clamping underflow at
+    zero.
+  - It sets object flag bit `0x0400` and calls placement helper `0x593a`.
+- Named action opcode `0x6c` (`set_input_prompt_char`) as `set_input_prompt_char`.
+  - Handler `0x38b4` resolves message `arg0` and stores its first byte in
+    `[0x05d7]`.
+  - Input redraw helpers `0x37f7`, `0x382e`, and `0x38d7` test `[0x05d7]`
+    while drawing or erasing the prompt/input marker.
+- Named action opcodes `0x7d` (`save_game_state`) and `0x7e` (`restore_game_state`) as
+  `save_game_state` and `restore_game_state`.
+  - Save handler `0x2753` creates file `0x1c8c`, writes a 31-byte
+    description/header from `0x1c6c`, then writes several length-prefixed
+    blocks through helper `0x28c6`.
+  - Restore handler `0x2512` opens file `0x1c8c`, seeks to offset `0x1f`, then
+    reads matching length-prefixed blocks through helper `0x26b0`.
+  - Local strings around `0x0d34`, `0x0d73`, `0x0d87`, `0x0db6`, and `0x0e46`
+    identify the restore/save confirmation and error paths.
+
+## Runtime model synthesis and string-table action follow-up
+
+Commands run from `/Users/peter/ai/agi/reverse`:
+
+- `sed -n '1,220p' docs/src/logic_bytecode.md`
+- `sed -n '1,260p' docs/src/graphics_object_pipeline.md`
+- `sed -n '1,260p' docs/src/logic_resources.md`
+- `ndisasm -b 16 -o 0x7350 -e 0x7550 build/cleanroom/AGI.decrypted.exe`
+- `ndisasm -b 16 -o 0x0c30 -e 0x0e30 build/cleanroom/AGI.decrypted.exe`
+- `ndisasm -b 16 -o 0x1940 -e 0x1b40 build/cleanroom/AGI.decrypted.exe`
+- Local Python dump of `AGIDATA.OVL` action-table entries for opcodes
+  `0x70..0x78`.
+- `xxd -g 1 -s 0xc8f -l 192 SQ2/AGIDATA.OVL`
+- Local Python dump of words at `AGIDATA.OVL` offset `0x0c8f`.
+
+Documented result:
+
+- Added `docs/src/runtime_model.md` and linked it from the mdBook summary and
+  overview. This page groups the lower-level handler notes into
+  implementation-facing runtime types:
+  - byte variables rooted at `DS:0x0009`;
+  - packed flags rooted at `DS:0x0109`;
+  - fixed string slots rooted at `DS:0x020d`;
+  - parsed-word buffers consumed by condition `0x0e` (`input_word_sequence`);
+  - 10-byte logic cache/activation records linked from `[0x0977]`;
+  - resource cache handles for logic, view-like, picture-like, and sound-like
+    payloads;
+  - 43-byte object records and their operation families;
+  - the graphics/update pipeline phases needed by a replacement
+    implementation.
+- Decoded action opcode `0x74` (`set_string_slot_from_table`) from handler
+  `0x0d70`:
+  - It computes destination string slot `0x020d + arg0 * 0x28`.
+  - It reads a word pointer from `DS:0x0c8f + arg1 * 2`.
+  - It copies up to `0x28` bytes from that pointer into the slot through
+    helper `0x4de8`.
+  - The sampled static SQ2 `AGIDATA.OVL` table at `0x0c8f` is zero-filled, and
+    this opcode was not encountered in the current local SQ2 logic scan, so the
+    label remains provisional.
+- Added the `0x74` label to `tools/disassemble_logic.py` and documented the
+  handler in `docs/src/logic_bytecode.md`.
+
+## Inventory selector, restart prompt, and text-window cleanup actions
+
+Commands run from `/Users/peter/ai/agi/reverse`:
+
+- `git status --short`
+- `python3 -B tools/disassemble_logic.py --stats`
+- `sed -n '1,220p' docs/src/logic_bytecode.md`
+- `sed -n '1,220p' docs/src/runtime_model.md`
+- `rg -n "action (1d|7c|80|87|88|89|8a|8b|8c|8d|96|9a|a9)" -C 4`
+  over `python3 -B tools/disassemble_logic.py --limit 141`
+- Local Python dump of action-table entries for opcodes `0x1d`, `0x7c`,
+  `0x80`, `0x87..0x8d`, `0x96`, `0x9a`, and `0xa9`.
+- Initial orientation `ndisasm` probes around image offsets `0x1f00`,
+  `0x7300`, `0x7700`, and `0x8d00`; these were used only to find nearby
+  functions. Final conclusions below were rechecked with the correct executable
+  header skip.
+- Correct focused `ndisasm` disassemblies using `-e image_offset + 0x200`
+  around image offsets `0x1f2b`, `0x2472`, `0x2b78`, `0x31d8`, `0x33bf`,
+  `0x5546`, `0x731b`, `0x7753`, and `0x8d3d`.
+- Local Python string dump of `SQ2/AGIDATA.OVL` offsets `0x0aab`, `0x0adb`,
+  `0x0f1e`, `0x0f26`, `0x0f38`, `0x0f5d`, and menu diagnostic strings around
+  `0x1ccc..0x1d04`.
+- `rg -n "0x7c|0x80|0x8d|0x96|0x9a|0xa9|0x1d|draw_box|window|text_attr|1755|1d12|1d0a" docs/src tools/disassemble_logic.py`
+- `sed -n '160,280p' tools/disassemble_logic.py`
+- `sed -n '520,600p' docs/src/logic_bytecode.md`
+- `sed -n '700,940p' docs/src/logic_bytecode.md`
+- `sed -n '100,190p' docs/src/runtime_model.md`
+- `sed -n '1300,1465p' docs/src/clean_room_executable_notes.md`
+
+Documented result:
+
+- Named action opcode `0x7c` (`show_inventory_selection`).
+  - Handler `0x31d8` clears the input prompt, saves/restores text attributes,
+    enables the alternate text-attribute mode, and calls helper `0x3203`.
+  - Helper `0x3203` scans 3-byte entries from `[0x0971]` to `[0x0973]`,
+    keeping only entries whose byte `[entry+0x02] == 0xff`.
+  - Each kept entry becomes an 8-byte temporary row containing the original
+    entry index, a name pointer computed as `[0x0971] + word[entry+0x00]`, and
+    row/column display coordinates.
+  - The strings at `0x0f26`, `0x0f1e`, `0x0f38`, and `0x0f5d` identify the UI
+    as the carried-object list, with an interactive selection mode when flag 13
+    is set.
+  - Enter stores the selected entry index in byte variable `[0x22]`; Escape
+    stores `0xff`.
+- Named action opcode `0x80` (`confirm_restart_game`).
+  - Handler `0x2472` stops sound, clears input, and uses flag 16 to decide
+    whether to skip a confirmation dialog.
+  - The confirmation string at `0x0adb` asks whether to restart the game.
+  - On confirmation it resets heap/update state, sets flag 6, preserves flag 9,
+    clears words `[0x0129]` and `[0x012b]`, optionally reloads logic
+    `[0x1d12]`, calls menu/list refresh helper `0x930e`, redraws the prompt, and
+    returns zero to the dispatcher.
+- Named action opcode `0x9a` (`clear_text_rect_bounds`).
+  - Handler `0x7753` reads five immediates and calls helper `0x2bc4`.
+  - Helper `0x2bc4` is the full-bounds form of the text rectangle clear helper:
+    it saves the cursor, passes top/left/bottom/right and attribute to BIOS
+    `int 10h` scroll/clear-window service `AH=0x06`, then restores the cursor.
+  - Existing action `0x69` is a narrower wrapper that clears full-width rows
+    through helper `0x2b78`, which in turn calls `0x2bc4`.
+- Named action opcode `0xa9` (`close_text_window_state`).
+  - Handler `0x1f2b` tests word `[0x0d1d]`; if nonzero, it restores a saved
+    display rectangle by calling helper `0x560c([0x0d23], [0x0d25])`.
+  - It then clears words `[0x0d0f]` and `[0x0d1d]`.
+  - The same routine is used both as an action handler and as an internal
+    cleanup helper in picture/message/save paths.
+- Named action opcode `0x8d` (`show_interpreter_version`).
+  - Handler `0x733c` displays the static string at `0x0aab`, which identifies
+    the interpreter and version in this executable.
+- Decoded action opcode `0x96` without assigning a stable user-level label yet.
+  - Handler `0x8d3d` reads three immediates, storing them in words `[0x1d12]`,
+    `[0x1d08]`, and `[0x1d0a]`.
+  - The third value is clamped upward to at least 2.
+  - The first value `[0x1d12]` is later used by the restart and room-switch
+    paths as an optional logic resource to load. The other two globals feed the
+    menu/list rendering cluster around `0x8e0b`, so this remains a configured
+    UI/session state action until that cluster is fully decoded.
+- Reconfirmed action opcode `0x1d` as unresolved.
+  - Handler `0x731b` sets word `[0x1755] = 1`, calls full refresh helper
+    `0x5546`, waits for an event through `0x4618`, refreshes again, then clears
+    `[0x1755]`.
+  - Helper `0x5546` has a special branch when bit 0 of `[0x1755]` is set that
+    rotates every byte of the logical graphics buffer before copying it to the
+    display path. The visual/user-level purpose still needs a dynamic trace or
+    screenshot before naming.
+
+## Follow-up on diagnostic, pause, input-line, display-toggle, and joystick actions
+
+Commands run from `/Users/peter/ai/agi/reverse`:
+
+- `python3 -B tools/disassemble_logic.py --stats`
+- `ndisasm -b 16 -o 0x0250 -e 0x0450 build/cleanroom/AGI.decrypted.exe`
+  as an over-broad first probe for the low-offset handler cluster. The useful
+  bytes were later narrowed by direct handler inspection; the extra trailing
+  output was ignored.
+- `ndisasm -b 16 -o 0x14a0 -e 0x16a0 build/cleanroom/AGI.decrypted.exe`
+  as an over-broad first probe around the diagnostic handler; conclusions were
+  taken only from the aligned handler at `0x14bd`.
+- `ndisasm -b 16 -o 0x3700 -e 0x3900 build/cleanroom/AGI.decrypted.exe`
+  as an over-broad first probe around input-line refresh helpers; conclusions
+  were taken from aligned handlers `0x3726` and `0x3753`.
+- Local Python string dump of `SQ2/AGIDATA.OVL` offsets `0x0a19`, `0x0c0d`,
+  `0x0fce`, and `0x1e2e`.
+- `ndisasm -b 16 -o 0x794c -e 0x7b4c build/cleanroom/AGI.decrypted.exe | sed -n '1,90p'`
+- `ndisasm -b 16 -o 0x613c -e 0x633c build/cleanroom/AGI.decrypted.exe | sed -n '1,140p'`
+- `python3 -B tools/disassemble_logic.py --limit 141 | rg -n "action (87|88|89|8a|8b|8c|1d|96)" -C 5`
+- Local Python hex/text dump of `SQ2/AGIDATA.OVL` offsets `0x1549`, `0x15c1`,
+  `0x15c3`, `0x1531`, and `0x153d`.
+- `rg -n "0x87|0x88|0x89|0x8a|0x8b|0x8c|Miscellaneous|Interpreter/session|Text-window" docs/src/logic_bytecode.md`
+- `wc -l docs/src/logic_bytecode.md docs/src/clean_room_executable_notes.md docs/src/runtime_model.md`
+- `sed -n '780,900p' docs/src/logic_bytecode.md`
+- `sed -n '220,260p' tools/disassemble_logic.py`
+
+Documented result:
+
+- Named action opcode `0x87` (`show_heap_status`).
+  - Handler `0x14bd` formats a 100-byte stack message with helper `0x2374` and
+    displays it through `0x1ce8`.
+  - The format string at `0x0a19` reads `heapsize: %u`, `now: %u  max: %u`,
+    `rm.0, etc.: %u`, and `max script: %d`.
+  - The numeric values are computed from heap/script globals `[0x0a55]`,
+    `[0x0a57]`, `[0x0a59]`, `[0x0a5b]`, `[0x0a5f]`, and `[0x170f]`.
+- Named action opcode `0x88` (`pause_game_message`).
+  - Handler `0x0257` sets `[0x0615] = 1`, calls helper `0x4482`, stops sound,
+    displays the fixed pause string at `0x0c0d`, then clears `[0x0615]`.
+- Named action opcode `0x89` (`refresh_input_line`).
+  - Handler `0x3753` runs only when input-line enabled word `[0x05d3]` is
+    nonzero.
+  - In display mode `[0x1130] == 2` with `[0x0d0f] == 0`, it displays the
+    string at `0x1e2e` (`ENTER COMMAND`) through the alternate display helpers
+    and sends the current input character byte `[0x001c]` through helper
+    `0x3652`.
+  - In the other path, helper `0x37a5` appends bytes from the buffer/string at
+    `0x0fce` into visible input buffer `0x0fa4` until `[0x0ff8]` reaches that
+    source string length.
+- Named action opcode `0x8a` (`erase_input_line`).
+  - Handler `0x3726` repeatedly calls helper `0x3652(0x08)` while input length
+    word `[0x0ff8]` remains nonzero, except that display mode 2 with
+    `[0x0d0f] == 0` skips the erase loop.
+- Named action opcode `0x8b` (`calibrate_joystick`).
+  - Handler `0x613c` initializes joystick/calibration globals, displays the
+    string at `0x1549` (`Please center your joystick...`) when joystick state is
+    available, waits for Enter or Escape, then computes centered bounds around
+    `[0x15c1]` and `[0x15c3]` into `[0x15c9]`, `[0x15cd]`, `[0x15cb]`, and
+    `[0x15cf]`.
+  - It then loops helper `0x6425` while calibration records at `0x1531` or
+    `0x153d` are active, and finishes with helper `0x4482`.
+- Named action opcode `0x8c` (`toggle_display_mode_bit`).
+  - Handler `0x794c` requires `[0x112e] == 0`, byte variable 0 nonzero, and
+    display mode word `[0x1130]` not equal to 2 or 3.
+  - It calls `0x1364`, toggles bit 0 of `[0x1130]`, and rebuilds display state
+    through helpers `0x2b28`, `0x5528`, `0x2b4f`, and `0x681c`.
+- Added implementation-facing notes to `docs/src/runtime_model.md` grouping
+  these as UI, diagnostics, and device-state services around the VM.
+
+## Priority-screen action and trace-window configuration
+
+Commands run from `/Users/peter/ai/agi/reverse`:
+
+- `python3 -B tools/disassemble_logic.py --stats`
+- `python3 -B tools/disassemble_logic.py --limit 141 | rg -n "action (1d|87|88|89|8a|8b|8c|96|8f)" -C 6`
+- `ndisasm -b 16 -o 0x14a0 -e 0x16a0 build/cleanroom/AGI.decrypted.exe | sed -n '1,130p'`
+- `ndisasm -b 16 -o 0x0250 -e 0x0450 build/cleanroom/AGI.decrypted.exe | sed -n '1,180p'`
+- `ndisasm -b 16 -o 0x36f0 -e 0x38f0 build/cleanroom/AGI.decrypted.exe | sed -n '1,170p'`
+- `ndisasm -b 16 -o 0x6100 -e 0x6300 build/cleanroom/AGI.decrypted.exe | sed -n '1,180p'`
+- `ndisasm -b 16 -o 0x7930 -e 0x7b30 build/cleanroom/AGI.decrypted.exe | sed -n '1,130p'`
+- `xxd -g 1 -s 0x0a10 -l 0x80 SQ2/AGIDATA.OVL`
+- `xxd -g 1 -s 0x0c00 -l 0x40 SQ2/AGIDATA.OVL`
+- `xxd -g 1 -s 0x0fbc -l 0x30 SQ2/AGIDATA.OVL`
+- An attempted `python3 -B tools/inspect_words.py 40 62 63 44 55 102 89 36 146`
+  command failed because `inspect_words.py` accepts `--id`, not positional
+  ids. It produced no evidence and was replaced by the local Python import
+  below.
+- Local Python use of `tools.inspect_words.decode_entries` over `SQ2/WORDS.TOK`
+  for word ids `0x0024`, `0x0028`, `0x002c`, `0x0037`, `0x003e`, `0x003f`,
+  `0x0059`, `0x0066`, and `0x0092`.
+- Full static `ndisasm` with `rg` for references to globals `[0x1d08]`,
+  `[0x1d0a]`, `[0x1d10]`, `[0x1d12]`, `[0x1d14]`, `[0x1d16]`, `[0x1d18]`,
+  `[0x1d1a]`, `[0x1d1c]`, and `[0x1d1e]`.
+- `ndisasm -b 16 -o 0x8c60 -e 0x8e60 build/cleanroom/AGI.decrypted.exe | sed -n '1,170p'`
+- `ndisasm -b 16 -o 0x8e0b -e 0x900b build/cleanroom/AGI.decrypted.exe | sed -n '1,180p'`
+- `ndisasm -b 16 -o 0x900b -e 0x920b build/cleanroom/AGI.decrypted.exe | sed -n '1,180p'`
+- Local Python action-table dump for opcodes `0x90..0x96`.
+- `ndisasm -b 16 -o 0x02c0 -e 0x04c0 build/cleanroom/AGI.decrypted.exe | sed -n '1,90p'`
+- `python3 -B tools/disassemble_logic.py 140 | sed -n '1,80p'`
+- An attempted `rg` command containing markdown backticks in the search pattern
+  was misparsed by the shell and produced no evidence; the useful searches above
+  were run with simpler patterns.
+
+Documented result:
+
+- Named action opcode `0x1d` (`show_priority_screen`).
+  - Handler `0x731b` sets `[0x1755] = 1`, calls full-screen refresh helper
+    `0x5546`, waits for an event through `0x4618`, calls `0x5546` again, then
+    clears `[0x1755]`.
+  - Helper `0x5546` swaps the high and low nibbles of every logical
+    graphics-buffer byte while `[0x1755] & 1` is set.
+  - The only observed local phrase reaching this action is `show pri`;
+    `WORDS.TOK` maps word id `0x0028` to "show" and word id `0x003f` to "pri".
+  - The replacement-level behavior is therefore a temporary priority/control
+    inspection display that returns to the normal display after input.
+- Named action opcode `0x95` (`enable_action_trace_window`) even though no local
+  SQ2 logic path currently reaches it.
+  - Handler `0x8c91` returns `SI + 1` when word `[0x1d10]` is already nonzero.
+  - Otherwise it calls helper `0x8cae`, which starts a trace display only if
+    flag 10 is set.
+  - Helper `0x8cae` sets `[0x1d10] = 1`, computes box bounds from input-line
+    row `[0x05dd]`, trace row offset `[0x1d08]`, and trace height `[0x1d0a]`,
+    stores derived values in `[0x1d14]`, `[0x1d16]`, `[0x1d18]`, `[0x1d1a]`,
+    `[0x1d1c]`, and `[0x1d1e]`, then draws the trace box with `0x5590`.
+- Named action opcode `0x96` (`configure_action_trace_window`).
+  - Handler `0x8d3d` stores its three immediates in `[0x1d12]`, `[0x1d08]`,
+    and `[0x1d0a]`, clamping `[0x1d0a]` upward to at least 2.
+  - The dispatcher at `0x02c3` tests `[0x1d10] == 1` before each action
+    dispatch and calls formatter helper `0x8da3`.
+  - Formatter helper `0x8e0b` uses optional logic resource `[0x1d12]` for
+    trace text, draws opcode/operand values into the trace box, and waits for
+    input while trace mode is active.
+  - Restart and room-switch paths also reload logic `[0x1d12]` when nonzero,
+    so a new implementation should treat it as part of VM trace/session
+    configuration, not as ordinary game-state logic.
+
+## Game-signature guard action
+
+Commands run from `/Users/peter/ai/agi/reverse`:
+
+- `python3 -B tools/disassemble_logic.py --stats`
+- `python3 -B tools/disassemble_logic.py 140 | rg -n "action 8f|message_count|logic 140|set_input_line_config|set_string_slot_from_message" -C 4`
+- Two initial `ndisasm` probes around image offsets `0x0e70` and `0x5b40`
+  accidentally used the image offset as the file skip. Those shifted outputs
+  were rejected and produced no conclusions.
+- Corrected focused disassemblies with the executable header skip included:
+  - `ndisasm -b 16 -o 0x0e70 -e 0x1070 build/cleanroom/AGI.decrypted.exe | sed -n '1,140p'`
+  - `ndisasm -b 16 -o 0x5b40 -e 0x5d40 build/cleanroom/AGI.decrypted.exe | sed -n '1,110p'`
+- Local Python read of logic 140's payload/message table for orientation. That
+  raw dump did not decode the encrypted/compressed message text, but it did
+  confirm the local bytecode context around the single static `0x8f` use.
+
+Documented result:
+
+- Named action opcode `0x8f` (`verify_game_signature`).
+  - Handler `0x0e7e` reads one immediate message number.
+  - It resolves that message through `0x21f0`, pushes maximum length 7, and
+    copies the string to absolute buffer `0x0002` through helper `0x4de8`.
+  - It then calls helper `0x5b49`.
+  - Helper `0x5b49` compares bytes at `0x0002` against an embedded `SQ2\0`
+    string at image offset `0x5b6c`.
+  - On the first mismatch it calls helper `0x02ae`, the same helper seen in
+    restart/exit-like paths.
+  - The only observed local static use is in logic 140 immediately before
+    `0x6f` (`set_input_line_config`), consistent with a game-signature or
+    game-configuration guard.
+
+## Normalized string-slot equality condition
+
+Commands run from `/Users/peter/ai/agi/reverse`:
+
+- `python3 -B tools/disassemble_logic.py --stats`
+- `sed -n '120,230p' docs/src/logic_bytecode.md`
+- `rg -n "helper_0eac|0x0f|0eac|09db|condition" docs/src tools`
+- `ndisasm -b 16 -o 0x09c0 -e 0x0bc0 build/cleanroom/AGI.decrypted.exe`
+- `ndisasm -b 16 -o 0x0e80 -e 0x1080 build/cleanroom/AGI.decrypted.exe`
+- `xxd -g 1 -s 0x0b40 -l 0x40 build/cleanroom/AGI.decrypted.exe`
+- `ndisasm -b 16 -o 0x4f90 -e 0x5190 build/cleanroom/AGI.decrypted.exe | sed -n '1,180p'`
+- `ndisasm -b 16 -o 0x18a0 -e 0x1aa0 build/cleanroom/AGI.decrypted.exe | sed -n '1,240p'`
+- `sed -n '80,230p' tools/disassemble_logic.py`
+- `rg -n "0x094b|0x0c67|0xc67|0x0c75|0xc75|delimiter|punct|normalize|string slot|0x020d|0x20d" docs/src tools`
+- `xxd -g 1 -s 0x0e60 -l 0xa0 build/cleanroom/AGI.decrypted.exe`
+- `xxd -g 1 -s 0x0f40 -l 0x80 build/cleanroom/AGI.decrypted.exe`
+- `xxd -g 1 -s 0x1140 -l 0x100 build/cleanroom/AGI.decrypted.exe`
+- `sed -n '280,325p' docs/src/logic_bytecode.md`
+- `sed -n '1150,1185p' docs/src/clean_room_executable_notes.md`
+- `sed -n '30,65p' docs/src/runtime_model.md`
+- `rg -n "094b|0x94b|0x094b" -S .`
+- Local byte-pattern probes over `build/cleanroom/AGI.decrypted.exe`,
+  `SQ2/AGIDATA.OVL`, and related files to map known delimiter tables back to
+  their storage file.
+- `strings -a -t x build/cleanroom/AGI.decrypted.exe | rg "ENTER COMMAND|You are carrying|nothing|AGI|COMMAND|carrying|Press ENTER|Press ESC"`
+- `xxd -g 1 -s 0x0940 -l 0x80 SQ2/AGIDATA.OVL`
+- `xxd -g 1 -s 0x0c60 -l 0x30 SQ2/AGIDATA.OVL`
+- Local byte reads of zero-terminated data at `SQ2/AGIDATA.OVL` offsets
+  `0x094b`, `0x0c67`, `0x0c75`, and `0x020d`.
+- `sed -n '140,225p' docs/src/logic_bytecode.md`
+
+Documented result:
+
+- Renamed condition opcode `0x0f` from provisional `helper_0eac` to
+  `string_slots_equal_normalized`.
+- The condition table entry dispatches to handler `0x09db`, has two fixed
+  operands, and has metadata byte `0x00`.
+- Handler `0x09db` reads two immediate byte operands, pushes them, and calls
+  helper `0x0eac`.
+- Helper `0x0eac` allocates two local buffers, calls helper `0x0ef8` for each
+  operand, and then compares the normalized buffers byte-for-byte through their
+  zero terminators.
+- Helper `0x0ef8` computes a source string slot as
+  `0x020d + slot * 0x28`, walks it until a zero byte, skips bytes found in the
+  zero-terminated table at `DS:0x094b`, lowercases ASCII uppercase bytes through
+  helper `0x4fea`, writes kept bytes to the destination buffer, and appends a
+  zero terminator.
+- `DS:0x094b` is data in `SQ2/AGIDATA.OVL`, not the same offset in the EXE
+  body. The local SQ2 table contains
+  `20 09 2e 2c 3b 3a 27 21 2d 00`, meaning space, tab, `.`, `,`, `;`, `:`,
+  `'`, `!`, and `-` are ignored for this comparison.
+- Updated `docs/src/runtime_model.md` to separate this direct normalized string
+  comparison from the dictionary-backed parsed-word condition `0x0e`.
+
+## Object diagnostic action and field-name confirmation
+
+Commands run from `/Users/peter/ai/agi/reverse`:
+
+- `python3 -B tools/disassemble_logic.py --stats`
+- `rg -n "provisional|unknown|needs|still|action_00|object_motion_or_state|refresh_object_helper|picture|draw|0x5546|0x5762|0x593a|0x57cf|0x3ae7|0x39f7|0x4a3b|0x4acf" docs/src tools`
+- `python3 -B tools/disassemble_logic.py --limit 142 | rg -n "action 85|display_object_state_summary_var|logic [0-9]+|message_count" -C 8`
+- `ndisasm -b 16 -o 0x7280 -e 0x7480 build/cleanroom/AGI.decrypted.exe | sed -n '1,220p'`
+- `ndisasm -b 16 -o 0x1c00 -e 0x1e00 build/cleanroom/AGI.decrypted.exe | sed -n '1,200p'`
+- `rg -n "0x85|display_object_state_summary_var|72b5|0x72b5|object state|summary" docs/src tools`
+- `xxd -g 1 -s 0x1700 -l 0x80 SQ2/AGIDATA.OVL`
+- `python3 -B tools/inspect_words.py --id 0x0031 --limit 20`
+- `python3 -B tools/inspect_words.py --id 0x0017 --limit 20`
+- `python3 -B tools/inspect_words.py --id 0x001a --limit 20`
+- `python3 -B tools/inspect_words.py --id 0x002c --limit 20`
+- `sed -n '1,120p' tools/disassemble_logic.py`
+- `rg -n "message|messages|decode|crypt|logic_payload|message_count|21f0" tools docs/src/logic_resources.md docs/src/clean_room_executable_notes.md`
+- `python3 -B tools/disassemble_logic.py 99 | sed -n '1,140p'`
+- `sed -n '92,118p' docs/src/logic_resources.md`
+- `sed -n '255,295p' docs/src/clean_room_executable_notes.md`
+- Local Python decoding of logic 99 messages using the previously documented
+  logic-message format and XOR key at `SQ2/AGIDATA.OVL:0x08f1`.
+- `sed -n '180,205p' docs/src/graphics_object_pipeline.md`
+- `sed -n '704,722p' docs/src/logic_bytecode.md`
+- `sed -n '632,646p' docs/src/clean_room_executable_notes.md`
+- An attempted `rg` command containing a markdown backtick in the search pattern
+  was misparsed by the shell and produced no evidence.
+- `rg -n "display_object_state_summary_var|display_object_diagnostics_var|0x85|object #:|Object %d|stepsize" docs/src tools`
+- `sed -n '130,165p' docs/src/runtime_model.md`
+
+Documented result:
+
+- Renamed action opcode `0x85` from `display_object_state_summary_var` to
+  `display_object_diagnostics_var`.
+- Handler `0x72b5` reads one operand as a variable slot, then reads the object
+  index from `var[arg0]`.
+- It multiplies the object index by `0x2b`, adds the object array base
+  `[0x096b]`, and formats fields from that object:
+  - object index from the variable value;
+  - `[object+0x03]` as `x`;
+  - `[object+0x05]` as `y`;
+  - `[object+0x1a]` as `xsize`;
+  - `[object+0x1c]` as `ysize`;
+  - `[object+0x24]` as `pri`;
+  - `[object+0x1e]` as `stepsize`.
+- The format string at `DS:0x1713` in `SQ2/AGIDATA.OVL` reads:
+
+```text
+Object %d:
+x: %d  xsize: %d
+y: %d  ysize: %d
+pri: %d
+stepsize: %d
+```
+
+- The only local SQ2 use is in logic 99. The script accepts WORDS.TOK id
+  `0x0031` (`object`) or `0x0017` (`sp`), prompts with decoded message 7
+  (`object #:`), stores the number in variable 64, and then calls action
+  `0x85`.
+- Logic 99 is a diagnostic command hub: nearby decoded messages include
+  `new room:`, `x:`, `y:`, `object number:`, `var number:`, `var value:`,
+  `flag number:`, and flag status messages.
+- Updated the object runtime model and graphics/object pipeline notes to use
+  this diagnostic template as additional evidence for the field meanings.
+
+## Targeted object movement actions
+
+Commands run from `/Users/peter/ai/agi/reverse`:
+
+- `ndisasm -b 16 -o 0x6cc0 -e 0x6ec0 build/cleanroom/AGI.decrypted.exe | sed -n '1,220p'`
+- `ndisasm -b 16 -o 0x1620 -e 0x1820 build/cleanroom/AGI.decrypted.exe | sed -n '1,260p'`
+- `rg -n "object_motion_or_state|0x51|0x52|0x1672|\\+0x27|\\+0x28|\\+0x29|\\+0x2a|boundary completion|motion/control" docs/src tools`
+- `python3 -B tools/disassemble_logic.py --stats | sed -n '/actions/,$p' | sed -n '1,80p'`
+- `sed -n '430,455p' docs/src/graphics_object_pipeline.md`
+- `sed -n '780,812p' docs/src/clean_room_executable_notes.md`
+- `sed -n '136,160p' docs/src/runtime_model.md`
+- `xxd -g 2 -s 0x0a80 -l 0x40 SQ2/AGIDATA.OVL`
+- `xxd -g 1 -s 0x0a80 -l 0x28 SQ2/AGIDATA.OVL`
+- Local Python read of the nine little-endian direction table words at
+  `SQ2/AGIDATA.OVL:0x0a85`.
+- `python3 -B tools/disassemble_logic.py 1 2 3 4 5 6 7 8 9 10 | rg -n "action (51|52)" -C 3`
+- `python3 -B tools/disassemble_logic.py --limit 141 | rg -n "action (51|52)" -C 2 | sed -n '1,160p'`
+- `sed -n '40,58p' docs/src/logic_bytecode.md`
+- `sed -n '470,488p' docs/src/logic_bytecode.md`
+- `sed -n '686,701p' docs/src/logic_bytecode.md`
+- `rg -n "object_motion_or_state|object_motion_or_state_var|motion_parameters|Motion control|Targeted-motion|targeted-motion|0x1672" docs/src tools/disassemble_logic.py`
+- `rg -n "object_motion_or_state|object_motion_or_state_var|move_object_to|0x0a85|target above|completion flag" docs/src tools/disassemble_logic.py`
+- `python3 -B tools/disassemble_logic.py 1 | rg -n "move_object_to|action 5[12]" -C 2`
+
+Documented result:
+
+- Renamed action opcode `0x51` from `object_motion_or_state` to
+  `move_object_to`.
+- Renamed action opcode `0x52` from `object_motion_or_state_var` to
+  `move_object_to_var`.
+- Handler `0x6ce4` (`0x51`) reads:
+  - object index;
+  - target X;
+  - target Y;
+  - optional step-size override, where zero means keep the current step size;
+  - completion flag.
+- Handler `0x6d61` (`0x52`) has the same contract, except target X, target Y,
+  and step-size override are read from variables.
+- Both handlers set object byte `[+0x22] = 3`, store target X/Y in
+  `[+0x27]`/`[+0x28]`, save old step size `[+0x1e]` into `[+0x29]`, store the
+  completion flag in `[+0x2a]`, clear the completion flag, set object bit
+  `0x0010`, and call helper `0x1672`.
+- Helper `0x1672` calls `0x16ed(current_x, current_y, target_x, target_y,
+  step)` and stores the returned direction-like byte in object byte `[+0x21]`.
+  For object 0 it also mirrors that direction byte to global byte `[0x000f]`.
+- Helper `0x16ed` classifies the target X and Y relative to the current
+  position and step size, then indexes the nine-word table at `DS:0x0a85`.
+  The local SQ2 table is:
+
+```text
+target above:  8 1 2
+target level:  7 0 3
+target below:  6 5 4
+               left near right
+```
+
+- The zero center entry means an object already at, or within one step of, the
+  target completes immediately.
+- Completion helper `0x16b9` restores step byte `[+0x1e]` from `[+0x29]`, sets
+  flag `[+0x2a]`, clears object byte `[+0x22]`, and for object 0 sets
+  `[0x0139] = 1` and clears global direction byte `[0x000f]`.
+- Updated the bytecode spec, object/graphics pipeline, and runtime model with
+  the higher-level targeted-movement contract.
+
+## Autonomous object motion modes 1 and 2
+
+Commands run from `/Users/peter/ai/agi/reverse`:
+
+- `sed -n '680,735p' docs/src/logic_bytecode.md`
+- `sed -n '180,205p' docs/src/graphics_object_pipeline.md`
+- `sed -n '520,550p' docs/src/graphics_object_pipeline.md`
+- `sed -n '140,165p' docs/src/runtime_model.md`
+- `sed -n '1038,1064p' docs/src/clean_room_executable_notes.md`
+- `sed -n '160,190p' tools/disassemble_logic.py`
+- `ndisasm -b 16 -o 0x6df0 -e 0x6ec0 build/cleanroom/AGI.decrypted.exe | sed -n '1,260p'`
+- `ndisasm -b 16 -o 0x6df0 -e 0x6ff0 build/cleanroom/AGI.decrypted.exe | sed -n '1,260p'`
+- `ndisasm -b 16 -o 0x0b80 -e 0x0d80 build/cleanroom/AGI.decrypted.exe | sed -n '1,220p'`
+- `ndisasm -b 16 -o 0x3f30 -e 0x4130 build/cleanroom/AGI.decrypted.exe | sed -n '1,220p'`
+- `ndisasm -b 16 -o 0x0a80 -e 0x0c80 build/cleanroom/AGI.decrypted.exe`
+- `ndisasm -b 16 -o 0x3f30 -e 0x4130 build/cleanroom/AGI.decrypted.exe`
+- `ndisasm -b 16 -o 0x6df0 -e 0x6ff0 build/cleanroom/AGI.decrypted.exe`
+- `rg -n "0bb3|0x0bb3|3f5a|0x3f5a|16ed|0x16ed|\\+0x22 == 2|field_22_mode1|object_step_or_state_limited" docs/src tools`
+- `ndisasm -b 16 -o 0x1660 -e 0x1860 build/cleanroom/AGI.decrypted.exe | sed -n '1,180p'`
+- `ndisasm -b 16 -o 0x09f0 -e 0x0bf0 build/cleanroom/AGI.decrypted.exe | sed -n '1,220p'`
+- `ndisasm -b 16 -o 0x0b30 -e 0x0d30 build/cleanroom/AGI.decrypted.exe | sed -n '1,220p'`
+- `ndisasm -b 16 -o 0x1680 -e 0x1880 build/cleanroom/AGI.decrypted.exe | sed -n '1,160p'`
+- `python3 -B tools/disassemble_logic.py --opcode 0x53`
+- `python3 -B tools/disassemble_logic.py --opcode 0x54`
+- `python3 -B tools/disassemble_logic.py --opcode 0x55`
+- `python3 -B tools/disassemble_logic.py --stats`
+- `tail -n 80 docs/src/clean_room_executable_notes.md`
+- `rg -n "object_step_or_state_limited|set_object_field_22_mode1|clear_object_field_22\\)|approach_first_object_until_near|start_random_motion|stop_motion_mode|min\\(arg1" docs/src tools/disassemble_logic.py`
+
+Rejected or non-evidence probes:
+
+- The first `ndisasm` command around `0x6df0` used `-e 0x6ec0`. For this
+  decrypted executable image, the file skip must include the `0x200`-byte MZ
+  header, so the correct skip for image offset `0x6df0` is `0x6ff0`. The
+  shifted command was treated as rejected evidence.
+- The three `python3 -B tools/disassemble_logic.py --opcode ...` commands only
+  produced argument-parser errors because the local disassembler has no
+  `--opcode` option. They were not used as evidence.
+- The broad `ndisasm` commands without `sed` produced excessive trailing
+  disassembly. Only the leading ranges later rechecked with focused `sed`
+  commands were used as evidence.
+
+Documented result:
+
+- Corrected action `0x53`: handler `0x6e02` sets object byte `[+0x22] = 2`,
+  reads operand 1, compares it with current step byte `[+0x1e]`, and stores the
+  larger value in `[+0x27]`. The earlier `min(...)` description was wrong.
+- Action `0x53` stores operand 2 as completion flag byte `[+0x28]`, clears that
+  flag through `0x74d0`, initializes byte `[+0x29] = 0xff`, and sets object bit
+  `0x0010`.
+- Helper `0x0b36`, reached from mode byte `+0x22 == 2`, computes the first
+  object entry's center X as `first[+0x03] + first[+0x1a] / 2` and the current
+  object's center X as `object[+0x03] + object[+0x1a] / 2`.
+- The same helper calls `0x16ed(object_center_x, object_y,
+  first_object_center_x, first_object_y, object[+0x27])`. If the returned
+  direction is zero, it clears object bytes `[+0x21]` and `[+0x22]` and sets
+  completion flag `[+0x28]` through `0x74c6`.
+- If mode 2 sees object bit `0x4000`, it chooses a random nonzero direction
+  through `0x3fa3`, stores it in `[+0x21]`, and computes a delay in `[+0x29]`
+  from the object/first-object separation and current step byte. While
+  `[+0x29]` is nonzero, the helper counts it down by step byte `[+0x1e]`; when
+  the delay reaches zero it writes the direct approach direction to `[+0x21]`.
+- Renamed opcode label `0x53` to `approach_first_object_until_near`.
+- Action `0x54` handler `0x6e68` sets `[0x0139] = 0` when operating on the
+  first object entry, then sets object byte `[+0x22] = 1` and object bit
+  `0x0010`.
+- Helper `0x3f5a`, reached from mode byte `+0x22 == 1`, decrements countdown
+  byte `[+0x27]`. When the old countdown is zero, or object bit `0x4000` is set,
+  it calls `0x3fa3`, stores the random direction `0..8` in `[+0x21]`, mirrors
+  that direction to global byte `[0x000f]` for the first object, and reseeds
+  `[+0x27]` by repeatedly taking random `% 0x33` until the value is at least 6.
+- Renamed opcode label `0x54` to `start_random_motion`.
+- Action `0x55` handler `0x6ea1` only clears object byte `[+0x22]`. It does not
+  clear direction byte `[+0x21]` or update the first-object globals.
+- Renamed opcode label `0x55` to `stop_motion_mode`.
+- Updated the bytecode spec, graphics/object pipeline, runtime model, and local
+  disassembler labels with these higher-level motion-mode contracts.
+
+## Remaining action-table opcode pass
+
+Commands run from `/Users/peter/ai/agi/reverse`:
+
+- `sed -n '1,260p' tools/disassemble_logic.py`
+- `sed -n '260,430p' tools/disassemble_logic.py`
+- `rg -n "action_[0-9a-f]{2}|condition_[0-9a-f]{2}|unknown|provisional|thin|remaining|TODO|needs" docs/src tools`
+- `python3 -B tools/disassemble_logic.py --stats`
+- `rg -n "061d|action table|condition table|dispatch table|TableEntry|load_table" docs/src tools/disassemble_logic.py`
+- `sed -n '1,80p' docs/src/logic_bytecode.md`
+- `sed -n '240,330p' docs/src/clean_room_executable_notes.md`
+- Python one-off dump of all unnamed action-table entries at
+  `SQ2/AGIDATA.OVL:0x061d` and condition-table bytes through opcode `0x25`.
+- `ndisasm -b 16 -o 0x4b00 -e 0x4d00 build/cleanroom/AGI.decrypted.exe | sed -n '1,260p'`
+- `ndisasm -b 16 -o 0x3ec0 -e 0x40c0 build/cleanroom/AGI.decrypted.exe | sed -n '1,220p'`
+- `ndisasm -b 16 -o 0x8270 -e 0x8470 build/cleanroom/AGI.decrypted.exe | sed -n '1,220p'`
+- `ndisasm -b 16 -o 0x4c00 -e 0x4e00 build/cleanroom/AGI.decrypted.exe | sed -n '1,260p'`
+- `ndisasm -b 16 -o 0x2700 -e 0x2900 build/cleanroom/AGI.decrypted.exe | sed -n '1,240p'`
+- `ndisasm -b 16 -o 0x7180 -e 0x7380 build/cleanroom/AGI.decrypted.exe | sed -n '1,220p'`
+- `ndisasm -b 16 -o 0x6020 -e 0x6220 build/cleanroom/AGI.decrypted.exe | sed -n '1,240p'`
+- `ndisasm -b 16 -o 0x5040 -e 0x5240 build/cleanroom/AGI.decrypted.exe | sed -n '1,220p'`
+- `rg -n "0x0e72|0xe72|0x1530|1530|0x124a|124a|0x127a|127a|0x0143|0x143|0x05e1|0x5e1|0x1823|1823|0x1809|1809|0x1c8c|1c8c|0x5051|0x4b17|0x3ecd|0x828f|0x3ee9|0x4c15|0x2726|0x718b|0x719d|0x602f|0x4d10" docs/src tools`
+- `strings -a -t x build/cleanroom/AGI.decrypted.exe | sed -n '1,260p'`
+- `xxd -g 1 -s 0xe60 -l 0x90 SQ2/AGIDATA.OVL`
+- `xxd -g 1 -s 0x1800 -l 0x60 SQ2/AGIDATA.OVL`
+- `ndisasm -b 16 -o 0x02a0 -e 0x04a0 build/cleanroom/AGI.decrypted.exe | sed -n '1,180p'`
+- `sed -n '90,140p' docs/src/agi_executable.md`
+- `sed -n '780,850p' docs/src/clean_room_executable_notes.md`
+- `sed -n '680,710p' docs/src/graphics_object_pipeline.md`
+- `sed -n '1360,1380p' docs/src/clean_room_executable_notes.md`
+- `sed -n '50,90p' docs/src/graphics_object_pipeline.md`
+- `sed -n '600,618p' docs/src/logic_bytecode.md`
+- `sed -n '440,470p' docs/src/logic_bytecode.md`
+- `sed -n '580,620p' docs/src/logic_bytecode.md`
+- `sed -n '138,170p' docs/src/logic_bytecode.md`
+- `sed -n '112,170p' docs/src/logic_bytecode.md`
+- `sed -n '600,630p' docs/src/logic_bytecode.md`
+- `sed -n '900,950p' docs/src/logic_bytecode.md`
+- `sed -n '960,1035p' docs/src/logic_bytecode.md`
+- `sed -n '930,990p' docs/src/logic_bytecode.md`
+- `sed -n '850,930p' docs/src/logic_bytecode.md`
+- `sed -n '45,75p' docs/src/graphics_object_pipeline.md`
+- `rg -n "action_[0-9a-f]{2}|object_step_or_state_limited|set_object_field_22_mode1|clear_object_field_22\\)|\\b0x1c\\b|\\b0x20\\b|\\b0x90\\b|\\b0x99\\b|\\b0x9b\\b|\\b0xaa\\b|\\b0xab\\b|\\b0xac\\b|\\b0xad\\b|\\b0xae\\b|\\b0xaf\\b" docs/src tools/disassemble_logic.py`
+- Python one-off import of `tools/disassemble_logic.py` with `sys.modules`
+  registration, followed by an unnamed-action audit.
+
+Rejected or non-evidence probes:
+
+- The first Python one-off import of `tools/disassemble_logic.py` omitted
+  `sys.modules[spec.name] = module`. Python 3.14's `dataclass` implementation
+  expected that registration and raised an `AttributeError`; this failed probe
+  was not used as evidence.
+
+Documented result:
+
+- Dumped the full action table at `SQ2/AGIDATA.OVL:0x061d`. Before this pass,
+  unnamed action entries were `0x00`, `0x1c`, `0x20`, `0x7f`, `0x90`, `0x99`,
+  `0x9b`, and `0xaa..0xaf`.
+- Added local labels for all remaining action-table entries:
+  - `0x00` (`end`), a structural main-loop terminator.
+  - `0x1c` (`overlay_picture_var`), a variable-sourced picture path that
+    selects a cached picture payload and enters picture decoder `0x6440`
+    instead of `0x6445`.
+  - `0x20` (`discard_view`) and `0x99` (`discard_view_var`), which release or
+    rewind cached view-like resources through helper `0x3f0d`.
+  - `0x7f` (`noop`), `0x9b` (`noop_2`), and `0xaf`
+    (`noop_1_table_count`), no-op table entries with different observed
+    pointer-advance behavior.
+  - `0x90` (`append_message_to_log_file`), which opens or creates `logfile`,
+    appends room/input-line context, appends a resolved message, and closes the
+    handle.
+  - `0xaa` (`copy_save_description_to_string_slot`), which copies up to
+    `0x1f` bytes from buffer `0x0e72` into a logic string slot.
+  - `0xab` (`save_event_buffer_count`) and `0xac`
+    (`restore_event_buffer_count`), which preserve and restore the pair-buffer
+    count `[0x0143]` through `[0x05e1]`.
+  - `0xad` (`increment_global_1530`), which only increments byte `[0x1530]`.
+  - `0xae` (`rebuild_priority_table_from_y`), which rebuilds the 168-byte
+    priority/control table at `0x127a` from an immediate row/value.
+- The follow-up unnamed-action audit reports `unnamed actions: []`.
+- Dumped condition-table bytes through opcode `0x25`. Entries `0x00..0x12`
+  remain the valid-looking condition table; bytes after `0x12` decode as
+  string/data bytes and then zero fill if forced through the same 4-byte shape.
+  No local SQ2 condition list uses condition opcodes `0x13..0x25`, so they are
+  documented as invalid/reserved for this build rather than as real predicates.
+- Updated the bytecode spec, graphics/object pipeline note, and local
+  disassembler labels.
+
+## Symbolic label map setup
+
+Commands run from `/Users/peter/ai/agi/reverse`:
+
+- `sed -n '1,220p' AGENTS.md`
+- `rg -n "symbolic|label|labels|address|offset|0x293c|0x061d|AGI.decrypted|clean_room_executable_notes|SUMMARY" docs/src tools AGENTS.md`
+- `sed -n '1,220p' docs/src/SUMMARY.md`
+- `git status --short`
+- `sed -n '1,120p' docs/src/README.md`
+- `sed -n '1,220p' docs/src/agi_executable.md`
+- `sed -n '1,120p' docs/src/runtime_model.md`
+- `tail -n 120 docs/src/clean_room_executable_notes.md`
+- `rg -n "0x293c|0x02c4|0x07e3|0x061d|0x08fd|0x07ab|0x08f1|0x21f0|0x119a|0x117d|0x12ae|0x4305|0x2e32|0x2e56|0x4a3b|0x4acf|0x4b3b|0x4bce|0x6445|0x6440|0x6475|0x5546|0x5528|0x5257|0x52f9" docs/src`
+- `rg -n "0x39f7|0x3ae7|0x3bb7|0x3c1b|0x3ccb|0x593a|0x5762|0x9db6|0x9db0|0x9db3|0x150a|0x16ed|0x1672|0x16b9|0x3fa3|0x3f5a|0x0b36|0x1ce8|0x1f2b|0x2374|0x1f54|0x2753|0x2512|0x28c6|0x26b0|0x85e5" docs/src`
+- `rg -n "0x096b|0x096d|0x0971|0x0977|0x0981|0x11b2|0x1377|0x1130|0x112e|0x136f|0x127a|0x0a85|0x1707|0x1709|0x0143|0x0009|0x0109|0x020d|0x0c7b|0x0ca3|0x094b" docs/src`
+- `sed -n '18,34p' docs/src/resource_files.md`
+- `sed -n '60,72p' docs/src/resource_files.md`
+- `rg -n "11b2|11b4|11b6|11b8|11ba" docs/src/clean_room_executable_notes.md docs/src/resource_files.md docs/src/symbolic_labels.md`
+- ``rg -n 'Symbolic label map setup|symbolic_labels|Maintain `docs/src/symbolic_labels.md`|Symbolic Labels' AGENTS.md docs/src/SUMMARY.md docs/src/README.md docs/src/clean_room_executable_notes.md docs/src/symbolic_labels.md``
+
+Rejected or non-evidence probes:
+
+- A final `rg` sanity command used double quotes around a pattern containing
+  backticks. The shell attempted command substitution of
+  `docs/src/symbolic_labels.md` and printed a permission-denied diagnostic.
+  The same search was rerun with single quotes and the failed command was not
+  used as evidence.
+
+Documented result:
+
+- Added `docs/src/symbolic_labels.md` as the cross-version label map. The map
+  separates stable project names from SQ2-specific image, overlay, and data
+  offsets.
+- Seeded the first map with labels already supported by the existing evidence
+  trail: logic interpreter dispatch, message handling, resource loading, DOS
+  wrappers, picture/display helpers, object/view/motion helpers, save/text
+  helpers, and key runtime globals.
+- Rechecked the directory pointer order against the resource-file chapter and
+  recorded view directory `[0x11b4]`, picture directory `[0x11b6]`, and sound
+  directory `[0x11b8]`.
+- Updated the mdBook summary and overview so the label map is part of the
+  rendered documentation.
+- Updated `AGENTS.md` to require future passes to update the symbolic label map
+  when assigning or revising routine/global/table names.
+
+## Picture and view decode/draw pass
+
+Commands run from `/Users/peter/ai/agi/reverse`:
+
+- `sed -n '1,240p' AGENTS.md`
+- `sed -n '1,260p' docs/src/graphics_object_pipeline.md`
+- `sed -n '260,760p' docs/src/graphics_object_pipeline.md`
+- `sed -n '1,220p' docs/src/symbolic_labels.md`
+- `ndisasm -b 16 -o 0x6440 -e 0x6640 build/cleanroom/AGI.decrypted.exe`
+- `ndisasm -b 16 -o 0x5200 -e 0x5400 build/cleanroom/AGI.decrypted.exe`
+- `ndisasm -b 16 -o 0x5680 -e 0x5880 build/cleanroom/AGI.decrypted.exe`
+- `ndisasm -b 16 -o 0x9db0 SQ2/IBM_OBJS.OVL`
+- `xxd -g 2 -s 0x15d6 -l 0x20 SQ2/AGIDATA.OVL`
+- `ndisasm -b 16 -o 0x6475 -e 0x6675 build/cleanroom/AGI.decrypted.exe | sed -n '1,170p'`
+- `ndisasm -b 16 -o 0x6600 -e 0x6800 build/cleanroom/AGI.decrypted.exe | sed -n '1,210p'`
+- `ndisasm -b 16 -o 0x52f9 -e 0x54f9 build/cleanroom/AGI.decrypted.exe | sed -n '1,95p'`
+- `xxd -g 2 -s 0x15f8 -l 0x60 SQ2/AGIDATA.OVL`
+- `xxd -g 2 -s 0x1618 -l 0x50 SQ2/AGIDATA.OVL`
+- `ndisasm -b 16 -o 0x526f -e 0x546f build/cleanroom/AGI.decrypted.exe | sed -n '1,80p'`
+- `ndisasm -b 16 -o 0x533b -e 0x553b build/cleanroom/AGI.decrypted.exe | sed -n '1,230p'`
+- `sed -n '1,260p' tools/inspect_view.py`
+- `python3 -B tools/inspect_view.py 11`
+- `ndisasm -b 16 -o 0x9db0 SQ2/IBM_OBJS.OVL | sed -n '1,180p'`
+- `ndisasm -b 16 -o 0x587d -e 0x5a7d build/cleanroom/AGI.decrypted.exe | sed -n '1,170p'`
+- Python one-off scan of all local view payloads through `tools/inspect_view.py`
+  to count frame control-byte values and nonzero preview string offsets.
+- Python one-off scan to find the first local frame with control bit `0x80`;
+  the first match was view 0, group 0, frame 0.
+
+Rejected or non-evidence probes:
+
+- The broad `ndisasm` reads around `0x6440`, `0x5200`, and `0x5680` produced
+  excessive trailing disassembly because no output filter was applied. They
+  were useful for orientation only; the focused `sed`-limited reruns above are
+  the cited evidence for the documented details.
+
+Documented result:
+
+- Expanded the picture decoder notes from a handler sketch into opcode-level
+  semantics for command bytes `0xf0..0xfa`, grounded in the local dispatch
+  table at `SQ2/AGIDATA.OVL:0x15d6`.
+- Identified `0xf0`/`0xf1` as low-nibble draw enable/disable commands and
+  `0xf2`/`0xf3` as high-nibble control draw enable/disable commands.
+- Identified the coordinate reader contract: `0x66c1` reads/clamps X to
+  `0x9f`, `0x66d4` reads/clamps Y to `0xa7`, and bytes above `0xef` terminate
+  the current drawing command for the main scanner.
+- Split the path-drawing families:
+  - `0xf4` starts with a vertical segment and then alternates
+    horizontal/vertical corners.
+  - `0xf5` starts with a horizontal segment and then alternates
+    vertical/horizontal corners.
+  - `0xf6` draws absolute point-to-point lines through helper `0x66e1`.
+  - `0xf7` draws relative vector steps from packed delta bytes.
+- Documented `0xf8` conservatively as a seed-fill command through helper
+  `0x533b`; its stack-state names remain open, but its seed/expand/write shape
+  is stable.
+- Documented pattern command `0xf9` and patterned draw command `0xfa`, including
+  pattern pointer table `DS:0x1619` and mask data rooted at `DS:0x15f9`.
+- Expanded the view frame model from the IBM object overlay:
+  - frame byte `+0x00` is width;
+  - frame byte `+0x01` is height/row count;
+  - frame byte `+0x02` low nibble is the transparent color/run code;
+  - row data begins at `+0x03`;
+  - zero ends a row;
+  - nonzero bytes encode high-nibble color and low-nibble run length.
+- Documented object drawing's priority/control comparison: the overlay writes
+  object priority/control from object byte `+0x24` into the destination high
+  nibble, skips writes behind higher existing control values, and may scan
+  downward in the same column to find a comparison value.
+- Documented helper `0x587d` as the bit-`0x80` frame rewrite path. It compares
+  frame control bits `0x70` with object byte `+0x0a`, updates those bits, and
+  rebuilds the row-encoded frame stream in place when they differ.
+- Added symbolic labels for the new picture command handlers, line/fill
+  helpers, pattern data, picture draw-state globals, and the view-frame rewrite
+  helper.

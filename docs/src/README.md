@@ -18,5 +18,10 @@ Current documentation:
   [SIERRA.COM Loader](./loader_decompilation.md).
 - Notes on the decrypted interpreter executable, startup, and overlay loading
   are in [Decrypted AGI Executable](./agi_executable.md).
+- Stable symbolic names for routines, tables, and globals are tracked in
+  [Symbolic Labels](./symbolic_labels.md), so later interpreter versions can be
+  compared without relying on matching offsets.
 - Notes on directory and volume resource files are in
   [Resource Files](./resource_files.md).
+- A higher-level implementation model of the observed runtime data types and
+  operation families is in [Runtime Model](./runtime_model.md).

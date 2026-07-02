@@ -23,6 +23,8 @@ The output of this project is a human-readable spec that contains sufficient inf
 - Keep `docs/src/SUMMARY.md` updated when adding, moving, or removing chapters.
 - Build/check the book with `mdbook build docs`.
 - Record reverse-engineering actions, observations, commands, offsets, hypotheses, and corrections in the documentation, especially `docs/src/clean_room_executable_notes.md`.
+- Maintain `docs/src/symbolic_labels.md` as the stable cross-version map for interpreter routines, tables, overlay entry points, and globals. Treat addresses as build-specific observations and prefer symbolic labels in prose once a label exists.
+- When assigning or revising a symbolic label, update `docs/src/symbolic_labels.md` with the observed SQ2 address association and record the supporting evidence or uncertainty in the notes.
 
 ## Clean-room workflow
 
