@@ -44,6 +44,14 @@ class ObjectOverlayProbeTests(unittest.TestCase):
         self.assertIn("priority6_control3_uses_low_draws", case_ids)
         self.assertIn("scan_down_control6_priority5_hidden", case_ids)
         self.assertIn("scan_down_control6_priority6_draws", case_ids)
+        self.assertIn("right_clip_view11_priority15", case_ids)
+        self.assertIn("bottom_clip_view11_priority15", case_ids)
+        self.assertIn("transparent8_large_view29_priority15", case_ids)
+        self.assertIn("auto_priority_default_y80_draws", case_ids)
+        self.assertIn("auto_priority_rebuilt_y100_hidden", case_ids)
+        self.assertIn("persistent_view11_priority15", case_ids)
+        self.assertIn("persistent_priority36_high3_rejects", case_ids)
+        self.assertIn("persistent_priority66_high_nonzero_hidden", case_ids)
 
     def test_json_case_loading(self) -> None:
         case = base_cases()[0]
@@ -68,6 +76,34 @@ class ObjectOverlayProbeTests(unittest.TestCase):
             comparison = compare_capture(case, capture)
         self.assertTrue(comparison.matches)
         self.assertEqual(comparison.mismatches, 0)
+
+    def test_compare_capture_uses_expected_priority_override(self) -> None:
+        case = next(item for item in base_cases() if item.case_id == "auto_priority_default_y80_draws")
+        picture = PictureRenderer(case.picture_payload).render(case.picture_no)
+        frame = render_view_frame(case.view_no, case.group_no, case.frame_no)
+        expected = compose_frame_on_picture(picture, frame, case.x, case.baseline_y, case.expected_priority)
+        with tempfile.TemporaryDirectory() as temp_dir:
+            capture = Path(temp_dir) / "capture.ppm"
+            write_scaled_capture(capture, expected.visual_nibbles)
+            comparison = compare_capture(case, capture)
+        self.assertTrue(comparison.matches)
+
+    def test_compare_capture_uses_expected_position_override(self) -> None:
+        case = next(item for item in base_cases() if item.case_id == "right_clip_view11_priority15")
+        picture = PictureRenderer(case.picture_payload).render(case.picture_no)
+        frame = render_view_frame(case.view_no, case.group_no, case.frame_no)
+        expected = compose_frame_on_picture(
+            picture,
+            frame,
+            case.expected_x,
+            case.expected_baseline_y,
+            case.expected_priority if case.expected_priority is not None else case.priority,
+        )
+        with tempfile.TemporaryDirectory() as temp_dir:
+            capture = Path(temp_dir) / "capture.ppm"
+            write_scaled_capture(capture, expected.visual_nibbles)
+            comparison = compare_capture(case, capture)
+        self.assertTrue(comparison.matches)
 
     def test_report_summary_counts_statuses(self) -> None:
         with tempfile.TemporaryDirectory() as temp_dir:

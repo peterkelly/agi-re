@@ -271,6 +271,14 @@ class ViewRenderingTests(unittest.TestCase):
         draw_frame_on_buffer(equivalent, frame, left=3, baseline_y=2, priority=5)
         self.assertEqual(cells, equivalent)
 
+    def test_draw_frame_on_buffer_clamps_right_edge_placement(self) -> None:
+        cells = bytearray([DEFAULT_CELL] * (WIDTH * HEIGHT))
+        equivalent = bytearray([DEFAULT_CELL] * (WIDTH * HEIGHT))
+        frame = RenderedFrame(-1, 0, 0, 3, 1, 0x00, bytes([1, 1, 1]))
+        draw_frame_on_buffer(cells, frame, left=159, baseline_y=4, priority=5)
+        draw_frame_on_buffer(equivalent, frame, left=WIDTH - 3, baseline_y=4, priority=5)
+        self.assertEqual(cells, equivalent)
+
     def test_draw_frame_on_buffer_respects_existing_higher_priority(self) -> None:
         cells = bytearray([DEFAULT_CELL] * (WIDTH * HEIGHT))
         cells[2 * WIDTH + 2] = 0x6F

@@ -953,3 +953,38 @@ Progress updates and outcomes:
      All eight object overlay probes matched QEMU with 0 mismatches. Updated the
      graphics/object pipeline, compatibility notes, and clean-room executable
      notes to describe the low-nibble visible-priority result.
+
+104. Reported: "Two useful surprises came out. The right-edge case shows
+     placement clamps the object's left coordinate to `160 - width` rather than
+     just clipping pixels. The persistent `0x36` priority-byte case suggests the
+     high nibble can affect persistent placement/control acceptance even though
+     transient visible drawing uses the low nibble, so I'm tightening those
+     models and adding one confirmation case."
+
+     Action/result: The expanded object overlay run matched 16 of 18 cases.
+     Added right-edge placement clamping to the local overlay model, changed the
+     persistent `0x36` case to expect rejection under control 6, and added a
+     `0x66` persistent priority-byte confirmation case.
+
+105. Reported: "The right-edge behavior is not a simple clamp: the actual cel
+     lands around `x=140`, `baseline_y=67`, so placement search adjusts both
+     axes. The persistent `0x66` case is hidden too, which makes the safer
+     current conclusion: persistent fixed priority bytes with a nonzero high
+     nibble are not valid visible-priority inputs in these probes. I'm encoding
+     those as observed expectations rather than pretending the simple model
+     covers them generally."
+
+     Action/result: Added per-case expected placement overrides for the
+     right-edge probe and changed the persistent `0x66` probe to expect a hidden
+     object under the controlled priority-6 picture.
+
+106. Reported: "The full 19-case QEMU batch is clean: clipping, transparent
+     variants, priority-table-derived priority, and persistent-object setup all
+     matched. I'm updating the spec now, including the important caveat that
+     right-edge placement is observed as a placement-search result, not a
+     general formula yet."
+
+     Action/result: Ran
+     `python3 -B tools/object_overlay_probe.py --dos-prefix OG --output build/object-overlay-probes/batches/expanded_all5_final.json --boot-wait 5 --draw-wait 8`.
+     All 19 cases matched QEMU with 0 mismatches. Updated compatibility notes,
+     clean-room executable notes, and graphics/object pipeline documentation.

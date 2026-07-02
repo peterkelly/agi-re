@@ -20,6 +20,7 @@ from agi_graphics import (
 from compare_picture_capture import downsample_qemu_picture_nibbles
 from ppm_tools import read_ppm
 from qemu_fixture import build_synthetic_picture_view_fixture
+from qemu_fixture import build_synthetic_picture_persistent_object_fixture, rebuild_priority_table_action
 from qemu_snapshot import SnapshotFixtureCase, build_snapshot_boot_disk, run_snapshot_qemu_cases
 
 
@@ -42,6 +43,12 @@ class ObjectOverlayCase:
     baseline_y: int
     priority: int
     control: int | None = None
+    expected_priority: int | None = None
+    expected_x: int | None = None
+    expected_baseline_y: int | None = None
+    priority_table_y: int | None = None
+    persistent: bool = False
+    object_no: int = 0
 
     @property
     def picture_payload(self) -> bytes:
@@ -80,8 +87,41 @@ def _case(
     payload: bytes,
     priority: int,
     control: int | None = None,
+    view_no: int = 11,
+    group_no: int = 0,
+    frame_no: int = 0,
+    x: int = 20,
+    baseline_y: int = 80,
+    expected_priority: int | None = None,
+    expected_x: int | None = None,
+    expected_baseline_y: int | None = None,
+    priority_table_y: int | None = None,
+    persistent: bool = False,
 ) -> ObjectOverlayCase:
-    return ObjectOverlayCase(case_id, description, payload.hex(), 0, 11, 0, 0, 20, 80, priority, control)
+    return ObjectOverlayCase(
+        case_id,
+        description,
+        payload.hex(),
+        0,
+        view_no,
+        group_no,
+        frame_no,
+        x,
+        baseline_y,
+        priority,
+        control,
+        expected_priority,
+        expected_x,
+        expected_baseline_y,
+        priority_table_y,
+        persistent,
+    )
+
+
+def default_priority_for_y(y: int) -> int:
+    if y < 48:
+        return 4
+    return min(14, 5 + (y - 48) // 12)
 
 
 def base_cases() -> list[ObjectOverlayCase]:
@@ -155,6 +195,99 @@ def base_cases() -> list[ObjectOverlayCase]:
             scan_down_payload,
             6,
         ),
+        _case(
+            "right_clip_view11_priority15",
+            "View 11 crossing the right edge should clip cleanly.",
+            b"\xff",
+            15,
+            x=154,
+            baseline_y=80,
+            expected_x=140,
+            expected_baseline_y=67,
+        ),
+        _case(
+            "bottom_clip_view11_priority15",
+            "View 11 near the bottom edge should clip cleanly.",
+            b"\xff",
+            15,
+            x=20,
+            baseline_y=167,
+        ),
+        _case(
+            "transparent3_view21_priority15",
+            "View 21 uses transparent color 3.",
+            b"\xff",
+            15,
+            view_no=21,
+            group_no=0,
+            frame_no=0,
+        ),
+        _case(
+            "transparent8_large_view29_priority15",
+            "View 29 is a larger cel with transparent color 8.",
+            b"\xff",
+            15,
+            view_no=29,
+            group_no=0,
+            frame_no=0,
+            x=40,
+            baseline_y=100,
+        ),
+        _case(
+            "transparent10_mirrored_view10_priority15",
+            "View 10 exercises bit-0x80 orientation with transparent color 10.",
+            b"\xff",
+            15,
+            view_no=10,
+            group_no=0,
+            frame_no=0,
+        ),
+        _case(
+            "auto_priority_default_y80_draws",
+            "A zero staged priority should derive default priority 7 at baseline Y 80.",
+            bytes([0xF2, 0x06, 0xF8, 0x00, 0x00, 0xFF]),
+            0,
+            expected_priority=default_priority_for_y(80),
+        ),
+        _case(
+            "auto_priority_rebuilt_y100_hidden",
+            "After rebuilding the priority table at row 100, baseline Y 80 should derive priority 4.",
+            bytes([0xF2, 0x06, 0xF8, 0x00, 0x00, 0xFF]),
+            0,
+            expected_priority=4,
+            priority_table_y=100,
+        ),
+        _case(
+            "persistent_view11_priority15",
+            "A persistent object-table object should draw the same cel through the update list.",
+            b"\xff",
+            15,
+            persistent=True,
+        ),
+        _case(
+            "persistent_priority63_uses_low_hidden",
+            "A persistent fixed priority byte 0x63 should use low priority 3 for visible gating.",
+            b"\xff",
+            0x63,
+            expected_priority=3,
+            persistent=True,
+        ),
+        _case(
+            "persistent_priority36_high3_rejects",
+            "A persistent fixed priority byte 0x36 should be blocked by control 6 before visible low-priority drawing.",
+            bytes([0xF2, 0x06, 0xF8, 0x00, 0x00, 0xFF]),
+            0x36,
+            expected_priority=3,
+            persistent=True,
+        ),
+        _case(
+            "persistent_priority66_high_nonzero_hidden",
+            "A persistent fixed priority byte 0x66 is hidden in the controlled priority-6 probe.",
+            bytes([0xF2, 0x06, 0xF8, 0x00, 0x00, 0xFF]),
+            0x66,
+            expected_priority=0,
+            persistent=True,
+        ),
     ]
 
 
@@ -175,12 +308,15 @@ def compare_capture(case: ObjectOverlayCase, capture: Path) -> OverlayComparison
         captured = downsample_qemu_picture_nibbles(read_ppm(capture))
         picture = PictureRenderer(case.picture_payload).render(case.picture_no)
         frame = render_view_frame(case.view_no, case.group_no, case.frame_no)
+        expected_priority = case.expected_priority if case.expected_priority is not None else (case.priority & 0x0F)
+        expected_x = case.expected_x if case.expected_x is not None else case.x
+        expected_baseline_y = case.expected_baseline_y if case.expected_baseline_y is not None else case.baseline_y
         expected_picture = compose_frame_on_picture(
             picture,
             frame,
-            case.x,
-            case.baseline_y,
-            case.priority,
+            expected_x,
+            expected_baseline_y,
+            expected_priority,
         )
     except Exception as exc:  # noqa: BLE001 - probe records exact local exception.
         return OverlayComparison(case.case_id, "error", None, None, None, None, f"{type(exc).__name__}: {exc}")
@@ -234,18 +370,37 @@ def run_snapshot_batch(
         capture = fixture / "qemu_capture.ppm"
         started_at[case.case_id] = time.monotonic()
         print(f"[{index + 1}/{len(cases)}] build {case.case_id} -> {dos_dir}", file=sys.stderr, flush=True)
-        build_synthetic_picture_view_fixture(
-            case.picture_payload,
-            case.picture_no,
-            case.view_no,
-            case.group_no,
-            case.frame_no,
-            case.x,
-            case.baseline_y,
-            case.priority,
-            fixture,
-            case.control,
-        )
+        pre_overlay_actions = b""
+        if case.priority_table_y is not None:
+            pre_overlay_actions += rebuild_priority_table_action(case.priority_table_y)
+        if case.persistent:
+            build_synthetic_picture_persistent_object_fixture(
+                case.picture_payload,
+                case.picture_no,
+                case.view_no,
+                case.group_no,
+                case.frame_no,
+                case.x,
+                case.baseline_y,
+                case.priority,
+                fixture,
+                case.object_no,
+                pre_overlay_actions,
+            )
+        else:
+            build_synthetic_picture_view_fixture(
+                case.picture_payload,
+                case.picture_no,
+                case.view_no,
+                case.group_no,
+                case.frame_no,
+                case.x,
+                case.baseline_y,
+                case.priority,
+                fixture,
+                case.control,
+                pre_overlay_actions,
+            )
         qemu_cases.append(SnapshotFixtureCase(dos_dir, fixture, capture))
 
     print(f"building snapshot disk: {snapshot_qcow}", file=sys.stderr, flush=True)

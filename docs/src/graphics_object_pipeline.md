@@ -480,6 +480,14 @@ byte: low `3` with high `6` remained hidden on a control-4 background, and low
 `6` with high `3` drew on a control-6 background. For visible overlay gating,
 the draw routine therefore uses the low nibble of object byte `+0x24`.
 
+Additional QEMU probes with a zero staged priority confirm that helper `0x57cf`
+derives the low visible priority from the runtime priority table when the low
+nibble of object byte `+0x24` is zero. With the default table and baseline
+Y `80`, the derived priority is `7` and the object draws over a control-6
+background. After action `0xae` rebuilds the priority table from row `100`, the
+same baseline derives priority `4` and is hidden behind that control-6
+background.
+
 The local compatibility helper now models this object-frame composition at the
 buffer level. It takes a decoded frame, a left X, a baseline Y, and a priority
 nibble, computes `top = baseline_y - frame.height + 1`, skips pixels whose
@@ -490,8 +498,24 @@ if `top` is negative, the overlay path adds that negative value to `left`, adds
 its absolute value to `baseline_y`, and draws with `top = 0`. In the observed
 case, view 11/group 0/frame 0 requested at left `20`, baseline `2` matched a
 local draw at left `18`, baseline `4`.
+Right-edge placement is not a simple pixel clip. A transient view 11/group 0/
+frame 0 probe requested at left `154`, baseline `80`; QEMU matched a local draw
+at left `140`, baseline `67`. This records the current observed result of
+placement helper `0x593a`, but the general placement-search algorithm still
+needs more boundary probes before it should be reduced to a formula.
 This does not yet replace the full object-record/update-list pipeline, but it
 captures the central `IBM_OBJS.OVL:0x9db6` pixel rule for focused tests.
+
+The persistent object-table path has also been validated for static drawing.
+A generated logic fixture using `load_view`, object resource/frame selection,
+`set_object_pos`, `set_object_field_24`, and `activate_object` produced the
+same view 11/group 0/frame 0 output as the local composition model. Persistent
+fixed priority bytes with nonzero high nibbles behaved differently from the
+transient staged byte: `0x63`, `0x36`, and `0x66` were hidden in the controlled
+probes where ordinary low-byte priorities would have separated visible draw
+from rejection. The current safe interpretation is that persistent fixed
+priority arguments should be treated as normal `0..15` priority values until
+movement/control acceptance is probed more directly.
 
 If frame control byte bit `0x80` is set, helper `0x587d` may rewrite the frame
 data in place before drawing. It compares bits `0x70` of frame byte `+0x02`,
@@ -523,6 +547,12 @@ transparent values, including `0x0`, `0x1`, `0x2`, `0x3`, `0x5`, `0x6`, `0x7`,
 through the mutable `0x70` orientation/cache field. View 0 group 0 frame 0 is
 one concrete bit-`0x80` sample: it has size `7x33`, control byte `0x81`, and
 row-terminated encoded data beginning with `13 62 00 12 64 00 ...`.
+
+QEMU probes now include additional transparent-color samples: view 21/group 0/
+frame 0 with transparent color `3`, view 29/group 0/frame 0 with transparent
+color `8` and size `45x47`, and view 10/group 0/frame 0 with bit `0x80` and
+transparent color `10`. All matched the local renderer in the expanded object
+overlay batch.
 
 The exact meaning of the first two payload bytes remains open.
 

@@ -14,12 +14,15 @@ sys.path.insert(0, str(ROOT / "tools"))
 
 from qemu_fixture import (  # noqa: E402
     SCRATCH_VAR,
+    build_synthetic_picture_persistent_object_fixture,
     build_synthetic_picture_view_fixture,
     build_synthetic_picture_fixture,
     patch_dir_entry,
     patch_logdir_entry_zero,
+    persistent_object_logic_payload,
     picture_logic_payload,
     picture_view_logic_payload,
+    rebuild_priority_table_action,
     volume_record,
 )
 from agi_graphics import PALETTE, render_picture  # noqa: E402
@@ -85,6 +88,19 @@ class QemuFixtureTests(unittest.TestCase):
         )
         self.assertEqual(payload[2 + code_len :], bytes([0x00, 0x02, 0x00]))
 
+    def test_picture_view_logic_payload_can_insert_pre_overlay_actions(self) -> None:
+        payload = picture_view_logic_payload(1, 11, 0, 0, 20, 80, 0, pre_overlay_actions=rebuild_priority_table_action(100))
+        code_len = payload[0] | (payload[1] << 8)
+        code = payload[2 : 2 + code_len]
+        self.assertIn(bytes([0x1A, 0xAE, 100, 0x1E, 11]), code)
+
+    def test_persistent_object_logic_payload_uses_object_table_actions(self) -> None:
+        payload = persistent_object_logic_payload(1, 11, 0, 0, 20, 80, 15)
+        code_len = payload[0] | (payload[1] << 8)
+        code = payload[2 : 2 + code_len]
+        self.assertIn(bytes([0x21, 0, 0x29, 0, 11, 0x2B, 0, 0, 0x2F, 0, 0]), code)
+        self.assertIn(bytes([0x25, 0, 20, 80, 0x36, 0, 15, 0x23, 0]), code)
+
     def test_volume_record_wraps_payload_with_header(self) -> None:
         record = volume_record(b"abc", volume=3)
         self.assertEqual(record, b"\x12\x34\x03\x03\x00abc")
@@ -128,6 +144,27 @@ class QemuFixtureTests(unittest.TestCase):
             )
             vol3 = (fixture / "VOL.3").read_bytes()
             logic_record = volume_record(picture_view_logic_payload(0, 11, 0, 0, 20, 80, 4), volume=3)
+            self.assertTrue(vol3.startswith(logic_record))
+            self.assertEqual(vol3[len(logic_record) :], volume_record(payload, volume=3))
+            self.assertEqual((fixture / "LOGDIR").read_bytes()[:3], bytes([0x30, 0x00, 0x00]))
+            self.assertEqual((fixture / "PICDIR").read_bytes()[:3], bytes([0x30, 0x00, len(logic_record)]))
+
+    def test_synthetic_picture_persistent_object_fixture_patches_picture_and_logic(self) -> None:
+        payload = bytes([0xFF])
+        with tempfile.TemporaryDirectory() as temp_dir:
+            fixture = build_synthetic_picture_persistent_object_fixture(
+                payload,
+                0,
+                11,
+                0,
+                0,
+                20,
+                80,
+                15,
+                Path(temp_dir) / "fixture",
+            )
+            vol3 = (fixture / "VOL.3").read_bytes()
+            logic_record = volume_record(persistent_object_logic_payload(0, 11, 0, 0, 20, 80, 15), volume=3)
             self.assertTrue(vol3.startswith(logic_record))
             self.assertEqual(vol3[len(logic_record) :], volume_record(payload, volume=3))
             self.assertEqual((fixture / "LOGDIR").read_bytes()[:3], bytes([0x30, 0x00, 0x00]))

@@ -570,6 +570,8 @@ def draw_frame_on_buffer(
         left += top
         baseline_y -= top
         top = 0
+    if left + frame.width > WIDTH:
+        left = WIDTH - frame.width
     transparent = frame.control & 0x0F
     object_priority = (priority & 0x0F) << 4
     for row in range(frame.height):

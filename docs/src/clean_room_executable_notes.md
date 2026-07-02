@@ -2930,6 +2930,7 @@ Commands run from `/Users/peter/ai/agi/reverse`:
 - `python3 -B tools/object_overlay_probe.py --dos-prefix OP --output build/object-overlay-probes/batches/base_priority.json --boot-wait 5 --draw-wait 8`
 - `python3 -B tools/object_overlay_probe.py --dos-prefix OQ --output build/object-overlay-probes/batches/priority_scan_down.json --boot-wait 5 --draw-wait 8`
 - `python3 -B tools/object_overlay_probe.py --dos-prefix OR --output build/object-overlay-probes/batches/priority_nibbles.json --boot-wait 5 --draw-wait 8`
+- `python3 -B tools/object_overlay_probe.py --dos-prefix OG --output build/object-overlay-probes/batches/expanded_all5_final.json --boot-wait 5 --draw-wait 8`
 
 Documented result:
 
@@ -2949,3 +2950,15 @@ Documented result:
     high nibble staged by operand 7 of action `0x7a`;
   - when the destination cell contains low control `2`, the overlay routine
     scans downward to a control-`6` row and applies the same comparison there.
+- The expanded 19-case object overlay batch matched QEMU with 0 mismatches.
+  It adds evidence for:
+  - right-edge transient placement: requested left `154`, baseline `80` for
+    view 11/group 0/frame 0 matched a local draw at left `140`, baseline `67`;
+  - bottom-edge drawing for view 11 at baseline `167`;
+  - transparent-color variants in views 21, 29, and 10;
+  - derived priority when `0x7a` stages low priority zero, including the
+    effect of action `0xae` rebuilding the priority table at row `100`;
+  - persistent object-table setup and activation for a static object;
+  - persistent fixed priority bytes with nonzero high nibbles hiding in the
+    controlled priority probes, so those byte values should not yet be treated
+    as normal visible priorities.

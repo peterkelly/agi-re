@@ -50,6 +50,7 @@ def picture_view_logic_payload(
     priority: int,
     control: int | None = None,
     scratch_var: int = SCRATCH_VAR,
+    pre_overlay_actions: bytes = b"",
 ) -> bytes:
     values = [picture_no, view_no, group_no, frame_no, x, baseline_y, priority, scratch_var]
     if control is not None:
@@ -68,6 +69,11 @@ def picture_view_logic_payload(
             0x19,
             scratch_var,
             0x1A,
+        ]
+    )
+    code += pre_overlay_actions
+    code += bytes(
+        [
             0x1E,
             view_no,
             0x7A,
@@ -84,6 +90,69 @@ def picture_view_logic_payload(
         ]
     )
     return u16le(len(code)) + code + bytes([0x00]) + u16le(0x0002)
+
+
+def persistent_object_logic_payload(
+    picture_no: int,
+    view_no: int,
+    group_no: int,
+    frame_no: int,
+    x: int,
+    baseline_y: int,
+    priority_byte: int | None,
+    object_no: int = 0,
+    scratch_var: int = SCRATCH_VAR,
+    pre_overlay_actions: bytes = b"",
+) -> bytes:
+    values = [picture_no, view_no, group_no, frame_no, x, baseline_y, object_no, scratch_var]
+    if priority_byte is not None:
+        values.append(priority_byte)
+    if any(not 0 <= value <= 0xFF for value in values):
+        raise ValueError("fixture operands must fit in one byte")
+    code = bytes(
+        [
+            0x03,
+            scratch_var,
+            picture_no,
+            0x18,
+            scratch_var,
+            0x19,
+            scratch_var,
+            0x1A,
+        ]
+    )
+    code += pre_overlay_actions
+    code += bytes(
+        [
+            0x1E,
+            view_no,
+            0x21,
+            object_no,
+            0x29,
+            object_no,
+            view_no,
+            0x2B,
+            object_no,
+            group_no,
+            0x2F,
+            object_no,
+            frame_no,
+            0x25,
+            object_no,
+            x,
+            baseline_y,
+        ]
+    )
+    if priority_byte is not None:
+        code += bytes([0x36, object_no, priority_byte])
+    code += bytes([0x23, object_no, 0xFE, 0xFD, 0xFF])
+    return u16le(len(code)) + code + bytes([0x00]) + u16le(0x0002)
+
+
+def rebuild_priority_table_action(row: int) -> bytes:
+    if not 0 <= row <= 0xFF:
+        raise ValueError("priority-table row must fit in one byte")
+    return bytes([0xAE, row])
 
 
 def volume_record(payload: bytes, volume: int) -> bytes:
@@ -188,6 +257,7 @@ def build_synthetic_picture_view_fixture(
     priority: int,
     destination: Path,
     control: int | None = None,
+    pre_overlay_actions: bytes = b"",
 ) -> Path:
     copy_sq2_tree(destination)
     logic_payload = picture_view_logic_payload(
@@ -199,6 +269,47 @@ def build_synthetic_picture_view_fixture(
         baseline_y,
         priority,
         control,
+        pre_overlay_actions=pre_overlay_actions,
+    )
+    logic_record = volume_record(logic_payload, volume=3)
+    picture_offset = len(logic_record)
+    picture_record = volume_record(picture_payload, volume=3)
+    (destination / "VOL.3").write_bytes(logic_record + picture_record)
+
+    logdir = (destination / "LOGDIR").read_bytes()
+    (destination / "LOGDIR").write_bytes(patch_logdir_entry_zero(logdir, volume=3, offset=0))
+
+    picdir = (destination / "PICDIR").read_bytes()
+    (destination / "PICDIR").write_bytes(
+        patch_dir_entry(picdir, picture_no, volume=3, offset=picture_offset)
+    )
+    return destination
+
+
+def build_synthetic_picture_persistent_object_fixture(
+    picture_payload: bytes,
+    picture_no: int,
+    view_no: int,
+    group_no: int,
+    frame_no: int,
+    x: int,
+    baseline_y: int,
+    priority_byte: int | None,
+    destination: Path,
+    object_no: int = 0,
+    pre_overlay_actions: bytes = b"",
+) -> Path:
+    copy_sq2_tree(destination)
+    logic_payload = persistent_object_logic_payload(
+        picture_no,
+        view_no,
+        group_no,
+        frame_no,
+        x,
+        baseline_y,
+        priority_byte,
+        object_no,
+        pre_overlay_actions=pre_overlay_actions,
     )
     logic_record = volume_record(logic_payload, volume=3)
     picture_offset = len(logic_record)
