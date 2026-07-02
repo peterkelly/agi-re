@@ -1,6 +1,7 @@
 # Summary
 
 - [Overview](./README.md)
+- [Progress Log](./progress_log.md)
 - [Clean-Room Executable Notes](./clean_room_executable_notes.md)
 - [SIERRA.COM Loader](./loader_decompilation.md)
 - [Decrypted AGI Executable](./agi_executable.md)
@@ -8,5 +9,6 @@
 - [Resource Files](./resource_files.md)
 - [Runtime Model](./runtime_model.md)
 - [Graphics and Object Pipeline](./graphics_object_pipeline.md)
+- [Compatibility Testing](./compatibility_testing.md)
 - [Logic Resources](./logic_resources.md)
 - [Logic Bytecode](./logic_bytecode.md)

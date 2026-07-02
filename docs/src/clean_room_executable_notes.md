@@ -2136,3 +2136,633 @@ Documented result:
 - Added symbolic labels for the new picture command handlers, line/fill
   helpers, pattern data, picture draw-state globals, and the view-frame rewrite
   helper.
+
+## Initial graphics compatibility test scaffold
+
+Commands run from `/Users/peter/ai/agi/reverse`:
+
+- `git status --short`
+- `find . -maxdepth 3 -type f | sort | sed -n '1,220p'`
+- `sed -n '1,260p' tools/disassemble_logic.py`
+- `sed -n '1,260p' tools/inspect_view.py`
+- `sed -n '1,200p' .gitignore`
+- `sed -n '1,200p' docs/.gitignore`
+- `rg -n "test|suite|compat|QEMU|picture decoder|View payload|0xf8|seed_fill" docs/src tools AGENTS.md`
+- `find . -maxdepth 2 -type d | sort`
+- `python3 -B -m unittest tests.test_graphics_rendering`
+- Python one-off import of `tools.agi_graphics` to locate present `PICDIR`
+  entries; the first present picture entry was picture 1.
+- Python one-off import of `tools.agi_graphics` to calculate current renderer
+  hashes for picture 1, view 0 group 0 frame 0, and view 11 group 0 frame 0.
+- `python3 -B tools/render_picture.py 1 --output build/rendered/picture_001_visual.ppm`
+- `python3 -B tools/render_picture.py 1 --channel control --output build/rendered/picture_001_control.ppm`
+- `python3 -B tools/render_view.py 0 0 0 --output build/rendered/view_000_00_00.ppm`
+- `python3 -B tools/render_view.py 11 0 0 --output build/rendered/view_011_00_00.ppm`
+- `magick build/rendered/picture_001_visual.ppm build/rendered/picture_001_visual.png`
+- `magick build/rendered/picture_001_control.ppm build/rendered/picture_001_control.png`
+- `magick build/rendered/view_000_00_00.ppm build/rendered/view_000_00_00.png`
+- `magick build/rendered/view_011_00_00.ppm build/rendered/view_011_00_00.png`
+- `identify -verbose build/rendered/picture_001_visual.png | sed -n '1,80p'`
+- `identify -verbose build/rendered/picture_001_control.png | sed -n '1,80p'`
+- `identify -verbose build/rendered/view_000_00_00.png | sed -n '1,80p'`
+- `identify -verbose build/rendered/view_011_00_00.png | sed -n '1,80p'`
+- `python3 -B -m unittest`
+- `python3 -B -m unittest discover -s tests`
+- `mdbook build docs`
+- `git diff --check`
+
+Rejected or non-evidence probes:
+
+- The first renderer smoke test assumed picture 0 was present. The local
+  directory entry for picture 0 is absent, so this failed with
+  `ValueError: picture 0 is absent` and was not used as evidence.
+- The first unit-test run used placeholder hashes. Those failures only proved
+  that expected values had not yet been seeded.
+- Plain `python3 -B -m unittest` reported zero tests, so it is not the suite
+  command for this repository. The documented command now uses explicit test
+  discovery with `discover -s tests`.
+
+Documented result:
+
+- Added `tools/agi_graphics.py` as the first reusable local graphics decoding
+  module. It parses picture and view resources from the local directory and
+  volume files, writes simple PPM output, and exposes deterministic render
+  buffers for tests.
+- Added `tools/render_picture.py` and `tools/render_view.py` as command-line
+  helpers for generating picture and view fixtures under `build/rendered/`.
+- Added `tests/test_graphics_rendering.py` with six initial unit tests covering
+  picture directory presence, picture 1 scan termination, deterministic picture
+  rendering, all-view frame parsing, and deterministic rendering for two sample
+  view cels.
+- The local test suite passed with `python3 -B -m unittest discover -s tests`.
+- ImageMagick inspection reported nonblank sample outputs:
+  - `picture_001_visual.png`: 160 by 168, 11 colors.
+  - `picture_001_control.png`: 160 by 168, 2 colors.
+  - `view_000_00_00.png`: 7 by 33, 6 colors.
+  - `view_011_00_00.png`: 20 by 5, 7 colors.
+- The picture renderer remains provisional for seed fill and pattern plotting.
+  The new picture hashes are regression checks for the current implementation
+  hypothesis, not final original-engine compatibility claims.
+
+## Graphics compatibility census expansion
+
+Commands run from `/Users/peter/ai/agi/reverse`:
+
+- `sed -n '1,260p' docs/src/graphics_object_pipeline.md`
+- `sed -n '1,240p' docs/src/compatibility_testing.md`
+- `sed -n '1,460p' tools/agi_graphics.py`
+- `sed -n '1,220p' tests/test_graphics_rendering.py`
+- Python one-off scan of all non-null `PICDIR` entries using
+  `read_volume_payload`; 74 entries had valid volume headers, and entry 147
+  decoded to invalid target `(0, 0x2ffff)`.
+- Python one-off scan of all valid picture payloads through
+  `render_picture`; all 74 valid pictures rendered without an exception.
+- Python one-off command-byte census over all valid picture payloads.
+- Python one-off view-row scan over all valid view payloads; all decoded rows
+  stayed within their declared frame widths.
+- `xxd -g 1 SQ2/PICDIR | tail -n 8`
+- Python one-off print of final bytes for `LOGDIR`, `PICDIR`, `VIEWDIR`, and
+  `SNDDIR`.
+- `python3 -B -m unittest discover -s tests`
+- `python3 -B tools/render_picture.py 45 --output build/rendered/picture_045_visual.ppm`
+- `python3 -B tools/render_picture.py 45 --channel control --output build/rendered/picture_045_control.ppm`
+- `magick build/rendered/picture_045_visual.ppm build/rendered/picture_045_visual.png`
+- `magick build/rendered/picture_045_control.ppm build/rendered/picture_045_control.png`
+- `identify -verbose build/rendered/picture_045_visual.ppm | sed -n '1,80p'`
+- `identify -verbose build/rendered/picture_045_control.ppm | sed -n '1,80p'`
+- Python one-off hash calculation for rendered picture 45 cells, visual
+  nibbles, and control nibbles.
+
+Rejected or non-evidence probes:
+
+- The first all-picture scan treated every non-null directory entry as a valid
+  resource. It failed on `PICDIR` entry 147 with `ValueError('bad VOL.0
+  resource header at 0x2ffff')`. This failure is now recorded as evidence of a
+  sentinel-like directory entry, but the failed scan's incomplete totals were
+  not used.
+
+Documented result:
+
+- Added `iter_valid_resources(dir_name)` to `tools/agi_graphics.py`. It keeps
+  the raw directory reader unchanged but skips entries whose volume headers do
+  not validate.
+- Expanded `tests/test_graphics_rendering.py` from 6 to 12 tests.
+- The picture tests now assert:
+  - 74 valid `PICDIR` payloads;
+  - invalid/sentinel-like entry 147 as `(0, 0x2ffff)`;
+  - every valid picture renders to a 160 by 168 buffer;
+  - every valid picture payload ends with `0xff`;
+  - the exact all-picture command-byte census;
+  - deterministic hashes for picture 1 and picture 45.
+- The view tests now assert:
+  - 2,066 decoded frames;
+  - 50,640 decoded rows;
+  - no decoded row exceeds its frame width;
+  - maximum observed cel dimensions of 88 by 129;
+  - deterministic hashes for two sample cels.
+- Picture 45 is the longest valid picture payload observed in this pass, at
+  4,974 bytes. Its current provisional renderer full-cell hash is
+  `7e8132ddf0658ada246440e409f0801a416d88f003495b7a9f55fbee23fb3974`.
+- The all-picture command-byte census over valid payloads is:
+  - `0xf0`: 4,746
+  - `0xf1`: 309
+  - `0xf2`: 1,018
+  - `0xf3`: 425
+  - `0xf6`: 7,736
+  - `0xf7`: 9,282
+  - `0xf8`: 1,447
+  - `0xf9`: 22
+  - `0xfa`: 701
+  - `0xff`: 74
+- No valid local SQ2 picture payload uses command `0xf4` or `0xf5` in this
+  scan.
+- ImageMagick inspection reported nonblank picture 45 samples:
+  - `picture_045_visual.ppm`: 160 by 168, 11 colors.
+  - `picture_045_control.ppm`: 160 by 168, 11 colors.
+
+## PPM inspection helper for QEMU validation
+
+Commands run from `/Users/peter/ai/agi/reverse`:
+
+- `find build -maxdepth 3 -type f | sort | sed -n '1,160p'`
+- `find . -maxdepth 3 -type f -name '*screen*' -o -name '*.ppm' -o -name '*.png' | sort | sed -n '1,160p'`
+- `identify build/dos622/sq2_01.ppm build/dos622/sq2_02.ppm build/dos622/screen0.ppm build/rendered/picture_001_visual.ppm build/rendered/picture_045_visual.ppm`
+- Python one-off read of the first 64 bytes of selected QEMU PPM captures.
+- `python3 -B -m unittest discover -s tests`
+- `python3 -B tools/inspect_ppm.py build/dos622/sq2_01.ppm`
+- `python3 -B tools/inspect_ppm.py build/rendered/picture_045_visual.ppm`
+- `python3 -B tools/inspect_ppm.py build/rendered/picture_045_control.ppm`
+
+Documented result:
+
+- Added `tools/ppm_tools.py` with a small binary PPM reader, RGB digest helper,
+  unique-color collection, and first-pixel-background bounding-box helper.
+- Added `tools/inspect_ppm.py` as a CLI wrapper around those helpers.
+- Added a unit test proving local picture PPM output can be parsed by the same
+  helper intended for QEMU screenshots.
+- Existing QEMU screenshots under `build/dos622/` include both 720 by 400 DOS
+  text-mode captures and 640 by 400 SQ2 game captures. For example,
+  `build/dos622/sq2_01.ppm` parsed as 640 by 400, 4 colors, RGB SHA-256
+  `80605890a86b4cfe5304c389a7fec9c7ece9c809812bec8923c60e464fcda12f`, with
+  non-background bounds `(0, 16, 639, 331)`.
+- Local generated picture renders remain in the logical 160 by 168 coordinate
+  space. Picture 45 visual PPM parsed as 160 by 168, 11 colors, RGB SHA-256
+  `92dc42b905eab360dcec460dbdba5f2382c7c833d461efa2c9c5fc3e86ba213b`; its
+  control PPM parsed as 160 by 168, 11 colors, RGB SHA-256
+  `354e29e62f1e27ef9f56a3a4db251ac04d5e86a2e095f3ff541d9232a08ef055`.
+- The QEMU-to-local comparison layer still needs an explicit normalization
+  transform because the emulator screenshot is a full VGA frame, not the raw
+  160 by 168 logical picture buffer.
+
+## Pattern plot renderer refinement
+
+Commands run from `/Users/peter/ai/agi/reverse`:
+
+- `ndisasm -b 16 -o 0x6524 -e 0x6724 build/cleanroom/AGI.decrypted.exe | sed -n '1,190p'`
+- `ndisasm -b 16 -o 0x64f0 -e 0x66f0 build/cleanroom/AGI.decrypted.exe | sed -n '1,80p'`
+- `xxd -g 1 -s 0x15f8 -l 0x80 SQ2/AGIDATA.OVL`
+- `xxd -g 2 -s 0x1618 -l 0x40 SQ2/AGIDATA.OVL`
+- `rg -n "pattern|0x652a|0x15f8|0x15f9|0x1619|0xfa|0xf9" docs/src tools`
+- Python one-off print of `pattern_column_mask()` and `pattern_row_words()` from
+  the local AGIDATA bytes.
+- `python3 -B -m unittest discover -s tests`
+
+Documented result:
+
+- Replaced the local picture renderer's placeholder circular pattern plotting
+  with the observed helper `0x652a` algorithm.
+- Added `pattern_column_mask(column)` and `pattern_row_words(radius)` helpers
+  that read the local `AGIDATA.OVL` pattern tables instead of hard-coding row
+  shapes in the renderer.
+- Added a unit test for the observed column masks and selected row-word tables.
+- The observed column masks selected from `DS:0x15f9 + column * 4` are:
+  `0x8000`, `0x2000`, `0x0800`, `0x0200`, `0x0080`, `0x0020`, `0x0008`,
+  and `0x0002`.
+- The pattern helper draws `radius + 1` columns and `2 * radius + 1` rows after
+  clipping from the source coordinate.
+- Mode bit `0x10` bypasses the row-word/column-mask test.
+- Mode bit `0x20` enables the byte recurrence seeded from `[0x15f8] | 1`:
+  shift right, XOR with `0xb8` when carry was set, and draw only when bit 0 is
+  clear and bit 1 is set.
+- Existing picture regression hashes for pictures 1 and 45 remained unchanged
+  after this refinement, but they still require QEMU comparison before being
+  treated as original-engine parity checks.
+
+## Seed fill renderer refinement
+
+Commands run from `/Users/peter/ai/agi/reverse`:
+
+- `ndisasm -b 16 -o 0x533b -e 0x563b build/cleanroom/AGI.decrypted.exe | sed -n '1,260p'`
+- `ndisasm -b 16 -o 0x52f9 -e 0x543b build/cleanroom/AGI.decrypted.exe | sed -n '1,180p'`
+- `rg -n "0x533b|seed_fill|fill|0xf8|0x534|0x53" docs/src tools`
+- `ndisasm -b 16 -o 0x53f9 -e 0x553b build/cleanroom/AGI.decrypted.exe | sed -n '1,240p'`
+- `ndisasm -b 16 -o 0x54a0 -e 0x55e2 build/cleanroom/AGI.decrypted.exe | sed -n '1,240p'`
+- `ndisasm -b 16 -o 0x5724 -e 0x5866 build/cleanroom/AGI.decrypted.exe | sed -n '1,120p'`
+- `python3 -B -m unittest discover -s tests`
+- Python one-off hash calculation for pictures 1 and 45 after the seed-fill
+  model update.
+- `python3 -B tools/render_picture.py 45 --output build/rendered/picture_045_visual.ppm`
+- `python3 -B tools/render_picture.py 45 --channel control --output build/rendered/picture_045_control.ppm`
+- `python3 -B tools/inspect_ppm.py build/rendered/picture_045_visual.ppm`
+- `python3 -B tools/inspect_ppm.py build/rendered/picture_045_control.ppm`
+- `magick build/rendered/picture_045_visual.ppm build/rendered/picture_045_visual.png`
+- `magick build/rendered/picture_045_control.ppm build/rendered/picture_045_control.png`
+
+Rejected or non-evidence probes:
+
+- The first disassembly command in this pass used the previously noted seed
+  label but landed on an unhelpful alignment window. The focused reruns around
+  `0x53f9..0x55e5` are the evidence for this pass.
+
+Documented result:
+
+- Refined the local seed-fill model from "fill each active channel separately"
+  to the observed interpreter contract:
+  - if visual drawing is active, select low nibble target `0xf`;
+  - otherwise, if control drawing is active, select high nibble target `0x40`;
+  - exit immediately if the selected replacement is the default target value;
+  - for accepted cells, call the normal pixel write path, so both active
+    channels can be changed by the fill.
+- The executable helper is a stack-backed horizontal span fill. The local
+  renderer still uses an explicit queue over four-neighbor cells for traversal,
+  but now uses the observed test-channel priority and normal pixel-write rule.
+- Picture 1 hashes did not change. Picture 45's visual hash did not change, but
+  its control and combined-cell hashes changed, matching the expectation that
+  the refinement affects control side effects when both draw channels are
+  active.
+- Updated the picture 45 full-cell regression hash to
+  `7e8132ddf0658ada246440e409f0801a416d88f003495b7a9f55fbee23fb3974`.
+- Updated the generated picture 45 control PPM RGB hash to
+  `354e29e62f1e27ef9f56a3a4db251ac04d5e86a2e095f3ff541d9232a08ef055`.
+- Added two synthetic picture bytecode tests for seed fill:
+  - `f2 02 f0 01 f8 00 00 ff` starts with both control and visual drawing
+    active. It expands through the low-nibble default target and writes every
+    cell to `0x21`, proving that visual is the test channel but both active
+    channels can be written.
+  - `f2 02 f8 00 00 ff` has only control drawing active. It expands through
+    the high-nibble default target and writes every cell to `0x2f`.
+- The local compatibility suite passed with 16 tests after these synthetic
+  checks were added.
+
+## Picture line helper refinement
+
+Commands run from `/Users/peter/ai/agi/reverse`:
+
+- `ndisasm -b 16 -o 0x66e1 -e 0x68c0 build/cleanroom/AGI.decrypted.exe | sed -n '1,240p'`
+- `ndisasm -b 16 -o 0x526f -e 0x5460 build/cleanroom/AGI.decrypted.exe | sed -n '1,220p'`
+- `ndisasm -b 16 -o 0x66e1 -e 0x68e1 build/cleanroom/AGI.decrypted.exe | sed -n '1,180p'`
+- `ndisasm -b 16 -o 0x526f -e 0x546f build/cleanroom/AGI.decrypted.exe | sed -n '1,180p'`
+- Python one-off comparison of the observed accumulator stepping model with
+  the previous generic line algorithm over small coordinate ranges.
+- `python3 -B -m unittest discover -s tests`
+
+Rejected or non-evidence probes:
+
+- The first `0x66e1` disassembly command used the wrong file skip offset and
+  landed slightly early. The rerun with `-e 0x68e1` is the evidence used for
+  the line-helper notes.
+
+Documented result:
+
+- Replaced the local diagonal line routine with the observed helper `0x66e1`
+  accumulator structure:
+  - horizontal and vertical special cases use dedicated helpers;
+  - the caller plots the starting point before entering the helper;
+  - the major axis supplies the loop count;
+  - the minor-axis accumulator starts at half the major delta;
+  - Y accumulator/step is processed before X accumulator/step;
+  - each generated point is written through the normal pixel helper.
+- Existing SQ2 picture regression hashes did not change after this refinement.
+- Added synthetic tests for an absolute `0xf6` line and a packed relative
+  `0xf7` line. Both forms currently assert the plotted point set
+  `(0,0)`, `(1,0)`, `(2,1)`, `(3,1)`.
+- The local compatibility suite passed with 18 tests after these line checks
+  were added.
+
+## Object-frame composition helper
+
+Commands run from `/Users/peter/ai/agi/reverse`:
+
+- `rg -n "object drawing|IBM_OBJS|0x9db|view frame|transparent|priority|\\+0x24|0x587d|rewrite" docs/src/graphics_object_pipeline.md docs/src/clean_room_executable_notes.md docs/src/symbolic_labels.md tools`
+- `ndisasm -b 16 -o 0x9db0 SQ2/IBM_OBJS.OVL | sed -n '1,260p'`
+- `ndisasm -b 16 -o 0x587d -e 0x5a7d build/cleanroom/AGI.decrypted.exe | sed -n '1,220p'`
+- `sed -n '260,860p' docs/src/graphics_object_pipeline.md`
+- `sed -n '1,260p' tools/inspect_view.py`
+- `python3 -B -m unittest discover -s tests`
+
+Documented result:
+
+- Added `draw_frame_on_buffer()` and `compose_frame_on_picture()` to
+  `tools/agi_graphics.py`.
+- The helper models the central object overlay draw rule from
+  `IBM_OBJS.OVL:0x9db6`: object top is `baseline_y - frame.height + 1`,
+  transparent-color pixels do not write, and nontransparent pixels write
+  `(priority << 4) | color` only when the destination high-nibble
+  priority/control comparison permits it.
+- Added tests for baseline placement, transparent pixels, direct rejection by a
+  higher existing priority, and rejection after scanning downward from a
+  low-control cell.
+
+## Generated logic fixture for QEMU picture validation
+
+Commands run from `/Users/peter/ai/agi/reverse`:
+
+- `sed -n '1,260p' docs/src/logic_resources.md`
+- `sed -n '1,220p' docs/src/logic_bytecode.md`
+- `rg -n "load_picture|prepare_picture|show_picture|draw|return|end|0x18|0x19|0x1a|logic header|message|messages|LOGIC" docs/src tools/disassemble_logic.py`
+- `python3 -B tools/disassemble_logic.py 0 | sed -n '1,220p'`
+- `xxd -g 1 -l 160 SQ2/VOL.1`
+- Python one-off print of action-table entries for `assignn`,
+  `load_picture_var`, `prepare_picture_var`, `show_picture_like`, and related
+  display/input actions.
+- Python one-off scan of valid local logic resources to inspect zero-message
+  payload trailers.
+- Python one-off print of `VOL.*` file sizes and first `LOGDIR` entries.
+- `xxd -g 1 -l 32 SQ2/VOL.3`
+- `python3 -B -m unittest discover -s tests`
+- `python3 -B tools/qemu_fixture.py picture 45 --output build/qemu-fixtures/picture_045`
+- `xxd -g 1 -l 32 build/qemu-fixtures/picture_045/LOGDIR`
+- `xxd -g 1 -l 64 build/qemu-fixtures/picture_045/VOL.3`
+- `find build/qemu-fixtures/picture_045 -maxdepth 1 -type f | wc -l`
+- Python one-off check of generated `VOL.3` header/payload bytes and patched
+  `LOGDIR[0]`.
+- `mdir -i build/dos622/dos622.img@@32256 ::`
+- `mmd -i build/dos622/dos622.img@@32256 ::/SQ2P45`
+- `mcopy -i build/dos622/dos622.img@@32256 build/qemu-fixtures/picture_045/* ::/SQ2P45`
+- `qemu-system-i386 -m 16 -boot c -drive file=build/dos622/dos622.img,format=raw,if=ide,index=0,media=disk -display vnc=127.0.0.1:5 -monitor stdio`
+- QEMU monitor `sendkey` commands for `cd \SQ2P45` and `SIERRA`.
+- QEMU monitor command
+  `screendump build/qemu-fixtures/picture_045/qemu_picture_045.ppm`.
+- QEMU monitor command `quit`.
+- `python3 -B tools/inspect_ppm.py build/qemu-fixtures/picture_045/qemu_picture_045.ppm`
+- `identify build/qemu-fixtures/picture_045/qemu_picture_045.ppm`
+- Python one-off nearest-palette/downsample comparison between the QEMU capture
+  and `render_picture(45).visual_nibbles`.
+- `python3 -B tools/compare_picture_capture.py 45 build/qemu-fixtures/picture_045/qemu_picture_045.ppm`
+- `magick build/qemu-fixtures/picture_045/qemu_picture_045.ppm build/qemu-fixtures/picture_045/qemu_picture_045.png`
+
+Rejected or non-evidence probes:
+
+- `python3 -B tools/disassemble_logic.py --logic 0` failed because the local
+  disassembler takes logic numbers as positional arguments.
+- One `rg` command used a search pattern containing markdown backticks and
+  failed shell quoting; it was not used as evidence.
+- The first synthetic scaled-PPM unit test wrote only 200 rows while declaring
+  a 400-row image. The PPM parser rejected it, the test was corrected, and the
+  malformed generated file was not used as evidence.
+
+Documented result:
+
+- Added `tools/qemu_fixture.py`. For `picture N`, it copies the local `SQ2/`
+  files into `build/qemu-fixtures/picture_NNN`, replaces `VOL.3` with a custom
+  logic resource, and patches `LOGDIR[0]` to point to `VOL.3` offset zero.
+- The generated picture-45 logic payload is:
+  - resource header in `VOL.3`: `12 34 03 10 00`;
+  - logic code length: `0b 00`;
+  - bytecode: `03 fa 2d 18 fa 19 fa 1a fe fd ff`;
+  - message trailer: `00 02 00`.
+- The bytecode means:
+  - `assignn(v250, 45)`;
+  - `load_picture_var(v250)`;
+  - `prepare_picture_var(v250)`;
+  - `show_picture_like()`;
+  - `jump -3`, looping on the jump after the picture has been shown.
+- Copied the generated fixture to `C:\SQ2P45` inside
+  `build/dos622/dos622.img` and launched it with the original interpreter in
+  QEMU.
+- Captured `build/qemu-fixtures/picture_045/qemu_picture_045.ppm` from QEMU.
+  The capture is 640 by 400, has 11 nearest-palette colors, and has RGB
+  SHA-256 `615a1a8ae22d4e04774f725adb395bc3d05372b10d41c81a61a99eb098d1d34c`.
+- A top-left aligned `4x2` downsample from the 640 by 400 QEMU capture to the
+  160 by 168 logical picture space matched `render_picture(45).visual_nibbles`
+  with 0 mismatches out of 26,880 pixels.
+- Added `tools/compare_picture_capture.py` and a synthetic scaled-capture unit
+  test for the comparison path.
+- The local compatibility suite passed with 25 tests after adding the fixture
+  and comparison helpers.
+
+## Generated logic fixture for QEMU picture plus view validation
+
+Commands run from `/Users/peter/ai/agi/reverse`:
+
+- `python3 -B tools/qemu_fixture.py picture-view 1 11 0 0 20 80 15 --output build/qemu-fixtures/picture_001_view_011_00_00`
+- `python3 -B -m unittest discover -s tests`
+- `mmd -i build/dos622/dos622.img@@32256 ::/SQ2V11`
+- `mcopy -i build/dos622/dos622.img@@32256 build/qemu-fixtures/picture_001_view_011_00_00/* ::/SQ2V11`
+- `qemu-system-i386 -m 16 -boot c -drive file=build/dos622/dos622.img,format=raw,if=ide,index=0,media=disk -display vnc=127.0.0.1:5 -monitor stdio`
+- QEMU monitor `sendkey` commands for `cd \SQ2V11` and `SIERRA`.
+- QEMU monitor command
+  `screendump build/qemu-fixtures/picture_001_view_011_00_00/qemu_picture_001_view_011_00_00.ppm`.
+- QEMU monitor command `quit`.
+- `python3 -B tools/inspect_ppm.py build/qemu-fixtures/picture_001_view_011_00_00/qemu_picture_001_view_011_00_00.ppm`
+- `magick build/qemu-fixtures/picture_001_view_011_00_00/qemu_picture_001_view_011_00_00.ppm build/qemu-fixtures/picture_001_view_011_00_00/qemu_picture_001_view_011_00_00.png`
+- `python3 -B tools/compare_picture_capture.py 1 build/qemu-fixtures/picture_001_view_011_00_00/qemu_picture_001_view_011_00_00.ppm --view 11 0 0 --view-x 20 --view-baseline-y 80 --view-priority 15`
+
+Documented result:
+
+- Extended `tools/qemu_fixture.py` with `picture-view`, which draws a selected
+  picture, loads a selected view, draws one selected cel at a controlled
+  position, and then loops.
+- The generated picture-1/view-11/group-0/frame-0 logic payload is:
+  - resource header in `VOL.3`: `12 34 03 1a 00`;
+  - logic code length: `15 00`;
+  - bytecode:
+    `03 fa 01 18 fa 19 fa 1a 1e 0b 7a 0b 00 00 14 50 0f 0f fe fd ff`;
+  - message trailer: `00 02 00`.
+- The bytecode means:
+  - `assignn(v250, 1)`;
+  - `load_picture_var(v250)`;
+  - `prepare_picture_var(v250)`;
+  - `show_picture_like()`;
+  - `load_view(11)`;
+  - `setup_transient_object(view=11, group=0, frame=0, x=20, baseline_y=80, priority=15, control=15)`;
+  - `jump -3`, looping on the jump after the picture and cel have been shown.
+- Copied the generated fixture to `C:\SQ2V11` inside
+  `build/dos622/dos622.img` and launched it with the original interpreter in
+  QEMU.
+- Captured
+  `build/qemu-fixtures/picture_001_view_011_00_00/qemu_picture_001_view_011_00_00.ppm`
+  from QEMU. The capture is 640 by 400, has 15 unique RGB colors, has a
+  non-background bounding box of `(0, 0, 639, 335)`, and has RGB SHA-256
+  `f63b82fb30ab0c2796f695e2678937f1c0a90e9cb3bbb85338bfccea5a6ac816`.
+- Using the same top-left aligned `4x2` downsample as the picture-only fixture,
+  the QEMU capture matched `compose_frame_on_picture(render_picture(1),
+  render_view_frame(11, 0, 0), left=20, baseline_y=80, priority=15)` with
+  0 mismatches out of 26,880 pixels.
+- The local compatibility suite passed with 26 tests before running the QEMU
+  fixture.
+
+## Bit-0x80 view-frame orientation rewrite
+
+Commands run from `/Users/peter/ai/agi/reverse`:
+
+- `python3 -B tools/inspect_view.py 0 1 2 11 --groups 8 --frames 8`
+- `ndisasm -b 16 -o 0x587d -e 0x5a7d build/cleanroom/AGI.decrypted.exe`
+- Python one-off scan of valid `VIEWDIR` resources for frames with control bit
+  `0x80` whose cached bits `(control & 0x70) >> 4` differ from the selected
+  group number.
+- Python one-off print of view 0/group 0/frame 0 row bytes before and after
+  the local rewrite model.
+- `python3 -B -m unittest discover -s tests`
+- `python3 -B tools/qemu_fixture.py picture-view 1 0 1 0 20 80 15 --output build/qemu-fixtures/picture_001_view_000_01_00`
+- `mmd -i build/dos622/dos622.img@@32256 ::/SQ2V01`
+- `mcopy -i build/dos622/dos622.img@@32256 build/qemu-fixtures/picture_001_view_000_01_00/* ::/SQ2V01`
+- `qemu-system-i386 -m 16 -boot c -drive file=build/dos622/dos622.img,format=raw,if=ide,index=0,media=disk -display vnc=127.0.0.1:5 -monitor stdio`
+- QEMU monitor `sendkey` commands for `cd \SQ2V01` and `SIERRA`.
+- QEMU monitor command
+  `screendump build/qemu-fixtures/picture_001_view_000_01_00/qemu_picture_001_view_000_01_00.ppm`.
+- QEMU monitor command `quit`.
+- `python3 -B tools/inspect_ppm.py build/qemu-fixtures/picture_001_view_000_01_00/qemu_picture_001_view_000_01_00.ppm`
+- `magick build/qemu-fixtures/picture_001_view_000_01_00/qemu_picture_001_view_000_01_00.ppm build/qemu-fixtures/picture_001_view_000_01_00/qemu_picture_001_view_000_01_00.png`
+- `python3 -B tools/compare_picture_capture.py 1 build/qemu-fixtures/picture_001_view_000_01_00/qemu_picture_001_view_000_01_00.ppm --view 0 1 0 --view-x 20 --view-baseline-y 80 --view-priority 15`
+
+Rejected or non-evidence probes:
+
+- The first local row-rewrite model treated the mirrored row's emitted leading
+  transparent width as `width - tail_width`, where `tail_width` started at the
+  first nontransparent run. The disassembly keeps explicit leading transparent
+  width in the accumulator before the first nontransparent run, so the correct
+  emitted width is `width - total_explicit_row_width`. The failing unit test
+  was not used as evidence.
+
+Documented result:
+
+- Added `_mirror_view_row_runs()` and `_orient_view_rows()` to
+  `tools/agi_graphics.py`.
+- The rewrite model matches helper `0x587d`:
+  - only frames with control bit `0x80` are candidates;
+  - bits `0x70` of the frame control byte cache the current orientation/group;
+  - when cached bits differ from the selected group, those bits are replaced;
+  - each row is rebuilt by emitting the original implicit trailing transparent
+    width, then copying the counted run bytes in reverse order, then writing a
+    zero row terminator.
+- A local scan found 229 valid SQ2 frames where bit `0x80` is set and the
+  selected group differs from the cached bits. View 0/group 1/frame 0 is the
+  first such sample.
+- Added a unit test proving that `render_view_frame(0, 1, 0)` is the
+  horizontal mirror of `render_view_frame(0, 0, 0)` and reports rewritten
+  control byte `0x91`.
+- Captured
+  `build/qemu-fixtures/picture_001_view_000_01_00/qemu_picture_001_view_000_01_00.ppm`
+  from QEMU. The capture is 640 by 400, has 14 unique RGB colors, has a
+  non-background bounding box of `(0, 0, 639, 335)`, and has RGB SHA-256
+  `1fb4fbfaa4d7b93b15fa007930e87d7c1982cb78626441a28d56ae46fdd8bd96`.
+- Using the same top-left aligned `4x2` downsample as the previous fixtures,
+  the QEMU capture matched `compose_frame_on_picture(render_picture(1),
+  render_view_frame(0, 1, 0), left=20, baseline_y=80, priority=15)` with
+  0 mismatches out of 26,880 pixels.
+- The local compatibility suite passed with 27 tests after the rewrite model
+  and orientation test were added.
+
+## Synthetic picture fuzzing framework
+
+Commands run from `/Users/peter/ai/agi/reverse`:
+
+- `sed -n '1,260p' tools/qemu_fixture.py`
+- `sed -n '1,220p' tools/compare_picture_capture.py`
+- `sed -n '1,620p' tools/agi_graphics.py`
+- `find tests -maxdepth 2 -type f -print`
+- `sed -n '1,220p' tests/test_qemu_fixture.py`
+- `python3 -B -m unittest discover -s tests`
+- `python3 -B tools/picture_fuzz.py generate --count 64 --seed 4097 --output build/picture-fuzz/corpus --clean`
+- `python3 -B tools/picture_fuzz.py run-qemu base_003_visual_point --dos-dir FZVPOINT --boot-wait 5 --draw-wait 8`
+- `python3 -B tools/picture_fuzz.py generate --count 1024 --seed 4097 --output build/picture-fuzz/corpus --clean`
+- `python3 -B tools/picture_fuzz.py run-qemu base_002_unknown_commands --dos-dir FZUNK --boot-wait 5 --draw-wait 8`
+- `python3 -B tools/picture_fuzz.py run-qemu base_004_clamped_absolute --dos-dir FZCLAMP --boot-wait 5 --draw-wait 8`
+- `python3 -B tools/picture_fuzz.py run-qemu base_009_visual_control_fill --dos-dir FZFILL --boot-wait 5 --draw-wait 8`
+- `python3 -B tools/picture_fuzz.py run-qemu base_011_pattern_random --dos-dir FZPATT --boot-wait 5 --draw-wait 8`
+- `python3 -B tools/picture_fuzz.py run-qemu base_013_truncated_pair --dos-dir FZTRUNC --boot-wait 5 --draw-wait 8`
+- `python3 -B tools/picture_fuzz.py compare-capture base_004_clamped_absolute build/picture-fuzz/fixtures/base_004_clamped_absolute/qemu_capture.ppm`
+- `ndisasm -b 16 -o 0x66e1 -e 0x68e1 build/cleanroom/AGI.decrypted.exe`
+- Python one-off comparing captured and locally rendered changed pixels for
+  `base_004_clamped_absolute`.
+- `xxd -g 1 -l 96 build/picture-fuzz/fixtures/base_004_clamped_absolute/VOL.3`
+- `xxd -g 1 -l 12 build/picture-fuzz/fixtures/base_004_clamped_absolute/PICDIR`
+- `cat build/picture-fuzz/corpus/base_004_clamped_absolute/case.json`
+- Python one-off simulating line helper `0x66e1` with and without 8-bit
+  accumulator wrap.
+- `python3 -B tools/picture_fuzz.py run-qemu base_005_exact_edge_absolute --dos-dir FZEDGE --boot-wait 5 --draw-wait 8`
+- `python3 -B tools/picture_fuzz.py compare-capture base_004_clamped_absolute build/picture-fuzz/fixtures/base_004_clamped_absolute/qemu_capture.ppm`
+- `python3 -B tools/picture_fuzz.py run-qemu base_010_visual_control_fill --dos-dir FZFIL3 --boot-wait 5 --draw-wait 8`
+- `python3 -B tools/picture_fuzz.py run-qemu base_012_pattern_random --dos-dir FZPAT3 --boot-wait 5 --draw-wait 8`
+- `python3 -B tools/picture_fuzz.py run-qemu base_014_truncated_pair --dos-dir FZTRN3 --boot-wait 5 --draw-wait 8`
+
+Rejected or non-evidence probes:
+
+- The first `run-qemu base_003_visual_point` attempt hid QEMU output and
+  surfaced only a broken pipe. The harness was corrected to preserve QEMU
+  output on early exit.
+- Picture fuzz cases marked `safe_for_qemu: false` are excluded from
+  original-engine compatibility evidence. They can make the interpreter read
+  past the synthetic resource and begin interpreting unrelated memory, which is
+  security/exploit behavior rather than a stable semantic contract for AGI
+  resource decoding.
+- Python-launched QEMU initially failed under the restricted sandbox with
+  `Failed to bind socket: Operation not permitted`; the same command succeeded
+  after the user allowed full access.
+- Running three QEMU fuzz cases in parallel was rejected as a bad probe. QEMU
+  needs a single VNC display socket, and concurrent mtools/QEMU fixture copying
+  can collide on the DOS image.
+- A compare for `base_005_exact_edge_absolute` was started in parallel with a
+  corpus regeneration command. The compare raced the regenerated manifest and
+  failed with `FileNotFoundError`; the case was present after regeneration and
+  the QEMU comparison was rerun sequentially.
+- While probing mtools behavior, directory `FZNEW99` was created in the DOS
+  image. It was not used as evidence.
+
+Documented result:
+
+- Added generic `patch_dir_entry()` and
+  `build_synthetic_picture_fixture()` to `tools/qemu_fixture.py`.
+  A synthetic fixture copies local `SQ2/`, writes `VOL.3` with both custom
+  `LOGIC.0` and a synthetic picture payload, patches `LOGDIR[0]` to the logic
+  record, and patches `PICDIR[picture_no]` to the picture record.
+- Added `tools/picture_fuzz.py`. It can:
+  - generate deterministic curated and random picture-resource corpora;
+  - record payload hashes and Python render hashes in `case.json` and
+    `manifest.json`;
+  - build original-engine fixture directories for a selected fuzz case;
+  - copy a fixture into the DOS image, run it in QEMU, capture a `screendump`,
+    and compare the original-engine output against the Python renderer;
+  - compare an existing QEMU capture and report mismatch count, bounding box,
+    and sample mismatched pixels.
+- Added `tests/test_picture_fuzz.py` and expanded `tests/test_qemu_fixture.py`.
+  The local suite passed with 34 tests after the fuzz framework and line
+  regression were added.
+- The current corpus command
+  `python3 -B tools/picture_fuzz.py generate --count 1024 --seed 4097 --output build/picture-fuzz/corpus --clean`
+  generates 1,040 cases: 16 curated base cases and 1,024 deterministic random
+  cases. It currently marks 1,038 cases safe for automated QEMU runs.
+- Updated `tools/picture_fuzz.py run-qemu` to reject cases marked
+  `safe_for_qemu: false` before building or launching a fixture. This preserves
+  the project boundary that malformed overread/exploit behavior is not part of
+  the compatibility spec being built.
+- The first representative QEMU fuzz cases matched:
+  - `base_002_unknown_commands`: 0 mismatches;
+  - `base_003_visual_point`: 0 mismatches;
+  - `base_009_visual_control_fill` before renumbering: 0 mismatches;
+  - `base_011_pattern_random` before renumbering: 0 mismatches;
+  - `base_013_truncated_pair` before renumbering: 0 mismatches.
+- `base_004_clamped_absolute` initially mismatched with 312 pixels. The
+  mismatch samples showed a screen-scale diagonal line displaced relative to
+  the Python renderer. The exact payload in the fixture was
+  `f0 02 f6 ef ef 00 00 ff`, and `PICDIR[0]` correctly pointed to the
+  synthetic picture in `VOL.3`, so the mismatch was treated as behavioral
+  evidence rather than a fixture error.
+- A new curated case, `base_005_exact_edge_absolute`, using payload
+  `f0 02 f6 9f a7 00 00 ff`, reproduced the same mismatch. That proved the gap
+  was not out-of-range coordinate clamping but the diagonal line helper.
+- Simulating `code.picture.draw_line` (`0x66e1`) with 8-bit accumulator wrap
+  reproduced the original-engine edge shape. In particular, the long line from
+  `(159,167)` to `(0,0)` includes `(25,0)` and `(25,1)` and does not include
+  `(0,0)`.
+- Updated `PictureRenderer.draw_line()` to wrap the X and Y accumulators to
+  8 bits after addition and subtraction. Added
+  `test_long_diagonal_uses_byte_width_line_accumulators`.
+- After the fix, `base_004_clamped_absolute` and
+  `base_005_exact_edge_absolute` both matched QEMU with 0 mismatches out of
+  26,880 pixels.
+- Reran representative cases after the fix:
+  - `base_010_visual_control_fill`: 0 mismatches;
+  - `base_012_pattern_random`: 0 mismatches;
+  - `base_014_truncated_pair`: 0 mismatches.

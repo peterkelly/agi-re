@@ -14,6 +14,8 @@ Current documentation:
 
 - The chronological evidence trail is in
   [Clean-Room Executable Notes](./clean_room_executable_notes.md).
+- User-facing progress updates and their immediate outcomes are preserved in
+  [Progress Log](./progress_log.md).
 - The current readable decompilation of the loader is in
   [SIERRA.COM Loader](./loader_decompilation.md).
 - Notes on the decrypted interpreter executable, startup, and overlay loading
@@ -25,3 +27,5 @@ Current documentation:
   [Resource Files](./resource_files.md).
 - A higher-level implementation model of the observed runtime data types and
   operation families is in [Runtime Model](./runtime_model.md).
+- The growing executable compatibility suite and current graphics-render
+  commands are described in [Compatibility Testing](./compatibility_testing.md).

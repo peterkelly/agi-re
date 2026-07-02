@@ -23,8 +23,11 @@ The output of this project is a human-readable spec that contains sufficient inf
 - Keep `docs/src/SUMMARY.md` updated when adding, moving, or removing chapters.
 - Build/check the book with `mdbook build docs`.
 - Record reverse-engineering actions, observations, commands, offsets, hypotheses, and corrections in the documentation, especially `docs/src/clean_room_executable_notes.md`.
+- Preserve user-facing progress updates in `docs/src/progress_log.md` with a brief concrete action/result note for each update. If a user asks for historical tracking, update this log before continuing substantial new work.
 - Maintain `docs/src/symbolic_labels.md` as the stable cross-version map for interpreter routines, tables, overlay entry points, and globals. Treat addresses as build-specific observations and prefer symbolic labels in prose once a label exists.
 - When assigning or revising a symbolic label, update `docs/src/symbolic_labels.md` with the observed SQ2 address association and record the supporting evidence or uncertainty in the notes.
+- Grow the compatibility test suite alongside the written spec. Prefer deterministic local tests under `tests/` and reusable tools under `tools/`; record what each test proves and what remains provisional in `docs/src/compatibility_testing.md`.
+- Run the local compatibility suite with `python3 -B -m unittest discover -s tests` when changing decoders, renderers, or resource parsers.
 
 ## Clean-room workflow
 
@@ -39,6 +42,7 @@ The output of this project is a human-readable spec that contains sufficient inf
 - The game files are in `SQ2/`.
 - MS-DOS 6.22 installer floppy images are in `002962_ms_dos_622/`.
 - Generated artifacts belong under `build/`.
+- Generated render/test fixtures belong under `build/rendered/` unless the user explicitly asks to preserve them elsewhere.
 - The installed DOS hard disk image is `build/dos622/dos622.img`.
 - Treat `build/` as disposable/generated unless the user explicitly asks to preserve or commit artifacts from it.
 
@@ -63,6 +67,13 @@ qemu-system-i386 -m 16 -boot c \
 
 - In the QEMU monitor, use `sendkey` to type DOS commands and `screendump path.ppm` to capture VGA output.
 - Convert screenshots with ImageMagick, for example `magick build/dos622/screen.ppm build/dos622/screen.png`.
+- Inspect PPM screenshots and generated renders with `python3 -B tools/inspect_ppm.py path.ppm`.
+- Generate original-engine fixture game directories with `python3 -B tools/qemu_fixture.py picture N --output build/qemu-fixtures/picture_NNN`.
+- Compare original-engine picture captures with the local renderer using `python3 -B tools/compare_picture_capture.py N capture.ppm`.
+- Generate synthetic picture fuzz corpora with `python3 -B tools/picture_fuzz.py generate --count 1024 --seed 4097 --output build/picture-fuzz/corpus --clean`.
+- Run one synthetic picture fuzz case through the original engine with `python3 -B tools/picture_fuzz.py run-qemu CASE_ID --dos-dir DOSNAME --boot-wait 5 --draw-wait 8`.
+- Treat `safe_for_qemu: false` fuzz cases as out of scope for compatibility evidence. They may make the original interpreter read outside the synthetic resource and enter exploit/garbage-memory behavior; do not model that as AGI semantics.
+- Run QEMU fuzz cases serially. The harness copies fixtures into the shared DOS image and QEMU binds a single local VNC display socket.
 - Shut QEMU down with the monitor command `quit` when finished.
 - For deeper debugging, QEMU's GDB stub may be considered, but document all setup and observations before relying on them.
 

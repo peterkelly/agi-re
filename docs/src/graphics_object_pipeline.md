@@ -113,6 +113,26 @@ The current SQ2 table at `DS:0x15d6` is:
 0xfa -> 0x64ff
 ```
 
+A local scan of all 74 valid SQ2 picture payloads found these command-byte
+counts. The scan treats bytes `>= 0xf0` as command/sentinel bytes; picture data
+bytes are accepted by the coordinate readers only when they are `<= 0xef`.
+
+| Byte | Count |
+| ---: | ---: |
+| `0xf0` | 4746 |
+| `0xf1` | 309 |
+| `0xf2` | 1018 |
+| `0xf3` | 425 |
+| `0xf6` | 7736 |
+| `0xf7` | 9282 |
+| `0xf8` | 1447 |
+| `0xf9` | 22 |
+| `0xfa` | 701 |
+| `0xff` | 74 |
+
+No local SQ2 picture payload currently uses command `0xf4` or `0xf5`, even
+though both handlers are present in the interpreter dispatch table.
+
 **`0xf0` (`set_visual_draw_nibble`)**: Handler `0x6494` reads one byte, passes
 it through display-dependent mapper `0x5685`, stores `AL` in `[0x136b]`, enables
 the low nibble of draw word `[0x1369]`, and updates the even/odd masks
@@ -154,11 +174,22 @@ decoded endpoint is clamped to `x <= 0x9f` and `y <= 0xa7`, then connected with
 `0x66e1`.
 
 **`0xf8` (`seed_fill`)**: Handler `0x66ab` repeatedly reads coordinate pairs
-and calls helper `0x533b`. The helper first checks whether the seed cell's
-active nibble matches the fill target nibble, then expands horizontally and
-vertically through adjacent cells while writing the active draw nibble. The
-helper's internal stack state is still not fully named, but the observed entry
-contract is a seed-fill operation over the logical buffer.
+and calls helper `0x533b`. The helper chooses the expansion test channel by
+priority: if the low visual draw nibble is enabled, it expands through cells
+whose low nibble is `0xf`; otherwise, if the high control draw nibble is
+enabled, it expands through cells whose high nibble is `0x4`. A selected visual
+fill value of `0xf` or selected control fill value of `0x4` exits without
+filling. Once a cell is accepted, the write itself still goes through the normal
+active draw byte and odd/even masks, so both nibbles may be updated when both
+channels are active.
+
+The implementation is a horizontal span fill rather than a naive recursive
+four-neighbor fill. It writes the seed row left and right until the selected
+test channel no longer matches the target, then scans adjacent rows above and
+below, pushing deferred span state on the CPU stack when branching is needed.
+The current local renderer models the same expansion result with an explicit
+queue over four-neighbor cells, but uses the observed channel-priority and
+normal-pixel-write rules.
 
 **`0xf9` (`set_pattern_mode`)**: Handler `0x6524` stores the next byte in
 `[0x15ee]`. The low three bits select one of eight pattern masks through the
@@ -171,6 +202,25 @@ pairs, then calls helper `0x652a`. That helper clamps a small rectangle around
 the coordinate, selects a pattern pointer from `DS:0x1619`, and conditionally
 plots pixels through `0x52f9` using pattern words and the bit masks rooted at
 `DS:0x15f9`.
+
+The helper's observed algorithm is:
+
+1. `radius = [0x15ee] & 0x07`.
+2. Pattern row words are read from the pointer table at `DS:0x1619`; the local
+   table has `2 * radius + 1` row words for each radius.
+3. The X start is clipped from `(x * 2 - radius) / 2`, with a right-side clamp
+   derived from `0x140 - radius * 2`. The inner loop draws `radius + 1`
+   columns.
+4. The Y start is clipped from `y - radius`, with a lower clamp derived from
+   `0xa7 - radius * 2`. The outer loop draws `2 * radius + 1` rows.
+5. Unless mode bit `0x10` is set, the current row word must overlap the current
+   column mask. The column masks read from `DS:0x15f9 + column * 4` are
+   `0x8000`, `0x2000`, `0x0800`, `0x0200`, `0x0080`, `0x0020`, `0x0008`,
+   and `0x0002`.
+6. When mode bit `0x20` is set, the byte in `[0x15f8]` is ORed with `1` and
+   then advanced for every candidate pixel: shift right once, XOR with `0xb8`
+   if the shifted-out carry was set, then draw only when bit 0 is clear and
+   bit 1 is set.
 
 Coordinate readers are shared across the command handlers. Helper `0x66c1`
 reads X into `AH`, accepts bytes `<= 0xef`, clamps values above `0x9f` down to
@@ -185,6 +235,25 @@ bits from `[0x1369]`, ANDs with the selected mask, and stores the result in the
 graphics buffer segment pointed to by `[0x136f]`. Helpers `0x526f` and `0x52ab`
 are optimized horizontal and vertical line drawers that use the same active
 draw byte and masks while restoring `[0x150b]` to the endpoint when done.
+
+General line helper `0x66e1` first checks for horizontal and vertical special
+cases and jumps to those optimized helpers. For diagonal lines, the caller has
+already plotted the start point. The helper computes absolute X/Y deltas and
+signed step bytes, picks the larger delta as the loop count, initializes the
+minor-axis accumulator to half of the major delta, and then repeatedly advances
+the Y accumulator followed by the X accumulator. Each accumulator that reaches
+the major delta subtracts the major delta and advances that coordinate by its
+signed step. The accumulators are byte-sized CPU registers, so each addition
+and subtraction wraps to 8 bits before the compare/next step. The resulting
+point is then written through `0x52f9`.
+
+A synthetic absolute line from `(0,0)` to `(3,1)` plots `(0,0)`, `(1,0)`,
+`(2,1)`, and `(3,1)`; the same points are produced by the packed relative byte
+`0x31`. A screen-scale edge case from `(159,167)` to `(0,0)` proves the
+byte-width accumulator behavior: the drawn line includes `(25,0)` and `(25,1)`
+and does not include `(0,0)`. This was first exposed by QEMU fuzz cases
+`base_004_clamped_absolute` and `base_005_exact_edge_absolute`, both of which
+matched the local renderer after the accumulator wrap was modeled.
 
 The constants in these helpers repeatedly point to a `0xa0` by `0xa8` style
 coordinate space. For example, vertical stepping adds `0xa0`, bounds checks use
@@ -394,15 +463,36 @@ higher control/priority value or reaches the lower buffer limit, then uses that
 value for the same comparison. This ties object drawing to the high-nibble
 control data produced by picture decoding.
 
+The local compatibility helper now models this object-frame composition at the
+buffer level. It takes a decoded frame, a left X, a baseline Y, and a priority
+nibble, computes `top = baseline_y - frame.height + 1`, skips pixels whose
+color equals the frame's transparent low nibble, and writes
+`(priority << 4) | color` only when the high-nibble priority gate permits it.
+This does not yet replace the full object-record/update-list pipeline, but it
+captures the central `IBM_OBJS.OVL:0x9db6` pixel rule for focused tests.
+
 If frame control byte bit `0x80` is set, helper `0x587d` may rewrite the frame
 data in place before drawing. It compares bits `0x70` of frame byte `+0x02`,
 shifted down four bits, with object byte `+0x0a`. When they differ, it stores
-the object value back into bits `0x70` and rebuilds each row into a stack
-buffer before copying the rebuilt stream over the original. The rewrite keeps
-the low nibble as the transparent color and appears to horizontally reverse or
-reorient the row-encoded frame. The exact user-facing meaning of object
-`+0x0a` is still the selected group/loop-like index in the current model, so
-the higher-level orientation meaning remains provisional.
+the object value back into bits `0x70` and rebuilds each encoded row into a
+stack buffer before copying the rebuilt stream over the original.
+
+The observed rewrite is a horizontal row mirror over the run-length stream:
+
+1. Keep the low nibble of the control byte as the transparent color.
+2. Skip explicit leading transparent runs while accumulating their width.
+3. From the first nontransparent run through the row terminator, count the
+   total encoded width and the number of run bytes.
+4. Emit transparent runs for the row's original implicit trailing transparent
+   width, chunked into runs no longer than 15 pixels.
+5. Copy the counted run bytes in reverse order.
+6. End the rebuilt row with a zero terminator.
+
+The original leading transparent pixels therefore become implicit trailing
+transparent pixels after the reversed run bytes. This matches a QEMU fixture
+using view 0, group 1, frame 0: the on-disk frame has control byte `0x81`
+with cached orientation bits `0`, while selecting group 1 rewrites the control
+byte to `0x91` and mirrors the row pixels.
 
 Local SQ2 resource scans found frame control bytes with many low-nibble
 transparent values, including `0x0`, `0x1`, `0x2`, `0x3`, `0x5`, `0x6`, `0x7`,
