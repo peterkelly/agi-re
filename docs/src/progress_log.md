@@ -988,3 +988,190 @@ Progress updates and outcomes:
      `python3 -B tools/object_overlay_probe.py --dos-prefix OG --output build/object-overlay-probes/batches/expanded_all5_final.json --boot-wait 5 --draw-wait 8`.
      All 19 cases matched QEMU with 0 mismatches. Updated compatibility notes,
      clean-room executable notes, and graphics/object pipeline documentation.
+
+107. Reported: "I'm picking up from the movement-probe branch of the work. The
+     first QEMU run showed the object stayed exactly at its activation
+     coordinates, which is a useful failure: the current fixture loops inside
+     one logic invocation, so I'm going to switch it to a once-only setup
+     guarded by an engine flag and let the interpreter return to its per-cycle
+     machinery."
+
+     Action/result: Re-read `tools/qemu_fixture.py`,
+     `tools/object_movement_probe.py`, the condition parser in
+     `tools/disassemble_logic.py`, and the existing logic-bytecode docs.
+
+108. Reported: "The local notes already have the important conditional-block
+     semantics, but I'm checking them against the disassembler implementation
+     before encoding fixtures by hand. This is one of those tiny-byte-layout
+     spots where one wrong offset can make the engine do a completely different
+     thing while still looking valid."
+
+     Action/result: Confirmed the condition-list terminator carries a
+     little-endian false delta after the `0xff` condition-list end byte.
+
+109. Reported: "The real scripts make this simpler than the prose sounded: the
+     condition-list terminator's two-byte delta skips the following then-body
+     directly. I'm adding a tiny bytecode builder for run this setup once unless
+     flag X is already set, then the logic ends normally each tick so the engine
+     can advance motion."
+
+     Action/result: Added reusable fixture helpers for logic-resource wrapping,
+     `end`, `set_flag`, `not flag_set`, conditional blocks, and once-only logic.
+
+110. Reported: "I found SQ2's own startup logic clearing broad high flag
+     ranges, so I'm choosing an explicit fixture init flag and making it
+     configurable per movement case. The generated logic will now look like:
+     `if not flag_set(init_flag) { load picture, set up object, start move, set
+     init_flag } end`."
+
+     Action/result: Added `persistent_object_once_logic_payload()` and optional
+     `init_flag` support to persistent object fixtures.
+
+111. Reported: "The unit tests now cover the new byte sequences directly. I'm
+     running the suite and a quick generated-logic disassembly check next; if
+     those pass, I'll send the two movement cases through QEMU again and compare
+     against the Python renderer."
+
+     Action/result: Ran `python3 -B -m unittest discover -s tests`; 72 tests
+     passed.
+
+112. Reported: "QEMU ran cleanly, but both cases still mismatch. That's not a
+     dead end; it means we now have captures from a better fixture, and I'm
+     going to locate the object in those captures rather than assuming the
+     target semantics."
+
+     Action/result: Ran
+     `python3 -B tools/object_movement_probe.py --dos-prefix MV --output build/object-movement-probes/batches/base_movement_once.json --boot-wait 5 --draw-wait 8`.
+     Both one-shot movement cases mismatched.
+
+113. Reported: "The new captures show the object moved, just not to the target
+     I expected. The mismatch boxes are shifted far beyond the requested target,
+     so I'm waiting on a brute-force position match to identify the actual final
+     coordinates."
+
+     Action/result: Best-position scan found exact matches at `(140,80)` for
+     the horizontal one-shot case and `(20,167)` for the vertical one-shot case.
+
+114. Reported: "The captures match perfectly at `(140,80)` for the horizontal
+     case and `(20,167)` for the vertical case. That strongly suggests
+     `move_object_to` is not treating the target X/Y operands as immediates in
+     this action variant, so I'm going back to the action table metadata and
+     real script usage before updating the model."
+
+     Action/result: Rechecked `0x51`/`0x52` docs, action-table metadata, and
+     local SQ2 script uses. The immediate-target interpretation remained
+     consistent with the static handler analysis.
+
+115. Reported: "The static handler docs still say immediate targets, so the
+     mismatch is probably in the per-cycle movement semantics, not bytecode
+     operands. The object appears to keep the initial direction until it hits a
+     screen boundary, which means we need to verify where and when the arrived
+     at target check runs."
+
+     Action/result: Re-read movement-pass docs and concluded that scripts need
+     to reissue `move_object_to` on later cycles so helper `0x1672` can observe
+     that the current object position has reached the target.
+
+116. Reported: "This clarifies the right fixture shape: setup should be
+     once-only, but `move_object_to` itself has to be reissued on later cycles
+     until its completion flag becomes set. I'm changing the movement fixture
+     from start movement once to initialize once, then call movement each tick
+     while completion flag is clear."
+
+     Action/result: Added optional guarded per-cycle action blocks to
+     `persistent_object_once_logic_payload()` and moved the probe's
+     `0x51` action into that block.
+
+117. Reported: "The suite is green at 73 tests and the diff has no whitespace
+     issues. I'm running the revised QEMU probe now; this one should tell us
+     whether repeated action issuance is the missing semantic."
+
+     Action/result: Ran tests and `git diff --check`; both passed.
+
+118. Reported: "That did it: both reissued-action movement probes match the
+     Python expectation exactly. I'm going to fold this into the docs now, then
+     expand the batch a bit with explicit boundary-style movement cases and add
+     better mismatch observability so future failures tell us where did the
+     object end up automatically."
+
+     Action/result: Ran
+     `python3 -B tools/object_movement_probe.py --dos-prefix MV --output build/object-movement-probes/batches/base_movement_reissued.json --boot-wait 5 --draw-wait 8`.
+     Both target-arrival cases matched QEMU with 0 mismatches.
+
+119. Reported: "I'm adding two screen-edge probes to the same harness and
+     teaching mismatch reports to include a best-fit object position. That turns
+     future failures from pixels differ into the engine placed the object at
+     X/Y, which is much more useful for reverse engineering."
+
+     Action/result: Added right-edge and bottom-edge movement cases plus
+     `MovementComparison.best_position`.
+
+120. Reported: "The mismatch-position test found an equivalent drawn placement
+     at the very top edge, which is a nice reminder that clipped cels can alias.
+     I'm moving the synthetic mismatch away from clipping so the inferred
+     coordinate is unambiguous."
+
+     Action/result: Adjusted the unit test to use an unclipped synthetic
+     mismatch capture.
+
+121. Reported: "The suite is green at 74 tests. I'm launching the four-case
+     QEMU batch now: two target arrivals plus right and bottom edge completion
+     cases."
+
+     Action/result: Ran tests and launched
+     `python3 -B tools/object_movement_probe.py --dos-prefix MV --output build/object-movement-probes/batches/base_movement_edges.json --boot-wait 5 --draw-wait 8`.
+
+122. Reported: "All four QEMU movement cases matched, including the screen-edge
+     stops. I'm documenting the clean-room evidence now: the important semantic
+     is that scripts reissue targeted movement until the completion flag trips;
+     a one-shot start keeps moving until boundary completion."
+
+     Action/result: The four-case movement batch matched QEMU with 0
+     mismatches.
+
+123. Reported: "I'm updating four doc surfaces: the running progress log, the
+     compatibility test recipe, the object/movement model, and the clean-room
+     evidence notes. Keeping these in sync is a bit clerical, but it is what
+     makes the later implementation work grounded instead of folkloric."
+
+     Action/result: Updated `docs/src/compatibility_testing.md`,
+     `docs/src/graphics_object_pipeline.md`, `docs/src/logic_bytecode.md`, and
+     `docs/src/clean_room_executable_notes.md` with the targeted movement
+     findings.
+
+124. Reported: "I'm going to add one control-buffer acceptance case before
+     wrapping: a synthetic picture whose control channel is filled with zero.
+     The hypothesis from `0x56b8` is that proposed movement should be rejected,
+     leaving the object at its start position even though the movement action
+     keeps reissuing."
+
+     Action/result: Added a fifth movement case using picture payload
+     `f2 00 f8 00 00 ff` and an initial expectation that the object would
+     remain at `(20,80)`.
+
+125. Reported: "The control-zero hypothesis did not match, which is useful
+     evidence. I'm inspecting the report's inferred position now; if it moved
+     normally, control zero is not a simple blanket movement rejection in this
+     setup."
+
+     Action/result: Ran
+     `python3 -B tools/object_movement_probe.py --dos-prefix MV --output build/object-movement-probes/batches/base_movement_control.json --boot-wait 5 --draw-wait 8`.
+     The first four cases matched, but the control-zero case mismatched.
+     `best_position` showed an exact match at `(50,80)`, meaning the object
+     reached the target.
+
+126. Reported: "The inferred position is exact at `(50,80)`: the object reached
+     the target on a control-zero-filled synthetic picture. I'm changing that
+     case from a rejected-move hypothesis into a confirmed acceptance probe,
+     then I'll rerun the batch so the saved report is green."
+
+     Action/result: Renamed the case to `move_allowed_on_control_zero` and
+     changed its expected final position to `(50,80)`.
+
+127. Reported: "The corrected five-case batch is green. I'm updating the docs
+     one more time so they mention the control-zero acceptance result instead
+     of only the four movement cases."
+
+     Action/result: Ran
+     `python3 -B tools/object_movement_probe.py --dos-prefix MV --output build/object-movement-probes/batches/base_movement_control_final.json --boot-wait 5 --draw-wait 8`.
+     All five cases matched QEMU with 0 mismatches.

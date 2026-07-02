@@ -2962,3 +2962,49 @@ Documented result:
   - persistent fixed priority bytes with nonzero high nibbles hiding in the
     controlled priority probes, so those byte values should not yet be treated
     as normal visible priorities.
+
+## 2026-07-02: targeted object movement QEMU probes
+
+Commands run from `/Users/peter/ai/agi/reverse`:
+
+- `python3 -B -m unittest discover -s tests`
+- `python3 -B tools/object_movement_probe.py --dos-prefix MV --output build/object-movement-probes/batches/base_movement_once.json --boot-wait 5 --draw-wait 8`
+- Local best-position scan over the failed one-shot captures.
+- `python3 -B tools/object_movement_probe.py --dos-prefix MV --output build/object-movement-probes/batches/base_movement_reissued.json --boot-wait 5 --draw-wait 8`
+- `python3 -B tools/object_movement_probe.py --dos-prefix MV --output build/object-movement-probes/batches/base_movement_edges.json --boot-wait 5 --draw-wait 8`
+- `python3 -B tools/object_movement_probe.py --dos-prefix MV --output build/object-movement-probes/batches/base_movement_control.json --boot-wait 5 --draw-wait 8`
+- `python3 -B tools/object_movement_probe.py --dos-prefix MV --output build/object-movement-probes/batches/base_movement_control_final.json --boot-wait 5 --draw-wait 8`
+
+Documented result:
+
+- Added reusable generated-logic helpers to `tools/qemu_fixture.py`:
+  `logic_resource`, `if_then`, `not_flag_set_condition`, `set_flag_action`,
+  `run_once_logic`, and persistent-object fixture support for guarded
+  per-cycle action blocks.
+- Added `tools/object_movement_probe.py`, a snapshot-backed QEMU harness for
+  persistent object-table movement tests. It builds generated logic resources
+  that load a synthetic picture, initialize a persistent object once, then run
+  selected per-cycle actions while a completion flag is clear.
+- A one-shot `0x51` (`move_object_to`) fixture initialized the object and
+  called the action once. QEMU showed that the object moved in the initial
+  direction but did not stop at the requested target: the horizontal case
+  matched exactly at left `140`, and the vertical case matched exactly at
+  baseline `167`. This establishes that a single action call does not
+  recompute target arrival on later ticks.
+- The corrected fixture reissues `0x51` every interpreter cycle while the
+  completion flag is clear. With that shape, the base horizontal target
+  `(50,80)` and vertical target `(20,100)` both matched QEMU with 0 mismatches.
+- The expanded four-case movement batch also matched QEMU with 0 mismatches.
+  It adds right-edge completion for an unreachable target X of `250`, where
+  view 11/group 0/frame 0 stops at left `140`, and bottom-edge completion for
+  an unreachable target Y of `250`, where the same cel stops at baseline `167`.
+- A first control-buffer acceptance hypothesis used a synthetic picture payload
+  `f2 00 f8 00 00 ff`, which fills the decoded control channel with zero in the
+  local renderer. The initial expectation was that movement would be rejected,
+  but QEMU's capture matched exact target arrival at `(50,80)`. After updating
+  the expected result, the final five-case batch matched QEMU with 0
+  mismatches. This records that this controlled control-zero picture is not a
+  blanket movement blocker.
+- The movement comparison report now includes an optional `best_position`
+  tuple `(mismatches, x, baseline_y)` for mismatches, so future failures can
+  identify where QEMU actually drew the object.

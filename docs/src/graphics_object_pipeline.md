@@ -699,6 +699,15 @@ global flags 3 and 0 through `0x74ee`/`0x74f4` based on the scan result. The
 exact meaning of the nibble classes is still open, but the caller contract is
 clear: nonzero permits the proposed move, zero rejects it.
 
+A QEMU movement probe adds one caution to this static reading. A synthetic
+picture payload that fills the control channel with zero
+(`f2 00 f8 00 00 ff`) still allowed view 11/group 0/frame 0 to move from
+`(20,80)` to `(50,80)` when `0x51` was reissued each cycle. This means a
+control-zero picture fill should not yet be modeled as a blanket movement
+rejection. The exact relationship between decoded picture control nibbles,
+object footprint/control writes, and the `0x56b8` scan still needs narrower
+probes.
+
 Targeted-motion helpers immediately after the movement pass add one more piece.
 Actions `0x51` (`move_object_to`) and `0x52` (`move_object_to_var`) set
 `+0x22 = 3`, store target X/Y in `+0x27`/`+0x28`, optionally replace step size
@@ -707,6 +716,17 @@ Actions `0x51` (`move_object_to`) and `0x52` (`move_object_to_var`) set
 object's current position to the target fields using the current step byte and
 stores the result in `+0x21`. Helper `0x16b9(object)` restores `+0x1e` from
 `+0x29`, sets flag `+0x2a`, and clears motion/control byte `+0x22`.
+
+QEMU movement probes show an important script-level contract for this mode.
+Calling `0x51` once starts the object moving in the initially computed
+direction, but it does not by itself recompute arrival on later ticks. The
+normal logic pattern is to call `0x51` or `0x52` again on each interpreter cycle
+while the completion flag is clear. When the object is then at, or within one
+step of, the target, helper `0x1672` returns the zero direction and immediately
+calls `0x16b9`. With this repeated-call fixture, horizontal and vertical target
+arrival matched QEMU exactly. Targets beyond the reachable screen area complete
+at the movement clamp: view 11/group 0/frame 0 stopped at left `140` for a
+rightward target and baseline `167` for a downward target.
 
 The direction lookup at `DS:0x0a85` maps relative target position to direction
 bytes:
@@ -811,7 +831,7 @@ The currently observed values of object byte `+0x22` are:
 | `0` | `0x55` (`stop_motion_mode`), completion helpers | No autonomous mode is active. |
 | `1` | `0x54` (`start_random_motion`) | Helper `0x3f5a` picks direction `0..8` with helper `0x3fa3`, keeps a random countdown in `+0x27`, and reseeds when the countdown expires or the stationary bit `0x4000` is set. |
 | `2` | `0x53` (`approach_first_object_until_near`) | Helper `0x0b36` computes a direction from the object's center/Y toward the first object entry's center/Y using threshold `+0x27`; when the direction helper returns zero it clears the mode and sets completion flag `+0x28`. Stuck recovery temporarily chooses a random nonzero direction and stores a retry delay in `+0x29`. |
-| `3` | `0x51` (`move_object_to`), `0x52` (`move_object_to_var`) | Helper `0x1672` computes direction toward target X/Y in `+0x27/+0x28`; completion helper `0x16b9` restores saved step `+0x29`, sets completion flag `+0x2a`, and clears the mode. |
+| `3` | `0x51` (`move_object_to`), `0x52` (`move_object_to_var`) | Helper `0x1672` computes direction toward target X/Y in `+0x27/+0x28`; completion helper `0x16b9` restores saved step `+0x29`, sets completion flag `+0x2a`, and clears the mode. QEMU probes confirm scripts should reissue this action each cycle until the completion flag is set. |
 
 The render/update helpers around `0x5528..0x5762` bridge the interpreter's
 logical graphics buffer to the selected graphics overlay:

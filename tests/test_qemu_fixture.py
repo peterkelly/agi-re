@@ -13,16 +13,24 @@ ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT / "tools"))
 
 from qemu_fixture import (  # noqa: E402
+    DEFAULT_INIT_FLAG,
     SCRATCH_VAR,
     build_synthetic_picture_persistent_object_fixture,
     build_synthetic_picture_view_fixture,
     build_synthetic_picture_fixture,
+    if_then,
+    logic_resource,
+    move_object_to_action,
+    not_flag_set_condition,
     patch_dir_entry,
     patch_logdir_entry_zero,
     persistent_object_logic_payload,
+    persistent_object_once_logic_payload,
     picture_logic_payload,
     picture_view_logic_payload,
     rebuild_priority_table_action,
+    run_once_logic,
+    set_flag_action,
     volume_record,
 )
 from agi_graphics import PALETTE, render_picture  # noqa: E402
@@ -101,9 +109,81 @@ class QemuFixtureTests(unittest.TestCase):
         self.assertIn(bytes([0x21, 0, 0x29, 0, 11, 0x2B, 0, 0, 0x2F, 0, 0]), code)
         self.assertIn(bytes([0x25, 0, 20, 80, 0x36, 0, 15, 0x23, 0]), code)
 
+    def test_persistent_object_logic_payload_can_append_movement_action(self) -> None:
+        payload = persistent_object_logic_payload(
+            1,
+            11,
+            0,
+            0,
+            20,
+            80,
+            15,
+            post_activate_actions=move_object_to_action(0, 50, 80, 5, 200),
+        )
+        code_len = payload[0] | (payload[1] << 8)
+        code = payload[2 : 2 + code_len]
+        self.assertIn(bytes([0x23, 0, 0x51, 0, 50, 80, 5, 200, 0xFE, 0xFD, 0xFF]), code)
+
+    def test_condition_helpers_encode_if_not_flag_then_body(self) -> None:
+        body = bytes([0x03, 1, 2])
+        block = if_then(not_flag_set_condition(199), body)
+        self.assertEqual(block, bytes([0xFF, 0xFD, 0x07, 199, 0xFF, 0x03, 0x00, 0x03, 1, 2]))
+
+    def test_run_once_logic_wraps_actions_with_init_guard_and_end(self) -> None:
+        payload = run_once_logic(bytes([0x1A]), init_flag=199)
+        code_len = payload[0] | (payload[1] << 8)
+        code = payload[2 : 2 + code_len]
+        self.assertEqual(code, bytes([0xFF, 0xFD, 0x07, 199, 0xFF, 0x03, 0x00, 0x1A, 0x0C, 199, 0x00]))
+
+    def test_flag_action_helpers_validate_byte_operands(self) -> None:
+        self.assertEqual(set_flag_action(DEFAULT_INIT_FLAG), bytes([0x0C, DEFAULT_INIT_FLAG]))
+        self.assertEqual(not_flag_set_condition(DEFAULT_INIT_FLAG), bytes([0xFD, 0x07, DEFAULT_INIT_FLAG]))
+
+    def test_persistent_object_once_logic_payload_ends_each_cycle(self) -> None:
+        payload = persistent_object_once_logic_payload(
+            1,
+            11,
+            0,
+            0,
+            20,
+            80,
+            15,
+            post_activate_actions=move_object_to_action(0, 50, 80, 5, 200),
+            init_flag=199,
+        )
+        code_len = payload[0] | (payload[1] << 8)
+        code = payload[2 : 2 + code_len]
+        self.assertTrue(code.startswith(bytes([0xFF, 0xFD, 0x07, 199, 0xFF])))
+        self.assertIn(bytes([0x23, 0, 0x51, 0, 50, 80, 5, 200, 0x0C, 199, 0x00]), code)
+        self.assertNotIn(bytes([0xFE, 0xFD, 0xFF]), code)
+
+    def test_persistent_object_once_logic_can_run_guarded_per_cycle_actions(self) -> None:
+        payload = persistent_object_once_logic_payload(
+            1,
+            11,
+            0,
+            0,
+            20,
+            80,
+            15,
+            per_cycle_actions=move_object_to_action(0, 50, 80, 5, 200),
+            per_cycle_until_flag=200,
+            init_flag=199,
+        )
+        code_len = payload[0] | (payload[1] << 8)
+        code = payload[2 : 2 + code_len]
+        self.assertIn(bytes([0x0C, 199, 0xFF, 0xFD, 0x07, 200, 0xFF, 0x06, 0x00]), code)
+        self.assertTrue(code.endswith(bytes([0x51, 0, 50, 80, 5, 200, 0x00])))
+
     def test_volume_record_wraps_payload_with_header(self) -> None:
         record = volume_record(b"abc", volume=3)
         self.assertEqual(record, b"\x12\x34\x03\x03\x00abc")
+
+    def test_logic_resource_wraps_code_with_empty_message_table(self) -> None:
+        self.assertEqual(logic_resource(b"\xff"), b"\x01\x00\xff\x00\x02\x00")
+
+    def test_move_object_to_action_encodes_fixed_operands(self) -> None:
+        self.assertEqual(move_object_to_action(0, 50, 80, 5, 200), bytes([0x51, 0, 50, 80, 5, 200]))
 
     def test_logdir_patch_points_logic_zero_at_volume_three_offset_zero(self) -> None:
         original = bytes([0x10, 0x6D, 0x1B, 0xFF, 0xFF, 0xFF])

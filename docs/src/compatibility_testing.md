@@ -272,6 +272,20 @@ python3 -B tools/picture_fuzz.py compare-capture base_004_clamped_absolute build
   setup. The confirmed transient draw rule is that an object pixel draws when
   the discovered existing priority/control value is less than or equal to the
   object's low priority nibble.
+- Targeted persistent-object movement probes run through QEMU with:
+
+  ```bash
+  python3 -B tools/object_movement_probe.py --dos-prefix MV --output build/object-movement-probes/batches/base_movement_control_final.json --boot-wait 5 --draw-wait 8
+  ```
+
+  The current five-case batch matched QEMU with 0 mismatches. It covers
+  horizontal and vertical arrival at reachable targets, plus right-edge and
+  bottom-edge completion when the target lies outside the reachable screen
+  area. It also confirms that this controlled fixture reaches its target on a
+  picture whose control channel was filled with zero. The fixture logic
+  initializes the object once, then reissues `0x51` (`move_object_to`) each
+  cycle while the completion flag is clear. This is now part of the tested
+  behavioral model for targeted movement.
 - `tests/test_picture_fuzz.py` covers deterministic fuzz generation, manifest
   writing, Python render-result recording, scaled synthetic capture comparison
   without booting QEMU, QEMU unsafe-case rejection, and mocked batch reporting.

@@ -728,6 +728,14 @@ target below:  6 5 4
 The center value is zero, so an object already within one step of both target
 coordinates completes immediately.
 
+QEMU probes with generated logic resources confirm that this action is normally
+reissued by script logic while the completion flag is clear. A one-shot call
+sets the initial direction but does not by itself recompute target arrival on
+later ticks. A fixture that initializes the object once and then executes
+`0x51` each cycle until the completion flag is set matched QEMU for reachable
+horizontal and vertical targets, and for unreachable right/bottom targets that
+complete at the movement clamp.
+
 **`0x52` (`move_object_to_var`)**: Handler: `0x6d61`; Observed action: Same contract as `0x51`, but target X, target Y, and optional step-size override are read through variables while the object index and completion flag remain immediate operands.
 
 **`0x53` (`approach_first_object_until_near`)**: Handler: `0x6e02`; Observed action: Starts autonomous movement for object operand 0 toward the first object entry. Operand 1 is a proximity threshold or step floor, and operand 2 is a completion flag.
