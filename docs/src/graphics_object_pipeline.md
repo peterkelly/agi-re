@@ -631,6 +631,17 @@ byte `[0x000f]`. If the result does not change, it clears bit `0x0080`.
 
 ## Per-cycle object movement
 
+Movement-related work is split across two nearby passes:
+
+1. Helper `0x0563` scans active/update-eligible objects before the movement
+   pass. For objects with byte `+0x01 == 1`, it calls `0x067a(object)`.
+   Dispatcher `0x067a` uses motion/control byte `+0x22`: mode `1` calls random
+   motion helper `0x3f5a`, mode `2` calls approach-first-object helper
+   `0x0b36`, and mode `3` calls targeted-motion helper `0x1672`.
+2. Helper `0x150a` then applies the current direction byte `+0x21` and step
+   byte `+0x1e`, checks collision/control acceptance, records boundary events,
+   and clears bit `0x0400`.
+
 The movement pass at `0x150a` scans all 43-byte object records from `[0x096b]`
 to `[0x096d]`. It processes only records whose flag word satisfies:
 
@@ -680,6 +691,15 @@ skipping candidates whose byte `+0x02` matches the moving object's byte `+0x02`.
 It then checks horizontal rectangle overlap from X and width, followed by a
 current/previous Y crossing test using fields `+0x05` and `+0x18`.
 
+QEMU probes now validate the default object-object case with two persistent
+objects. Object table initialization gives object 0 and object 1 different
+`+0x02` values, so the collision helper considers them. With object 0 moving
+right from `(20,80)` toward `(80,80)` and object 1 parked at `(50,80)`, object
+0 stops at left `25`: its next proposed step would make its right edge touch
+object 1's left edge, and `0x4719` rejects the move. Setting bit `0x0200` on
+object 0 with action `0x43` lets the same fixture reach `(80,80)`, confirming
+that the moving-object skip bit bypasses this collision test.
+
 Helper `0x56b8(object)` is a control/priority-buffer acceptance test. If object
 bit `0x0004` is clear, it derives object byte `+0x24` from table `0x127a` using
 the object's Y coordinate. It then computes the buffer offset for object X/Y,
@@ -727,6 +747,31 @@ calls `0x16b9`. With this repeated-call fixture, horizontal and vertical target
 arrival matched QEMU exactly. Targets beyond the reachable screen area complete
 at the movement clamp: view 11/group 0/frame 0 stopped at left `140` for a
 rightward target and baseline `167` for a downward target.
+
+The source also shows a pre-movement mode-3 path through `0x067a`, but that path
+is gated by byte `+0x01 == 1`. The generated fixtures used here reissue `0x51`
+from logic and do not yet isolate this countdown-gated autonomous recomputation
+path as a separate behavioral probe.
+
+The same countdown-gated dispatcher is now validated for mode `2`. A generated
+fixture initializes object 1, sets its step byte to `5`, sets countdown byte
+`+0x01` to `1`, and starts action `0x53`
+(`approach_first_object_until_near`) toward object 0 with near threshold `35`.
+QEMU stops object 1 at `(50,80)` when object 0 is parked at `(80,80)`. An
+earlier exploratory threshold `25` case fell into the collision/stuck-recovery
+region near the target and ended at `(60,75)`, so the passing threshold-35 case
+is the cleaner contract probe for direct mode-2 completion. The threshold-35
+result also shows the near-band test does not complete at the exact boundary:
+object 1 moved past the predicted boundary position `(45,80)` and completed at
+`(50,80)`.
+
+The expanded movement probe set also confirms leftward and upward movement,
+diagonal movement, already-at-target completion, and within-step completion. A
+target X of `52` from starting X `20` with step `5` completes at X `50`, not
+`52`, because the remaining distance is inside the step band. A zero step-size
+operand does not invent a default speed; it preserves the current object step
+byte. In the generated persistent-object fixture that byte is zero, so the
+object remains stationary.
 
 The direction lookup at `DS:0x0a85` maps relative target position to direction
 bytes:

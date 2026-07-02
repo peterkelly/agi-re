@@ -2974,6 +2974,17 @@ Commands run from `/Users/peter/ai/agi/reverse`:
 - `python3 -B tools/object_movement_probe.py --dos-prefix MV --output build/object-movement-probes/batches/base_movement_edges.json --boot-wait 5 --draw-wait 8`
 - `python3 -B tools/object_movement_probe.py --dos-prefix MV --output build/object-movement-probes/batches/base_movement_control.json --boot-wait 5 --draw-wait 8`
 - `python3 -B tools/object_movement_probe.py --dos-prefix MV --output build/object-movement-probes/batches/base_movement_control_final.json --boot-wait 5 --draw-wait 8`
+- `python3 -B tools/object_movement_probe.py --dos-prefix MX --output build/object-movement-probes/batches/expanded_movement_edges.json --boot-wait 5 --draw-wait 8`
+- `python3 -B tools/object_movement_probe.py --dos-prefix MX --output build/object-movement-probes/batches/expanded_movement_edges_final.json --boot-wait 5 --draw-wait 8`
+- `ndisasm -b 16 -o 0x4719 -e 0x4919 build/cleanroom/AGI.decrypted.exe | sed -n '1,240p'`
+- Focused search for writes to object byte `+0x02`.
+- `python3 -B tools/object_movement_probe.py --dos-prefix MC --output build/object-movement-probes/batches/movement_collision.json --boot-wait 5 --draw-wait 8`
+- `python3 -B tools/object_movement_probe.py --dos-prefix MA --output build/object-movement-probes/batches/autonomous_modes_001.json --boot-wait 5 --draw-wait 8`
+- `python3 -B tools/object_movement_probe.py --dos-prefix MB --output build/object-movement-probes/batches/autonomous_modes_002.json --boot-wait 5 --draw-wait 8`
+- `python3 -B tools/object_movement_probe.py --dos-prefix MD --output build/object-movement-probes/batches/autonomous_modes_003.json --boot-wait 5 --draw-wait 8`
+- Local Python scan for near call sites to `0x0b36`, `0x3f5a`, `0x1672`, and
+  `0x16b9`.
+- `ndisasm -b 16 -o 0x0563 -e 0x0763 build/cleanroom/AGI.decrypted.exe | sed -n '1,230p'`
 
 Documented result:
 
@@ -3008,3 +3019,55 @@ Documented result:
 - The movement comparison report now includes an optional `best_position`
   tuple `(mismatches, x, baseline_y)` for mismatches, so future failures can
   identify where QEMU actually drew the object.
+- The expanded 12-case movement batch matched QEMU with 0 mismatches after
+  correcting the zero-step expectation. It confirms:
+  - left and up directions use the same repeated-call target semantics;
+  - diagonal movement can continue on one axis after the other axis enters the
+    target band;
+  - non-divisible distances complete when the remaining distance is within one
+    step, not necessarily at the exact target coordinate;
+  - already-at-target and already-within-step cases complete without movement;
+  - operand 3 value zero preserves the current object step byte, and the
+    generated persistent object has current step zero unless the fixture sets
+    it.
+- Disassembled `0x4719` with the corrected MZ-header offset. The helper returns
+  zero immediately when the moving object has bit `0x0200`; otherwise it scans
+  active candidates with `(flags & 0x41) == 0x41`, skips candidates with bit
+  `0x0200`, skips equal `+0x02` grouping bytes, checks horizontal rectangle
+  overlap, then checks baseline equality/crossing using current `+0x05` and
+  saved `+0x18`.
+- Startup initialization writes object byte `+0x02 = object_index`, so ordinary
+  generated persistent object 0 and object 1 naturally have different grouping
+  bytes and can collide.
+- Added two-object cases to `tools/object_movement_probe.py`. The final
+  14-case batch matched QEMU with 0 mismatches:
+  - object 0 moving from `(20,80)` toward `(80,80)` stops at `(25,80)` before
+    touching object 1 parked at `(50,80)`;
+  - setting bit `0x0200` on object 0 with action `0x43` lets the same movement
+    reach `(80,80)`.
+- Added bytecode fixture helpers for `assignn`, `set_object_field_1e_var`,
+  `set_object_field_01_var`, `approach_first_object_until_near`,
+  `start_random_motion`, and `stop_motion_mode`, then added a mode-2 approach
+  case to the movement probe.
+- The first mode-2 QEMU pass used threshold `25` and did not isolate direct
+  completion: the capture best fit was object 1 at `(60,75)`, indicating that
+  the object had reached the collision/stuck-recovery region near object 0.
+- The second pass used threshold `35` and initially expected boundary position
+  `(45,80)`, but QEMU's best fit was `(50,80)`. This records that the near-band
+  completion check did not complete at the exact threshold boundary.
+- The corrected 15-case batch in
+  `build/object-movement-probes/batches/autonomous_modes_003.json` matched QEMU
+  with 0 mismatches. The new passing case initializes object 1 once, sets step
+  `5`, sets countdown byte `+0x01` to `1`, starts `0x53` toward object 0 with
+  near threshold `35`, and confirms autonomous mode 2 completes at `(50,80)`
+  without reissuing `0x53` from script logic.
+- Call-site analysis refined the per-cycle ordering. Helper `0x0563` scans
+  active/update-eligible objects, and for objects whose countdown byte `+0x01`
+  is exactly `1`, calls dispatcher `0x067a`. Dispatcher `0x067a` calls
+  `0x3f5a` for mode `+0x22 == 1`, `0x0b36` for mode `2`, and `0x1672` for mode
+  `3`. It then calls extra rectangle-boundary logic when global `[0x013d]` is
+  nonzero and direction byte `+0x21` is nonzero. Helper `0x0563` later invokes
+  `0x150a`, then rebuilds/draws/refreshes the update list rooted at `0x16ff`.
+  The generated QEMU movement fixtures still reissue `0x51` from logic; they do
+  not yet isolate the countdown-gated `0x067a -> 0x1672` path as a separate
+  behavioral probe.

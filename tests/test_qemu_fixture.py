@@ -15,6 +15,8 @@ sys.path.insert(0, str(ROOT / "tools"))
 from qemu_fixture import (  # noqa: E402
     DEFAULT_INIT_FLAG,
     SCRATCH_VAR,
+    approach_first_object_until_near_action,
+    assignn_action,
     build_synthetic_picture_persistent_object_fixture,
     build_synthetic_picture_view_fixture,
     build_synthetic_picture_fixture,
@@ -31,6 +33,11 @@ from qemu_fixture import (  # noqa: E402
     rebuild_priority_table_action,
     run_once_logic,
     set_flag_action,
+    set_object_bit_0200_action,
+    set_object_step_from_var_action,
+    set_object_tick_from_var_action,
+    start_random_motion_action,
+    stop_motion_mode_action,
     volume_record,
 )
 from agi_graphics import PALETTE, render_picture  # noqa: E402
@@ -184,6 +191,19 @@ class QemuFixtureTests(unittest.TestCase):
 
     def test_move_object_to_action_encodes_fixed_operands(self) -> None:
         self.assertEqual(move_object_to_action(0, 50, 80, 5, 200), bytes([0x51, 0, 50, 80, 5, 200]))
+
+    def test_assignn_action_encodes_variable_and_immediate(self) -> None:
+        self.assertEqual(assignn_action(249, 5), bytes([0x03, 249, 5]))
+
+    def test_autonomous_motion_actions_encode_fixed_operands(self) -> None:
+        self.assertEqual(approach_first_object_until_near_action(1, 25, 214), bytes([0x53, 1, 25, 214]))
+        self.assertEqual(start_random_motion_action(2), bytes([0x54, 2]))
+        self.assertEqual(stop_motion_mode_action(2), bytes([0x55, 2]))
+        self.assertEqual(set_object_step_from_var_action(1, 249), bytes([0x4F, 1, 249]))
+        self.assertEqual(set_object_tick_from_var_action(1, 248), bytes([0x50, 1, 248]))
+
+    def test_set_object_bit_0200_action_encodes_fixed_operand(self) -> None:
+        self.assertEqual(set_object_bit_0200_action(3), bytes([0x43, 3]))
 
     def test_logdir_patch_points_logic_zero_at_volume_three_offset_zero(self) -> None:
         original = bytes([0x10, 0x6D, 0x1B, 0xFF, 0xFF, 0xFF])

@@ -30,6 +30,13 @@ def end_action() -> bytes:
     return bytes([0x00])
 
 
+def assignn_action(var_no: int, value: int) -> bytes:
+    values = [var_no, value]
+    if any(not 0 <= item <= 0xFF for item in values):
+        raise ValueError("assignn operands must fit in one byte")
+    return bytes([0x03, var_no, value])
+
+
 def set_flag_action(flag_no: int) -> bytes:
     if not 0 <= flag_no <= 0xFF:
         raise ValueError("flag number must fit in one byte")
@@ -113,6 +120,45 @@ def move_object_to_action(
     if any(not 0 <= value <= 0xFF for value in values):
         raise ValueError("fixture operands must fit in one byte")
     return bytes([0x51, object_no, target_x, target_y, step_size, completion_flag])
+
+
+def approach_first_object_until_near_action(object_no: int, threshold: int, completion_flag: int) -> bytes:
+    values = [object_no, threshold, completion_flag]
+    if any(not 0 <= value <= 0xFF for value in values):
+        raise ValueError("approach operands must fit in one byte")
+    return bytes([0x53, object_no, threshold, completion_flag])
+
+
+def start_random_motion_action(object_no: int) -> bytes:
+    if not 0 <= object_no <= 0xFF:
+        raise ValueError("object number must fit in one byte")
+    return bytes([0x54, object_no])
+
+
+def stop_motion_mode_action(object_no: int) -> bytes:
+    if not 0 <= object_no <= 0xFF:
+        raise ValueError("object number must fit in one byte")
+    return bytes([0x55, object_no])
+
+
+def set_object_step_from_var_action(object_no: int, var_no: int) -> bytes:
+    values = [object_no, var_no]
+    if any(not 0 <= value <= 0xFF for value in values):
+        raise ValueError("object/variable operands must fit in one byte")
+    return bytes([0x4F, object_no, var_no])
+
+
+def set_object_tick_from_var_action(object_no: int, var_no: int) -> bytes:
+    values = [object_no, var_no]
+    if any(not 0 <= value <= 0xFF for value in values):
+        raise ValueError("object/variable operands must fit in one byte")
+    return bytes([0x50, object_no, var_no])
+
+
+def set_object_bit_0200_action(object_no: int) -> bytes:
+    if not 0 <= object_no <= 0xFF:
+        raise ValueError("object number must fit in one byte")
+    return bytes([0x43, object_no])
 
 
 def picture_logic_payload(picture_no: int, scratch_var: int = SCRATCH_VAR) -> bytes:

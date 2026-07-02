@@ -42,6 +42,16 @@ class ObjectMovementProbeTests(unittest.TestCase):
         self.assertIn("move_right_to_screen_edge", case_ids)
         self.assertIn("move_down_to_bottom_edge", case_ids)
         self.assertIn("move_allowed_on_control_zero", case_ids)
+        self.assertIn("move_left_to_target", case_ids)
+        self.assertIn("move_up_to_target", case_ids)
+        self.assertIn("move_diagonal_down_right", case_ids)
+        self.assertIn("move_non_divisible_distance", case_ids)
+        self.assertIn("move_near_target_immediate", case_ids)
+        self.assertIn("move_already_at_target", case_ids)
+        self.assertIn("move_zero_step_override", case_ids)
+        self.assertIn("move_blocked_by_object_collision", case_ids)
+        self.assertIn("move_collision_skip_bit_reaches_target", case_ids)
+        self.assertIn("approach_first_object_until_near_band", case_ids)
 
     def test_json_case_loading(self) -> None:
         case = base_cases()[0]
@@ -66,6 +76,19 @@ class ObjectMovementProbeTests(unittest.TestCase):
             comparison = compare_capture(case, capture)
         self.assertEqual(comparison.status, "match")
         self.assertIsNone(comparison.best_position)
+
+    def test_compare_capture_matches_expected_obstacle_composition(self) -> None:
+        case = next(item for item in base_cases() if item.case_id == "move_blocked_by_object_collision")
+        picture = PictureRenderer(case.picture_payload).render(case.picture_no)
+        frame = render_view_frame(case.view_no, case.group_no, case.frame_no)
+        expected = compose_frame_on_picture(picture, frame, case.expected_x, case.expected_baseline_y, case.priority)
+        obstacle = render_view_frame(case.obstacle_view_no, case.obstacle_group_no, case.obstacle_frame_no)
+        expected = compose_frame_on_picture(expected, obstacle, case.obstacle_x, case.obstacle_baseline_y, case.obstacle_priority)
+        with tempfile.TemporaryDirectory() as temp_dir:
+            capture = Path(temp_dir) / "capture.ppm"
+            write_scaled_capture(capture, expected.visual_nibbles)
+            comparison = compare_capture(case, capture)
+        self.assertEqual(comparison.status, "match")
 
     def test_compare_capture_reports_best_position_on_mismatch(self) -> None:
         case = replace(base_cases()[0], expected_x=50, expected_baseline_y=80)

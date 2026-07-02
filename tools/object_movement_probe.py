@@ -13,7 +13,16 @@ from pathlib import Path
 from agi_graphics import HEIGHT, WIDTH, PictureRenderer, compose_frame_on_picture, render_view_frame
 from compare_picture_capture import downsample_qemu_picture_nibbles
 from ppm_tools import read_ppm
-from qemu_fixture import build_synthetic_picture_persistent_object_fixture, move_object_to_action
+from qemu_fixture import (
+    assignn_action,
+    approach_first_object_until_near_action,
+    build_synthetic_picture_persistent_object_fixture,
+    move_object_to_action,
+    set_object_bit_0200_action,
+    set_object_step_from_var_action,
+    set_object_tick_from_var_action,
+    setup_persistent_object_actions,
+)
 from qemu_snapshot import SnapshotFixtureCase, build_snapshot_boot_disk, run_snapshot_qemu_cases
 
 
@@ -22,6 +31,8 @@ DEFAULT_FIXTURES = Path("build/object-movement-probes/fixtures")
 DEFAULT_RESULTS = Path("build/object-movement-probes/batches")
 DEFAULT_SNAPSHOT_RAW = Path("build/object-movement-probes/snapshot/object_movement.raw")
 DEFAULT_SNAPSHOT_QCOW = Path("build/object-movement-probes/snapshot/object_movement.qcow2")
+MOTION_VALUE_VAR = 249
+MOTION_TICK_VAR = 248
 
 
 @dataclass(frozen=True)
@@ -44,6 +55,16 @@ class ObjectMovementCase:
     expected_baseline_y: int
     init_flag: int = DEFAULT_INIT_FLAG
     object_no: int = 0
+    motion_kind: str = "move_to"
+    approach_threshold: int = 0
+    moving_skip_collision: bool = False
+    obstacle_x: int | None = None
+    obstacle_baseline_y: int | None = None
+    obstacle_view_no: int = 11
+    obstacle_group_no: int = 0
+    obstacle_frame_no: int = 0
+    obstacle_priority: int = 15
+    obstacle_object_no: int = 1
 
     @property
     def picture_payload(self) -> bytes:
@@ -165,6 +186,197 @@ def base_cases() -> list[ObjectMovementCase]:
             50,
             80,
         ),
+        ObjectMovementCase(
+            "move_left_to_target",
+            "Persistent object moves horizontally left to a nearby target.",
+            b"\xff".hex(),
+            0,
+            11,
+            0,
+            0,
+            80,
+            80,
+            15,
+            50,
+            80,
+            5,
+            205,
+            50,
+            80,
+        ),
+        ObjectMovementCase(
+            "move_up_to_target",
+            "Persistent object moves upward to a nearby target.",
+            b"\xff".hex(),
+            0,
+            11,
+            0,
+            0,
+            20,
+            100,
+            15,
+            20,
+            80,
+            5,
+            206,
+            20,
+            80,
+        ),
+        ObjectMovementCase(
+            "move_diagonal_down_right",
+            "Persistent object moves diagonally, then straightens when one axis reaches the target band first.",
+            b"\xff".hex(),
+            0,
+            11,
+            0,
+            0,
+            20,
+            80,
+            15,
+            50,
+            100,
+            5,
+            207,
+            50,
+            100,
+        ),
+        ObjectMovementCase(
+            "move_non_divisible_distance",
+            "Persistent object completes when it is within one step of a target not divisible by the step size.",
+            b"\xff".hex(),
+            0,
+            11,
+            0,
+            0,
+            20,
+            80,
+            15,
+            52,
+            80,
+            5,
+            208,
+            50,
+            80,
+        ),
+        ObjectMovementCase(
+            "move_near_target_immediate",
+            "Persistent object already within one step of the target completes without moving.",
+            b"\xff".hex(),
+            0,
+            11,
+            0,
+            0,
+            20,
+            80,
+            15,
+            23,
+            80,
+            5,
+            209,
+            20,
+            80,
+        ),
+        ObjectMovementCase(
+            "move_already_at_target",
+            "Persistent object already at the exact target completes without moving.",
+            b"\xff".hex(),
+            0,
+            11,
+            0,
+            0,
+            20,
+            80,
+            15,
+            20,
+            80,
+            5,
+            210,
+            20,
+            80,
+        ),
+        ObjectMovementCase(
+            "move_zero_step_override",
+            "A zero step-size operand preserves the object's current zero step, so it does not move.",
+            b"\xff".hex(),
+            0,
+            11,
+            0,
+            0,
+            20,
+            80,
+            15,
+            50,
+            80,
+            0,
+            211,
+            20,
+            80,
+        ),
+        ObjectMovementCase(
+            "move_blocked_by_object_collision",
+            "Object 0 stops before crossing object 1 when their horizontal rectangles touch at the same baseline.",
+            b"\xff".hex(),
+            0,
+            11,
+            0,
+            0,
+            20,
+            80,
+            15,
+            80,
+            80,
+            5,
+            212,
+            25,
+            80,
+            obstacle_x=50,
+            obstacle_baseline_y=80,
+        ),
+        ObjectMovementCase(
+            "move_collision_skip_bit_reaches_target",
+            "Object bit 0x0200 on the moving object skips object-object collision testing.",
+            b"\xff".hex(),
+            0,
+            11,
+            0,
+            0,
+            20,
+            80,
+            15,
+            80,
+            80,
+            5,
+            213,
+            80,
+            80,
+            moving_skip_collision=True,
+            obstacle_x=50,
+            obstacle_baseline_y=80,
+        ),
+        ObjectMovementCase(
+            "approach_first_object_until_near_band",
+            "Object 1 autonomously approaches object 0 and stops once their centers are within the configured near threshold.",
+            b"\xff".hex(),
+            0,
+            11,
+            0,
+            0,
+            20,
+            80,
+            15,
+            0,
+            0,
+            5,
+            214,
+            50,
+            80,
+            object_no=1,
+            motion_kind="approach_first",
+            approach_threshold=35,
+            obstacle_x=80,
+            obstacle_baseline_y=80,
+            obstacle_object_no=0,
+        ),
     ]
 
 
@@ -191,7 +403,17 @@ def compare_capture(case: ObjectMovementCase, capture: Path) -> MovementComparis
             case.expected_x,
             case.expected_baseline_y,
             case.priority,
-        ).visual_nibbles
+        )
+        if case.obstacle_x is not None and case.obstacle_baseline_y is not None:
+            obstacle_frame = render_view_frame(case.obstacle_view_no, case.obstacle_group_no, case.obstacle_frame_no)
+            expected = compose_frame_on_picture(
+                expected,
+                obstacle_frame,
+                case.obstacle_x,
+                case.obstacle_baseline_y,
+                case.obstacle_priority,
+            )
+        expected_nibbles = expected.visual_nibbles
     except Exception as exc:  # noqa: BLE001 - probe records exact local exception.
         return MovementComparison(case.case_id, "error", None, None, None, None, None, f"{type(exc).__name__}: {exc}")
 
@@ -201,7 +423,7 @@ def compare_capture(case: ObjectMovementCase, capture: Path) -> MovementComparis
     max_x = -1
     max_y = -1
     mismatches = 0
-    for idx, (left, right) in enumerate(zip(captured, expected)):
+    for idx, (left, right) in enumerate(zip(captured, expected_nibbles)):
         if left == right:
             continue
         mismatches += 1
@@ -219,7 +441,7 @@ def compare_capture(case: ObjectMovementCase, capture: Path) -> MovementComparis
         case.case_id,
         "match" if mismatches == 0 else "mismatch",
         mismatches,
-        len(expected),
+        len(expected_nibbles),
         bbox,
         mismatch_samples,
         best_position,
@@ -275,14 +497,9 @@ def run_snapshot_batch(
             case.priority,
             fixture,
             case.object_no,
-            per_cycle_actions=move_object_to_action(
-                case.object_no,
-                case.target_x,
-                case.target_y,
-                case.step_size,
-                case.completion_flag,
-            ),
-            per_cycle_until_flag=case.completion_flag,
+            post_activate_actions=post_activate_actions(case),
+            per_cycle_actions=per_cycle_actions(case),
+            per_cycle_until_flag=per_cycle_until_flag(case),
             init_flag=case.init_flag,
         )
         qemu_cases.append(SnapshotFixtureCase(dos_dir, fixture, capture))
@@ -311,6 +528,53 @@ def run_snapshot_batch(
         if stop_on_failure and status != "match":
             break
     return results
+
+
+def post_activate_actions(case: ObjectMovementCase) -> bytes:
+    actions = b""
+    if case.moving_skip_collision:
+        actions += set_object_bit_0200_action(case.object_no)
+    if case.obstacle_x is not None and case.obstacle_baseline_y is not None:
+        actions += setup_persistent_object_actions(
+            case.obstacle_view_no,
+            case.obstacle_group_no,
+            case.obstacle_frame_no,
+            case.obstacle_x,
+            case.obstacle_baseline_y,
+            case.obstacle_priority,
+            case.obstacle_object_no,
+        )
+    if case.motion_kind == "approach_first":
+        actions += assignn_action(MOTION_VALUE_VAR, case.step_size)
+        actions += set_object_step_from_var_action(case.object_no, MOTION_VALUE_VAR)
+        actions += assignn_action(MOTION_TICK_VAR, 1)
+        actions += set_object_tick_from_var_action(case.object_no, MOTION_TICK_VAR)
+        actions += approach_first_object_until_near_action(
+            case.object_no,
+            case.approach_threshold,
+            case.completion_flag,
+        )
+    return actions
+
+
+def per_cycle_actions(case: ObjectMovementCase) -> bytes:
+    if case.motion_kind == "move_to":
+        return move_object_to_action(
+            case.object_no,
+            case.target_x,
+            case.target_y,
+            case.step_size,
+            case.completion_flag,
+        )
+    if case.motion_kind == "approach_first":
+        return b""
+    raise ValueError(f"unsupported motion kind: {case.motion_kind}")
+
+
+def per_cycle_until_flag(case: ObjectMovementCase) -> int | None:
+    if case.motion_kind == "move_to":
+        return case.completion_flag
+    return None
 
 
 def write_report(results: list[MovementBatchResult], output: Path) -> dict[str, object]:
