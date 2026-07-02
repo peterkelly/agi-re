@@ -113,6 +113,7 @@ Address columns use these meanings:
 | `code.object.draw_overlay_entry` | overlay `IBM_OBJS.OVL:0x9db6` | Entry jump to selected-frame drawing routine. |
 | `code.object.rewrite_frame_orientation` | image `0x587d` | Rewrites bit-`0x80` frame data when cached orientation bits differ from object `+0x0a`. |
 | `code.motion.update_objects` | image `0x150a` | Per-cycle object movement/update pass. |
+| `code.motion.dispatch_mode_step` | image `0x067a` | Dispatches object mode byte `+0x22` to random, approach-first-object, or target-direction helpers when countdown byte `+0x01` is ready. |
 | `code.motion.start_target_direction` | image `0x1672` | Computes initial direction toward object target fields. |
 | `code.motion.compute_direction` | image `0x16ed` | Direction lookup from current and target coordinates. |
 | `code.motion.complete_target_motion` | image `0x16b9` | Restores step state, sets completion flag, clears target mode. |

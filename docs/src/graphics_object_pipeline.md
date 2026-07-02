@@ -434,6 +434,11 @@ offset `0x09`, has 2 frames, and its first frame starts at `0x0e` with size
 preview/display string offsets in views 220 through 239; the first was view 220
 with offset `0x0249` inside a 707-byte payload.
 
+QEMU overlay probes now validate multiple selected offsets within view 11. Group
+0 frame 1, group 1 frame 0, and group 1 frame 1 all matched the local renderer
+in the 22-case object overlay batch, extending the earlier group 0 frame 0
+fixture beyond the first frame table entry.
+
 The object overlay draw routine at `0x9db6 -> 0x9e35` provides the current
 model for frame data. The draw entry receives an object pointer, loads the
 selected frame pointer from object `+0x10`, and computes the top-left buffer
@@ -739,19 +744,19 @@ stores the result in `+0x21`. Helper `0x16b9(object)` restores `+0x1e` from
 
 QEMU movement probes show an important script-level contract for this mode.
 Calling `0x51` once starts the object moving in the initially computed
-direction, but it does not by itself recompute arrival on later ticks. The
-normal logic pattern is to call `0x51` or `0x52` again on each interpreter cycle
-while the completion flag is clear. When the object is then at, or within one
-step of, the target, helper `0x1672` returns the zero direction and immediately
-calls `0x16b9`. With this repeated-call fixture, horizontal and vertical target
-arrival matched QEMU exactly. Targets beyond the reachable screen area complete
-at the movement clamp: view 11/group 0/frame 0 stopped at left `140` for a
-rightward target and baseline `167` for a downward target.
+direction. If object byte `+0x01` is not arranged to trigger the pre-movement
+dispatcher, script logic normally reissues `0x51` or `0x52` on each interpreter
+cycle while the completion flag is clear. When the object is then at, or within
+one step of, the target, helper `0x1672` returns the zero direction and
+immediately calls `0x16b9`. With this repeated-call fixture, horizontal and
+vertical target arrival matched QEMU exactly. Targets beyond the reachable
+screen area complete at the movement clamp: view 11/group 0/frame 0 stopped at
+left `140` for a rightward target and baseline `167` for a downward target.
 
-The source also shows a pre-movement mode-3 path through `0x067a`, but that path
-is gated by byte `+0x01 == 1`. The generated fixtures used here reissue `0x51`
-from logic and do not yet isolate this countdown-gated autonomous recomputation
-path as a separate behavioral probe.
+The source's pre-movement mode-3 path through `0x067a` is also now validated.
+It is gated by byte `+0x01 == 1`. A generated fixture that sets that byte and
+calls `0x51` once, without reissuing it from script logic, reaches `(50,80)` and
+sets the completion flag through the autonomous `0x067a -> 0x1672` path.
 
 The same countdown-gated dispatcher is now validated for mode `2`. A generated
 fixture initializes object 1, sets its step byte to `5`, sets countdown byte
@@ -764,6 +769,22 @@ is the cleaner contract probe for direct mode-2 completion. The threshold-35
 result also shows the near-band test does not complete at the exact boundary:
 object 1 moved past the predicted boundary position `(45,80)` and completed at
 `(50,80)`.
+
+Disassembly of `0x0b36` explains the threshold-25 exploratory result. Mode 2
+stores sentinel `0xff` in `+0x29`; on the first non-complete step the helper
+changes that to `0`. If bit `0x4000` later says the object did not move, the
+helper chooses a random nonzero direction, computes a delay from half the
+Manhattan-like center/baseline distance plus one, and stores either the current
+step size or a random value at least as large as the step in `+0x29`. While
+`+0x29` is nonzero, the helper subtracts the step size from it each pass and
+delays returning to the direct approach direction. That is the current
+source-backed model for approach stuck recovery.
+
+Random mode `0x54` has a property-style QEMU probe rather than an exact final
+position assertion. A generated fixture sets step `5`, sets countdown byte
+`+0x01` to `1`, starts random mode, and accepts any capture that exactly
+matches the object at a valid final position. The recorded run ended at
+`(140,112)`.
 
 The expanded movement probe set also confirms leftward and upward movement,
 diagonal movement, already-at-target completion, and within-step completion. A
@@ -874,9 +895,9 @@ The currently observed values of object byte `+0x22` are:
 | Value | Started by | Per-cycle behavior |
 | ---: | --- | --- |
 | `0` | `0x55` (`stop_motion_mode`), completion helpers | No autonomous mode is active. |
-| `1` | `0x54` (`start_random_motion`) | Helper `0x3f5a` picks direction `0..8` with helper `0x3fa3`, keeps a random countdown in `+0x27`, and reseeds when the countdown expires or the stationary bit `0x4000` is set. |
-| `2` | `0x53` (`approach_first_object_until_near`) | Helper `0x0b36` computes a direction from the object's center/Y toward the first object entry's center/Y using threshold `+0x27`; when the direction helper returns zero it clears the mode and sets completion flag `+0x28`. Stuck recovery temporarily chooses a random nonzero direction and stores a retry delay in `+0x29`. |
-| `3` | `0x51` (`move_object_to`), `0x52` (`move_object_to_var`) | Helper `0x1672` computes direction toward target X/Y in `+0x27/+0x28`; completion helper `0x16b9` restores saved step `+0x29`, sets completion flag `+0x2a`, and clears the mode. QEMU probes confirm scripts should reissue this action each cycle until the completion flag is set. |
+| `1` | `0x54` (`start_random_motion`) | Helper `0x3f5a` picks direction `0..8` with helper `0x3fa3`, keeps a random countdown in `+0x27`, and reseeds when the countdown expires or the stationary bit `0x4000` is set. A QEMU property probe confirms the mode renders the object at a valid final position. |
+| `2` | `0x53` (`approach_first_object_until_near`) | Helper `0x0b36` computes a direction from the object's center/Y toward the first object entry's center/Y using threshold `+0x27`; when the direction helper returns zero it clears the mode and sets completion flag `+0x28`. Stuck recovery temporarily chooses a random nonzero direction and stores a retry delay in `+0x29`. QEMU confirms direct completion at `(50,80)` in the threshold-35 fixture. |
+| `3` | `0x51` (`move_object_to`), `0x52` (`move_object_to_var`) | Helper `0x1672` computes direction toward target X/Y in `+0x27/+0x28`; completion helper `0x16b9` restores saved step `+0x29`, sets completion flag `+0x2a`, and clears the mode. QEMU probes confirm both script-reissued setup and countdown-gated one-shot setup can complete. |
 
 The render/update helpers around `0x5528..0x5762` bridge the interpreter's
 logical graphics buffer to the selected graphics overlay:

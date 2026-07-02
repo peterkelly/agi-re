@@ -50,6 +50,9 @@ class ObjectOverlayProbeTests(unittest.TestCase):
         self.assertIn("auto_priority_default_y80_draws", case_ids)
         self.assertIn("auto_priority_rebuilt_y100_hidden", case_ids)
         self.assertIn("persistent_view11_priority15", case_ids)
+        self.assertIn("view11_group0_frame1_priority15", case_ids)
+        self.assertIn("view11_group1_frame0_priority15", case_ids)
+        self.assertIn("view11_group1_frame1_priority15", case_ids)
         self.assertIn("persistent_priority36_high3_rejects", case_ids)
         self.assertIn("persistent_priority66_high_nonzero_hidden", case_ids)
 

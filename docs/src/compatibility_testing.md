@@ -194,14 +194,15 @@ backgrounds:
 python3 -B tools/object_overlay_probe.py --dos-prefix OP --output build/object-overlay-probes/batches/priority_scan_down.json --boot-wait 5 --draw-wait 8
 ```
 
-The expanded 19-case object overlay batch matched QEMU with 0 mismatches. It
+The expanded 22-case object overlay batch matched QEMU with 0 mismatches. It
 covers default control priority 4 versus object priorities 3 and 4, full-screen
 control priority 6 versus object priorities 5 and 6, low/high staged nibble
 mismatches proving transient visible priority uses the low nibble, the
 low-control downward-scan path where a destination cell with control 2 finds a
 control-6 barrier one row below, right/bottom edge placement, transparent color
 variants, `0xae` priority-table rebuild effects, and persistent object-table
-setup/drawing.
+setup/drawing. It now also covers selected view 11 group/frame offsets: group
+0 frame 1, group 1 frame 0, and group 1 frame 1.
 
 Compare an existing QEMU capture without rerunning QEMU:
 
@@ -268,17 +269,17 @@ python3 -B tools/picture_fuzz.py compare-capture base_004_clamped_absolute build
 - Targeted QEMU object overlay probes now validate direct priority gating,
   transient visible-priority low-nibble selection, downward scan from
   low-control cells, selected clipping/placement edges, transparent-color
-  variants, auto-derived priority after `0xae`, and persistent object-table
-  setup. The confirmed transient draw rule is that an object pixel draws when
+  variants, auto-derived priority after `0xae`, persistent object-table setup,
+  and multiple view 11 group/frame selections. The confirmed transient draw rule is that an object pixel draws when
   the discovered existing priority/control value is less than or equal to the
   object's low priority nibble.
 - Targeted persistent-object movement probes run through QEMU with:
 
   ```bash
-  python3 -B tools/object_movement_probe.py --dos-prefix MC --output build/object-movement-probes/batches/movement_collision.json --boot-wait 5 --draw-wait 8
+  python3 -B tools/object_movement_probe.py --dos-prefix ME --output build/object-movement-probes/batches/motion_modes_004.json --boot-wait 5 --draw-wait 8
   ```
 
-  The current 15-case batch matched QEMU with 0 mismatches. It covers
+  The current 17-case batch matched QEMU with 0 mismatches. It covers
   horizontal and vertical arrival at reachable targets, plus right-edge and
   bottom-edge completion when the target lies outside the reachable screen
   area. It also covers left/up movement, diagonal movement that straightens
@@ -294,7 +295,11 @@ python3 -B tools/picture_fuzz.py compare-capture base_004_clamped_absolute build
   (`approach_first_object_until_near`) toward object 0 with step `5` and near
   threshold `35`; QEMU stops object 1 at `(50,80)`, confirming that this path
   can complete from the countdown-gated dispatcher without reissuing the setup
-  action from script logic.
+  action from script logic. The same run also includes a countdown-gated mode-3
+  case where one `0x51` setup reaches `(50,80)` without script reissue, and a
+  property-style random-motion case where `0x54` renders the object exactly at
+  some valid final position. In the recorded run that random final position was
+  `(140,112)`.
 - `tests/test_picture_fuzz.py` covers deterministic fuzz generation, manifest
   writing, Python render-result recording, scaled synthetic capture comparison
   without booting QEMU, QEMU unsafe-case rejection, and mocked batch reporting.

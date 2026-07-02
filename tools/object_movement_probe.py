@@ -22,6 +22,7 @@ from qemu_fixture import (
     set_object_step_from_var_action,
     set_object_tick_from_var_action,
     setup_persistent_object_actions,
+    start_random_motion_action,
 )
 from qemu_snapshot import SnapshotFixtureCase, build_snapshot_boot_disk, run_snapshot_qemu_cases
 
@@ -56,6 +57,7 @@ class ObjectMovementCase:
     init_flag: int = DEFAULT_INIT_FLAG
     object_no: int = 0
     motion_kind: str = "move_to"
+    comparison_kind: str = "exact"
     approach_threshold: int = 0
     moving_skip_collision: bool = False
     obstacle_x: int | None = None
@@ -377,6 +379,45 @@ def base_cases() -> list[ObjectMovementCase]:
             obstacle_baseline_y=80,
             obstacle_object_no=0,
         ),
+        ObjectMovementCase(
+            "move_to_once_countdown_gated_completion",
+            "A single move_object_to setup can complete through the countdown-gated mode-3 dispatcher when object tick byte +0x01 is one.",
+            b"\xff".hex(),
+            0,
+            11,
+            0,
+            0,
+            20,
+            80,
+            15,
+            50,
+            80,
+            5,
+            215,
+            50,
+            80,
+            motion_kind="move_to_once_autonomous",
+        ),
+        ObjectMovementCase(
+            "random_motion_visible_somewhere",
+            "Random autonomous motion renders the object exactly at some valid final position.",
+            b"\xff".hex(),
+            0,
+            11,
+            0,
+            0,
+            60,
+            80,
+            15,
+            0,
+            0,
+            5,
+            216,
+            60,
+            80,
+            motion_kind="random_motion",
+            comparison_kind="any_position",
+        ),
     ]
 
 
@@ -437,6 +478,20 @@ def compare_capture(case: ObjectMovementCase, capture: Path) -> MovementComparis
             mismatch_samples.append((x, y, left, right))
     bbox = None if mismatches == 0 else (min_x, min_y, max_x, max_y)
     best_position = None if mismatches == 0 else find_best_position(captured, picture, frame, case.priority)
+    if case.comparison_kind == "any_position" and mismatches != 0:
+        assert best_position is not None
+        best_mismatches, best_x, best_y = best_position
+        if best_mismatches == 0 and 0 <= best_x < WIDTH and 0 <= best_y < HEIGHT:
+            return MovementComparison(
+                case.case_id,
+                "match",
+                0,
+                len(expected_nibbles),
+                None,
+                [],
+                best_position,
+                None,
+            )
     return MovementComparison(
         case.case_id,
         "match" if mismatches == 0 else "mismatch",
@@ -554,6 +609,22 @@ def post_activate_actions(case: ObjectMovementCase) -> bytes:
             case.approach_threshold,
             case.completion_flag,
         )
+    if case.motion_kind == "move_to_once_autonomous":
+        actions += assignn_action(MOTION_TICK_VAR, 1)
+        actions += set_object_tick_from_var_action(case.object_no, MOTION_TICK_VAR)
+        actions += move_object_to_action(
+            case.object_no,
+            case.target_x,
+            case.target_y,
+            case.step_size,
+            case.completion_flag,
+        )
+    if case.motion_kind == "random_motion":
+        actions += assignn_action(MOTION_VALUE_VAR, case.step_size)
+        actions += set_object_step_from_var_action(case.object_no, MOTION_VALUE_VAR)
+        actions += assignn_action(MOTION_TICK_VAR, 1)
+        actions += set_object_tick_from_var_action(case.object_no, MOTION_TICK_VAR)
+        actions += start_random_motion_action(case.object_no)
     return actions
 
 
@@ -566,7 +637,7 @@ def per_cycle_actions(case: ObjectMovementCase) -> bytes:
             case.step_size,
             case.completion_flag,
         )
-    if case.motion_kind == "approach_first":
+    if case.motion_kind in {"approach_first", "move_to_once_autonomous", "random_motion"}:
         return b""
     raise ValueError(f"unsupported motion kind: {case.motion_kind}")
 

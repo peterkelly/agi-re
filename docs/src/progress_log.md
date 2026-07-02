@@ -1310,3 +1310,67 @@ Progress updates and outcomes:
 
      Action/result: Updated the compatibility docs, object pipeline docs, and
      clean-room executable notes with the mode-2 QEMU evidence.
+
+142. Reported: "I'll take these as an implementation batch: extend the QEMU
+     probes, reverse the stuck/recovery path enough to document it, add
+     object-field notes where source-backed, and start turning view/cycle
+     behavior into the same compatibility harness style."
+
+     Action/result: Reviewed the existing movement, fixture, overlay, and
+     graphics docs before editing.
+
+143. Reported: "The current harness can be extended without splitting tools:
+     exact-position checks still work for deterministic modes, and I can add a
+     property-based comparison for random motion where the engine is allowed to
+     choose any final position as long as the object is rendered exactly
+     somewhere valid."
+
+     Action/result: Added `comparison_kind="any_position"` support to
+     `tools/object_movement_probe.py`, plus `move_to_once_countdown_gated_completion`
+     and `random_motion_visible_somewhere` cases.
+
+144. Reported: "The movement harness now has the two new mode cases. I'm
+     adding extra overlay cases for cel and group selection on view 11, which
+     will exercise different frame dimensions and offsets through the real
+     object drawing path."
+
+     Action/result: Added view 11 group 0 frame 1, group 1 frame 0, and group 1
+     frame 1 cases to `tools/object_overlay_probe.py`.
+
+145. Reported: "Fast tests are clean. I'm going to run the expanded movement
+     QEMU batch first; this will tell us whether countdown-gated mode 3
+     completes as expected and whether the random-motion property check is
+     robust."
+
+     Action/result: Ran
+     `python3 -B tools/object_movement_probe.py --dos-prefix ME --output build/object-movement-probes/batches/motion_modes_004.json --boot-wait 5 --draw-wait 8`.
+     All 17 cases matched with 0 mismatches. The countdown-gated one-shot
+     `0x51` case completed at `(50,80)`, and the random-motion property case
+     matched exactly at final position `(140,112)`.
+
+146. Reported: "The overlay batch is fully green, including all three new view
+     11 cel/group selections. I'm going to update the docs now with the QEMU
+     results, the mode-3 clarification, the random-motion property result, and
+     the source-backed stuck-recovery details from `0x0b36`."
+
+     Action/result: Ran
+     `python3 -B tools/object_overlay_probe.py --dos-prefix OE --output build/object-overlay-probes/batches/view_cel_selection_002.json --boot-wait 5 --draw-wait 8`.
+     All 22 cases matched with 0 mismatches.
+
+147. Reported: "The label table now includes the mode dispatcher, which will
+     help when we compare later interpreter versions with shifted addresses.
+     I'm appending the new command log/results to the clean-room notes."
+
+     Action/result: Added symbolic label `code.motion.dispatch_mode_step` for
+     image offset `0x067a`; updated compatibility, logic bytecode,
+     graphics/object pipeline, and clean-room notes with the new QEMU and
+     disassembly evidence.
+
+148. Reported: "One sanity check before I wrap: I covered cel/group selection,
+     but cycling deserves at least a source-backed pass too. I'm checking the
+     `+0x23` handlers/call sites now so I don't overstate that part."
+
+     Action/result: Disassembled handlers `0x6b82..0x6c17` for actions
+     `0x48..0x4b`. The handlers set object byte `+0x23`, object flag bits, and
+     optional completion flag byte `+0x27`; this records the setup side only.
+     Automatic frame-cycling runtime consumers remain a follow-up target.

@@ -728,13 +728,13 @@ target below:  6 5 4
 The center value is zero, so an object already within one step of both target
 coordinates completes immediately.
 
-QEMU probes with generated logic resources confirm that this action is normally
-reissued by script logic while the completion flag is clear. A one-shot call
-sets the initial direction but does not by itself recompute target arrival on
-later ticks. A fixture that initializes the object once and then executes
-`0x51` each cycle until the completion flag is set matched QEMU for reachable
-horizontal and vertical targets, and for unreachable right/bottom targets that
-complete at the movement clamp.
+QEMU probes with generated logic resources confirm two valid ways this target
+mode can complete. A script can reissue `0x51` each cycle while the completion
+flag is clear; that matched QEMU for reachable horizontal and vertical targets,
+and for unreachable right/bottom targets that complete at the movement clamp. A
+one-shot `0x51` setup can also complete without script reissue when object byte
+`+0x01` is set to `1`, because the pre-movement dispatcher path
+`0x067a -> 0x1672` recomputes the direction and detects arrival.
 
 **`0x52` (`move_object_to_var`)**: Handler: `0x6d61`; Observed action: Same contract as `0x51`, but target X, target Y, and optional step-size override are read through variables while the object index and completion flag remain immediate operands.
 
@@ -754,7 +754,18 @@ the last position comparison, the helper temporarily chooses a random nonzero
 direction and computes a retry delay in `[+0x29]` before returning to the direct
 approach direction.
 
+QEMU validates the direct autonomous mode-2 path with object 1 approaching
+object 0: with step `5`, countdown byte `+0x01 = 1`, and threshold `35`, object
+1 stops at `(50,80)` when object 0 is at `(80,80)`. An exploratory threshold
+`25` probe landed at `(60,75)`, consistent with the source path that enters
+stuck recovery after a blocked or stationary comparison.
+
 **`0x54` (`start_random_motion`)**: Handler: `0x6e68`; Observed action: Starts autonomous random movement for object operand 0. If the object is the first object entry, sets `[0x0139] = 0`; then stores `[+0x22] = 1` and sets object bit `0x0010`. The per-cycle helper at `0x3f5a` decrements `[+0x27]` as a countdown; when it reaches zero, or when object bit `0x4000` reports no movement, it chooses a random direction `0..8` via helper `0x3fa3`, stores it in `[+0x21]`, mirrors it to byte `[0x000f]` for the first object, and reseeds `[+0x27]` to a random delay in the range `6..50`.
+
+A QEMU property probe validates this path without assuming a deterministic final
+coordinate: after setting step `5`, countdown byte `+0x01 = 1`, and starting
+`0x54`, the object rendered exactly at a valid final position. In the recorded
+run the final position was `(140,112)`.
 
 **`0x55` (`stop_motion_mode`)**: Handler: `0x6ea1`; Observed action: Stops the autonomous motion mode for object operand 0 by clearing object byte `[+0x22]`. Unlike `0x4d` (`clear_object_fields_21_22`) it does not clear direction byte `[+0x21]`, and unlike `0x4e` (`clear_object_field_22_and_global`) it does not update the first-object globals.
 

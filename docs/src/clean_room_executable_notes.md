@@ -3068,6 +3068,53 @@ Documented result:
   `3`. It then calls extra rectangle-boundary logic when global `[0x013d]` is
   nonzero and direction byte `+0x21` is nonzero. Helper `0x0563` later invokes
   `0x150a`, then rebuilds/draws/refreshes the update list rooted at `0x16ff`.
-  The generated QEMU movement fixtures still reissue `0x51` from logic; they do
-  not yet isolate the countdown-gated `0x067a -> 0x1672` path as a separate
-  behavioral probe.
+  A later generated QEMU movement fixture isolates the countdown-gated
+  `0x067a -> 0x1672` path directly.
+
+## Countdown-gated motion and additional view cel probes
+
+Commands/evidence:
+
+- `python3 -B -m unittest discover -s tests`
+- `python3 -B tools/object_movement_probe.py --dos-prefix ME --output build/object-movement-probes/batches/motion_modes_004.json --boot-wait 5 --draw-wait 8`
+- `python3 -B tools/object_overlay_probe.py --dos-prefix OE --output build/object-overlay-probes/batches/view_cel_selection_002.json --boot-wait 5 --draw-wait 8`
+- `python3 -B tools/inspect_view.py 11 --groups 4 --frames 8`
+- `ndisasm -b 16 -o 0x0b36 -e 0x0d36 build/cleanroom/AGI.decrypted.exe | sed -n '1,260p'`
+- `ndisasm -b 16 -o 0x6b82 -e 0x6d82 build/cleanroom/AGI.decrypted.exe | sed -n '1,260p'`
+- `python3 -B tools/disassemble_logic.py 1 | rg -n "set_object_field_23|clear_object_bit_0020|set_object_bit_0020|0x48|0x49|0x4a|0x4b" -C 2`
+
+Documented result:
+
+- Added two more motion cases to `tools/object_movement_probe.py`:
+  - `move_to_once_countdown_gated_completion` sets object countdown byte
+    `+0x01` to `1`, calls `0x51` once, and expects completion at `(50,80)`;
+  - `random_motion_visible_somewhere` sets step `5`, sets countdown byte
+    `+0x01` to `1`, starts `0x54`, and accepts any capture that exactly matches
+    the object at a valid final position.
+- The 17-case QEMU movement batch matched with 0 mismatches. It confirms that
+  target mode 3 can complete through the autonomous `0x067a -> 0x1672` path
+  without reissuing `0x51` from script logic when countdown byte `+0x01` is
+  ready. The recorded random-motion final position was `(140,112)`.
+- Added three object overlay cases for view 11 group/frame selection: group 0
+  frame 1, group 1 frame 0, and group 1 frame 1. The 22-case QEMU overlay batch
+  matched with 0 mismatches.
+- Disassembly of `0x0b36` refined the approach stuck-recovery model:
+  - mode 2 computes object and first-object center X values by adding half the
+    frame width to object X;
+  - it calls `0x16ed` with the near threshold stored in object byte `+0x27`;
+  - a zero direction clears `+0x21` and `+0x22` and sets completion flag
+    `+0x28`;
+  - initial sentinel `+0x29 == 0xff` changes to `0` after the first
+    non-complete direct approach step;
+  - if bit `0x4000` says the object did not move, the helper chooses a random
+    nonzero direction, computes a delay from half the center/baseline distance
+    plus one, and stores either the current step size or a random delay at
+    least as large as the step in `+0x29`;
+  - while `+0x29` is nonzero, the helper subtracts the current step byte from
+    it on each pass and delays returning to the direct approach direction.
+- A source pass over action handlers `0x48..0x4b` confirmed the setup side of
+  object byte `+0x23`: mode 0 and mode 3 set bit `0x0020`; mode 1 and mode 2
+  set bits `0x1030`, store an immediate flag in `+0x27`, and clear that flag.
+  The current QEMU work validates static cel/group selection, not automatic
+  frame-cycling semantics; the runtime consumers of `+0x23` remain a separate
+  follow-up target.

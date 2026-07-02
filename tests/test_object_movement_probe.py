@@ -52,6 +52,8 @@ class ObjectMovementProbeTests(unittest.TestCase):
         self.assertIn("move_blocked_by_object_collision", case_ids)
         self.assertIn("move_collision_skip_bit_reaches_target", case_ids)
         self.assertIn("approach_first_object_until_near_band", case_ids)
+        self.assertIn("move_to_once_countdown_gated_completion", case_ids)
+        self.assertIn("random_motion_visible_somewhere", case_ids)
 
     def test_json_case_loading(self) -> None:
         case = base_cases()[0]
