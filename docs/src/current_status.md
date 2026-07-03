@@ -86,7 +86,10 @@ Return to the logic interpreter:
    setup, object predicates, string/message operations, and inventory marker
    operations. The latest object/view follow-up adds QEMU value probes for
    `0x31..0x35`, `0x37`, `0x45`, and `0x4d`, plus dispatch-smoke coverage for
-   several bitfield/helper actions.
+   several bitfield/helper actions. The subsequent object-state/misc batch adds
+   QEMU-backed evidence for `0x22`, `0x24`, `0x28`, `0x7f`, `0x82`, `0x93`,
+   `0x94`, `0x9b`, and `0xaf`; notably, `0x22` clears bits but does not
+   immediately unlink an already activated current-cycle draw entry.
 2. Prefer QEMU fixture evidence for additional opcodes whose behavior can be made visible;
    keep source-only wording for UI, save/restore, sound, and diagnostics until a
    narrow probe is practical.

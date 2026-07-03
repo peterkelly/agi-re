@@ -3288,3 +3288,41 @@ Documented result:
   bytecode under the original interpreter, but does not claim to expose every
   downstream state mutation. Current smoke rows include `0x38`, `0x3a..0x3e`,
   `0x40..0x42`, `0x44`, `0x46..0x47`, `0x4c`, `0x4e`, and `0x58..0x59`.
+
+## 2026-07-03: object state, random, and no-op runtime probes
+
+Commands run from `/Users/peter/ai/agi/reverse`:
+
+- `python3 -B -m unittest tests.test_logic_interpreter_probe`
+- `python3 -B tools/logic_interpreter_probe.py --dos-prefix LG --output build/logic-interpreter-probes/batches/object_state_misc_001.json --boot-wait 5 --draw-wait 8 --stop-on-failure --case object_add_pos_from_vars_getter_observes_sum --case random_equal_bounds_stores_bound --case noop_7f_continues_to_draw --case noop_9b_consumes_two_operands_then_draws --case noop_af_runtime_consumes_no_operand --case set_object_pos_dirty_getter_observes_values --case set_object_pos_dirty_var_getter_observes_values --case deactivate_object_removes_persistent_draw --case clear_all_object_bits_removes_persistent_draw`
+- `python3 -B tools/logic_interpreter_probe.py --dos-prefix LG --output build/logic-interpreter-probes/batches/object_state_misc_002.json --boot-wait 5 --draw-wait 8 --stop-on-failure --case clear_all_object_bits_keeps_current_draw_entry`
+- `python3 -B tools/logic_opcode_evidence.py`
+- `python3 -B tools/logic_opcode_evidence.py --check`
+
+Documented result:
+
+- Added QEMU-visible logic probes for additional object-state and misc actions:
+  - `0x28` adds positive variable-sourced deltas to object position fields,
+    observed through getter `0x27`;
+  - `0x82` stores the bound when its low and high random bounds are equal;
+  - `0x7f`, `0x9b`, and `0xaf` execute and continue to following drawing
+    bytecode in the original interpreter;
+  - `0x93` and `0x94` write object position fields, observed through getter
+    `0x27`;
+  - `0x24` deactivates an active persistent object so only the following
+    transient draw remains visible in the fixture.
+- The first nine-case batch matched 8 cases and mismatched the initial `0x22`
+  hypothesis. The mismatch box was `x=20..39, y=76..80`, exactly the footprint
+  of the previously activated persistent object. This showed that action
+  `0x22` clearing active/update bits does not immediately unlink an object that
+  was already activated for the current draw.
+- Extended `tools/logic_interpreter_probe.py` comparison expectations so a case
+  can include additional expected sprites. The corrected `0x22` case,
+  `clear_all_object_bits_keeps_current_draw_entry`, expects both the old
+  persistent object at `x=20` and the following transient object at `x=50`.
+- The corrected single-case rerun in
+  `build/logic-interpreter-probes/batches/object_state_misc_002.json` matched
+  with 1 match, 0 mismatches, and 0 errors.
+- Regenerated `docs/src/logic_opcode_evidence.md`; actions `0x22`, `0x24`,
+  `0x28`, `0x7f`, `0x82`, `0x93`, `0x94`, `0x9b`, and `0xaf` are now recorded
+  with QEMU-backed evidence.

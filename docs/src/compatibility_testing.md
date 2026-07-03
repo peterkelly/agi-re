@@ -267,6 +267,25 @@ fifth case is a dispatch smoke probe for bitfield/helper actions whose direct
 bit state is not yet exposed by a script predicate; the evidence matrix marks
 those rows as `QEMU dispatch-smoke`.
 
+Run the object-state/random/no-op follow-up batch:
+
+```bash
+python3 -B tools/logic_interpreter_probe.py --dos-prefix LG --output build/logic-interpreter-probes/batches/object_state_misc_001.json --boot-wait 5 --draw-wait 8 --stop-on-failure --case object_add_pos_from_vars_getter_observes_sum --case random_equal_bounds_stores_bound --case noop_7f_continues_to_draw --case noop_9b_consumes_two_operands_then_draws --case noop_af_runtime_consumes_no_operand --case set_object_pos_dirty_getter_observes_values --case set_object_pos_dirty_var_getter_observes_values --case deactivate_object_removes_persistent_draw --case clear_all_object_bits_removes_persistent_draw
+```
+
+The first run matched eight cases and revealed that the original `0x22`
+expectation was too strong: `clear_all_object_bits` clears active/update bits
+but does not immediately unlink an already activated object from the current
+draw. Rerun the corrected `0x22` fixture with:
+
+```bash
+python3 -B tools/logic_interpreter_probe.py --dos-prefix LG --output build/logic-interpreter-probes/batches/object_state_misc_002.json --boot-wait 5 --draw-wait 8 --stop-on-failure --case clear_all_object_bits_keeps_current_draw_entry
+```
+
+The corrected fixture matched QEMU with 0 mismatches. These probes add
+QEMU-backed evidence for `0x22`, `0x24`, `0x28`, `0x7f`, `0x82`, `0x93`,
+`0x94`, `0x9b`, and `0xaf`.
+
 Regenerate the opcode evidence matrix after updating opcode labels or probe
 annotations:
 

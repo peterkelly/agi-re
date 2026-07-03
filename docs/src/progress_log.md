@@ -1951,3 +1951,212 @@ Progress updates and outcomes:
 
      Action/result: Recorded the logic-bytecode table conversion pass in this
      progress log.
+
+219. Reported: "I'll pick the thread back up at the logic-interpreter probe
+     expansion. I'm going to inspect the current probe harness, evidence
+     matrix, and source-backed-only opcode rows so the next batch targets
+     behaviors that can actually be observed in QEMU."
+
+     Action/result: Inspected the current probe harness, evidence matrix, and
+     documentation targets for additional runtime-visible opcodes.
+
+220. Reported: "The current harness already has 52 default cases and a separate
+     smoke level in the evidence matrix. The obvious next useful target is to
+     turn some smoke/source-backed object field helpers into value probes where
+     we can observe the effect through existing getters or visible drawing."
+
+     Action/result: Identified object-state, random, and no-op action entries
+     suitable for direct QEMU probes.
+
+221. Reported: "I'm going to add a small batch of value/smoke probes that are
+     low-risk and visible: object position variants `0x28`, `0x93`, `0x94`,
+     deactivation/clear-all effects `0x24` and `0x22`, deterministic random
+     `0x82` with equal bounds, and no-op/runtime-skip entries `0x7f`, `0x9b`,
+     `0xaf`."
+
+     Action/result: Added nine candidate cases to
+     `tools/logic_interpreter_probe.py`.
+
+222. Reported: "I'm picking up from the just-added probe batch. First I'll run
+     the harness tests so we know whether the new cases are structurally sound
+     before spending QEMU time on them."
+
+     Action/result: Ran `python3 -B -m unittest tests.test_logic_interpreter_probe`;
+     all six tests passed.
+
+223. Reported: "The local probe tests pass, so the new cases are well-formed.
+     I'm going to run them against the original engine now; this is the part
+     that tells us which hypotheses deserve to graduate from static/source-backed
+     notes into runtime evidence."
+
+     Action/result: Started the nine-case QEMU probe batch; the sandbox blocked
+     the initial VNC socket bind.
+
+224. Reported: "As expected, the sandbox blocked QEMU's local VNC socket. I'll
+     rerun the same batch with approval so the emulator can bind its display
+     port."
+
+     Action/result: Reran the nine-case batch with elevated QEMU permission.
+
+225. Reported: "The QEMU batch is running from a snapshot now. While it works
+     through the fixtures, I'll prep the evidence-matrix and docs context so
+     the runtime results can be recorded cleanly once they land."
+
+     Action/result: Reviewed `tools/logic_opcode_evidence.py` and relevant docs
+     while QEMU was running.
+
+226. Reported: "The docs context confirms these opcodes were previously mostly
+     source-backed or smoke-only. If the batch passes, I'll promote the specific
+     ones with observable outcomes into the generated evidence matrix instead
+     of leaving them as 'we saw it in disassembly.'"
+
+     Action/result: Confirmed target opcodes were suitable for evidence-level
+     promotion pending QEMU results.
+
+227. Reported: "Still waiting on QEMU; snapshot batches can be quiet until the
+     report is written. I'm letting it finish rather than interrupting, because
+     partial emulator runs are much less useful as evidence."
+
+     Action/result: Continued waiting for the snapshot-backed QEMU batch.
+
+228. Reported: "First two probes matched: `0x28` adds the variable deltas as
+     expected, and `0x82` with equal bounds stores that bound. The no-op and
+     object activation cases are next in the batch."
+
+     Action/result: Observed the first two QEMU matches from the running batch.
+
+229. Reported: "Good batch, with one interesting wrinkle: eight passed and
+     `clear_all_object_bits_removes_persistent_draw` did not. I'm going to
+     inspect that mismatch rather than paper over it; `0x22` may be clearing
+     active/update bits but not removing an already-linked draw entry in the way
+     my first fixture assumed."
+
+     Action/result: Inspected the report
+     `build/logic-interpreter-probes/batches/object_state_misc_001.json`; eight
+     cases matched and the `0x22` fixture mismatched.
+
+230. Reported: "The mismatch is exactly at the first object's footprint, so the
+     original engine still draws the previously activated object after `0x22` in
+     this same logic pass. I'm reading the harness shape now and will turn this
+     into a positive probe for the behavior we actually observed: 'clear bits
+     does not immediately unlink the already-active draw entry.'"
+
+     Action/result: Confirmed the mismatch bounding box was the previously
+     activated object's visible footprint.
+
+231. Reported: "I'm going to make the probe harness a bit more expressive so a
+     case can expect two rendered objects. That lets the `0x22` probe encode the
+     observed behavior directly, instead of pretending the only valid outcome is
+     a single sprite."
+
+     Action/result: Began extending `LogicInterpreterCase` with optional
+     additional expected sprites.
+
+232. Reported: "The first patch missed because the constructor is still using
+     positional arguments. I've got the exact spot now and will apply the
+     narrower edit."
+
+     Action/result: Added the optional `expected_extra_sprites` field and
+     constructor plumbing.
+
+233. Reported: "Now I'm changing the `0x22` case itself from a negative
+     expectation into a positive one: expect the old persistent object plus the
+     new transient draw. That will give us a sharper note for the spec."
+
+     Action/result: Renamed the case to
+     `clear_all_object_bits_keeps_current_draw_entry` and gave it two expected
+     sprites.
+
+234. Reported: "One more harness edit: comparison needs to render any extra
+     expected sprites before it overlays the primary expected sprite. After that
+     I'll rerun just the corrected `0x22` case."
+
+     Action/result: Updated `compare_capture()` to compose extra expected
+     sprites.
+
+235. Reported: "I'll also update the unit-test coverage list so the newly
+     promoted cases are tracked by name. Small bookkeeping, but it helps prevent
+     accidental loss of these probes later."
+
+     Action/result: Added explicit test coverage for the nine new probe case
+     ids and raised the minimum case-count assertion.
+
+236. Reported: "The probe catalog now names all nine new cases explicitly. I'm
+     running the local tests and a quick capture comparison path check before
+     asking QEMU to revalidate the corrected `0x22` fixture."
+
+     Action/result: `python3 -B -m unittest tests.test_logic_interpreter_probe`
+     passed again.
+
+237. Reported: "Local tests are green. I'll rerun only the corrected `0x22`
+     fixture now, which should be fast relative to the full nine-case sweep."
+
+     Action/result: The sandbox again blocked the first QEMU VNC bind attempt.
+
+238. Reported: "Same socket restriction on the single rerun; I'll rerun it with
+     approval."
+
+     Action/result: Reran the corrected `0x22` fixture with elevated QEMU
+     permission.
+
+239. Reported: "The corrected `0x22` probe matches. I'm going to promote the
+     QEMU-backed opcodes in the evidence generator now, including the nuance
+     that `0x22` clears bits without immediately removing the current draw
+     entry."
+
+     Action/result: Added QEMU evidence entries for `0x22`, `0x24`, `0x28`,
+     `0x7f`, `0x82`, `0x93`, `0x94`, `0x9b`, and `0xaf`.
+
+240. Reported: "The evidence map is updated. Next I'll regenerate the mdBook
+     evidence chapter and run its consistency check, then I'll update the
+     narrative notes with the exact commands and outcomes."
+
+     Action/result: Regenerated `docs/src/logic_opcode_evidence.md` and ran
+     `python3 -B tools/logic_opcode_evidence.py --check` successfully.
+
+241. Reported: "The generated evidence chapter and its check both pass. I'm now
+     recording the reverse-engineering trail: the failed first hypothesis for
+     `0x22`, the corrected fixture, and which opcodes moved to runtime-backed
+     evidence."
+
+     Action/result: Updated clean-room notes, compatibility testing docs, and
+     current status with the new probe evidence.
+
+242. Reported: "Documentation is updated. I'm running the normal validation pass
+     now: full Python tests, evidence check, mdBook build, and whitespace diff
+     check."
+
+     Action/result: The first full test run exposed that the documentation
+     coverage test still recognized only the older paragraph-style opcode
+     entries.
+
+243. Reported: "The book, evidence check, and whitespace check passed, but the
+     full test suite exposed a doc-coverage parser regression: it no longer
+     recognizes the tabled opcode entries in `logic_bytecode.md`. I'm going to
+     adjust that test to understand the current table format rather than
+     weakening coverage."
+
+     Action/result: Updated the coverage test to accept documented opcode rows
+     in the current Markdown table format.
+
+244. Reported: "The coverage test was still looking for the older bold
+     paragraph heading pattern only. I'm updating it to accept both that
+     historical format and the current Markdown table rows, while still
+     requiring every opcode label to appear."
+
+     Action/result: `tests/test_logic_doc_coverage.py` now accepts both
+     paragraph headings and table rows.
+
+245. Reported: "The coverage test now recognizes table rows as documented
+     opcode entries. I'm rerunning the full validation pass to make sure that
+     was the only failure."
+
+     Action/result: `python3 -B -m unittest discover -s tests` passed 91 tests;
+     `mdbook build docs` and `git diff --check` also passed.
+
+246. Reported: "Everything now validates: 91 Python tests, mdBook build, and
+     diff check are clean. I'm doing a final status/diff pass so the wrap-up is
+     precise and doesn't hide generated debris."
+
+     Action/result: Confirmed the modified tracked files and removed
+     `tools/__pycache__/`.

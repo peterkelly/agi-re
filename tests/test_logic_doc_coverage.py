@@ -20,7 +20,12 @@ LOGIC_OPCODE_EVIDENCE = ROOT / "docs" / "src" / "logic_opcode_evidence.md"
 
 
 def has_opcode_entry(text: str, opcode: int, name: str) -> bool:
-    return re.search(rf"\*\*`0x{opcode:02x}` \(`{re.escape(name)}`\)\*\*", text, re.IGNORECASE) is not None
+    paragraph = rf"\*\*`0x{opcode:02x}` \(`{re.escape(name)}`\)\*\*"
+    table_row = rf"\|\s*`0x{opcode:02x}`\s*\|\s*`{re.escape(name)}`\s*\|"
+    return (
+        re.search(paragraph, text, re.IGNORECASE) is not None
+        or re.search(table_row, text, re.IGNORECASE) is not None
+    )
 
 
 class LogicDocCoverageTests(unittest.TestCase):

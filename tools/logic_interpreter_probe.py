@@ -50,6 +50,7 @@ class LogicInterpreterCase:
     expected_priority: int
     extra_logics: list[dict[str, object]] | None = None
     messages: list[str] | None = None
+    expected_extra_sprites: list[dict[str, int]] | None = None
 
     @property
     def code(self) -> bytes:
@@ -195,6 +196,7 @@ def _custom_case(
     expected_baseline_y: int = 80,
     extra_logics: list[dict[str, object]] | None = None,
     messages: list[str] | None = None,
+    expected_extra_sprites: list[dict[str, int]] | None = None,
 ) -> LogicInterpreterCase:
     return LogicInterpreterCase(
         case_id,
@@ -210,6 +212,7 @@ def _custom_case(
         15,
         extra_logics,
         messages,
+        expected_extra_sprites,
     )
 
 
@@ -450,6 +453,16 @@ def base_cases() -> list[LogicInterpreterCase]:
             all_conditions(var_eq_imm_condition(1, 42), var_eq_imm_condition(2, 80)),
         ),
         _draw_if_case(
+            "object_add_pos_from_vars_getter_observes_sum",
+            "Action 0x28 adds variable-sourced positive deltas to object position bytes.",
+            byte_action(0x25, 10, 30, 70)
+            + assignn(1, 5)
+            + assignn(2, 7)
+            + byte_action(0x28, 10, 1, 2)
+            + byte_action(0x27, 10, 3, 4),
+            all_conditions(var_eq_imm_condition(3, 35), var_eq_imm_condition(4, 77)),
+        ),
+        _draw_if_case(
             "object_field_24_getter_observes_setter",
             "Actions 0x36 and 0x39 set object byte +0x24 and read it into a variable.",
             byte_action(0x36, 10, 12) + byte_action(0x39, 10, 1),
@@ -460,6 +473,30 @@ def base_cases() -> list[LogicInterpreterCase]:
             "Actions 0x56 and 0x57 set object byte +0x21 from a variable and read it back.",
             assignn(1, 8) + byte_action(0x56, 10, 1) + byte_action(0x57, 10, 2),
             var_eq_imm_condition(2, 8),
+        ),
+        _draw_if_case(
+            "random_equal_bounds_stores_bound",
+            "Action 0x82 stores the only possible value when low and high bounds match.",
+            byte_action(0x82, 7, 7, 1),
+            var_eq_imm_condition(1, 7),
+        ),
+        _custom_case(
+            "noop_7f_continues_to_draw",
+            "Action 0x7f returns without changing state and following bytecode still executes.",
+            byte_action(0x7F) + draw_view11_at(50),
+            50,
+        ),
+        _custom_case(
+            "noop_9b_consumes_two_operands_then_draws",
+            "Action 0x9b consumes two operand bytes and following bytecode still executes.",
+            byte_action(0x9B, 0x12, 0x34) + draw_view11_at(50),
+            50,
+        ),
+        _custom_case(
+            "noop_af_runtime_consumes_no_operand",
+            "Action 0xaf uses the no-op handler at runtime, so the following opcode byte executes.",
+            byte_action(0xAF) + draw_view11_at(50),
+            50,
         ),
         _custom_case(
             "call_logic_draws_from_called_logic",
@@ -648,6 +685,46 @@ def base_cases() -> list[LogicInterpreterCase]:
             assignn(1, 8) + byte_action(0x56, 10, 1) + byte_action(0x4D, 10) + byte_action(0x57, 10, 2),
             var_eq_imm_condition(2, 0),
         ),
+        _draw_if_case(
+            "set_object_pos_dirty_getter_observes_values",
+            "Action 0x93 writes object position bytes and 0x27 reads them back.",
+            byte_action(0x93, 10, 44, 81) + byte_action(0x27, 10, 1, 2),
+            all_conditions(var_eq_imm_condition(1, 44), var_eq_imm_condition(2, 81)),
+        ),
+        _draw_if_case(
+            "set_object_pos_dirty_var_getter_observes_values",
+            "Action 0x94 writes object position bytes from variables and 0x27 reads them back.",
+            assignn(1, 45) + assignn(2, 82) + byte_action(0x94, 10, 1, 2) + byte_action(0x27, 10, 3, 4),
+            all_conditions(var_eq_imm_condition(3, 45), var_eq_imm_condition(4, 82)),
+        ),
+        _custom_case(
+            "deactivate_object_removes_persistent_draw",
+            "Action 0x24 deactivates an active persistent object so only the following transient draw remains visible.",
+            setup_object_for_view11(10, x=20)
+            + byte_action(0x23, 10)
+            + byte_action(0x24, 10)
+            + draw_view11_at(50),
+            50,
+        ),
+        _custom_case(
+            "clear_all_object_bits_keeps_current_draw_entry",
+            "Action 0x22 clears active/update bits but does not immediately unlink an already activated persistent object.",
+            setup_object_for_view11(10, x=20)
+            + byte_action(0x23, 10)
+            + byte_action(0x22)
+            + draw_view11_at(50),
+            50,
+            expected_extra_sprites=[
+                {
+                    "view_no": 11,
+                    "group_no": 0,
+                    "frame_no": 0,
+                    "x": 20,
+                    "baseline_y": 80,
+                    "priority": 15,
+                }
+            ],
+        ),
         _custom_case(
             "object_bitfield_actions_dispatch_smoke",
             "Bitfield/helper actions 0x38, 0x3a..0x3e, 0x40..0x44, 0x46..0x47, 0x4c, 0x4e, and 0x58..0x59 execute and return to following bytecode.",
@@ -716,9 +793,19 @@ def compare_capture(case: LogicInterpreterCase, capture: Path) -> LogicCompariso
     try:
         captured = downsample_qemu_picture_nibbles(read_ppm(capture))
         picture = PictureRenderer(case.picture_payload).render(case.picture_no)
+        expected_picture = picture
+        for sprite in case.expected_extra_sprites or []:
+            extra_frame = render_view_frame(sprite["view_no"], sprite["group_no"], sprite["frame_no"])
+            expected_picture = compose_frame_on_picture(
+                expected_picture,
+                extra_frame,
+                sprite["x"],
+                sprite["baseline_y"],
+                sprite["priority"],
+            )
         frame = render_view_frame(case.expected_view_no, case.expected_group_no, case.expected_frame_no)
         expected = compose_frame_on_picture(
-            picture,
+            expected_picture,
             frame,
             case.expected_x,
             case.expected_baseline_y,

@@ -79,13 +79,13 @@ Evidence levels:
 | `0x1f` | `load_view_var` | var0 | load view var | source-backed | Handler disassembly and local SQ2 bytecode scan; see logic_bytecode.md. |
 | `0x20` | `discard_view` | imm0 | discard view | source-backed | Handler disassembly and local SQ2 bytecode scan; see logic_bytecode.md. |
 | `0x21` | `reset_object_state` | imm0 | reset object state | QEMU-validated | object overlay and movement probes reset object state |
-| `0x22` | `clear_all_object_bits` | - | clear all object bits | source-backed | Handler disassembly and local SQ2 bytecode scan; see logic_bytecode.md. |
+| `0x22` | `clear_all_object_bits` | - | clear all object bits | QEMU-validated | logic_interpreter_probe: clear_all_object_bits_keeps_current_draw_entry |
 | `0x23` | `activate_object` | imm0 | activate object | QEMU-validated | object overlay and movement probes activate persistent objects |
-| `0x24` | `deactivate_object` | imm0 | deactivate object | source-backed | Handler disassembly and local SQ2 bytecode scan; see logic_bytecode.md. |
+| `0x24` | `deactivate_object` | imm0 | deactivate object | QEMU-validated | logic_interpreter_probe: deactivate_object_removes_persistent_draw |
 | `0x25` | `set_object_pos` | imm0, imm1, imm2 | set object pos | QEMU-validated | logic_interpreter_probe: object_position_getter_observes_setter |
 | `0x26` | `set_object_pos_var` | imm0, var1, var2 | set object pos var | QEMU-validated | logic_interpreter_probe: set_object_pos_var_getter_observes_values |
 | `0x27` | `get_object_pos` | imm0, var1, var2 | get object pos | QEMU-validated | logic_interpreter_probe: object_position_getter_observes_setter |
-| `0x28` | `add_object_pos_from_vars` | imm0, var1, var2 | add object pos from vars | source-backed | Handler disassembly and local SQ2 bytecode scan; see logic_bytecode.md. |
+| `0x28` | `add_object_pos_from_vars` | imm0, var1, var2 | add object pos from vars | QEMU-validated | logic_interpreter_probe: object_add_pos_from_vars_getter_observes_sum |
 | `0x29` | `set_object_resource` | imm0, imm1 | set object resource | QEMU-validated | object overlay and movement probes bind object resources |
 | `0x2a` | `set_object_resource_var` | imm0, var1 | set object resource var | QEMU-validated | logic_interpreter_probe: var_resource_group_frame_setup_draws_persistent_object |
 | `0x2b` | `set_object_subresource` | imm0, imm1 | set object subresource | QEMU-validated | object overlay and movement probes select object groups |
@@ -172,10 +172,10 @@ Evidence levels:
 | `0x7c` | `show_inventory_selection` | - | show inventory selection | source-backed | Handler disassembly and local SQ2 bytecode scan; see logic_bytecode.md. |
 | `0x7d` | `save_game_state` | - | save game state | source-backed | Handler disassembly and local SQ2 bytecode scan; see logic_bytecode.md. |
 | `0x7e` | `restore_game_state` | - | restore game state | source-backed | Handler disassembly and local SQ2 bytecode scan; see logic_bytecode.md. |
-| `0x7f` | `noop` | - | noop | source-backed | Handler disassembly and local SQ2 bytecode scan; see logic_bytecode.md. |
+| `0x7f` | `noop` | - | noop | QEMU-validated | logic_interpreter_probe: noop_7f_continues_to_draw |
 | `0x80` | `confirm_restart_game` | - | confirm restart game | source-backed | Handler disassembly and local SQ2 bytecode scan; see logic_bytecode.md. |
 | `0x81` | `display_view_resource_text_like` | imm0 | display view resource text like | source-backed | Handler disassembly and local SQ2 bytecode scan; see logic_bytecode.md. |
-| `0x82` | `random_range_to_var` | imm0, imm1, var2 | random range to var | source-backed | Handler disassembly and local SQ2 bytecode scan; see logic_bytecode.md. |
+| `0x82` | `random_range_to_var` | imm0, imm1, var2 | random range to var | QEMU-validated | logic_interpreter_probe: random_equal_bounds_stores_bound |
 | `0x83` | `clear_global_0139` | - | clear global 0139 | source-backed | Handler disassembly and local SQ2 bytecode scan; see logic_bytecode.md. |
 | `0x84` | `set_global_0139_and_clear_object0_field_22` | - | set global 0139 and clear object0 field 22 | source-backed | Handler disassembly and local SQ2 bytecode scan; see logic_bytecode.md. |
 | `0x85` | `display_object_diagnostics_var` | var0 | display object diagnostics var | source-backed | Handler disassembly and local SQ2 bytecode scan; see logic_bytecode.md. |
@@ -192,15 +192,15 @@ Evidence levels:
 | `0x90` | `append_message_to_log_file` | imm0 | append message to log file | source-backed | Handler disassembly and local SQ2 bytecode scan; see logic_bytecode.md. |
 | `0x91` | `save_logic_resume_ip` | - | save logic resume ip | QEMU-validated | logic_interpreter_probe: save_restore_resume_actions_continue_to_draw |
 | `0x92` | `restore_logic_entry_ip` | - | restore logic entry ip | QEMU-validated | logic_interpreter_probe: save_restore_resume_actions_continue_to_draw |
-| `0x93` | `set_object_pos_dirty` | imm0, imm1, imm2 | set object pos dirty | source-backed | Handler disassembly and local SQ2 bytecode scan; see logic_bytecode.md. |
-| `0x94` | `set_object_pos_dirty_var` | imm0, var1, var2 | set object pos dirty var | source-backed | Handler disassembly and local SQ2 bytecode scan; see logic_bytecode.md. |
+| `0x93` | `set_object_pos_dirty` | imm0, imm1, imm2 | set object pos dirty | QEMU-validated | logic_interpreter_probe: set_object_pos_dirty_getter_observes_values |
+| `0x94` | `set_object_pos_dirty_var` | imm0, var1, var2 | set object pos dirty var | QEMU-validated | logic_interpreter_probe: set_object_pos_dirty_var_getter_observes_values |
 | `0x95` | `enable_action_trace_window` | - | enable action trace window | source-backed | Handler disassembly and local SQ2 bytecode scan; see logic_bytecode.md. |
 | `0x96` | `configure_action_trace_window` | imm0, imm1, imm2 | configure action trace window | source-backed | Handler disassembly and local SQ2 bytecode scan; see logic_bytecode.md. |
 | `0x97` | `display_message_configured` | imm0, imm1, imm2, imm3 | display message configured | source-backed | Handler disassembly and local SQ2 bytecode scan; see logic_bytecode.md. |
 | `0x98` | `display_message_configured_var` | var0, imm1, imm2, imm3 | display message configured var | source-backed | Handler disassembly and local SQ2 bytecode scan; see logic_bytecode.md. |
 | `0x99` | `discard_view_var` | var0 | discard view var | source-backed | Handler disassembly and local SQ2 bytecode scan; see logic_bytecode.md. |
 | `0x9a` | `clear_text_rect_bounds` | imm0, imm1, imm2, imm3, imm4 | clear text rect bounds | source-backed | Handler disassembly and local SQ2 bytecode scan; see logic_bytecode.md. |
-| `0x9b` | `noop_2` | imm0, imm1 | noop 2 | source-backed | Handler disassembly and local SQ2 bytecode scan; see logic_bytecode.md. |
+| `0x9b` | `noop_2` | imm0, imm1 | noop 2 | QEMU-validated | logic_interpreter_probe: noop_9b_consumes_two_operands_then_draws |
 | `0x9c` | `add_menu_heading_like` | imm0 | add menu heading like | source-backed | Handler disassembly and local SQ2 bytecode scan; see logic_bytecode.md. |
 | `0x9d` | `add_menu_item_like` | imm0, imm1 | add menu item like | source-backed | Handler disassembly and local SQ2 bytecode scan; see logic_bytecode.md. |
 | `0x9e` | `finalize_menu_like` | - | finalize menu like | source-backed | Handler disassembly and local SQ2 bytecode scan; see logic_bytecode.md. |
@@ -220,7 +220,7 @@ Evidence levels:
 | `0xac` | `restore_event_buffer_count` | - | restore event buffer count | source-backed | Handler disassembly and local SQ2 bytecode scan; see logic_bytecode.md. |
 | `0xad` | `increment_global_1530` | - | increment global 1530 | source-backed | Handler disassembly and local SQ2 bytecode scan; see logic_bytecode.md. |
 | `0xae` | `rebuild_priority_table_from_y` | imm0 | rebuild priority table from y | QEMU-validated | object_overlay_probe: priority-table rebuild effects |
-| `0xaf` | `noop_1_table_count` | imm0 | noop 1 table count | source-backed | Handler disassembly and local SQ2 bytecode scan; see logic_bytecode.md. |
+| `0xaf` | `noop_1_table_count` | imm0 | noop 1 table count | QEMU-validated | logic_interpreter_probe: noop_af_runtime_consumes_no_operand |
 
 ## Condition Opcodes
 
