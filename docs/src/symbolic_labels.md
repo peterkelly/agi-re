@@ -45,6 +45,8 @@ Address columns use these meanings:
 | `code.logic.load_cached` | image `0x117d` | Loads a logic resource and keeps it linked in the logic cache. |
 | `code.logic.load_resource` | image `0x119a` | Reads, initializes, and message-decodes a logic resource. |
 | `code.logic.call_logic` | image `0x12ae` | Temporarily switches current logic, runs `code.logic.interpret_main`, and may unlink a transient record. |
+| `code.logic.save_resume_ip_action` | image `0x1335` | Action handler for `0x91`; stores the current bytecode pointer in the current logic record's resume pointer field `+0x06`. |
+| `code.logic.restore_entry_ip_action` | image `0x134a` | Action handler for `0x92`; copies the current logic record's entry pointer field `+0x04` back to resume pointer field `+0x06`. |
 
 ## Resources and DOS Files
 
@@ -152,6 +154,7 @@ Address columns use these meanings:
 | `code.text.leave_attr_mode` | image `0x78cb` | Shared cleanup for action `0x6b`; clears byte `[0x1757]`, recomputes attributes, calls overlay entry `0x9806`, then redraws status and input-line areas. |
 | `code.input.edit_string` | image `0x0da9` | Blocking string editor used by `0x73` and `0x76`. It copies the destination buffer to a local edit buffer, displays it, waits through `code.input.wait_event`, dispatches keys through `data.input.edit_key_table`, copies accepted text back on Enter, and returns without copying on Escape. |
 | `code.input.wait_event` | image `0x45d7` | Blocking event wait helper. Calls the event normalizer at `0x459e` until the returned word is neither `0x0000` nor `0xffff`. |
+| `code.input.enqueue_event` | image `0x44a9` | Enqueues an input/event record with a type word and value word in the circular queue rooted near `data.input.event_queue`. Menu selection uses this to enqueue type 3 item ids. |
 | `code.input.normalize_confirm_event` | image `0x4634` | Normalizes type-1 event values for confirm/editor paths: observed mappings include `0x0101`/`0x0301` to Enter (`0x0d`) and `0x0201`/`0x0401` to Escape (`0x1b`). |
 | `code.input.show_prompt_marker` | image `0x37f7` | Draws the configured prompt marker byte from `data.input.prompt_marker_char` when the marker is not already visible and the display-mode gates allow it. |
 | `code.input.erase_prompt_marker` | image `0x382e` | Clears the prompt-marker visible flag and echoes backspace when a prompt marker byte is configured. |
@@ -211,6 +214,9 @@ Address columns use these meanings:
 | Label | SQ2 address | Notes/evidence |
 | --- | --- | --- |
 | `data.vars.byte_variables` | data `0x0009` | Byte variable array used by many conditions/actions. |
+| `data.vars.current_room` | data `0x0009` | Byte variable 0. `code.room.switch_state` writes the destination room here; SQ2 logic 0 later dispatches room logic with `call_logic_var(v0)` at logic bytecode offset `0x053e`. |
+| `data.vars.previous_room` | data `0x000a` | Byte variable 1. `code.room.switch_state` copies the prior current-room byte here before overwriting `data.vars.current_room`. Many room-entry blocks branch on this value. |
+| `data.vars.entry_boundary` | data `0x000b` | Byte variable 2. `code.room.switch_state` uses values `1..4` to place object 0 at a room edge, then clears the byte. |
 | `data.flags.packed_flags` | data `0x0109` | Packed flag bitfield; flag 0 is the high bit of byte `0x0109`. |
 | `data.strings.slots` | data `0x020d` | Fixed 40-byte string slots. |
 | `data.strings.normalization_drop_chars` | data `0x094b` | Zero-terminated bytes skipped during normalized string comparison. |
@@ -238,6 +244,7 @@ Address columns use these meanings:
 | `data.picture.pattern_bits` | data `0x15f9` | Bit masks used by patterned picture drawing. |
 | `data.picture.pattern_pointer_table` | data `0x1619` | Pattern pointer table selected by low three bits of picture pattern mode. |
 | `data.input.key_event_map` | data `0x0145` | Up to 39 four-byte key mapping slots populated by `code.input.map_key_event`; helper `0x4566` consults this table while normalizing events. |
+| `data.input.menu_direction_event_map` | data `0x16b3` | Four-byte raw key/event to movement-code table consulted by helper `0x46b6` before type-2 events are enqueued. Observed SQ2 entries map `0x4800`, `0x4900`, `0x4d00`, `0x5100`, `0x5000`, `0x4f00`, `0x4b00`, and `0x4700` to movement codes `1..8`. |
 | `data.input.prompt_marker_char` | data `0x05d7` | Prompt/input marker character configured by action `0x6c`; `code.input.show_prompt_marker` and `code.input.erase_prompt_marker` use it when drawing or erasing the marker. |
 | `data.text.status_line_enabled` | data `0x05d9` | Word flag controlled by actions `0x70` and `0x71`; `code.text.redraw_status_line` only draws the status line when this is nonzero. |
 | `data.text.input_line_enabled` | data `0x05d3` | Word flag controlled by actions `0x77` and `0x78`; input-line redraw/erase helpers test it before updating the visible input area. |

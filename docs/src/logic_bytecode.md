@@ -140,6 +140,16 @@ automatic group selection observes object byte `+0x01` before
 script write of `+0x01 = 2` therefore delays direction-based group selection by
 one later cycle rather than suppressing it permanently.
 
+SQ2 logic 0 is the global per-cycle script. A source pass over the actual SQ2
+logic resource shows that logic 0 handles global menu/input/status work first,
+then calls the current room script with action `0x17` (`call_logic_var`) using
+byte variable 0 at logic bytecode offset `0x053e`. Room logics sampled from
+logic resources 1 through 10 begin with an `if flag 5` entry block that loads
+views, pictures, sounds, and object state for that room, then fall through to
+normal per-cycle behavior. This means room-switch compatibility fixtures need
+to model both pieces: the engine's room-switch helper and logic 0's later
+`call_logic_var(v0)` room dispatch.
+
 ## Conditional blocks
 
 Opcode `0xff` introduces a condition list. The condition parser uses these
@@ -460,6 +470,9 @@ Helper `0x4566(event_record)` performs a script-configured remap for type-1
 events. It scans four-byte slots rooted at `0x0145`; when slot word `+0` equals
 the event value, it changes the event type to `3` and replaces the value with
 slot word `+2`. Action `0x79` (`map_key_event`) appends entries to this table.
+An attempted QEMU probe mapping `0x5000` through `0x79` did not set the target
+status byte when driven with monitor `sendkey down`; this is recorded as a
+QEMU/input-instrumentation gap, not as evidence against the source table.
 
 When display adapter word `[0x112e] == 2`, helper `0x46e8` can also remap
 type-1 event values through table `DS:0x16d7`, changing the event type to `2`.
@@ -662,12 +675,23 @@ it interprets byte variable `[0x000b]` as an entry boundary for object 0:
 `1` places Y at `0xa7`, `2` places X at `0`, `3` places Y at `0x25`, and `4`
 places X at `0xa0 - object_width`; the byte is then cleared.
 
-Two attempted QEMU probes for `0x12`/`0x13` did not produce stable reusable
-evidence. A direct `var0` assertion after the switch failed, and a target-logic
-draw probe also failed until it became clear the room switch resets resource
-state and participates in a broader logic-0/current-room control loop. These
-actions therefore remain source-backed until a fuller synthetic room-cycle
-fixture is built.
+In script terms, byte variable 0 (`DS:0x0009`) is the current room, byte
+variable 1 (`DS:0x000a`) is the previous room, and byte variable 2
+(`DS:0x000b`) is the entry-boundary selector consumed by the switch helper.
+The helper loads the destination logic resource but does not by itself execute
+that room's bytecode. In SQ2, logic 0 later dispatches the current room via
+`call_logic_var(v0)`.
+
+Additional attempted QEMU probes for `0x12`/`0x13` did not produce stable
+reusable evidence. A direct `var0` assertion after the switch failed, a
+target-logic draw probe failed, and a later logic-0 re-entry fixture with
+`0x92` (`restore_logic_entry_ip`) before the switch still did not reach its
+validation draw. A still-later synthetic fixture that copied SQ2 logic 0's
+`call_logic_var(v0)` dispatch shape also did not reach the validation draw.
+The source evidence remains strong for the state reset, destination-logic load,
+variable updates, entry-boundary handling, flag 5 set, and the SQ2 logic-0 room
+dispatch pattern, but `0x12`/`0x13` remain source-backed until a fuller
+synthetic room-cycle fixture matches original-engine behavior.
 
 Additional object-state actions:
 

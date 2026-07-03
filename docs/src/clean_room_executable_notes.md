@@ -4284,3 +4284,110 @@ Documented result:
   setup/toggle paths in the opcode evidence generator, regenerated
   `logic_opcode_evidence.md`, and updated symbolic labels for the newly touched
   routines/globals.
+
+## 2026-07-03: room-switch re-entry and menu-direction source pass
+
+Commands run from `/Users/peter/ai/agi/reverse`:
+
+- `ndisasm -b 16 -o 0x175c -e 0x195c build/cleanroom/AGI.decrypted.exe`
+- `ndisasm -b 16 -o 0x0150 -e 0x0350 build/cleanroom/AGI.decrypted.exe`
+- `ndisasm -b 16 -o 0x4529 -e 0x4729 build/cleanroom/AGI.decrypted.exe`
+- `ndisasm -b 16 -o 0x46e8 -e 0x48e8 build/cleanroom/AGI.decrypted.exe`
+- `ndisasm -b 16 -o 0x93d1 -e 0x95d1 build/cleanroom/AGI.decrypted.exe`
+- `xxd -s 0x16b3 -l 0x60 -g 2 SQ2/AGIDATA.OVL`
+- `xxd -s 0x0145 -l 0x80 -g 2 SQ2/AGIDATA.OVL`
+- `ndisasm -b 16 -o 0x10d0 -e 0x12d0 build/cleanroom/AGI.decrypted.exe`
+- `ndisasm -b 16 -o 0x293c -e 0x2b3c build/cleanroom/AGI.decrypted.exe`
+- `ndisasm -b 16 -o 0x12ae -e 0x14ae build/cleanroom/AGI.decrypted.exe`
+- `python3 -B -m unittest tests.test_logic_interpreter_probe.LogicInterpreterProbeTests.test_base_cases_cover_core_control_flow`
+- Attempted room re-entry batch:
+  `python3 -B tools/logic_interpreter_probe.py --dos-prefix RV --output build/logic-interpreter-probes/batches/room_reentry_001.json --boot-wait 5 --draw-wait 8 --stop-on-failure --case switch_room_immediate_sets_new_room_flag --case switch_room_var_sets_new_room_flag`
+- Attempted corrected room re-entry batch with `0x92` before `0x12`/`0x13`:
+  `python3 -B tools/logic_interpreter_probe.py --dos-prefix RV --output build/logic-interpreter-probes/batches/room_reentry_002.json --boot-wait 5 --draw-wait 8 --stop-on-failure --case switch_room_immediate_sets_new_room_flag --case switch_room_var_sets_new_room_flag`
+- Non-stopping room retry:
+  `python3 -B tools/logic_interpreter_probe.py --dos-prefix RV --output build/logic-interpreter-probes/batches/room_reentry_003.json --boot-wait 5 --draw-wait 8 --case switch_room_immediate_sets_new_room_flag --case switch_room_var_sets_new_room_flag`
+- Attempted down-arrow key-map probe:
+  `python3 -B tools/logic_interpreter_probe.py --dos-prefix DK --output build/logic-interpreter-probes/batches/down_key_001.json --boot-wait 5 --draw-wait 8 --stop-on-failure --case mapped_down_arrow_sets_status_byte`
+
+Documented result:
+
+- Re-read `code.engine.main_cycle` (`0x0150`). When `code.logic.call_logic(0)`
+  returns zero, the loop clears selected variables/flags and immediately calls
+  logic 0 again. It does not run the frame-timer branch until the logic call
+  returns nonzero.
+- Re-read `code.logic.interpret_main` (`0x293c`). It starts execution at the
+  current logic record's resume pointer field `[record+0x06]`. Action `0x00`
+  returns the current `SI`, and an action handler that returns zero stops the
+  interpreter with `AX = 0`.
+- Re-read `code.logic.call_logic` (`0x12ae`). It saves the old current-logic
+  record, locates or loads the requested logic, calls `code.logic.interpret_main`,
+  frees a transiently loaded record when needed, restores the old current record,
+  and returns the interpreter result.
+- Re-read `0x91`/`0x92`: `0x91` writes the current bytecode pointer to
+  `[current_logic+0x06]`; `0x92` restores `[current_logic+0x06]` from the entry
+  pointer `[current_logic+0x04]`.
+- A new synthetic room-switch fixture attempted to use a private init flag and
+  flag 5 as the validation condition after `0x12`/`0x13`. It did not reach the
+  validation draw. Adding `0x92` before the room-switch action also did not
+  reach the draw. The failing cases were removed from the reusable probe list;
+  `0x12`/`0x13` remain source-backed.
+- Re-read input/event path `0x4529..0x46e8`. Helper `0x467f` drains BIOS key
+  events, maps raw key words through table `0x16b3` via helper `0x46b6`, and
+  enqueues type-2 movement events through `code.input.enqueue_event` (`0x44a9`).
+  The observed table maps `0x4800`, `0x4900`, `0x4d00`, `0x5100`, `0x5000`,
+  `0x4f00`, `0x4b00`, and `0x4700` to movement codes `1..8`; code
+  `0x5000 -> 5` is the source-backed down-arrow candidate.
+- Re-read `code.menu.interact` (`0x93d1`). Type-1 Enter/Escape are handled
+  separately; type-2 movement values dispatch through the table at `0x9517`.
+  In that table, movement value 5 enters the branch at `0x94da`, which advances
+  to the next item in the current menu's item list.
+- A QEMU probe that mapped raw key word `0x5000` through action `0x79` and sent
+  monitor key `down` did not set the requested status byte. This is treated as
+  an input-instrumentation gap rather than a semantic result; the down-arrow
+  source table is still source-backed, not QEMU-validated.
+- Added symbolic labels for `code.logic.save_resume_ip_action`,
+  `code.logic.restore_entry_ip_action`, `code.input.enqueue_event`, and
+  `data.input.menu_direction_event_map`.
+
+## 2026-07-03: real SQ2 logic-0 room dispatch pass
+
+Commands run from `/Users/peter/ai/agi/reverse`:
+
+- `python3 -B tools/disassemble_logic.py 0`
+- `python3 -B tools/disassemble_logic.py 0 | rg "action (12|13|14|15|16|17|91|92)"`
+- `python3 -B tools/disassemble_logic.py 1 2 3 4`
+- `python3 -B tools/disassemble_logic.py 1 2 3 4 5 6 7 8 9 10 | rg -n "^logic|^0000: if|cond 07 flag_set\\(#5\\)|then_start|action 00 end|call_logic_var\\(v0\\)|switch_room_like"`
+- `python3 -B tools/disassemble_logic.py 99 100 101 103 104 105 | rg -n "^logic|code_len|switch_room_like|call_logic|call_logic_var|flag_set\\(#5\\)|save_logic_resume|restore_logic_entry| action 00 end"`
+- `python3 -B -m unittest tests.test_logic_interpreter_probe.LogicInterpreterProbeTests.test_base_cases_cover_core_control_flow`
+- Attempted logic-0-shaped room dispatch batch:
+  `python3 -B tools/logic_interpreter_probe.py --dos-prefix RD --output build/logic-interpreter-probes/batches/room_dispatch_001.json --boot-wait 5 --draw-wait 8 --stop-on-failure --case switch_room_immediate_then_logic0_calls_current_room --case switch_room_var_then_logic0_calls_current_room`
+- `xxd -g 1 -l 12 build/logic-interpreter-probes/fixtures/switch_room_immediate_then_logic0_calls_current_room/LOGDIR`
+- `xxd -g 1 -s 0 -l 120 build/logic-interpreter-probes/fixtures/switch_room_immediate_then_logic0_calls_current_room/VOL.3`
+
+Documented result:
+
+- SQ2 logic 0 is the global per-cycle script. Its early blocks handle boot/menu
+  setup, global status/menu/input handling, and special global transitions. The
+  room dispatch point is logic bytecode offset `0x053e`, where it executes
+  action `0x17` (`call_logic_var(v0)`). This calls the logic resource selected
+  by byte variable 0.
+- Room logics sampled from resources 1 through 10 begin with an `if flag 5`
+  block. Those blocks perform room-entry setup: load views/sounds/pictures,
+  prepare the picture, configure objects and ego, show the picture, and then
+  end or fall through into per-cycle room behavior. Later blocks in those room
+  logics handle room-local events and may call `switch_room_like`.
+- Script variables now have clearer room roles:
+  - byte variable 0 at `DS:0x0009` is the current room;
+  - byte variable 1 at `DS:0x000a` is the previous room;
+  - byte variable 2 at `DS:0x000b` is the room-entry boundary selector consumed
+    and cleared by `code.room.switch_state`.
+- Built a new synthetic fixture that more closely copied the SQ2 pattern:
+  logic 0 switched rooms once, then used `call_logic_var(v0)` to invoke a
+  self-contained target room logic. The QEMU batch still mismatched with the
+  same blank-screen signature as earlier room probes. The fixture's `LOGDIR`
+  and `VOL.3` bytes were inspected and showed the extra logic resource was
+  patched at the expected directory offset, so this failure is not explained by
+  a missing target logic resource.
+- Removed the failed synthetic room-dispatch cases from the reusable probe
+  registry. The source model is stronger, but `0x12`/`0x13` remain
+  source-backed until a fixture can reproduce the full runtime room lifecycle.

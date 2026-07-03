@@ -5882,3 +5882,346 @@ Progress updates and outcomes:
      handoff."
 
      Action/result: Added final validation updates to this progress log.
+
+776. Reported: "Commit `bc02913` is in place; only generated/untracked
+     directories remain. I’m moving into the next pass now, starting with source
+     around the room cycle and input event pipeline because those are the two
+     places where tiny QEMU probes were too shallow."
+
+     Action/result: Confirmed the previous commit and began a source-first
+     pass over room switching and menu/input events.
+
+777. Reported: "The existing notes already captured the earlier failed
+     room-switch fixture shapes, which is useful because it tells us what not
+     to trust yet. I’m going to build the next room probes around the concrete
+     source effect the helper definitely performs: setting flag 5 and
+     re-entering the logic cycle."
+
+     Action/result: Re-read the room-switch helper and prepared a flag-5-based
+     fixture shape.
+
+778. Reported: "The disassembly confirms the room-switch wrapper itself
+     returns zero after the helper, and `code.engine.main_cycle` immediately
+     re-runs logic 0 while that zero return persists. That means a good fixture
+     should expect logic 0 to re-enter after `0x12/0x13`, not expect the
+     switched-to logic to execute automatically."
+
+     Action/result: Confirmed wrapper return behavior and corrected the fixture
+     hypothesis away from automatic target-logic execution.
+
+779. Reported: "For menu arrows, the source shows a second event-type path
+     rather than normal status-byte mapping. There is a fixed table at `0x16b3`
+     mapping raw event words `0x4800/0x4900/0x4d00/0x5100/0x5000/0x4f00/0x4b00/0x4700`
+     to menu movement codes `1..8`; `0x5000` is the down-arrow candidate."
+
+     Action/result: Identified and recorded the menu-direction key table.
+
+780. Reported: "I’m adding two room-switch probes that lean on the
+     source-backed flag-5 effect rather than the earlier mistaken 'target logic
+     should run automatically' assumption. I’ll also add a small down-arrow key
+     mapping probe so we can separate 'QEMU produced the raw arrow event' from
+     'the menu loop navigated.'"
+
+     Action/result: Added temporary room-switch and down-arrow probe cases.
+
+781. Reported: "The room-cycle source gives us a sharper correction: after
+     logic 0 returns zero from the switch action, the engine clears a few
+     variables and immediately invokes logic 0 again in the same top-level loop
+     until it gets a nonzero interpreter return. That’s why the fixture must
+     guard against repeated switching with its own init flag."
+
+     Action/result: Added an init-flag guard to the temporary room fixtures.
+
+782. Reported: "I’ve wired the new cases into the local registry test. Next
+     I’m running just the Python suite, then I’ll take the new probes through
+     QEMU in small batches."
+
+     Action/result: Updated local registry tests and ran the unit suite; it
+     passed before QEMU execution.
+
+783. Reported: "The immediate room-switch probe still mismatched, so I’m
+     stopping before treating it as evidence. I’m opening the report and the
+     generated fixture bytes now; this is exactly the kind of case where the
+     disassembly should explain why the synthetic control flow is still wrong."
+
+     Action/result: `room_reentry_001` mismatched on the immediate room-switch
+     case.
+
+784. Reported: "The 'failed' room probe actually drew the validation sprite;
+     the mismatch is priority/composition, not control flow. That is a good
+     catch: the source-backed re-entry model appears right, but the fixture’s
+     expected priority assumption is too strict after the room switch rebuilds
+     display state."
+
+     Action/result: Initially suspected a composition issue from the comparison
+     sample, then inspected the screenshot and rejected that interpretation.
+
+785. Reported: "One nuance: the report samples are from the downsampled logical
+     buffer, while the raw screenshot inspection reports only two RGB colors in
+     the VGA capture. I’m checking the actual image and the generated LOGIC
+     resource bytes so I don’t misread a pixel-comparison artifact as engine
+     behavior."
+
+     Action/result: Converted and inspected the QEMU capture; it showed a blank
+     white screen, confirming the validation sprite was not drawn.
+
+786. Reported: "The fixture stores resources inside VOL files, so there are no
+     standalone `LOGIC.*` files to inspect in that directory. I’ll use the
+     probe’s Python objects for bytecode inspection and look at the screenshot
+     directly."
+
+     Action/result: Inspected generated case bytecode through the Python probe
+     object rather than nonexistent standalone resource files.
+
+787. Reported: "The screenshot confirms no sprite, so this is a real failed
+     control-flow assertion. The most likely source-side explanation is that
+     the room switch calls `0x10d0`, which I haven’t fully accounted for; if it
+     clears script flags, my guard flag gets wiped and logic 0 keeps switching
+     forever."
+
+     Action/result: Re-read `0x10d0`; this did not prove flag clearing, so the
+     investigation moved to logic resume pointers.
+
+788. Reported: "The source points to a better explanation than 'flags got
+     cleared': logic records carry a resume pointer. A room switch returns zero
+     from the current action, so logic 0 may be called again from its saved
+     post-switch instruction pointer unless the fixture explicitly restores the
+     logic entry IP first. I’m going to fold opcode `0x92` into the synthetic
+     switch path and rerun."
+
+     Action/result: Added `0x92` before the temporary synthetic room-switch
+     calls.
+
+789. Reported: "That edit keeps the fixture narrow: it does not claim `0x12`
+     itself resets logic 0, only that the switch helper sets flag 5 and the
+     engine observes it after an explicit entry-IP restore. I’m running the
+     targeted unit check and QEMU batch again."
+
+     Action/result: Targeted unit test passed; QEMU `room_reentry_002`
+     still mismatched.
+
+790. Reported: "`0x92` did not change the outcome. I’m going back to the
+     interpreter loop now, because the exact place it stores or reuses the
+     logic IP is the source of truth for why logic 0 does not re-enter the way
+     the synthetic fixture expects."
+
+     Action/result: Re-read `code.logic.interpret_main` and
+     `code.logic.call_logic`.
+
+791. Reported: "The interpreter loop is clear: it starts from record `+0x06`,
+     and `0x92` does set `+0x06` to the logic’s entry pointer. The remaining
+     mismatch looks like display-state contamination around the tiny sprite
+     area rather than a missing draw, so I’m zooming the capture and then I’ll
+     rerun the two room cases without `--stop-on-failure` to see whether the
+     variable-target case behaves the same."
+
+     Action/result: Reran both room cases without stop-on-failure; both
+     mismatched.
+
+792. Reported: "Both room cases mismatch the same way, which is still useful
+     evidence: the fixture reaches a stable screen but not the expected
+     compatibility assertion. I’m going to keep these as attempted/non-promoted
+     for now and move the validated work to the down-arrow event split."
+
+     Action/result: Decided not to promote the room re-entry fixtures.
+
+793. Reported: "I’m not going to leave failing room probes in the reusable case
+     list. I’ll preserve the attempted evidence in docs instead, then keep only
+     stable probes in the tool. First I’m checking whether the raw down-arrow
+     status mapping is stable."
+
+     Action/result: Ran `down_key_001`; it mismatched.
+
+794. Reported: "The down-arrow mapping did not validate either, which tells us
+     QEMU’s `sendkey down` is not currently arriving as the raw `0x5000` event
+     that the source table expects, or it arrives outside the polling window.
+     I’ll remove that from the reusable suite too and document it as an
+     input-instrumentation gap rather than a behavior claim."
+
+     Action/result: Removed temporary failing room and down-arrow cases from
+     the reusable probe registry.
+
+795. Reported: "The reusable suite is back to stable cases only. I’m adding
+     symbolic labels for the event-direction table and the logic resume/entry-IP
+     helpers, because those are exactly the cross-version anchors we’ll want
+     when comparing other interpreter builds."
+
+     Action/result: Added symbolic labels for logic resume helpers and the
+     menu-direction event table.
+
+796. Reported: "The docs already had most of the raw input machinery; I’m
+     tightening it with two cross-version-friendly names: the type/value event
+     enqueue helper and the menu-direction raw key map."
+
+     Action/result: Added `code.input.enqueue_event` and
+     `data.input.menu_direction_event_map` labels.
+
+797. Reported: "I’m updating the bytecode chapter to make the important
+     distinction explicit: source shows down-arrow maps to movement code 5
+     inside the menu event path, but our current QEMU key injection has not
+     produced that raw event reliably."
+
+     Action/result: Updated `logic_bytecode.md` with down-arrow and room-switch
+     evidence boundaries.
+
+798. Reported: "The bytecode chapter now states the boundary between
+     source-backed facts and failed QEMU instrumentation. I’m adding the
+     detailed clean-room trail next: exact disassembly ranges, exact QEMU
+     commands, and what each failed probe ruled out."
+
+     Action/result: Added a clean-room notes section for this pass.
+
+799. Reported: "I’m also updating current-status and compatibility notes so the
+     next session doesn’t accidentally retry the same naive room/down-arrow
+     fixtures without new instrumentation."
+
+     Action/result: Updated `current_status.md` and `compatibility_testing.md`
+     with attempted-but-not-promoted fixture details.
+
+800. Reported: "Docs and logs are updated. I’m running the validation pass now:
+     unit tests, opcode evidence check, mdBook build, and whitespace check."
+
+     Action/result: `python3 -B -m unittest discover -s tests`,
+     `python3 -B tools/logic_opcode_evidence.py --check`, `mdbook build docs`,
+     and `git diff --check` all passed.
+
+801. Reported: "Validation is clean. I’m doing a final diff/status pass now so
+     I can give you an accurate handoff without accidentally including
+     generated artifacts."
+
+     Action/result: Final status showed docs-only tracked changes plus the
+     existing untracked `build/` and `002962_ms_dos_622/` directories.
+
+802. Reported: "Got it: I’ll leave the current docs changes uncommitted and
+     keep working on top of them. I’m starting with the real SQ2 logic
+     resources, because that should tell us what the room-switch contract
+     actually looks like before we spend more QEMU cycles."
+
+     Action/result: Started a source-first pass over SQ2 logic resources.
+
+803. Reported: "The repo already has a local logic disassembler and resource
+     readers, so I can stay inside the clean-room tooling. I’m checking how
+     much it currently prints before deciding whether to extend it for
+     logic0/room-call analysis."
+
+     Action/result: Re-read `tools/disassemble_logic.py` and disassembled
+     logic 0.
+
+804. Reported: "Logic 0 is the real 'director' script: it has early room
+     switches during boot, then a flag-5 block that resets ego/object state and
+     preloads resources for the current room. I’m narrowing on the opcodes that
+     actually call room scripts and trigger room switches."
+
+     Action/result: Searched SQ2 logic 0 for switch/load/call/resume actions.
+
+805. Reported: "The pattern is already visible in real resources: many room
+     logics begin with `if flag 5`, do room-entry setup, then continue to
+     per-cycle behavior and end. Logic 0 does not call the current room by
+     number as a var; instead the room resource itself is loaded by the switch
+     helper and resumed/called as part of the linked logic cache behavior. I’m
+     going to map that across room logics rather than infer from one example."
+
+     Action/result: Checked room logic resources 1 through 4 and then broadened
+     the scan; the next step corrected the initial inference.
+
+806. Reported: "This corrects my last inference: logic 0 is not calling every
+     room directly, but the loaded room logic clearly begins at offset 0 and
+     handles `flag 5` as its entry block. I’m checking whether the engine calls
+     loaded logics through a separate cache/list runner, because
+     `code.engine.main_cycle` only has the obvious `call_logic(0)` call in the
+     slice we already read."
+
+     Action/result: Re-read nearby executable helpers and continued searching
+     logic 0.
+
+807. Reported: "Found it: logic 0 does call the current room, but later than
+     the entry/menu block. At offset `0x053e` it does `call_logic_var(v0)`, so
+     the room number in variable 0 is the dispatch key. That explains why
+     synthetic room fixtures need a logic-0 loop with `call_logic_var(v0)`, not
+     a target logic that magically runs after `switch_room`."
+
+     Action/result: Identified SQ2 logic 0 bytecode offset `0x053e` as the
+     current-room dispatch point.
+
+808. Reported: "Now I have a better fixture shape: mimic logic 0’s real pattern
+     by switching rooms, then having logic 0 call `call_logic_var(v0)` so the
+     loaded room logic runs while flag 5 is still set. I’m adding that as a
+     targeted compatibility probe instead of the earlier one-shot draw."
+
+     Action/result: Temporarily added two logic-0-shaped room dispatch probes.
+
+809. Reported: "The new cases are in the reusable suite, but only provisionally
+     until QEMU agrees. I’m running the targeted local test and then the
+     room-switch batch."
+
+     Action/result: Targeted registry test passed; generated bytecode looked as
+     intended.
+
+810. Reported: "The bytecode shape looks right: logic 0 switches once, then
+     uses `call_logic_var(v0)` to run the current room logic. I’m putting the
+     two cases through QEMU now."
+
+     Action/result: Started QEMU batch `room_dispatch_001`.
+
+811. Reported: "Still mismatched, so I’m not promoting it. This time the
+     fixture matches the real `call_logic_var(v0)` pattern, which tells us
+     another part of real logic 0’s entry sequence is still required. I’m
+     opening the capture/report and then I’ll pull these provisional cases back
+     out."
+
+     Action/result: `room_dispatch_001` mismatched with the same blank-screen
+     signature as prior room attempts.
+
+812. Reported: "The capture is the same blank screen signature. I’m checking
+     fixture construction too, because if extra logic resources are not patched
+     into `LOGDIR` correctly then `call_logic_var(v0)` would never reach the
+     target logic no matter how good the script pattern is."
+
+     Action/result: Inspected `LOGDIR` and `VOL.3`; the extra logic resource
+     was patched at the expected offset.
+
+813. Reported: "The fixture construction looks correct, including patched
+     LOGDIR entries for logic 1 and 2. So this failure is now genuinely about
+     the runtime room/logic lifecycle, not a missing resource patch. I’m
+     removing the provisional cases again and documenting the stronger source
+     finding: real logic 0 calls `call_logic_var(v0)` at offset `0x053e`, while
+     room logics gate entry setup on flag 5."
+
+     Action/result: Removed the temporary failing room-dispatch cases from the
+     reusable probe registry.
+
+814. Reported: "I’m updating the spec now with the real room-script structure:
+     byte variable 0 is current room, byte variable 1 is previous room, byte
+     variable 2 is entry boundary, and SQ2 logic 0 calls the current room via
+     `call_logic_var(v0)` after the global entry/menu work."
+
+     Action/result: Updated symbolic labels and logic bytecode prose with the
+     room variable roles and logic-0 dispatch offset.
+
+815. Reported: "The main bytecode chapter and labels now have the real SQ2
+     room dispatch model. I’m adding the chronological command trail and the
+     failed QEMU replay name, then I’ll run tests/docs."
+
+     Action/result: Updated clean-room notes, current status, and compatibility
+     testing with the real-SQ2 room dispatch source pass and failed QEMU batch.
+
+816. Reported: "The temporary QEMU cases are back out, so the reusable test
+     suite should remain stable. I’m doing a quick diff check on tools/tests
+     now, then I’ll validate the docs and local suite."
+
+     Action/result: Confirmed there was no remaining tracked diff in
+     `tools/logic_interpreter_probe.py` or `tests/test_logic_interpreter_probe.py`.
+
+817. Reported: "Progress log is caught up. I’m running the validation pass:
+     unit suite, evidence check, mdBook, and whitespace."
+
+     Action/result: Ran the local unit suite, opcode-evidence check, mdBook
+     build, and diff whitespace check successfully after the room-dispatch
+     documentation updates.
+
+818. Reported: "Validation is clean. I’m checking final status now so I can
+     hand off exactly what changed and what remains uncommitted."
+
+     Action/result: Checked final Git status; the remaining worktree changes
+     are documentation files, with generated `build/` artifacts and local DOS
+     installer images still untracked.

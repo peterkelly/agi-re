@@ -705,6 +705,24 @@ single picture, a single moving object, or a known cel at a known screen
 position. Those captures can then be compared against QEMU screenshots before
 being promoted from provisional renderer tests to compatibility tests.
 
+Recent attempted-but-not-promoted logic fixtures:
+
+```bash
+python3 -B tools/logic_interpreter_probe.py --dos-prefix RV --output build/logic-interpreter-probes/batches/room_reentry_002.json --boot-wait 5 --draw-wait 8 --stop-on-failure --case switch_room_immediate_sets_new_room_flag --case switch_room_var_sets_new_room_flag
+python3 -B tools/logic_interpreter_probe.py --dos-prefix RD --output build/logic-interpreter-probes/batches/room_dispatch_001.json --boot-wait 5 --draw-wait 8 --stop-on-failure --case switch_room_immediate_then_logic0_calls_current_room --case switch_room_var_then_logic0_calls_current_room
+python3 -B tools/logic_interpreter_probe.py --dos-prefix DK --output build/logic-interpreter-probes/batches/down_key_001.json --boot-wait 5 --draw-wait 8 --stop-on-failure --case mapped_down_arrow_sets_status_byte
+```
+
+The room re-entry cases used synthetic logic-0 validation around `0x12`/`0x13`
+and even restored the current logic entry IP with `0x92` before switching, but
+they did not reach the validation draw. The room-dispatch cases copied the SQ2
+logic-0 pattern more closely by switching rooms and then calling
+`call_logic_var(v0)` to run the current room logic, but they still produced the
+same blank-screen mismatch. The down-arrow case attempted to map raw key word
+`0x5000` with `0x79` and drive QEMU monitor `sendkey down`; it did not set the
+target status byte. These cases remain useful harness experiments but are
+intentionally absent from the reusable probe registry.
+
 Current QEMU screenshots captured through `screendump` use full VGA-sized PPM
 frames. A generated picture-only SQ2 fixture produced a 640 by 400 capture.
 For picture output, the observed normalization is top-left aligned `4x2`

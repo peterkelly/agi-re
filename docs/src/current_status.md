@@ -162,10 +162,19 @@ After the latest object/timing pass, the remaining source-backed action rows
 cluster into families that need specialized probes:
 
 - **Room/resource lifecycle:** `0x12` and `0x13` remain broad room/state switch
-  paths. Two direct QEMU fixture attempts failed to produce stable reusable
-  evidence, likely because these actions participate in a broader
-  logic-0/current-room loop and reset resource state. `0x15`, `0x1b`, `0x1c`,
-  `0x20`, and `0x99` now have targeted QEMU-backed lifecycle fixtures.
+  paths. Several QEMU fixture attempts failed to produce stable reusable
+  evidence: direct room-variable assertions, target-logic drawing, and a later
+  logic-0 re-entry fixture that restored the logic entry IP with `0x92` before
+  switching. A newer fixture copied the real SQ2 dispatch shape by calling
+  `call_logic_var(v0)` after the switch, but still did not reach its validation
+  draw. The source-backed model is still that the helper resets object and
+  resource state, updates room variables, loads the destination logic, handles
+  byte-variable-2 entry boundaries, and sets flag 5. Real SQ2 logic 0 dispatches
+  the current room at bytecode offset `0x053e` via `call_logic_var(v0)`, and
+  sampled room logics 1 through 10 begin with flag-5 entry blocks. A better
+  fixture probably needs to copy more of the real logic-0 prelude/lifecycle
+  instead of forcing a one-off validation draw. `0x15`, `0x1b`, `0x1c`, `0x20`,
+  and `0x99` now have targeted QEMU-backed lifecycle fixtures.
 - **Text/window/input:** `0x65`, `0x66`, `0x67`, `0x68`, `0x6a`, `0x6b`,
   `0x6c`, `0x6d`, `0x6e`, `0x6f`, `0x70`, `0x71`, `0x73`, `0x76`, `0x77`,
   `0x78`, `0x79`, `0x89`, `0x8a`, `0x97`, `0x98`, `0x9a`, and `0xa9` now have
@@ -182,8 +191,10 @@ cluster into families that need specialized probes:
   status, disabled-item Enter without status, re-enable, and one-item Enter via
   condition `0x0c 7`. Further menu work should cover heading movement and
   arrow-key navigation; a down-arrow QEMU fixture was attempted but did not
-  reach the expected second-item event. `0xa2` now has view-resource display
-  coverage.
+  reach the expected second-item event. A separate raw-key mapping attempt for
+  `0x5000` with QEMU monitor `sendkey down` also failed to set a mapped status
+  byte, so this is currently an input-instrumentation gap. `0xa2` now has
+  view-resource display coverage.
 - **Save/restore/restart/system:** `0x7d`, `0x7e`, `0x80`, `0x86`, `0x8b`,
   `0x8c`, `0x8f`, `0x95`, and `0x96` now have focused QEMU coverage for
   cancel/no-op/signature/gated-trace paths. `0x1d` now has priority-screen
