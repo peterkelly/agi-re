@@ -11,3 +11,4 @@ create-missing = false
 
 [output.html]
 no-section-label = true
+additional-css = ["theme/wide-tables.css"]

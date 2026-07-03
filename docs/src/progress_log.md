@@ -1794,3 +1794,160 @@ Progress updates and outcomes:
 
      Action/result: Updated compatibility, current-status, clean-room notes,
      and progress docs with the object/view follow-up batch.
+
+199. Reported: "I've got the shape of it now: mdBook is using its default narrow
+     content column, and there's no project CSS override yet. I'm going to add a
+     small theme stylesheet so wide reference tables can use more horizontal
+     room and scroll inside themselves when they still overflow."
+
+     Action/result: Inspected `docs/book.toml`, the generated mdBook CSS, and the
+     current worktree state before adding the table-layout override.
+
+200. Reported: "I found the progress log tail and confirmed the worktree is clean
+     apart from the usual generated/untracked artifacts. Next I'm checking
+     mdBook's generated selector names so the override lands on the actual
+     content container instead of guessing."
+
+     Action/result: Confirmed mdBook wraps generated tables in `.table-wrapper`
+     and applies the page width through `--content-max-width`.
+
+201. Reported: "The generated mdBook CSS confirms the hard cap is
+     `--content-max-width: 750px`, applied to `.content main`. I can override
+     that variable cleanly from an `additional-css` file and then give tables
+     their own horizontal overflow behavior."
+
+     Action/result: Added `docs/theme/wide-tables.css` to widen the content
+     column and make wide tables scroll horizontally while preserving readable
+     wrapping in the final detail column.
+
+202. Reported: "mdBook already wraps tables in `.table-wrapper`, but only adds
+     overflow; the table itself can still be squeezed by the 750px main column.
+     I'm adding a source-controlled CSS file that widens the content column and
+     keeps table columns readable before falling back to horizontal scrolling."
+
+     Action/result: Updated `docs/book.toml` to load the new stylesheet via
+     `additional-css`.
+
+203. Reported: "I'll rework the logic bytecode chapter now that the book can
+     handle wider tables. First I'm going to inspect the chapter structure and
+     the current markdown patterns so the table conversion is deliberate rather
+     than a blind format pass."
+
+     Action/result: Read `docs/src/logic_bytecode.md`, checked the progress log
+     tail, and confirmed the worktree state before editing.
+
+204. Reported: "The chapter has several paragraph lists that are really
+     reference tables: runtime metadata examples, main-stream byte ranges, the
+     condition table/ranges/predicates, action entry examples, and decoded
+     action families. I'm reading the rest of the file now so I don't miss
+     another block that should be restored to table form."
+
+     Action/result: Reviewed the remaining logic bytecode chapter sections and
+     identified compact opcode catalogs versus longer semantic explanations.
+
+205. Reported: "There are also long explanatory opcode entries where paragraphs
+     are still the better shape, especially for movement, parsing, save/restore,
+     and display behavior. I'm going to table the compact catalog-like material
+     and leave the multi-paragraph semantic notes as prose."
+
+     Action/result: Chose a mixed layout: tables for opcode facts and prose for
+     state-machine or helper-flow details.
+
+206. Reported: "The densest restored tables will be in the front half of the
+     chapter and the local scan summary. For the long `decoded action families`
+     section, I'm going section by section: compact opcode rows become tables,
+     while explanatory helper blocks stay as explanatory blocks."
+
+     Action/result: Collected line-numbered context for the runtime, condition,
+     action, and scan-summary sections.
+
+207. Reported: "I've separated `catalog data` from `semantic explanation`. The
+     first patch is the high-value cleanup: dispatch/condition catalogs and the
+     short arithmetic/flag/action summary rows go back into tables."
+
+     Action/result: Converted metadata examples, main-stream byte ranges,
+     condition entries/ranges/predicates, action examples, variable actions, and
+     flag actions to Markdown tables.
+
+208. Reported: "The first conversion is in. I'm moving through the action
+     families next; these are especially useful as tables because implementers
+     will scan by opcode, label, handler, and effect."
+
+     Action/result: Inspected the object/view, resource-control, object-state,
+     message/UI, and remaining-entry sections for table conversion.
+
+209. Reported: "The remaining opcode blocks are large, but most are structurally
+     regular. I'm going to table the resource/object/UI families now and keep
+     the detailed movement subsections as prose where they explain per-cycle
+     behavior."
+
+     Action/result: Converted the object/view action and resource/interpreter
+     control catalogs to `Opcode`, `Label`, `Handler`, and `Observed action`
+     tables.
+
+210. Reported: "I'm making the action-family tables broad but shallow: `Opcode`,
+     `Label`, `Handler`, `Observed action`. The final action column can now wrap
+     inside the wider mdBook layout, which is exactly what that CSS change was
+     for."
+
+     Action/result: Kept long behavior descriptions in the final table column so
+     rows remain scan-friendly without losing evidence detail.
+
+211. Reported: "The object/view and resource-control catalogs are tabled now.
+     Next I'm doing the object-state, message/UI, and misc sections, then I'll
+     build the book to catch Markdown table mistakes."
+
+     Action/result: Converted additional object-state, post-movement, dirty
+     position, and object-field-24 action summaries to tables.
+
+212. Reported: "Object state is now much easier to scan. I'm converting the
+     remaining compact UI/resource/session listings the same way; after that
+     I'll make sure no `Count:` opcode paragraphs remain in the scan summary."
+
+     Action/result: Converted message-display, menu/list, and text/input action
+     catalogs to tables.
+
+213. Reported: "Most of the chapter's UI/action catalogs are back in table form.
+     I'm doing the final resource/session/misc groups now, plus the local SQ2
+     frequency lists at the end."
+
+     Action/result: Converted resource/table actions, session-control actions,
+     miscellaneous actions, remaining table entries, and frequency summaries to
+     tables.
+
+214. Reported: "The conversion pass is complete. I'm checking for leftover
+     paragraph-style opcode summaries and then I'll build the book; Markdown
+     table syntax is fussy enough that I want mdBook to be the judge."
+
+     Action/result: Initial leftover scan found only movement-mode opcode
+     paragraphs; `mdbook build docs` succeeded.
+
+215. Reported: "The only opcode paragraphs I expect to remain are the movement
+     entries where the surrounding explanation matters. I'm rerunning the
+     leftover scan with safer shell quoting and then building the mdBook."
+
+     Action/result: Confirmed the remaining paragraph-style opcode summaries
+     were `0x51..0x54` movement actions and the book still built successfully.
+
+216. Reported: "The leftover scan found exactly the movement opcodes I
+     intentionally left in prose. I'm going to improve those too by adding a
+     compact movement-mode table, while keeping the multi-paragraph per-cycle
+     details underneath."
+
+     Action/result: Added a movement-mode entry-point table for opcodes
+     `0x51..0x54` and rewrote the surrounding prose to avoid duplicate
+     paragraph-style opcode summaries.
+
+217. Reported: "That takes care of the movement outliers: they now have a table
+     for the entry-point facts, with the state-machine details kept beneath it.
+     I'm doing the final validation pass now."
+
+     Action/result: Verified no paragraph-style opcode summary patterns remain,
+     `mdbook build docs` succeeds, and `git diff --check` is clean.
+
+218. Reported: "The book builds cleanly and `git diff --check` is clean. I'm
+     adding the progress-log entries for this documentation pass, then I'll
+     check the final status."
+
+     Action/result: Recorded the logic-bytecode table conversion pass in this
+     progress log.
