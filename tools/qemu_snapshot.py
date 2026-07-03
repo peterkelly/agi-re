@@ -21,6 +21,9 @@ class SnapshotFixtureCase:
     capture: Path
     post_launch_keys: str = ""
     post_launch_wait: float = 0.0
+    post_launch_key_delay: float = 0.03
+    post_launch_after_text_wait: float = 0.0
+    post_launch_key_names: list[str] | None = None
 
 
 def fixture_input_files(fixture: Path) -> list[Path]:
@@ -92,6 +95,16 @@ def monitor_type(proc: subprocess.Popen[str], text: str, delay: float = 0.03) ->
         time.sleep(delay)
 
 
+def monitor_send_key_names(proc: subprocess.Popen[str], names: list[str], delay: float = 0.03) -> None:
+    assert proc.stdin is not None
+    for name in names:
+        if proc.poll() is not None:
+            raise RuntimeError(f"qemu exited before monitor key input completed: {proc.returncode}")
+        proc.stdin.write(f"sendkey {name}\n")
+        proc.stdin.flush()
+        time.sleep(delay)
+
+
 def monitor_command(proc: subprocess.Popen[str], command: str) -> None:
     if proc.poll() is not None:
         raise RuntimeError(f"qemu exited before monitor command: {proc.returncode}")
@@ -144,7 +157,11 @@ def run_snapshot_qemu_cases(
             if case.post_launch_wait:
                 time.sleep(case.post_launch_wait)
             if case.post_launch_keys:
-                monitor_type(proc, case.post_launch_keys)
+                monitor_type(proc, case.post_launch_keys, delay=case.post_launch_key_delay)
+            if case.post_launch_after_text_wait:
+                time.sleep(case.post_launch_after_text_wait)
+            if case.post_launch_key_names:
+                monitor_send_key_names(proc, case.post_launch_key_names, delay=case.post_launch_key_delay)
             time.sleep(draw_wait)
             monitor_command(proc, f"screendump {case.capture}")
             time.sleep(1.0)

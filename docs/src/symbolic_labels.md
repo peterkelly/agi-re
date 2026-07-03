@@ -144,11 +144,43 @@ Address columns use these meanings:
 | `code.text.close_window_state` | image `0x1f2b` | Restores/clears active text-window state. |
 | `code.text.format_string` | image `0x2374` | Formats text into caller-provided buffers. |
 | `code.text.format_message_to_buffer` | image `0x1f54` | Formats/copies a resolved logic message into a stack buffer. |
+| `code.text.redraw_status_line` | image `0x34bd` | Redraws the status-line-like area when `data.text.status_line_enabled` is nonzero, using the current text attribute globals and the status row global. |
+| `code.text.show_status_line` | image `0x3547` | Action handler for `0x70`; sets `data.text.status_line_enabled` and calls `code.text.redraw_status_line`. |
+| `code.text.hide_status_line` | image `0x355c` | Action handler for `0x71`; clears `data.text.status_line_enabled` and clears the configured status row. |
+| `code.text.set_attribute_pair` | image `0x77d5` | Shared helper for action `0x6d` and text-mode transitions. Stores derived text/window attributes in globals `[0x05d1]`, `[0x05cd]`, and `[0x05cf]`. |
+| `code.text.enter_attr_mode` | image `0x76ca` | Action handler for `0x6a`; erases the prompt marker, sets byte `[0x1757]`, derives attributes, enters the overlay text mode through entry `0x9803`, then clears a text rectangle. |
+| `code.text.leave_attr_mode` | image `0x78cb` | Shared cleanup for action `0x6b`; clears byte `[0x1757]`, recomputes attributes, calls overlay entry `0x9806`, then redraws status and input-line areas. |
+| `code.input.edit_string` | image `0x0da9` | Blocking string editor used by `0x73` and `0x76`. It copies the destination buffer to a local edit buffer, displays it, waits through `code.input.wait_event`, dispatches keys through `data.input.edit_key_table`, copies accepted text back on Enter, and returns without copying on Escape. |
+| `code.input.wait_event` | image `0x45d7` | Blocking event wait helper. Calls the event normalizer at `0x459e` until the returned word is neither `0x0000` nor `0xffff`. |
+| `code.input.normalize_confirm_event` | image `0x4634` | Normalizes type-1 event values for confirm/editor paths: observed mappings include `0x0101`/`0x0301` to Enter (`0x0d`) and `0x0201`/`0x0401` to Escape (`0x1b`). |
+| `code.input.show_prompt_marker` | image `0x37f7` | Draws the configured prompt marker byte from `data.input.prompt_marker_char` when the marker is not already visible and the display-mode gates allow it. |
+| `code.input.erase_prompt_marker` | image `0x382e` | Clears the prompt-marker visible flag and echoes backspace when a prompt marker byte is configured. |
+| `code.input.set_prompt_marker_char` | image `0x38b4` | Action handler for `0x6c`; resolves a message and stores its first byte in `data.input.prompt_marker_char`. |
+| `code.input.redraw_input_line` | image `0x38d7` | Redraws the configured input-line area when enabled, including the prompt marker, fixed string slot 0, and the visible input buffer. |
+| `code.input.set_line_config` | image `0x78f0` | Action handler for `0x6f`; stores input/status row globals and computes display offset global `[0x1379]` from the first operand. |
+| `code.input.map_key_event` | image `0x4c3d` | Action handler for `0x79`; appends a key/event mapping word and mapped value to the first free four-byte slot rooted at `data.input.key_event_map`. |
+| `data.input.edit_key_table` | image/data `0x0e64` | Key dispatch table used by `code.input.edit_string`. The observed SQ2 bytes map `0x03` and `0x18` to clear-current-input, `0x08` to backspace, `0x0d` to accept/copy, and `0x1b` to cancel/return. Evidence: `xxd -g 1 -s 0x1060 -l 0x20 build/cleanroom/AGI.decrypted.exe`. |
 | `code.save.restore_game_state` | image `0x2512` | Restore-game action handler. |
 | `code.save.save_game_state` | image `0x2753` | Save-game action handler. |
 | `code.save.read_length_prefixed_block` | image `0x26b0` | Reads a length-prefixed memory block from a save file. |
 | `code.save.write_length_prefixed_block` | image `0x28c6` | Writes a length-prefixed memory block to a save file. |
 | `code.save.select_slot_or_path` | image `0x85e5` | Shared save/restore slot/path selection helper. |
+
+## Inventory and Menus
+
+| Label | SQ2 address | Notes/evidence |
+| --- | --- | --- |
+| `code.inventory.show_selection_action` | image `0x31d8` | Action handler for `0x7c`. Enters a text/list mode, builds the carried-item list through `code.inventory.build_selection_list`, restores text state, and returns to the caller after acknowledgement or selection. |
+| `code.inventory.build_selection_list` | image `0x3203` | Builds a stack-local 8-byte-per-row list from the 3-byte metadata table rooted at `data.inventory.table_root`; includes only entries with marker byte `0xff`. |
+| `code.inventory.draw_selection_list` | image `0x3346` | Draws the inventory header, carried item names or fallback text, and optional highlighted row/prompt depending on flag 13. |
+| `data.inventory.selection_result_byte` | data `0x0022` | Absolute byte written by `code.inventory.build_selection_list` on interactive Enter/Escape. Since script byte variables begin at `data.vars.byte_variables` (`0x0009`), this is script variable `0x19`. QEMU `inventory_selection_001` validates Enter and Escape effects. |
+| `code.menu.add_heading` | image `0x911d` | Action handler for `0x9c`; allocates and links an 18-byte menu heading node. |
+| `code.menu.add_item` | image `0x91cf` | Action handler for `0x9d`; allocates and links a 14-byte menu item node and stores the item id at node offset `+0x0c`. |
+| `code.menu.finalize_setup` | image `0x92ba` | Action handler for `0x9e`; finalizes/freezes menu setup. |
+| `code.menu.set_item_enabled` | image `0x935f` | Shared helper used by `0x9f` and `0xa0` to enable or disable menu items by id. |
+| `code.menu.interact` | image `0x93d1` | Interactive menu path. The observed source path draws the menu, waits for input, and enqueues type-3 events with selected item ids for enabled items; deterministic behavior probes are still pending. |
+| `data.menu.finalized` | data `0x1d2a` | Menu setup finalization flag set by `code.menu.finalize_setup`. |
+| `data.menu.heading_root` | data `0x1d2c` | Root/current circular menu heading list pointer used by menu setup and interaction routines. |
 
 ## Runtime Globals and Data Tables
 
@@ -181,6 +213,12 @@ Address columns use these meanings:
 | `data.picture.even_y_write_mask` | global `[0x136e]` | Mask selected by `code.display.pixel_write` for even Y rows. |
 | `data.picture.pattern_bits` | data `0x15f9` | Bit masks used by patterned picture drawing. |
 | `data.picture.pattern_pointer_table` | data `0x1619` | Pattern pointer table selected by low three bits of picture pattern mode. |
+| `data.input.key_event_map` | data `0x0145` | Up to 39 four-byte key mapping slots populated by `code.input.map_key_event`; helper `0x4566` consults this table while normalizing events. |
+| `data.input.prompt_marker_char` | data `0x05d7` | Prompt/input marker character configured by action `0x6c`; `code.input.show_prompt_marker` and `code.input.erase_prompt_marker` use it when drawing or erasing the marker. |
+| `data.text.status_line_enabled` | data `0x05d9` | Word flag controlled by actions `0x70` and `0x71`; `code.text.redraw_status_line` only draws the status line when this is nonzero. |
+| `data.text.input_line_enabled` | data `0x05d3` | Word flag controlled by actions `0x77` and `0x78`; input-line redraw/erase helpers test it before updating the visible input area. |
+| `data.text.attr_mode_enabled` | data `0x1757` | Byte flag set by action `0x6a` and cleared by `code.text.leave_attr_mode`; text attribute derivation helpers branch on it. |
+| `data.text.attribute_stack` | data `0x1759` | Five-entry stack of triples saved/restored by helpers `0x7989` and `0x79c3`; count lives at `[0x1777]`. |
 | `data.event.pair_buffer_base` | global `[0x1707]` | Base pointer for resource/event pair buffer. |
 | `data.event.pair_buffer_write` | global `[0x1709]` | Current write pointer for resource/event pair buffer. |
 | `data.event.pair_count` | global `[0x0143]` | Active count of event/resource pairs. |

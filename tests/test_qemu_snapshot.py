@@ -31,6 +31,9 @@ class QemuSnapshotTests(unittest.TestCase):
         case = SnapshotFixtureCase("CASE", Path("fixture"), Path("capture.ppm"))
         self.assertEqual(case.post_launch_keys, "")
         self.assertEqual(case.post_launch_wait, 0.0)
+        self.assertEqual(case.post_launch_key_delay, 0.03)
+        self.assertEqual(case.post_launch_after_text_wait, 0.0)
+        self.assertIsNone(case.post_launch_key_names)
 
     def test_dos_key_names_cover_monitor_specials(self) -> None:
         self.assertEqual(dos_key_name("\\"), "backslash")

@@ -3860,3 +3860,272 @@ Documented result:
   selection, audio playback, or sound-completion flag semantics.
 - Regenerated `docs/src/logic_opcode_evidence.md` so the new rows are marked
   as QEMU-validated or QEMU dispatch-smoke as appropriate.
+
+## 2026-07-03: string editor, text UI, and diagnostics probes
+
+Commands run from `/Users/peter/ai/agi/reverse`:
+
+- `rg -n "0x0da9|0x73|prompt_string|text_ui|diagnostics_system" docs/src tools`
+- `dd if=build/cleanroom/AGI.decrypted.exe of=build/cleanroom/slice_0c20_10a0.bin bs=1 skip=3616 count=1152`
+- `ndisasm -b 16 -o 0x0c20 build/cleanroom/slice_0c20_10a0.bin`
+- `dd if=build/cleanroom/AGI.decrypted.exe of=build/cleanroom/slice_4420_46c0.bin bs=1 skip=17952 count=672`
+- `ndisasm -b 16 -o 0x4420 build/cleanroom/slice_4420_46c0.bin`
+- `xxd -g 1 -s 0x1060 -l 0x20 build/cleanroom/AGI.decrypted.exe`
+- `python3 -B -m unittest tests.test_logic_interpreter_probe tests.test_qemu_snapshot`
+- `python3 -B tools/logic_interpreter_probe.py --dos-prefix PS --output build/logic-interpreter-probes/batches/prompt_string_001.json --boot-wait 5 --draw-wait 8 --stop-on-failure --case prompt_string_to_slot_returns_after_enter --case prompt_string_to_slot_stores_typed_word`
+- `python3 -B tools/logic_interpreter_probe.py --dos-prefix PS --output build/logic-interpreter-probes/batches/prompt_string_002.json --boot-wait 5 --draw-wait 8 --stop-on-failure --case prompt_string_to_slot_returns_after_enter --case prompt_string_to_slot_stores_typed_word`
+- `python3 -B tools/logic_interpreter_probe.py --dos-prefix PS --output build/logic-interpreter-probes/batches/prompt_string_003.json --boot-wait 5 --draw-wait 8 --stop-on-failure --case prompt_string_to_slot_returns_after_enter --case prompt_string_to_slot_stores_typed_word`
+- `python3 -B tools/logic_interpreter_probe.py --dos-prefix TU --output build/logic-interpreter-probes/batches/text_ui_001.json --boot-wait 5 --draw-wait 8 --stop-on-failure --case display_formatted_message_then_ack_continues_to_draw --case display_formatted_message_var_then_ack_continues_to_draw --case display_message_configured_var_then_ack_continues_to_draw --case input_line_toggle_refresh_erase_dispatch_smoke --case text_rect_clear_dispatch_smoke --case close_text_window_state_dispatch_smoke`
+- `python3 -B tools/logic_interpreter_probe.py --dos-prefix TU --output build/logic-interpreter-probes/batches/text_ui_002.json --boot-wait 5 --draw-wait 8 --stop-on-failure --case display_formatted_message_then_ack_continues_to_draw --case display_formatted_message_var_then_ack_continues_to_draw --case display_message_configured_var_then_ack_continues_to_draw --case input_line_toggle_refresh_erase_dispatch_smoke --case text_rect_clear_dispatch_smoke --case close_text_window_state_dispatch_smoke`
+- `python3 -B tools/logic_interpreter_probe.py --dos-prefix TC --output build/logic-interpreter-probes/batches/text_clear_001.json --boot-wait 5 --draw-wait 8 --stop-on-failure --case text_rect_clear_dispatch_smoke --case close_text_window_state_dispatch_smoke`
+- `python3 -B tools/logic_interpreter_probe.py --dos-prefix TU --output build/logic-interpreter-probes/batches/text_ui_003.json --boot-wait 5 --draw-wait 8 --stop-on-failure --case display_formatted_message_then_ack_continues_to_draw --case display_formatted_message_var_then_ack_continues_to_draw --case display_message_configured_var_then_ack_continues_to_draw --case input_line_toggle_refresh_erase_dispatch_smoke --case text_rect_clear_dispatch_smoke --case close_text_window_state_dispatch_smoke`
+- `python3 -B tools/logic_interpreter_probe.py --dos-prefix DS --output build/logic-interpreter-probes/batches/diagnostics_system_001.json --boot-wait 5 --draw-wait 8 --stop-on-failure --case pause_message_then_ack_continues_to_draw --case heap_status_then_ack_continues_to_draw --case interpreter_version_then_ack_continues_to_draw --case diagnostic_global_actions_dispatch_smoke`
+- `python3 -B tools/logic_opcode_evidence.py`
+
+Documented result:
+
+- Re-read action `0x73` around image `0x0c44` and the shared editor helper at
+  image `0x0da9`. The handler clears fixed string slot
+  `0x020d + slot * 0x28`, optionally positions the prompt with `0x2b0d`, shows
+  the resolved message, calls the editor helper, then redraws or cleans up the
+  prompt/status area.
+- Named `code.input.edit_string` at image `0x0da9`. The helper clamps the
+  requested length to `0x28`, copies the destination string into a local edit
+  buffer, displays it, waits through `code.input.wait_event`, and dispatches
+  key values through the table at image/data `0x0e64`.
+- The observed key dispatch table bytes at file offset `0x1060` map `0x08` to
+  one-character backspace, `0x03` and `0x18` to clear-current-input, `0x0d` to
+  accept by zero-terminating and copying the local buffer back to the
+  destination, and `0x1b` to cancel without copying.
+- Re-read event helpers around image `0x4482..0x467f`. `0x45d7` blocks until
+  the event normalizer returns neither `0x0000` nor `0xffff`; `0x4634` maps
+  observed type-1 confirm/editor events `0x0101`/`0x0301` to Enter and
+  `0x0201`/`0x0401` to Escape.
+- Extended the shared QEMU snapshot runner to support a post-launch key delay,
+  a wait between typed text and named keys, and a separate list of named QEMU
+  `sendkey` names. This lets fixtures type literal text and then send `ret` as
+  a distinct key event.
+- Initial `prompt_string_001` and `prompt_string_002` runs showed the prompt
+  text still visible in the comparison capture. The disassembly already showed
+  Enter should accept; inspecting the output indicated that the interpreter had
+  advanced, but the text-plane pixels remained over the later validation draw.
+  Adding `0x1a` before the validation draw removed that false mismatch.
+- Final batch `prompt_string_003` matched with 2 matches, 0 mismatches, and 0
+  errors. It validates both return-after-Enter and copying typed `look` into the
+  destination string slot for `0x73`.
+- `text_ui_001` failed on the same visible text-overlay issue for formatted
+  messages. Adding a full picture refresh before the validation draw fixed the
+  first four cases in `text_ui_002`.
+- The `text_rect_clear_dispatch_smoke` case initially mismatched because the
+  fixture compared against the normal picture after intentionally clearing text
+  rows. Adding a refresh before the validation draw made the probe test handler
+  return instead of the permanent display-side clear.
+- Final batch `text_ui_003` matched with 6 matches, 0 mismatches, and 0 errors.
+  It validates `0x67`, `0x68`, and `0x98` as formatted/configured message
+  paths, and dispatch-smokes `0x77`, `0x78`, `0x89`, `0x8a`, `0x69`, `0x9a`,
+  and `0xa9`.
+- Batch `diagnostics_system_001` matched with 4 matches, 0 mismatches, and 0
+  errors. It validates message/ack/return behavior for `0x87`, `0x88`, and
+  `0x8d`, and dispatch-smokes `0x83`, `0x84`, `0x8e`, `0xaa`, `0xab`,
+  `0xac`, `0xad`, `0xa3`, and `0xa4`.
+- Updated `tools/logic_opcode_evidence.py` and regenerated
+  `docs/src/logic_opcode_evidence.md` with the new behavior and dispatch-smoke
+  evidence rows.
+
+## 2026-07-03: text/status configuration source pass and smoke probes
+
+Commands run from `/Users/peter/ai/agi/reverse`:
+
+- `git status --short`
+- `rg -n "0x6a|0x6b|0x6c|0x6d|0x6e|0x6f|0x70|0x71|0x74|0x79|0x77d5|0x78f0|0x3547|0x4c3d|0x38b4|status line|input prompt|map_key_event" docs/src tools tests`
+- `dd if=build/cleanroom/AGI.decrypted.exe of=build/cleanroom/slice_3400_3a00.bin bs=1 skip=13824 count=1536`
+- `dd if=build/cleanroom/AGI.decrypted.exe of=build/cleanroom/slice_7600_7b00.bin bs=1 skip=30720 count=1280`
+- `dd if=build/cleanroom/AGI.decrypted.exe of=build/cleanroom/slice_4c00_4d40.bin bs=1 skip=19968 count=320`
+- `dd if=build/cleanroom/AGI.decrypted.exe of=build/cleanroom/slice_0d60_0df0.bin bs=1 skip=3936 count=144`
+- `ndisasm -b 16 -o 0x3400 build/cleanroom/slice_3400_3a00.bin`
+- `ndisasm -b 16 -o 0x7600 build/cleanroom/slice_7600_7b00.bin`
+- `ndisasm -b 16 -o 0x4c00 build/cleanroom/slice_4c00_4d40.bin`
+- `ndisasm -b 16 -o 0x0d60 build/cleanroom/slice_0d60_0df0.bin`
+- `python3 -B -m unittest tests.test_logic_interpreter_probe tests.test_qemu_snapshot`
+- `python3 -B tools/logic_interpreter_probe.py --dos-prefix TS --output build/logic-interpreter-probes/batches/text_status_001.json --boot-wait 5 --draw-wait 8 --stop-on-failure --case text_attribute_mode_dispatch_smoke --case screen_shake_dispatch_smoke --case input_prompt_config_dispatch_smoke --case status_line_show_hide_dispatch_smoke --case key_event_mapping_dispatch_smoke`
+- `python3 -B -m json.tool build/logic-interpreter-probes/batches/text_status_001.json`
+- `python3 -B tools/inspect_ppm.py build/logic-interpreter-probes/fixtures/input_prompt_config_dispatch_smoke/qemu_capture.ppm`
+- `python3 -B -m unittest tests.test_logic_interpreter_probe tests.test_qemu_snapshot`
+- `python3 -B tools/logic_interpreter_probe.py --dos-prefix TS --output build/logic-interpreter-probes/batches/text_status_002.json --boot-wait 5 --draw-wait 8 --stop-on-failure --case text_attribute_mode_dispatch_smoke --case screen_shake_dispatch_smoke --case input_prompt_config_dispatch_smoke --case status_line_show_hide_dispatch_smoke --case key_event_mapping_dispatch_smoke`
+- `python3 -B tools/logic_opcode_evidence.py`
+
+Documented result:
+
+- Re-read status/input helpers around image `0x34bd..0x38d7`:
+  - `code.text.redraw_status_line` at image `0x34bd` wraps a status redraw in
+    text setup/cleanup helpers, tests word `[0x05d9]`, clears the configured
+    status row through `0x2ba6`, positions output with `0x2b0d`, displays text
+    through `0x2390`, and restores saved text attributes through `0x79c3`.
+  - Action `0x70` at image `0x3547` sets word `[0x05d9] = 1` and calls the
+    redraw helper.
+  - Action `0x71` at image `0x355c` clears word `[0x05d9]` and clears the row
+    from `[0x05db]`.
+  - `code.input.show_prompt_marker` at image `0x37f7` and
+    `code.input.erase_prompt_marker` at image `0x382e` gate on prompt marker
+    byte `[0x05d7]` and marker-visible word `[0x0fa2]`.
+  - Action `0x6c` at image `0x38b4` resolves a message and stores its first
+    byte in `[0x05d7]`.
+  - `code.input.redraw_input_line` at image `0x38d7` redraws the input-line
+    area when word `[0x05d3]` is nonzero and display mode is not the special
+    mode-2 path.
+- Re-read text-attribute and status configuration handlers around image
+  `0x76ca..0x7a7f`:
+  - Action `0x6a` sets byte `[0x1757] = 1`, derives attributes through
+    `0x77d5`, calls overlay entry `0x9803`, then clears a text rectangle.
+  - Action `0x6b` calls helper `0x78cb`, which clears `[0x1757]`, recomputes
+    attributes, calls overlay entry `0x9806`, redraws the status line, and
+    redraws the input line.
+  - Action `0x6d` calls `code.text.set_attribute_pair` (`0x77d5`), which
+    stores derived values in `[0x05d1]`, `[0x05cd]`, and `[0x05cf]`.
+  - Action `0x6e` reads a count byte and performs display-shake work through
+    display-mode-specific helpers or direct CRT-controller writes.
+  - Action `0x6f` stores operand 0 in `[0x05dd]`, operand 0 plus `0x15` in
+    `[0x05df]`, operand 1 in `[0x05d5]`, operand 2 in `[0x05db]`, and derives
+    display offset `[0x1379]` from operand 0.
+  - Helpers `0x7989` and `0x79c3` save and restore up to five triples of text
+    attribute globals in the table rooted at `0x1759`, with count word
+    `[0x1777]`.
+- Re-read action `0x79` at image `0x4c3d`: it combines operand 0 and operand 1
+  into a little-endian key/event word, stores operand 2 as the mapped value, and
+  inserts the pair into the first free four-byte slot in the table rooted at
+  `0x0145`, scanning up to 39 slots.
+- Re-read action `0x74` at image `0x0d70`: it copies up to `0x28` bytes from a
+  pointer read from `DS:0x0c8f + operand1 * 2` into fixed string slot
+  `0x020d + operand0 * 0x28`. The local SQ2 sampled table remains zero-filled,
+  so this action was not promoted dynamically in this pass.
+- Added five QEMU dispatch-smoke cases:
+  - `text_attribute_mode_dispatch_smoke` for `0x6d`, `0x6a`, and `0x6b`.
+  - `screen_shake_dispatch_smoke` for a one-count `0x6e`.
+  - `input_prompt_config_dispatch_smoke` for `0x6c` and `0x6f`.
+  - `status_line_show_hide_dispatch_smoke` for `0x70` and `0x71`.
+  - `key_event_mapping_dispatch_smoke` for `0x79`.
+- Batch `text_status_001` matched the first two cases, then mismatched
+  `input_prompt_config_dispatch_smoke`. The mismatch bbox covered the
+  validation sprite area, and the capture showed the interpreter had returned;
+  the first `0x6f` operand value `1` changed display offset state enough that
+  the local expected renderer no longer aligned with the captured sprite. This
+  is useful behavior evidence for a later dedicated `0x6f` offset probe, but it
+  was too broad for a dispatch-smoke fixture.
+- Changed the smoke fixture to use first operand `0` for `0x6f`, preserving the
+  handler dispatch while avoiding the non-default display offset.
+- Final batch `text_status_002` matched with 5 matches, 0 mismatches, and 0
+  errors.
+- Updated symbolic labels for the status/input/text-attribute helpers and
+  globals, promoted `0x6a..0x71` and `0x79` to QEMU dispatch-smoke evidence,
+  and regenerated `docs/src/logic_opcode_evidence.md`.
+
+## 2026-07-03: input offset, mapped-key, and string-table behavior probes
+
+Commands run from `/Users/peter/ai/agi/reverse`:
+
+- `rg -n "def compare_capture|expected_baseline_y|mismatch_bbox|0x1379|1379|set_input_line_config|key_event|0x79|map_key_event|input_prompt_config" tools docs/src tests`
+- `python3 -B -m json.tool build/logic-interpreter-probes/batches/input_prompt_config_operand1_shift_demo.json`
+- Local Python comparison of the recreated operand-1 capture against expected
+  baselines `70..90`.
+- `dd if=build/cleanroom/AGI.decrypted.exe of=build/cleanroom/slice_0900_0a40.bin bs=1 skip=2816 count=320`
+- `dd if=build/cleanroom/AGI.decrypted.exe of=build/cleanroom/slice_4520_45c0.bin bs=1 skip=18208 count=160`
+- `ndisasm -b 16 -o 0x0900 build/cleanroom/slice_0900_0a40.bin`
+- `ndisasm -b 16 -o 0x4520 build/cleanroom/slice_4520_45c0.bin`
+- `python3 -B -m unittest tests.test_logic_interpreter_probe tests.test_qemu_snapshot`
+- `python3 -B tools/logic_interpreter_probe.py --dos-prefix IK --output build/logic-interpreter-probes/batches/input_key_behaviour_001.json --boot-wait 5 --draw-wait 8 --stop-on-failure --case input_line_config_operand1_offsets_display_by_8 --case mapped_key_sets_status_byte`
+- `xxd -g 1 -s 0x0c80 -l 0x80 SQ2/AGIDATA.OVL`
+- `xxd -g 1 -s 0x0c80 -l 0x80 build/logic-interpreter-probes/fixtures/input_line_config_operand1_offsets_display_by_8/AGIDATA.OVL`
+- `python3 -B -m unittest tests.test_logic_interpreter_probe tests.test_qemu_snapshot`
+- `python3 -B tools/logic_interpreter_probe.py --dos-prefix IK --output build/logic-interpreter-probes/batches/input_key_string_behaviour_001.json --boot-wait 5 --draw-wait 8 --stop-on-failure --case input_line_config_operand1_offsets_display_by_8 --case mapped_key_sets_status_byte --case set_string_from_table_copies_patched_pointer`
+- `python3 -B tools/logic_opcode_evidence.py`
+
+Documented result:
+
+- Quantified the earlier `0x6f(1, 0, 22)` mismatch by comparing the recreated
+  QEMU capture against expected baselines. The capture matched exactly at
+  baseline `88`, while the script draw used baseline `80`. This confirms that
+  in the observed display mode the first `0x6f` operand contributes an
+  eight-logical-row visible offset, consistent with the static assignment
+  `[0x1379] = arg0 << 3`.
+- Added behavior case `input_line_config_operand1_offsets_display_by_8`, which
+  runs `0x6f(1, 0, 22)`, refreshes with `0x1a`, draws at script baseline `80`,
+  and expects the capture at baseline `88`. Batch `input_key_behaviour_001`
+  matched this case.
+- Re-read condition `0x0d` at image `0x09be` and event mapping helper `0x4566`.
+  Condition `0x0d` calls `0x459e` directly and does not use the script mapping
+  table. The top-level input helper path calls `0x4566`, and when a type-1
+  event value matches a slot rooted at `0x0145`, helper `0x4566` changes the
+  record type to `3` and replaces the value with the mapped value.
+- The type-3 event path in the input helper writes byte
+  `[0x1218 + mapped_value] = 1`. Condition `0x0c` reads exactly this byte
+  range, making it a clean observation point for a mapped-key behavior probe.
+- Added behavior case `mapped_key_sets_status_byte`: one-time logic installs
+  `0x79('x', 0, 7)`, QEMU sends key `x`, and per-cycle logic draws only when
+  condition `0x0c 7` is true. Batch `input_key_behaviour_001` matched this
+  case, validating both action `0x79` and condition `0x0c` dynamically.
+- Inspected the original `SQ2/AGIDATA.OVL` bytes at `0x0c80..0x0cff`; the
+  pointer-table area around `0x0c8f` is zero-filled through `0x0cd2`, followed
+  by static text. The same layout appears in generated fixtures.
+- Added fixture-local `AGIDATA.OVL` patch support to
+  `tools/logic_interpreter_probe.py`.
+- Added behavior case `set_string_from_table_copies_patched_pointer`, which
+  patches only the generated fixture: table entry 0 at `0x0c8f` points to
+  `0x0cc0`, and `0x0cc0` contains `look\0`. The logic runs `0x74` into string
+  slot 0, fills slot 1 from normal message text `look`, then draws only if
+  condition `0x0f` finds the two slots equal. Batch
+  `input_key_string_behaviour_001` matched this case.
+- Promoted action `0x6f`, action `0x74`, action `0x79`, and condition `0x0c`
+  to QEMU behavior evidence in `tools/logic_opcode_evidence.py`, then
+  regenerated `docs/src/logic_opcode_evidence.md`.
+
+## 2026-07-03: inventory selection source pass and QEMU probes
+
+Commands run from `/Users/peter/ai/agi/reverse`:
+
+- `rg -n "inventory|show.obj|0x7c|post_launch|post_launch_key|dos_key" tools/logic_interpreter_probe.py tools/qemu_snapshot.py tests/test_logic_interpreter_probe.py docs/src/logic_bytecode.md docs/src/symbolic_labels.md`
+- `sed -n '1,220p' tools/qemu_snapshot.py`
+- `sed -n '960,1085p' tools/logic_interpreter_probe.py`
+- `sed -n '970,1030p' docs/src/logic_bytecode.md`
+- `ndisasm -b 16 -o 0x3180 build/cleanroom/slice_3180_33c0.bin`
+- `ndisasm -b 16 -o 0x9000 build/cleanroom/slice_9000_9480.bin`
+- `python3 -B -m unittest tests.test_logic_interpreter_probe tests.test_qemu_snapshot`
+- Initial failed run: `python3 -B tools/logic_interpreter_probe.py --dos-prefix IN --output build/logic-interpreter-probes/batches/inventory_selection_001.json --boot-wait 5 --draw-wait 8 --stop-on-failure --case inventory_selection_enter_sets_var22 --case inventory_selection_escape_sets_ff --case inventory_selection_noninteractive_ack_returns`
+- `python3 -B -m json.tool build/logic-interpreter-probes/batches/inventory_selection_001.json`
+- `magick build/logic-interpreter-probes/fixtures/inventory_selection_enter_sets_var22/qemu_capture.ppm build/logic-interpreter-probes/fixtures/inventory_selection_enter_sets_var22/qemu_capture.png`
+- Corrected run: `python3 -B tools/logic_interpreter_probe.py --dos-prefix IN --output build/logic-interpreter-probes/batches/inventory_selection_001.json --boot-wait 5 --draw-wait 8 --stop-on-failure --case inventory_selection_enter_sets_var19 --case inventory_selection_escape_sets_var19_ff --case inventory_selection_noninteractive_ack_returns`
+- `python3 -B tools/logic_opcode_evidence.py`
+
+Documented result:
+
+- The inventory handler at `0x31d8` enters a text/list mode, calls a helper now
+  labeled `code.inventory.build_selection_list`, restores text state, and
+  returns. The list-building helper scans 3-byte entries rooted at
+  `data.inventory.table_root` and includes only entries whose marker byte is
+  `0xff`.
+- Each displayed carried item row is an 8-byte stack-local record containing
+  the original table index, item-name pointer, row, and column. The first item
+  is drawn in the left column; the next item is drawn in the right column after
+  computing `0x27 - strlen(name)`.
+- If no entries are carried, the helper inserts one fallback row pointing at the
+  fixed "nothing" text.
+- Flag 13 controls interactivity. When flag 13 is clear, the handler displays
+  the noninteractive prompt, waits through the blocking input helper, and
+  returns without storing a selection result. When flag 13 is set, it waits for
+  events, uses the normalizer, handles type-1 Enter/Escape, and handles type-2
+  movement events through a selection-move/redraw helper.
+- Enter stores the selected row's original table index to absolute byte
+  `DS:0x0022`; Escape stores `0xff` to the same byte. Because the byte-variable
+  array starts at `DS:0x0009`, this storage is exposed to logic bytecode as
+  variable `0x19`.
+- The first QEMU probe incorrectly checked variable `0x22`. It returned after
+  Enter but did not draw the validation sprite, producing a mismatch over the
+  sprite area. This was retained as evidence that the source address needed to
+  be translated through the byte-variable base.
+- Corrected QEMU batch `inventory_selection_001` matched all three cases:
+  `inventory_selection_enter_sets_var19`, `inventory_selection_escape_sets_var19_ff`,
+  and `inventory_selection_noninteractive_ack_returns`.
+- The menu source pass assigned stable labels for heading allocation, item
+  allocation, setup finalization, enable/disable-by-id, and the interactive
+  menu path. The observed source path enqueues type-3 events with selected menu
+  item ids for enabled items, but deterministic menu interaction probes are
+  still pending.

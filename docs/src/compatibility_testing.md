@@ -253,6 +253,18 @@ custom message-table loading, string-slot normalization, dictionary parsing for
 `look`, input-word sequence testing, inventory/object marker predicates, and
 marker actions `0x5c..0x61`.
 
+Run the inventory selection follow-up batch:
+
+```bash
+python3 -B tools/logic_interpreter_probe.py --dos-prefix IN --output build/logic-interpreter-probes/batches/inventory_selection_001.json --boot-wait 5 --draw-wait 8 --stop-on-failure --case inventory_selection_enter_sets_var19 --case inventory_selection_escape_sets_var19_ff --case inventory_selection_noninteractive_ack_returns
+```
+
+This three-case batch matched QEMU with 0 mismatches. It validates that action
+`0x7c` uses flag 13 to choose interactive selection, that Enter stores the
+selected carried-entry index in absolute byte `DS:0x0022` (script variable
+`0x19`), that Escape stores `0xff` there, and that the noninteractive mode waits
+for acknowledgement and returns to following bytecode.
+
 Run the object/view getter and bitfield follow-up batch:
 
 ```bash
@@ -366,9 +378,66 @@ python3 -B tools/logic_interpreter_probe.py --dos-prefix TX --output build/logic
 This four-case batch matched QEMU with 0 mismatches. It uses the
 `SnapshotFixtureCase.post_launch_keys` input path to dismiss message windows and
 type `42` into the numeric prompt. It validates `0x65`, `0x66`, `0x97`, and
-`0x76`. A trial string-prompt fixture for `0x73` visibly typed `look` but did
-not complete through the current monitor keystroke sequence, so that opcode
-remains source-backed.
+`0x76`.
+
+Run the string prompt batch:
+
+```bash
+python3 -B tools/logic_interpreter_probe.py --dos-prefix PS --output build/logic-interpreter-probes/batches/prompt_string_003.json --boot-wait 5 --draw-wait 8 --stop-on-failure --case prompt_string_to_slot_returns_after_enter --case prompt_string_to_slot_stores_typed_word
+```
+
+This two-case batch matched QEMU with 0 mismatches. It types `look` into
+`0x73` (`prompt_string_to_slot`), sends a named Enter key, then refreshes the
+picture before the validation draw so text-plane pixels from the prompt do not
+pollute the graphics comparison. The second case validates storage by comparing
+the edited string slot against a known message-backed string slot before
+drawing.
+
+Run the formatted text and input-line state batch:
+
+```bash
+python3 -B tools/logic_interpreter_probe.py --dos-prefix TU --output build/logic-interpreter-probes/batches/text_ui_003.json --boot-wait 5 --draw-wait 8 --stop-on-failure --case display_formatted_message_then_ack_continues_to_draw --case display_formatted_message_var_then_ack_continues_to_draw --case display_message_configured_var_then_ack_continues_to_draw --case input_line_toggle_refresh_erase_dispatch_smoke --case text_rect_clear_dispatch_smoke --case close_text_window_state_dispatch_smoke
+```
+
+This six-case batch matched QEMU with 0 mismatches. It validates the
+formatted/positioned display return path for `0x67`, `0x68`, and `0x98`, and
+dispatch-smokes the input-line and text-window operations `0x77`, `0x78`,
+`0x89`, `0x8a`, `0x69`, `0x9a`, and `0xa9`.
+
+Run the text/status configuration batch:
+
+```bash
+python3 -B tools/logic_interpreter_probe.py --dos-prefix TS --output build/logic-interpreter-probes/batches/text_status_002.json --boot-wait 5 --draw-wait 8 --stop-on-failure --case text_attribute_mode_dispatch_smoke --case screen_shake_dispatch_smoke --case input_prompt_config_dispatch_smoke --case status_line_show_hide_dispatch_smoke --case key_event_mapping_dispatch_smoke
+```
+
+This five-case batch matched QEMU with 0 mismatches. It dispatch-smokes
+`0x6a`, `0x6b`, `0x6c`, `0x6d`, `0x6e`, `0x6f`, `0x70`, `0x71`, and `0x79`.
+The earlier batch `text_status_001` used first operand `1` for `0x6f` and
+mismatched because the interpreter shifted the later validation draw relative
+to the local renderer; the clean smoke fixture uses operand `0` and leaves that
+non-default display-offset behavior for a dedicated probe.
+
+Run the input/key/string behavior batch:
+
+```bash
+python3 -B tools/logic_interpreter_probe.py --dos-prefix IK --output build/logic-interpreter-probes/batches/input_key_string_behaviour_001.json --boot-wait 5 --draw-wait 8 --stop-on-failure --case input_line_config_operand1_offsets_display_by_8 --case mapped_key_sets_status_byte --case set_string_from_table_copies_patched_pointer
+```
+
+This three-case batch matched QEMU with 0 mismatches. It validates the
+nonzero `0x6f` display-offset effect, the `0x79` mapped-key path through status
+byte condition `0x0c`, and `0x74` string-table copy semantics using a
+fixture-local `AGIDATA.OVL` patch that makes table entry 0 point at a synthetic
+`look` string.
+
+Run the diagnostics/system batch:
+
+```bash
+python3 -B tools/logic_interpreter_probe.py --dos-prefix DS --output build/logic-interpreter-probes/batches/diagnostics_system_001.json --boot-wait 5 --draw-wait 8 --stop-on-failure --case pause_message_then_ack_continues_to_draw --case heap_status_then_ack_continues_to_draw --case interpreter_version_then_ack_continues_to_draw --case diagnostic_global_actions_dispatch_smoke
+```
+
+This four-case batch matched QEMU with 0 mismatches. It validates the
+message/ack/return behavior for `0x87`, `0x88`, and `0x8d`, and dispatch-smokes
+`0x83`, `0x84`, `0x8e`, `0xaa`, `0xab`, `0xac`, `0xad`, `0xa3`, and `0xa4`.
 
 Run the menu/list and sound dispatch-smoke batch:
 

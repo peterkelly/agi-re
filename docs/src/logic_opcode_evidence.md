@@ -148,46 +148,46 @@ Evidence levels:
 | `0x64` | `stop_sound_or_clear_sound_state` | - | stop sound or clear sound state | QEMU dispatch-smoke | logic_interpreter_probe: sound_load_stop_dispatch_smoke |
 | `0x65` | `display_message` | imm0 | display message | QEMU-validated | logic_interpreter_probe: display_message_then_ack_continues_to_draw |
 | `0x66` | `display_message_var` | var0 | display message var | QEMU-validated | logic_interpreter_probe: display_message_var_then_ack_continues_to_draw |
-| `0x67` | `display_formatted_message` | imm0, imm1, imm2 | display formatted message | source-backed | Handler disassembly and local SQ2 bytecode scan; see logic_bytecode.md. |
-| `0x68` | `display_formatted_message_var` | var0, var1, var2 | display formatted message var | source-backed | Handler disassembly and local SQ2 bytecode scan; see logic_bytecode.md. |
-| `0x69` | `clear_text_rect` | imm0, imm1, imm2 | clear text rect | source-backed | Handler disassembly and local SQ2 bytecode scan; see logic_bytecode.md. |
-| `0x6a` | `enable_text_attr_mode_1757` | - | enable text attr mode 1757 | source-backed | Handler disassembly and local SQ2 bytecode scan; see logic_bytecode.md. |
-| `0x6b` | `disable_text_attr_mode_1757` | - | disable text attr mode 1757 | source-backed | Handler disassembly and local SQ2 bytecode scan; see logic_bytecode.md. |
-| `0x6c` | `set_input_prompt_char` | imm0 | set input prompt char | source-backed | Handler disassembly and local SQ2 bytecode scan; see logic_bytecode.md. |
-| `0x6d` | `set_text_window_pair` | imm0, imm1 | set text window pair | source-backed | Handler disassembly and local SQ2 bytecode scan; see logic_bytecode.md. |
-| `0x6e` | `shake_screen_like` | imm0 | shake screen like | source-backed | Handler disassembly and local SQ2 bytecode scan; see logic_bytecode.md. |
-| `0x6f` | `set_input_line_config` | imm0, imm1, imm2 | set input line config | source-backed | Handler disassembly and local SQ2 bytecode scan; see logic_bytecode.md. |
-| `0x70` | `show_status_line_like` | - | show status line like | source-backed | Handler disassembly and local SQ2 bytecode scan; see logic_bytecode.md. |
-| `0x71` | `hide_status_line_like` | - | hide status line like | source-backed | Handler disassembly and local SQ2 bytecode scan; see logic_bytecode.md. |
+| `0x67` | `display_formatted_message` | imm0, imm1, imm2 | display formatted message | QEMU-validated | logic_interpreter_probe: display_formatted_message_then_ack_continues_to_draw |
+| `0x68` | `display_formatted_message_var` | var0, var1, var2 | display formatted message var | QEMU-validated | logic_interpreter_probe: display_formatted_message_var_then_ack_continues_to_draw |
+| `0x69` | `clear_text_rect` | imm0, imm1, imm2 | clear text rect | QEMU dispatch-smoke | logic_interpreter_probe: text_rect_clear_dispatch_smoke |
+| `0x6a` | `enable_text_attr_mode_1757` | - | enable text attr mode 1757 | QEMU dispatch-smoke | logic_interpreter_probe: text_attribute_mode_dispatch_smoke |
+| `0x6b` | `disable_text_attr_mode_1757` | - | disable text attr mode 1757 | QEMU dispatch-smoke | logic_interpreter_probe: text_attribute_mode_dispatch_smoke |
+| `0x6c` | `set_input_prompt_char` | imm0 | set input prompt char | QEMU dispatch-smoke | logic_interpreter_probe: input_prompt_config_dispatch_smoke |
+| `0x6d` | `set_text_window_pair` | imm0, imm1 | set text window pair | QEMU dispatch-smoke | logic_interpreter_probe: text_attribute_mode_dispatch_smoke |
+| `0x6e` | `shake_screen_like` | imm0 | shake screen like | QEMU dispatch-smoke | logic_interpreter_probe: screen_shake_dispatch_smoke |
+| `0x6f` | `set_input_line_config` | imm0, imm1, imm2 | set input line config | QEMU-validated | logic_interpreter_probe: input_line_config_operand1_offsets_display_by_8 |
+| `0x70` | `show_status_line_like` | - | show status line like | QEMU dispatch-smoke | logic_interpreter_probe: status_line_show_hide_dispatch_smoke |
+| `0x71` | `hide_status_line_like` | - | hide status line like | QEMU dispatch-smoke | logic_interpreter_probe: status_line_show_hide_dispatch_smoke |
 | `0x72` | `set_string_slot_from_message` | imm0, imm1 | set string slot from message | QEMU-validated | logic_interpreter_probe: set_string_from_message_equal_normalized and parse_string_slot_sets_input_word_sequence |
-| `0x73` | `prompt_string_to_slot` | imm0, imm1, imm2, imm3, imm4 | prompt string to slot | source-backed | Handler disassembly and local SQ2 bytecode scan; see logic_bytecode.md. |
-| `0x74` | `set_string_slot_from_table` | imm0, imm1 | set string slot from table | source-backed | Handler disassembly and local SQ2 bytecode scan; see logic_bytecode.md. |
+| `0x73` | `prompt_string_to_slot` | imm0, imm1, imm2, imm3, imm4 | prompt string to slot | QEMU-validated | logic_interpreter_probe: prompt_string_to_slot_stores_typed_word |
+| `0x74` | `set_string_slot_from_table` | imm0, imm1 | set string slot from table | QEMU-validated | logic_interpreter_probe: set_string_from_table_copies_patched_pointer |
 | `0x75` | `parse_string_slot` | imm0 | parse string slot | QEMU-validated | logic_interpreter_probe: parse_string_slot_sets_input_word_sequence |
 | `0x76` | `prompt_number_to_var` | imm0, var1 | prompt number to var | QEMU-validated | logic_interpreter_probe: prompt_number_to_var_accepts_digits |
-| `0x77` | `disable_input_line_like` | - | disable input line like | source-backed | Handler disassembly and local SQ2 bytecode scan; see logic_bytecode.md. |
-| `0x78` | `enable_input_line_like` | - | enable input line like | source-backed | Handler disassembly and local SQ2 bytecode scan; see logic_bytecode.md. |
-| `0x79` | `map_key_event` | imm0, imm1, imm2 | map key event | source-backed | Handler disassembly and local SQ2 bytecode scan; see logic_bytecode.md. |
+| `0x77` | `disable_input_line_like` | - | disable input line like | QEMU dispatch-smoke | logic_interpreter_probe: input_line_toggle_refresh_erase_dispatch_smoke |
+| `0x78` | `enable_input_line_like` | - | enable input line like | QEMU dispatch-smoke | logic_interpreter_probe: input_line_toggle_refresh_erase_dispatch_smoke |
+| `0x79` | `map_key_event` | imm0, imm1, imm2 | map key event | QEMU-validated | logic_interpreter_probe: mapped_key_sets_status_byte |
 | `0x7a` | `setup_transient_object` | imm0, imm1, imm2, imm3, imm4, imm5, imm6 | setup transient object | QEMU-validated | logic_interpreter_probe and object_overlay_probe transient drawing |
 | `0x7b` | `setup_transient_object_var` | var0, var1, var2, var3, var4, var5, var6 | setup transient object var | QEMU-validated | logic_interpreter_probe: setup_transient_object_var_draws_selected_cel |
-| `0x7c` | `show_inventory_selection` | - | show inventory selection | source-backed | Handler disassembly and local SQ2 bytecode scan; see logic_bytecode.md. |
+| `0x7c` | `show_inventory_selection` | - | show inventory selection | QEMU-validated | logic_interpreter_probe: inventory_selection_enter_sets_var19, inventory_selection_escape_sets_var19_ff, and inventory_selection_noninteractive_ack_returns |
 | `0x7d` | `save_game_state` | - | save game state | source-backed | Handler disassembly and local SQ2 bytecode scan; see logic_bytecode.md. |
 | `0x7e` | `restore_game_state` | - | restore game state | source-backed | Handler disassembly and local SQ2 bytecode scan; see logic_bytecode.md. |
 | `0x7f` | `noop` | - | noop | QEMU-validated | logic_interpreter_probe: noop_7f_continues_to_draw |
 | `0x80` | `confirm_restart_game` | - | confirm restart game | source-backed | Handler disassembly and local SQ2 bytecode scan; see logic_bytecode.md. |
 | `0x81` | `display_view_resource_text_like` | imm0 | display view resource text like | source-backed | Handler disassembly and local SQ2 bytecode scan; see logic_bytecode.md. |
 | `0x82` | `random_range_to_var` | imm0, imm1, var2 | random range to var | QEMU-validated | logic_interpreter_probe: random_equal_bounds_stores_bound |
-| `0x83` | `clear_global_0139` | - | clear global 0139 | source-backed | Handler disassembly and local SQ2 bytecode scan; see logic_bytecode.md. |
-| `0x84` | `set_global_0139_and_clear_object0_field_22` | - | set global 0139 and clear object0 field 22 | source-backed | Handler disassembly and local SQ2 bytecode scan; see logic_bytecode.md. |
+| `0x83` | `clear_global_0139` | - | clear global 0139 | QEMU dispatch-smoke | logic_interpreter_probe: diagnostic_global_actions_dispatch_smoke |
+| `0x84` | `set_global_0139_and_clear_object0_field_22` | - | set global 0139 and clear object0 field 22 | QEMU dispatch-smoke | logic_interpreter_probe: diagnostic_global_actions_dispatch_smoke |
 | `0x85` | `display_object_diagnostics_var` | var0 | display object diagnostics var | source-backed | Handler disassembly and local SQ2 bytecode scan; see logic_bytecode.md. |
 | `0x86` | `confirm_and_restart_like` | imm0 | confirm and restart like | source-backed | Handler disassembly and local SQ2 bytecode scan; see logic_bytecode.md. |
-| `0x87` | `show_heap_status` | - | show heap status | source-backed | Handler disassembly and local SQ2 bytecode scan; see logic_bytecode.md. |
-| `0x88` | `pause_game_message` | - | pause game message | source-backed | Handler disassembly and local SQ2 bytecode scan; see logic_bytecode.md. |
-| `0x89` | `refresh_input_line` | - | refresh input line | source-backed | Handler disassembly and local SQ2 bytecode scan; see logic_bytecode.md. |
-| `0x8a` | `erase_input_line` | - | erase input line | source-backed | Handler disassembly and local SQ2 bytecode scan; see logic_bytecode.md. |
+| `0x87` | `show_heap_status` | - | show heap status | QEMU-validated | logic_interpreter_probe: heap_status_then_ack_continues_to_draw |
+| `0x88` | `pause_game_message` | - | pause game message | QEMU-validated | logic_interpreter_probe: pause_message_then_ack_continues_to_draw |
+| `0x89` | `refresh_input_line` | - | refresh input line | QEMU dispatch-smoke | logic_interpreter_probe: input_line_toggle_refresh_erase_dispatch_smoke |
+| `0x8a` | `erase_input_line` | - | erase input line | QEMU dispatch-smoke | logic_interpreter_probe: input_line_toggle_refresh_erase_dispatch_smoke |
 | `0x8b` | `calibrate_joystick` | - | calibrate joystick | source-backed | Handler disassembly and local SQ2 bytecode scan; see logic_bytecode.md. |
 | `0x8c` | `toggle_display_mode_bit` | - | toggle display mode bit | source-backed | Handler disassembly and local SQ2 bytecode scan; see logic_bytecode.md. |
-| `0x8d` | `show_interpreter_version` | - | show interpreter version | source-backed | Handler disassembly and local SQ2 bytecode scan; see logic_bytecode.md. |
-| `0x8e` | `set_global_0141_and_refresh` | imm0 | set global 0141 and refresh | source-backed | Handler disassembly and local SQ2 bytecode scan; see logic_bytecode.md. |
+| `0x8d` | `show_interpreter_version` | - | show interpreter version | QEMU-validated | logic_interpreter_probe: interpreter_version_then_ack_continues_to_draw |
+| `0x8e` | `set_global_0141_and_refresh` | imm0 | set global 0141 and refresh | QEMU dispatch-smoke | logic_interpreter_probe: diagnostic_global_actions_dispatch_smoke |
 | `0x8f` | `verify_game_signature` | imm0 | verify game signature | source-backed | Handler disassembly and local SQ2 bytecode scan; see logic_bytecode.md. |
 | `0x90` | `append_message_to_log_file` | imm0 | append message to log file | source-backed | Handler disassembly and local SQ2 bytecode scan; see logic_bytecode.md. |
 | `0x91` | `save_logic_resume_ip` | - | save logic resume ip | QEMU-validated | logic_interpreter_probe: save_restore_resume_actions_continue_to_draw |
@@ -197,9 +197,9 @@ Evidence levels:
 | `0x95` | `enable_action_trace_window` | - | enable action trace window | source-backed | Handler disassembly and local SQ2 bytecode scan; see logic_bytecode.md. |
 | `0x96` | `configure_action_trace_window` | imm0, imm1, imm2 | configure action trace window | source-backed | Handler disassembly and local SQ2 bytecode scan; see logic_bytecode.md. |
 | `0x97` | `display_message_configured` | imm0, imm1, imm2, imm3 | display message configured | QEMU-validated | logic_interpreter_probe: display_message_configured_then_ack_continues_to_draw |
-| `0x98` | `display_message_configured_var` | var0, imm1, imm2, imm3 | display message configured var | source-backed | Handler disassembly and local SQ2 bytecode scan; see logic_bytecode.md. |
+| `0x98` | `display_message_configured_var` | var0, imm1, imm2, imm3 | display message configured var | QEMU-validated | logic_interpreter_probe: display_message_configured_var_then_ack_continues_to_draw |
 | `0x99` | `discard_view_var` | var0 | discard view var | QEMU-validated | logic_interpreter_probe: discard_view_var_allows_reload_and_draw |
-| `0x9a` | `clear_text_rect_bounds` | imm0, imm1, imm2, imm3, imm4 | clear text rect bounds | source-backed | Handler disassembly and local SQ2 bytecode scan; see logic_bytecode.md. |
+| `0x9a` | `clear_text_rect_bounds` | imm0, imm1, imm2, imm3, imm4 | clear text rect bounds | QEMU dispatch-smoke | logic_interpreter_probe: text_rect_clear_dispatch_smoke |
 | `0x9b` | `noop_2` | imm0, imm1 | noop 2 | QEMU-validated | logic_interpreter_probe: noop_9b_consumes_two_operands_then_draws |
 | `0x9c` | `add_menu_heading_like` | imm0 | add menu heading like | QEMU dispatch-smoke | logic_interpreter_probe: menu_setup_dispatch_smoke |
 | `0x9d` | `add_menu_item_like` | imm0, imm1 | add menu item like | QEMU dispatch-smoke | logic_interpreter_probe: menu_setup_dispatch_smoke |
@@ -208,17 +208,17 @@ Evidence levels:
 | `0xa0` | `disable_menu_item_like` | imm0 | disable menu item like | QEMU dispatch-smoke | logic_interpreter_probe: menu_setup_dispatch_smoke |
 | `0xa1` | `mark_menu_if_flag_0e` | - | mark menu if flag 0e | QEMU dispatch-smoke | logic_interpreter_probe: menu_flag_dispatch_smoke |
 | `0xa2` | `display_view_resource_text_like_var` | imm0 | display view resource text like var | source-backed | Handler disassembly and local SQ2 bytecode scan; see logic_bytecode.md. |
-| `0xa3` | `set_global_0d0f` | - | set global 0d0f | source-backed | Handler disassembly and local SQ2 bytecode scan; see logic_bytecode.md. |
-| `0xa4` | `clear_global_0d0f` | - | clear global 0d0f | source-backed | Handler disassembly and local SQ2 bytecode scan; see logic_bytecode.md. |
+| `0xa3` | `set_global_0d0f` | - | set global 0d0f | QEMU dispatch-smoke | logic_interpreter_probe: diagnostic_global_actions_dispatch_smoke |
+| `0xa4` | `clear_global_0d0f` | - | clear global 0d0f | QEMU dispatch-smoke | logic_interpreter_probe: diagnostic_global_actions_dispatch_smoke |
 | `0xa5` | `muln` | var0, imm1 | muln | QEMU-validated | logic_interpreter_probe: muln_keeps_low_product_byte |
 | `0xa6` | `mulv` | var0, var1 | mulv | QEMU-validated | logic_interpreter_probe: mulv_keeps_low_product_byte |
 | `0xa7` | `divn` | var0, imm1 | divn | QEMU-validated | logic_interpreter_probe: divn_stores_quotient_byte |
 | `0xa8` | `divv` | var0, var1 | divv | QEMU-validated | logic_interpreter_probe: divv_stores_quotient_byte |
-| `0xa9` | `close_text_window_state` | - | close text window state | source-backed | Handler disassembly and local SQ2 bytecode scan; see logic_bytecode.md. |
-| `0xaa` | `copy_save_description_to_string_slot` | imm0 | copy save description to string slot | source-backed | Handler disassembly and local SQ2 bytecode scan; see logic_bytecode.md. |
-| `0xab` | `save_event_buffer_count` | - | save event buffer count | source-backed | Handler disassembly and local SQ2 bytecode scan; see logic_bytecode.md. |
-| `0xac` | `restore_event_buffer_count` | - | restore event buffer count | source-backed | Handler disassembly and local SQ2 bytecode scan; see logic_bytecode.md. |
-| `0xad` | `increment_global_1530` | - | increment global 1530 | source-backed | Handler disassembly and local SQ2 bytecode scan; see logic_bytecode.md. |
+| `0xa9` | `close_text_window_state` | - | close text window state | QEMU dispatch-smoke | logic_interpreter_probe: close_text_window_state_dispatch_smoke |
+| `0xaa` | `copy_save_description_to_string_slot` | imm0 | copy save description to string slot | QEMU dispatch-smoke | logic_interpreter_probe: diagnostic_global_actions_dispatch_smoke |
+| `0xab` | `save_event_buffer_count` | - | save event buffer count | QEMU dispatch-smoke | logic_interpreter_probe: diagnostic_global_actions_dispatch_smoke |
+| `0xac` | `restore_event_buffer_count` | - | restore event buffer count | QEMU dispatch-smoke | logic_interpreter_probe: diagnostic_global_actions_dispatch_smoke |
+| `0xad` | `increment_global_1530` | - | increment global 1530 | QEMU dispatch-smoke | logic_interpreter_probe: diagnostic_global_actions_dispatch_smoke |
 | `0xae` | `rebuild_priority_table_from_y` | imm0 | rebuild priority table from y | QEMU-validated | object_overlay_probe: priority-table rebuild effects |
 | `0xaf` | `noop_1_table_count` | imm0 | noop 1 table count | QEMU-validated | logic_interpreter_probe: noop_af_runtime_consumes_no_operand |
 
@@ -238,7 +238,7 @@ Evidence levels:
 | `0x09` | `obj_table_room_ff` | imm0 | obj table room ff | QEMU-validated | logic_interpreter_probe: inventory_marker_ff_condition_true |
 | `0x0a` | `obj_table_room_eq_var` | imm0, var1 | obj table room eq var | QEMU-validated | logic_interpreter_probe: inventory_marker_eq_var_condition_true |
 | `0x0b` | `object_left_baseline_in_rect` | imm0, imm1, imm2, imm3, imm4 | object left baseline in rect | QEMU-validated | logic_interpreter_probe: object_left_rect_condition_true |
-| `0x0c` | `status_byte_1218` | imm0 | status byte 1218 | source-backed | Handler disassembly and local SQ2 bytecode scan; see logic_bytecode.md. |
+| `0x0c` | `status_byte_1218` | imm0 | status byte 1218 | QEMU-validated | logic_interpreter_probe: mapped_key_sets_status_byte |
 | `0x0d` | `raw_key_event_available` | - | raw key event available | source-backed | Handler disassembly and local SQ2 bytecode scan; see logic_bytecode.md. |
 | `0x0e` | `input_word_sequence` | varlen word sequence | input word sequence | QEMU-validated | logic_interpreter_probe: parse_string_slot_sets_input_word_sequence |
 | `0x0f` | `string_slots_equal_normalized` | imm0, imm1 | string slots equal normalized | QEMU-validated | logic_interpreter_probe: set_string_from_message_equal_normalized |

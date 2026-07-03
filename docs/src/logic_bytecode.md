@@ -885,6 +885,11 @@ QEMU fixture `text_input_002` validates that `0x65`, `0x66`, and `0x97`
 display a message/window, accept Enter through the display helper, then return
 to following bytecode. The same batch validates one typed-input path for
 `0x76`: entering `42` stores byte value `42` in the destination variable.
+Later fixture `text_ui_003` validates the formatted/positioned display variants
+`0x67`, `0x68`, and `0x98` with the same return-to-bytecode behavior. These
+message paths can leave text-plane pixels visible after dismissal; the QEMU
+fixtures issue a full picture refresh (`0x1a`) before comparing graphics output
+when the validation draw would otherwise be contaminated by that display state.
 
 Menu/list-like UI actions use a circular list rooted at word globals
 `[0x1d2c]`, `[0x1d2e]`, and `[0x1d30]`. The final user-level names remain
@@ -921,8 +926,8 @@ Text-window and input-line actions:
 | `0x70` | `show_status_line_like` | `0x3547` | Sets word `[0x05d9] = 1` and calls helper `0x34bd`, which redraws a status-line-like text area using helpers `0x2b28`, `0x7989`, `0x2ba6`, `0x2b0d`, `0x2390`, `0x79c3`, and `0x2b4f`. |
 | `0x71` | `hide_status_line_like` | `0x355c` | Sets word `[0x05d9] = 0`, then calls helper `0x2ba6([0x05db], 0)` to clear the associated text area. |
 | `0x72` | `set_string_slot_from_message` | `0x0d37` | Computes destination `0x020d + arg0 * 0x28`, resolves current-logic message `arg1`, and copies up to `0x28` bytes into that fixed-size string slot through helper `0x4de8`. |
-| `0x73` | `prompt_string_to_slot` | `0x0c44` | Reads fixed string slot `arg0`, message number `arg1`, row-like byte `arg2`, column-like byte `arg3`, and max-length byte `arg4`. It clears the destination string slot, optionally positions text with `0x2b0d(arg2, arg3)` when `arg2 < 0x19`, displays the resolved current-logic message, accepts edited input through helper `0x0da9`, then restores the input-line/status display as needed. The accepted length is `min(arg4 + 1, 0x28)`. |
-| `0x74` | `set_string_slot_from_table` | `0x0d70` | Computes destination `0x020d + arg0 * 0x28`, reads a word pointer from `DS:0x0c8f + arg1 * 2`, and copies up to `0x28` bytes from that pointer into the string slot through helper `0x4de8`. In the static SQ2 `AGIDATA.OVL`, the sampled table entries at `0x0c8f` are zero-filled and this opcode was not encountered in the current local logic scan, so the label is provisional. |
+| `0x73` | `prompt_string_to_slot` | `0x0c44` | Reads fixed string slot `arg0`, message number `arg1`, row-like byte `arg2`, column-like byte `arg3`, and max-length byte `arg4`. It clears the destination string slot, optionally positions text with `0x2b0d(arg2, arg3)` when `arg2 < 0x19`, displays the resolved current-logic message, accepts edited input through `code.input.edit_string` (`0x0da9`), then restores the input-line/status display as needed. The accepted length is `min(arg4 + 1, 0x28)`. |
+| `0x74` | `set_string_slot_from_table` | `0x0d70` | Computes destination `0x020d + arg0 * 0x28`, reads a word pointer from `DS:0x0c8f + arg1 * 2`, and copies up to `0x28` bytes from that pointer into the string slot through helper `0x4de8`. In the static SQ2 `AGIDATA.OVL`, the sampled table entries at `0x0c8f` are zero-filled and this opcode was not encountered in the current local logic scan. QEMU fixture `input_key_string_behaviour_001` validates the copy semantics by patching only the generated fixture's `AGIDATA.OVL` so table entry 0 points to a synthetic `look` string. |
 | `0x75` | `parse_string_slot` | `0x1958` | Clears flags 2 and 4, reads a string-slot index `arg0`, and if `arg0 < 12` parses fixed string slot `0x020d + arg0 * 0x28` through helper `0x18ac`. The parser normalizes the string, looks words up in `WORDS.TOK`, and fills parsed-word tables used by condition `0x0e` (`input_word_sequence`). |
 | `0x76` | `prompt_number_to_var` | `0x71ed` | Displays current-logic message `arg0` as a prompt, accepts/edits up to four characters through helper `0x0da9`, parses the resulting buffer as a decimal number through helper `0x4e8d`, and stores the low byte in `var[arg1]`. It has two display paths: one using text helpers `0x2b0d`, `0x1f54`, `0x2390`, `0x37f7`, and `0x38d7`, and another using helpers `0x9c52` and `0x9d93` when display mode `[0x1130] == 2` and `[0x0d0f] == 0`. |
 | `0x77` | `disable_input_line_like` | `0x386f` | Sets word `[0x05d3] = 0`; unless display mode `[0x1130] == 2`, it calls helper `0x382e` and clears a text area through `0x2ba6([0x05d5], 0)`. This disables or hides an input-line-like display. |
@@ -933,10 +938,59 @@ Text-window and input-line actions:
 | `0xa4` | `clear_global_0d0f` | `0x394b` | Clears word `[0x0d0f]`. |
 | `0xa9` | `close_text_window_state` | `0x1f2b` | If word `[0x0d1d]` is nonzero, calls helper `0x560c([0x0d23], [0x0d25])`, which restores a saved display rectangle. It then clears words `[0x0d0f]` and `[0x0d1d]`. This is used both as a no-operand action and as an internal cleanup helper after message/window paths. |
 
-The current QEMU monitor keystroke harness can type into text prompts, but a
-trial `0x73` (`prompt_string_to_slot`) fixture left the editor active after
-typing `look` and Enter. Treat `0x73` as source-backed until its exact
-completion/event path is isolated.
+`code.input.edit_string` (`0x0da9`) is the shared line editor used by both
+`0x73` and `0x76`. Static disassembly shows that it clamps the requested maximum
+length to `0x28`, copies the destination buffer into a local edit buffer, draws
+the existing text, waits for a nonzero/non-`0xffff` event through
+`code.input.wait_event` (`0x45d7`), and dispatches key values through
+`data.input.edit_key_table` (`0x0e64`). Observed table entries map `0x08` to
+single-character backspace, `0x03` and `0x18` to clear-current-input, `0x0d` to
+accept by zero-terminating the local buffer and copying it back to the
+destination slot, and `0x1b` to cancel without copying. Other input bytes append
+when space remains and are echoed through the character display helper.
+
+QEMU fixture `prompt_string_003` validates the `0x73` path. One case proves the
+prompt returns after typed text plus Enter; a second initializes string slot 1
+from message text `look`, runs `0x73` into slot 0, then conditionally draws only
+if the two string slots compare equal. The matched capture proves that typed
+text was copied into the destination slot. Like the formatted-message probes,
+the fixture refreshes the picture with `0x1a` before the validation draw because
+the text overlay can otherwise remain visible in the captured display.
+
+QEMU fixture `text_ui_003` dispatch-smokes `0x77`, `0x78`, `0x89`, and `0x8a`
+as an input-line toggle/refresh/erase group, and `0x69`, `0x9a`, and `0xa9` as
+text-window or text-rectangle state operations. The rectangle-clear cases are
+still display-surface evidence rather than a full specification of BIOS text
+attribute behavior.
+
+QEMU fixture `text_status_002` dispatch-smokes the remaining low-risk
+text/status/input handlers in this cluster: `0x6d`, `0x6a`, and `0x6b` for
+text-attribute mode setup/teardown; `0x6e` for a one-count screen-shake return;
+`0x6c` and `0x6f` for prompt marker and input-line configuration; `0x70` and
+`0x71` for status-line show/hide; and `0x79` for key-event mapping table
+insertion. The source-backed details still matter: `0x6f` stores its first
+operand in `[0x05dd]`, stores operand + `0x15` in `[0x05df]`, and derives
+display offset global `[0x1379]` from that first operand. An intermediate QEMU
+run with first operand `1` shifted the later validation draw relative to the
+local renderer, so the final smoke fixture uses operand `0` and leaves
+non-default display-offset semantics for a dedicated behavior probe.
+
+QEMU fixture `input_key_string_behaviour_001` adds that dedicated behavior
+coverage. Case `input_line_config_operand1_offsets_display_by_8` runs
+`0x6f(1, 0, 22)`, refreshes the picture, and draws a view at script baseline
+80; the original interpreter capture matches the local renderer only when the
+expected baseline is 88, confirming the observed `arg0 << 3` offset in normal
+display mode. Case `mapped_key_sets_status_byte` installs `0x79('x', 0, 7)`,
+sends key `x`, and draws only when condition `0x0c` observes status byte
+`[0x1218 + 7]`. This confirms the path through `code.input.map_key_event`
+(`0x4c3d`) and helper `0x4566`, where a matching type-1 event becomes type 3
+and sets the mapped status byte.
+
+QEMU fixture `diagnostics_system_001` validates that `0x87`, `0x88`, and `0x8d`
+display their diagnostic/pause/version messages, accept Enter, and return to
+following bytecode. The same batch dispatch-smokes `0x83`, `0x84`, `0x8e`,
+`0xaa`, `0xab`, `0xac`, `0xad`, `0xa3`, and `0xa4` as low-risk global/system
+state handlers that execute and return.
 
 Resource/table actions outside the main object table:
 
@@ -950,7 +1004,7 @@ Resource/table actions outside the main object table:
 | `0x5f` | `set_entry_0971_marker_from_var` | `0x758c` | Resolves a table entry using immediate index `arg0`, then stores `var[arg1]` in byte `[entry+0x02]`. |
 | `0x60` | `set_entry_0971_marker_from_var_var` | `0x75b7` | Resolves a table entry using index `var[arg0]`, then stores `var[arg1]` in byte `[entry+0x02]`. |
 | `0x61` | `get_entry_0971_marker_to_var` | `0x75e2` | Resolves a table entry using index `var[arg0]`, then stores byte `[entry+0x02]` into `var[arg1]`. |
-| `0x7c` | `show_inventory_selection` | `0x31d8` | Builds a temporary 8-byte-per-row list from the 3-byte table rooted at `[0x0971]`, including only entries whose marker byte `[entry+0x02]` is `0xff`. For each included entry it stores the original table index, an item-name pointer computed as `[0x0971] + word[entry+0x00]`, and a two-column row/column position. It displays the header string at `0x0f26` ("You are carrying:"), a fallback string at `0x0f1e` ("nothing") when no rows exist, and either a selection prompt at `0x0f38` or a noninteractive return prompt at `0x0f5d` depending on flag 13. In interactive mode Enter writes the selected table index to byte variable `[0x22]`; Escape writes `0xff`. |
+| `0x7c` | `show_inventory_selection` | `0x31d8` | Builds a temporary 8-byte-per-row list from the 3-byte table rooted at `[0x0971]`, including only entries whose marker byte `[entry+0x02]` is `0xff`. For each included entry it stores the original table index, an item-name pointer computed as `[0x0971] + word[entry+0x00]`, and a two-column row/column position. It displays the header string at `0x0f26` ("You are carrying:"), a fallback string at `0x0f1e` ("nothing") when no rows exist, and either a selection prompt at `0x0f38` or a noninteractive return prompt at `0x0f5d` depending on flag 13. In interactive mode Enter writes the selected table index to absolute byte `DS:0x0022`; Escape writes `0xff` there. Because script byte variables begin at `DS:0x0009`, this is exposed to logic bytecode as variable `0x19`. QEMU batch `inventory_selection_001` validates Enter storing selected carried-entry index `0`, Escape storing `0xff`, and the noninteractive acknowledgement path returning to following bytecode. |
 | `0x79` | `map_key_event` | `0x4c3d` | Combines `arg0` and `arg1` into a little-endian key/event word, scans up to 39 four-byte slots rooted at `0x0145` for an empty first word, and stores the combined word at slot offset `+0` and `arg2` at slot offset `+2`. Helper `0x4566` later uses this table to convert matching type-1 event records into type-3 records carrying the mapped value. |
 | `0x81` | `display_view_resource_text_like` | `0x5ebf` | Displays or previews a view-like resource selected by immediate `arg0`. Helper `0x5edb` ensures the resource is loaded, temporarily sets `[0x0f18] = 1` around `0x39f7`, builds a temporary object-like record through `0x3ae7`, may render/cache it through helpers `0x9097`, `0x9db0`, `0x9db6`, and `0x5762` if enough memory is available, displays a string pointer derived from the loaded resource through `0x1ce8`, then cleans up any temporary allocation. |
 | `0xa2` | `display_view_resource_text_like_var` | `0x5e9b` | Same as `0x81`, but the resource number is read from `var[arg0]`. The action table metadata byte is `0x01`, but the handler itself clearly performs the variable lookup. |

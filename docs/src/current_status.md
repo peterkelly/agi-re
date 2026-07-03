@@ -12,7 +12,9 @@ variable, flag, comparison, arithmetic, selected object-field behavior,
 logic load/call variants, variable-backed resource/object variants, object
 rectangle predicates, string/message parsing, inventory/object marker
 operations, resource lifecycle paths, message display helpers, typed numeric
-input, menu/list dispatch, sound load/clear dispatch, and additional
+input, string prompt editing, formatted text display, input-line/text-window
+dispatch, text/status configuration dispatch, diagnostic/status message
+actions, menu/list dispatch, sound load/clear dispatch, and additional
 object/view getter and bitfield dispatch behavior through visible output.
 
 ## Confirmed Motion and Object Findings
@@ -142,11 +144,13 @@ Return to the logic interpreter:
    `0x46..0x4c`, including visible mode coverage for `0x48`, `0x4a`, and
    `0x4b`.
 2. Prefer QEMU fixture evidence for additional opcodes whose behavior can be made
-   visible. Resource lifecycle, message display, numeric input, menu dispatch,
-   and sound load/clear now have targeted coverage; most remaining
-   source-backed rows are the string editor, formatted/positioned text,
-   save/restore, restart/system, diagnostics, and full interactive menu/audio
-   paths.
+   visible. Resource lifecycle, message display, string/numeric input,
+   formatted/positioned text, input-line/window dispatch, text/status
+   configuration dispatch, selected diagnostics, menu dispatch, and sound
+   load/clear now have targeted coverage; most remaining source-backed rows are
+   key-map event conversion, `0x74` string-table copying in a non-empty table,
+   selection UI, save/restore/restart, room/system transition paths, and full
+   interactive menu/audio paths.
 3. Continue assigning symbolic labels to interpreter helpers, object globals,
    and scanner paths so later interpreter versions can be compared by role
    rather than by absolute address.
@@ -159,22 +163,30 @@ cluster into families that need specialized probes:
 - **Room/resource lifecycle:** `0x12` and `0x13` remain broad room/state switch
   paths. `0x15`, `0x1b`, `0x1c`, `0x20`, and `0x99` now have targeted
   QEMU-backed lifecycle fixtures.
-- **Text/window/input:** `0x65`, `0x66`, `0x76`, and `0x97` now have QEMU
-  evidence. `0x67..0x71`, `0x73`, `0x74`, `0x77..0x79`, `0x89`, `0x8a`,
-  `0x98`, `0x9a`, and `0xa9` still need specialized text/event probes. The
-  current monitor-input path can type into prompts, but a trial `0x73` string
-  prompt did not complete after `look` plus Enter.
-- **Menus and inventory UI:** `0x9c..0xa1` now have dispatch-smoke evidence.
-  `0x7c` and full interactive menu selection behavior still need deterministic
-  input/event probes; `0xa2` remains tied to the view-resource text display
-  path.
-- **Save/restore/restart/system:** `0x7d`, `0x7e`, `0x80`, `0x86`,
-  `0x8b..0x90`, and `0xaa..0xad`. Keep source-backed until file-system and
-  confirmation-dialog probes are isolated.
+- **Text/window/input:** `0x65`, `0x66`, `0x67`, `0x68`, `0x6a`, `0x6b`,
+  `0x6c`, `0x6d`, `0x6e`, `0x6f`, `0x70`, `0x71`, `0x73`, `0x76`, `0x77`,
+  `0x78`, `0x79`, `0x89`, `0x8a`, `0x97`, `0x98`, `0x9a`, and `0xa9` now have
+  QEMU behavior or dispatch-smoke evidence. The string editor helper is
+  statically mapped at `code.input.edit_string` and dynamically validated for
+  accepting `look` into a string slot. The follow-up behavior batch validates
+  `0x6f` nonzero display-offset semantics, `0x79` mapped-key event conversion
+  through condition `0x0c`, and `0x74` string-table copying using a synthetic
+  fixture-local table entry because the sampled SQ2 table is zero-filled.
+- **Menus and inventory UI:** `0x7c` now has QEMU behavior evidence for
+  interactive Enter, interactive Escape, and noninteractive acknowledgement.
+  The selection result is absolute byte `DS:0x0022`, exposed as script variable
+  `0x19`. `0x9c..0xa1` have dispatch-smoke evidence, but full interactive menu
+  selection still needs deterministic input/event probes; `0xa2` remains tied
+  to the view-resource text display path.
+- **Save/restore/restart/system:** `0x7d`, `0x7e`, `0x80`, `0x86`, `0x8b`,
+  `0x8c`, `0x8f`, `0x90`, `0x95`, and `0x96`. Keep source-backed until
+  file-system, display-mode, logging, and confirmation-dialog probes are
+  isolated. `0x87`, `0x88`, `0x8d`, and `0xaa..0xad` now have message or
+  dispatch-smoke coverage.
 - **Sound:** `0x62` and `0x64` now have dispatch-smoke evidence. `0x63`
   remains source-backed; visible confirmation may need flag-side-effect probes
   for completion rather than audio output.
-- **Diagnostics/global toggles:** `0x81`, `0x83..0x85`, `0x87`, `0x88`,
-  `0x8e`, `0x95`, `0x96`, `0xa3`, and `0xa4`. Some can probably be promoted
-  with variable/object state or screenshot probes, but they should be grouped
-  by shared helper paths first.
+- **Diagnostics/global toggles:** `0x83`, `0x84`, `0x87`, `0x88`, `0x8d`,
+  `0x8e`, `0xa3`, `0xa4`, and `0xaa..0xad` now have QEMU message or
+  dispatch-smoke evidence. `0x81`, `0x85`, `0x95`, and `0x96` remain
+  source-backed and should be grouped by shared helper paths before probing.

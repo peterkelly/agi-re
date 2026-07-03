@@ -4652,3 +4652,633 @@ Progress updates and outcomes:
      conversational history remains traceable."
 
      Action/result: Updated this progress log.
+
+594. Reported: "I'll take the whole chain: start source-first at `0x0da9`, then
+     adjust the input harness only where the disassembly says it should help,
+     then use QEMU as validation rather than exploration."
+
+     Action/result: Began the string editor and event-path pass.
+
+595. Reported: "I'm gathering the local disassembly context first: existing
+     notes, the `0x73` handler, the editor helper, and the event wait path."
+
+     Action/result: Searched docs/tools for prior `0x73` and `0x0da9`
+     evidence.
+
+596. Reported: "The existing docs already have the high-level `0x73` shape, but
+     not the completion key details. I'm reading raw disassembly around the
+     helper now."
+
+     Action/result: Confirmed the existing source-backed handler summary and
+     prepared focused executable slices.
+
+597. Reported: "The full disassembly file appears to be stale around this
+     helper, so I'm making fresh focused slices from the decrypted executable
+     with explicit image origins."
+
+     Action/result: Generated and disassembled slices around image `0x0c20` and
+     `0x4420`.
+
+598. Reported: "The editor helper is now clear enough to read structurally:
+     clamp length, copy current string to a local buffer, wait for events, then
+     dispatch through a key table. I'm dumping the table bytes so we don't infer
+     key names from control flow alone."
+
+     Action/result: Dumped key dispatch bytes at file offset `0x1060`.
+
+599. Reported: "The dispatch table is the important bit: Enter maps to the
+     accept/copy-back path, Escape returns without copy, Backspace edits, and
+     Ctrl-C/Ctrl-X clear. So QEMU should be able to complete `0x73`; the harness
+     probably isn't delivering the right event shape or timing."
+
+     Action/result: Identified `0x0d` as the accept key for
+     `code.input.edit_string`.
+
+600. Reported: "The disassembly says Enter really is a completion key, so I'm
+     going to separate two questions in the probes: did the prompt return at
+     all, and did it copy the edited string into the slot?"
+
+     Action/result: Planned separate return-only and string-slot equality
+     fixtures for `0x73`.
+
+601. Reported: "I'm adding a per-fixture key delay now; text prompts are one of
+     the few places where monitor keystroke timing can masquerade as interpreter
+     behavior."
+
+     Action/result: Added `post_launch_key_delay` to the QEMU fixture model.
+
+602. Reported: "The input delay plumbing is in. Next I'm making the `0x73`
+     cases explicit and keeping them out of the broad default batch until they
+     pass on their own."
+
+     Action/result: Added string prompt fixtures and kept them targeted.
+
+603. Reported: "I'm also adding low-risk system/diagnostic probes while I'm in
+     this file, because several remaining opcodes should only need an Enter
+     acknowledgement plus a validation draw."
+
+     Action/result: Added formatted text, input-line, text-window, and
+     diagnostics fixture cases.
+
+604. Reported: "The case registry tests need to learn about the new targeted
+     cases, then I'll do a focused Python test pass before waking QEMU."
+
+     Action/result: Updated unit tests for the new case registry and QEMU
+     fixture defaults.
+
+605. Reported: "The local code is ready for a sanity pass. I'm running focused
+     Python tests for the logic probe definitions and snapshot runner."
+
+     Action/result: Ran focused unit tests for `tools/logic_interpreter_probe.py`
+     and `tools/qemu_snapshot.py`.
+
+606. Reported: "Focused tests passed. I'm running two `0x73` probes first:
+     return-after-Enter and stores-typed-word."
+
+     Action/result: Started QEMU batch `prompt_string_001`.
+
+607. Reported: "QEMU is running string prompt checks. This is the narrowest
+     place to debug the key path before adding the larger text UI batch."
+
+     Action/result: Awaited the first string-prompt QEMU run.
+
+608. Reported: "The return-only `0x73` case still did not advance to the draw
+     after typed `look` plus Enter, despite the source saying Enter should
+     accept. I'm going to inspect the capture and then try sending the return
+     key as a named key event rather than as a typed newline character."
+
+     Action/result: Treated the mismatch as a harness/event-shape question.
+
+609. Reported: "The capture is the same editor-active state, so the next probe
+     change is to extend the key sender rather than change interpreter
+     expectations."
+
+     Action/result: Added support for named post-launch QEMU key events.
+
+610. Reported: "I'm also separating type text from press named key in the
+     fixture model, with a short wait between them. That gives the DOS keyboard
+     path a cleaner event sequence."
+
+     Action/result: Added `post_launch_after_text_wait` and
+     `post_launch_key_names`.
+
+611. Reported: "The `0x73` fixtures now type `look`, pause, then send a named
+     `ret` key. I'm rerunning the focused unit tests before trying QEMU again."
+
+     Action/result: Updated the string prompt fixtures for named Enter.
+
+612. Reported: "The local schema tests passed with the named-key fields. I'm
+     rerunning `0x73` now."
+
+     Action/result: Started QEMU batch `prompt_string_002`.
+
+613. Reported: "QEMU revised string prompt batch is running. If this still
+     stalls, the next source check will be the event normalizer around `0x45d7`
+     and `0x4634`."
+
+     Action/result: Awaited `prompt_string_002`.
+
+614. Reported: "Aha, the capture is more subtle: the typed prompt text is still
+     on-screen, but the validation draw may be happening underneath it. I'm
+     adding a full picture refresh after the prompt before comparing pixels."
+
+     Action/result: Diagnosed the mismatch as text overlay persistence rather
+     than editor non-completion.
+
+615. Reported: "I've inserted the refresh after `0x73`. That should make the
+     fixture prove string semantics instead of comparing against leftover text
+     pixels."
+
+     Action/result: Added `0x1a` before the validation draw in the `0x73`
+     probes.
+
+616. Reported: "The refreshed string-prompt batch is running now."
+
+     Action/result: Started QEMU batch `prompt_string_003`.
+
+617. Reported: "Nice, `0x73` is now validated: both the return-only case and
+     the typed-word storage case matched. The earlier failure was a display
+     cleanup artifact, not an editor completion failure."
+
+     Action/result: `prompt_string_003` matched 2/2.
+
+618. Reported: "I'm batching UI cases by risk: formatted messages and simple
+     input-line/window state first, then diagnostics/system actions after those
+     pass."
+
+     Action/result: Started the text UI QEMU probe sequence.
+
+619. Reported: "QEMU is running the text UI group now."
+
+     Action/result: Started QEMU batch `text_ui_001`.
+
+620. Reported: "The first formatted-message case mismatched, so I'm reading the
+     capture pattern before changing anything. Given the `0x73` lesson, text
+     overlay is the prime suspect."
+
+     Action/result: Investigated the first formatted-message mismatch.
+
+621. Reported: "The mismatch is exactly at the formatted message text location.
+     I'm applying the same validation split: acknowledge the message, refresh
+     the picture, then draw the object for comparison."
+
+     Action/result: Added refresh-before-validation to formatted message cases.
+
+622. Reported: "The formatted-message probes now separate text display from
+     graphics validation. I'm rerunning the six-case text UI batch."
+
+     Action/result: Started QEMU batch `text_ui_002`.
+
+623. Reported: "QEMU revised text UI batch is running."
+
+     Action/result: Awaited `text_ui_002`.
+
+624. Reported: "Four of six text UI cases passed. The rectangle-clear probe is
+     different: it deliberately changes top text rows, so I need to make the
+     fixture prove it returns before drawing, not preserve the cleared rows."
+
+     Action/result: Identified the text-rectangle clear comparison problem.
+
+625. Reported: "The rectangle-clear case returned but intentionally cleared
+     screen rows that the expected image assumed were normal. I'm inserting a
+     refresh before the validation draw there too."
+
+     Action/result: Added refresh-before-validation to text rectangle clear.
+
+626. Reported: "The text rectangle probe is corrected. I'm running just the two
+     remaining text-window cases first."
+
+     Action/result: Started QEMU batch `text_clear_001`.
+
+627. Reported: "The remaining text-clear/window cases passed. Now I'm rerunning
+     the full six-case text UI batch to keep one clean evidence artifact."
+
+     Action/result: `text_clear_001` matched 2/2 and `text_ui_003` was started.
+
+628. Reported: "QEMU clean combined text UI batch is running."
+
+     Action/result: Awaited `text_ui_003`.
+
+629. Reported: "The combined text UI batch passed. I'm moving on to the
+     diagnostic/system message group."
+
+     Action/result: `text_ui_003` matched 6/6 and diagnostics were started.
+
+630. Reported: "Diagnostics batch running now: pause, heap/status, interpreter
+     version, plus low-risk global action dispatch smoke."
+
+     Action/result: Started QEMU batch `diagnostics_system_001`.
+
+631. Reported: "All QEMU batches passed. I'm updating the generated opcode
+     evidence matrix so the docs reflect the new validated and dispatch-smoke
+     rows."
+
+     Action/result: `diagnostics_system_001` matched 4/4 and evidence metadata
+     was updated.
+
+632. Reported: "Generated evidence chapter refreshed. I'm doing the narrative
+     docs now: bytecode semantics, compatibility replay commands, symbolic
+     labels, current status, and the clean-room/progress logs."
+
+     Action/result: Regenerated `docs/src/logic_opcode_evidence.md` and began
+     the documentation update pass.
+
+633. Reported: "I'll proceed source-first: re-read the opcode handlers and
+     shared text/input helpers from the executable, then only use QEMU where it
+     gives us a clean confirmation test."
+
+     Action/result: Started the text/status configuration pass.
+
+634. Reported: "The prior docs already have decent summaries for this family,
+     but I'm going back to the bytes instead of trusting the summaries."
+
+     Action/result: Created focused executable slices around image offsets
+     `0x3400`, `0x7600`, `0x4c00`, and `0x0d60`.
+
+635. Reported: "The slices are ready. I'm reading them now with explicit
+     origins so the addresses line up with the existing symbolic map and later
+     cross-version comparisons."
+
+     Action/result: Disassembled the focused slices with `ndisasm`.
+
+636. Reported: "The static read confirms the family is more about global
+     text/display state than hidden game semantics: `0x70/0x71` are just
+     status-line flag plus redraw/clear; `0x6f` stores row/config globals;
+     `0x79` appends a 4-byte key mapping slot."
+
+     Action/result: Decided to add narrow QEMU dispatch-smoke tests while
+     keeping richer key-map semantics source-backed.
+
+637. Reported: "Before editing, I'm checking the probe helper shapes so the new
+     cases fit the existing harness instead of inventing a second style."
+
+     Action/result: Reviewed `tools/logic_interpreter_probe.py`, evidence
+     metadata, and case registry tests.
+
+638. Reported: "I'm adding small, explicit smoke fixtures now: one for
+     text-attribute mode setup/teardown, one for status line show/hide, one for
+     prompt/config globals, one for key-map table insertion, and one for
+     screen-shake return."
+
+     Action/result: Added five targeted QEMU cases.
+
+639. Reported: "The new cases are in the registry. I'm updating the case-list
+     tests and the evidence generator so the metadata matches the harness."
+
+     Action/result: Updated `tests/test_logic_interpreter_probe.py` and
+     `tools/logic_opcode_evidence.py`.
+
+640. Reported: "The metadata is patched. I'm running the focused Python tests
+     before QEMU so any mistake in fixture definitions fails cheaply."
+
+     Action/result: Focused Python tests passed.
+
+641. Reported: "Focused tests passed. I'm going to run just the five new QEMU
+     cases as a tight batch; that keeps this as confirmation evidence, not
+     fishing around."
+
+     Action/result: Started QEMU batch `text_status_001`.
+
+642. Reported: "QEMU is running the five-case status/input batch from a
+     snapshot now. If one of these fails, I'll treat it as a missing
+     precondition and go back to the static path rather than broadening the
+     test blindly."
+
+     Action/result: Awaited `text_status_001`.
+
+643. Reported: "The first two new cases matched: text-attribute setup/teardown
+     and one-count screen shake both returned cleanly. The prompt/config case
+     mismatched, so I'm inspecting that artifact before changing anything."
+
+     Action/result: Inspected `text_status_001` JSON and the mismatching PPM.
+
+644. Reported: "The mismatch is informative rather than mysterious: using
+     `0x6f` with row/config byte `1` changes display-position state enough that
+     the validation sprite appears at a different vertical offset than the local
+     renderer expects."
+
+     Action/result: Changed the `0x6f` smoke fixture to use first operand `0`.
+
+645. Reported: "The fixture correction is deliberately narrow. I'm rerunning
+     the Python sanity check, then I'll rerun the same five-case QEMU batch so
+     we have one clean artifact."
+
+     Action/result: Focused Python tests passed after the fixture correction.
+
+646. Reported: "Focused tests are still green. The revised QEMU batch is
+     starting now with the neutral `0x6f` row/config operand."
+
+     Action/result: Started QEMU batch `text_status_002`.
+
+647. Reported: "QEMU is running the corrected batch. The earlier failed run
+     will go into the clean-room notes as a useful constraint on `0x6f`:
+     operand 0 affects display offset state, so a later behavior probe can
+     target that directly."
+
+     Action/result: Awaited `text_status_002`.
+
+648. Reported: "Four of five have matched in the corrected batch; only the
+     key-event mapping smoke case is still running/awaiting capture."
+
+     Action/result: Awaited the final key-event mapping case.
+
+649. Reported: "The corrected batch matched 5/5. I'm regenerating the opcode
+     evidence chapter next, then I'll write down the static source findings
+     plus the QEMU confirmation and the one failed `0x6f` offset probe."
+
+     Action/result: `text_status_002` matched 5/5 and
+     `docs/src/logic_opcode_evidence.md` was regenerated.
+
+650. Reported: "I'm updating the symbolic map first. These labels give us
+     stable names for the status redraw, prompt marker, text attribute,
+     input-line configuration, and key-map insertion helpers instead of tying
+     future notes to raw offsets."
+
+     Action/result: Updated `docs/src/symbolic_labels.md`.
+
+651. Reported: "Next I'm folding the new source/QEMU distinction into the
+     bytecode chapter: the handlers are now smoke-tested, but some deeper
+     behavior, especially key-map event conversion and `0x6f` display offset
+     effects, remains a separate target."
+
+     Action/result: Updated `docs/src/logic_bytecode.md`.
+
+652. Reported: "I'm adding the replay command to the compatibility chapter now,
+     including the failed `text_status_001` lesson so future probes don't
+     accidentally rediscover that offset issue."
+
+     Action/result: Updated `docs/src/compatibility_testing.md`.
+
+653. Reported: "I'm updating the handoff/status page so 'remaining
+     source-backed text opcodes' doesn't keep pointing at work that now has at
+     least dispatch-smoke coverage."
+
+     Action/result: Updated `docs/src/current_status.md`.
+
+654. Reported: "The main spec pages are updated. I'm appending the clean-room
+     evidence trail with the exact disassembly slices, the QEMU mismatch, the
+     corrected run, and what each result proves."
+
+     Action/result: Updated `docs/src/clean_room_executable_notes.md`.
+
+655. Reported: "I'll turn the `0x6f` observation into a real behavior case
+     now: script draws the object at baseline `80`, but the expected capture
+     baseline is `88` when `0x6f` operand 0 is `1`."
+
+     Action/result: Began behavior-level probes for `0x6f`, `0x79`, and `0x74`.
+
+656. Reported: "I’m going to quantify the offset rather than eyeballing it.
+     The quick check is: compare the operand-1 capture against the same expected
+     sprite at several baselines and see which one minimizes mismatches."
+
+     Action/result: Compared the recreated operand-1 QEMU capture against
+     expected baselines `70..90`; baseline `88` matched exactly.
+
+657. Reported: "That resolved the ambiguity: the operand-1 capture matches
+     exactly if the expected sprite baseline is moved from `80` to `88`."
+
+     Action/result: Confirmed `0x6f` first operand `1` produces an
+     eight-logical-row visible offset in the observed mode.
+
+658. Reported: "Source check found the right path for `0x79`: condition `0x0d`
+     does not use the mapping table, but the top-level input helper does."
+
+     Action/result: Re-read condition `0x0d` and helper `0x4566`; identified
+     condition `0x0c` as the observation point for mapped type-3 events.
+
+659. Reported: "I’m adding two behavior-level cases now: one where
+     `0x6f(1,...)` must move the visible baseline from 80 to 88, and one where
+     `0x79` maps `x` to status byte 7 and a later cycle draws only after
+     condition `0x0c 7` sees it."
+
+     Action/result: Added `input_line_config_operand1_offsets_display_by_8` and
+     `mapped_key_sets_status_byte`.
+
+660. Reported: "The behavior cases are added. I’m updating tests and evidence
+     metadata so `0x6f` and `0x79` can move from smoke evidence to behavior
+     evidence if the batch matches."
+
+     Action/result: Updated the case registry test and opcode evidence
+     generator.
+
+661. Reported: "The focused test caught a harness-shape mistake:
+     `_draw_if_case` doesn’t take `init_once_flag`. I’m switching that
+     mapped-key case to the lower-level `_custom_case`."
+
+     Action/result: Reworked the mapped-key case as one-time setup plus
+     per-cycle conditional draw.
+
+662. Reported: "Focused tests are green. I’m running the two behavior
+     confirmations now: `0x6f` offset and `0x79` mapped key to status byte."
+
+     Action/result: Started QEMU batch `input_key_behaviour_001`.
+
+663. Reported: "The `0x6f` behavior case matched: operand 1 produced the
+     expected 8-row visible offset. The mapped-key case is still running."
+
+     Action/result: First case of `input_key_behaviour_001` matched.
+
+664. Reported: "Both behavior probes matched. I’m moving to `0x74` now: first
+     I’ll inspect the table bytes around `0x0c8f`, then decide whether a
+     fixture-local `AGIDATA.OVL` patch is a safe way to create a non-empty table
+     entry for dynamic confirmation."
+
+     Action/result: `input_key_behaviour_001` matched 2/2 and the `0x74` table
+     area was inspected.
+
+665. Reported: "`0x74` has a convenient zero-filled pocket right after the
+     pointer table. I’m going to make the dynamic test explicit and synthetic:
+     patch only the generated fixture’s `AGIDATA.OVL` so table entry 0 points
+     to a local `look\\0` string."
+
+     Action/result: Added fixture-local `AGIDATA.OVL` patch support and a
+     synthetic `0x74` behavior case.
+
+666. Reported: "The synthetic `AGIDATA` patch support is in. I need one small
+     follow-up: thread that optional patch list through `_draw_if_case`, since
+     the new `0x74` case uses that convenience wrapper."
+
+     Action/result: Passed `agidata_patches` through `_draw_if_case`.
+
+667. Reported: "The probe and evidence metadata are ready. I’m running focused
+     tests again before the QEMU batch that combines `0x6f`, `0x79`, and
+     synthetic `0x74`."
+
+     Action/result: Focused Python tests passed.
+
+668. Reported: "Focused tests passed. I’m running the three targeted QEMU cases
+     now; the `0x74` one uses only a fixture-local `AGIDATA.OVL` patch, not a
+     change to the SQ2 source files."
+
+     Action/result: Started QEMU batch `input_key_string_behaviour_001`.
+
+669. Reported: "QEMU is running the three-case behavior batch. This should give
+     us one clean artifact covering the offset, mapped-key event path, and the
+     patched pointer-table copy."
+
+     Action/result: Awaited `input_key_string_behaviour_001`.
+
+670. Reported: "The three targeted confirmations all matched. I’ll regenerate
+     the evidence matrix and update the docs for these before moving on to the
+     inventory/menu source pass, so the text/input family has a clean stopping
+     point."
+
+     Action/result: `input_key_string_behaviour_001` matched 3/3 and the
+     opcode evidence chapter was regenerated.
+
+671. Reported: "The evidence chapter is regenerated. I’m updating the narrative
+     docs with the new distinction: `0x6f`, `0x79`, `0x74`, and condition
+     `0x0c` now have behavior evidence, with `0x74` clearly marked as a
+     synthetic table-entry fixture."
+
+     Action/result: Updated bytecode, compatibility, and current-status docs.
+
+672. Reported: "The user-facing docs now reflect the behavior batch. I’m
+     appending the clean-room evidence trail with the exact commands, including
+     the synthetic `AGIDATA` patch rationale for `0x74`."
+
+     Action/result: Updated `docs/src/clean_room_executable_notes.md`.
+
+673. Reported: "I’m picking up from the source-first inventory/menu pass. The
+     text/key/string-table probes are in place; now I’m going to turn the
+     inventory disassembly notes into a couple of focused behavior checks so the
+     docs don’t just say 'looks like,' they have original-engine evidence behind
+     them."
+
+     Action/result: Re-read local harness, QEMU input helpers, test registry,
+     symbolic labels, and the existing `0x7c` documentation.
+
+674. Reported: "The local state already includes the static inventory
+     description, and the symbolic label file has the core inventory table
+     label. I’m checking the harness details before editing so the new probes
+     use the same QEMU input path as the earlier text/editor cases."
+
+     Action/result: Confirmed `post_launch_keys` and named-key support in
+     `tools/qemu_snapshot.py`.
+
+675. Reported: "The source-backed model for `0x7c` is tight enough to probe:
+     flag 13 selects interactive mode, carried entries are the ones with marker
+     `0xff`, Enter stores the selected index in variable `0x22`, and Escape
+     stores `0xff`. I’m adding exactly those cases now."
+
+     Action/result: Added initial inventory selection probes, later corrected
+     the variable interpretation from bytecode variable `0x22` to absolute byte
+     `DS:0x0022`.
+
+676. Reported: "The three new inventory fixtures are deliberately small: one
+     Enter path, one Escape path, and one noninteractive acknowledgement path.
+     They all draw only after `0x7c` returns, so a match tells us the handler
+     both accepted the key and resumed the bytecode stream."
+
+     Action/result: Added probe registry tests for the three inventory cases.
+
+677. Reported: "The harness-level tests are happy. Next I’m running the
+     original engine batch; this is the useful part for compatibility because it
+     checks the disassembly-derived interpretation against DOS/QEMU captures."
+
+     Action/result: Focused Python tests passed; started QEMU batch
+     `inventory_selection_001`.
+
+678. Reported: "QEMU is in the snapshot batch now: it has prebuilt the three
+     DOS fixture directories and is replaying them from one DOS prompt
+     snapshot. If the Escape monitor key name is wrong, this run should make
+     that obvious from the first mismatch."
+
+     Action/result: Initial QEMU batch mismatched on the Enter case.
+
+679. Reported: "The first inventory probe did not match, so I’m not going to
+     paper over it. I’m going back to the generated fixture and capture to see
+     whether the key timing, carried-entry setup, or my conditional draw
+     expectation is the wrong piece."
+
+     Action/result: Inspected the JSON report and generated capture; the handler
+     returned but the validation condition was false.
+
+680. Reported: "The capture is not an inventory screen; it is essentially a
+     text-mode/DOS-looking bottom band, which means the probe did not make it
+     through the intended visual path before the screenshot. I’m checking
+     whether the fixture launched, whether the carried-object setup exposed a
+     blocking text window, and whether the baseline expectation needs to account
+     for text-mode cleanup."
+
+     Action/result: Re-read the inventory disassembly and identified the
+     absolute byte store at `DS:0x0022`.
+
+681. Reported: "Found the issue, and it’s a good catch from the disassembly:
+     the inventory handler writes absolute `DS:0x0022`, while byte variables are
+     based at `DS:0x0009`. So the script-visible variable is `0x19`, not
+     `0x22`. I’m correcting the probe and docs language rather than treating the
+     failed QEMU run as noise."
+
+     Action/result: Renamed and corrected the inventory Enter/Escape probes to
+     check bytecode variable `0x19`.
+
+682. Reported: "The corrected bytecode now checks variable `0x19`, matching the
+     absolute store at `0x0022`. I’m rerunning the same original-engine batch
+     with the corrected case IDs."
+
+     Action/result: Focused tests passed; started the corrected QEMU batch.
+
+683. Reported: "The batch is running again from a fresh snapshot disk. This
+     should also tell us whether QEMU’s monitor `esc` key name is accepted by
+     the DOS event loop for this interpreter path."
+
+     Action/result: Corrected `inventory_selection_001` matched 3/3, including
+     the named `esc` key path.
+
+684. Reported: "Good, all three inventory probes match now. The failed run was
+     useful: it exposed that the handler’s absolute byte store maps to script
+     variable `0x19`, which is exactly the kind of cross-address detail we want
+     nailed down before generalizing."
+
+     Action/result: Prepared to promote `0x7c` in the opcode evidence matrix.
+
+685. Reported: "I’m promoting `0x7c` in the evidence generator from
+     source-only/smoke status to behavior-validated status now that the Enter,
+     Escape, and acknowledgement paths have QEMU matches."
+
+     Action/result: Updated `tools/logic_opcode_evidence.py` and regenerated
+     `docs/src/logic_opcode_evidence.md`.
+
+686. Reported: "I’m updating the written trail now: the bytecode chapter needs
+     the corrected variable mapping, the compatibility chapter needs the replay
+     command, and the clean-room notes need both the failed and successful runs
+     because that failure changed the spec."
+
+     Action/result: Updated the `0x7c` bytecode row.
+
+687. Reported: "The `0x7c` table row now says 'absolute `DS:0x0022`, exposed as
+     variable `0x19`,' which is the key correction. I’m also adding stable
+     symbolic names for the inventory/list and menu routines so later
+     interpreter-version comparisons have anchors beyond raw addresses."
+
+     Action/result: Added inventory and menu labels to
+     `docs/src/symbolic_labels.md`.
+
+688. Reported: "The symbolic labels now include `code.inventory.*`,
+     `code.menu.*`, and the selection result byte. I’m recording the QEMU replay
+     batch in the compatibility chapter next."
+
+     Action/result: Added the `inventory_selection_001` replay command and
+     result to `docs/src/compatibility_testing.md`.
+
+689. Reported: "The status and compatibility docs are updated. I’m appending
+     the detailed evidence log now, including the initial mismatch because it
+     documents the correction from 'variable `0x22`' to 'absolute `0x0022` /
+     variable `0x19`.'"
+
+     Action/result: Added the inventory selection source/QEMU pass to
+     `docs/src/clean_room_executable_notes.md`.
+
+690. Reported: "The documentation trail is caught up. I’m running the full
+     verification set now: unit discovery, opcode evidence check, mdBook build,
+     and whitespace diff check."
+
+     Action/result: Started full validation.
+
+691. Reported: "All verification passed: 99 unit tests, evidence check, mdBook
+     build, and `git diff --check`. I’m doing one final diff/status pass so I
+     can summarize exactly what changed without mixing generated build artifacts
+     into the answer."
+
+     Action/result: Verified final status and diff summary.

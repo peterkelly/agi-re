@@ -56,6 +56,10 @@ class LogicInterpreterCase:
     expected_picture_payload_hex: str | None = None
     post_launch_keys: str = ""
     post_launch_wait: float = 0.0
+    post_launch_key_delay: float = 0.03
+    post_launch_after_text_wait: float = 0.0
+    post_launch_key_names: list[str] | None = None
+    agidata_patches: list[dict[str, object]] | None = None
 
     @property
     def code(self) -> bytes:
@@ -175,6 +179,10 @@ def obj_table_room_eq_var_condition(index: int, var_no: int) -> bytes:
     return bytes([0x0A, index, var_no])
 
 
+def status_byte_condition(index: int) -> bytes:
+    return bytes([0x0C, index])
+
+
 def object_rect_condition(opcode: int, object_no: int, left: int, top: int, right: int, bottom: int) -> bytes:
     return bytes([opcode, object_no, left, top, right, bottom])
 
@@ -265,6 +273,10 @@ def _custom_case(
     expected_picture_payload: bytes | None = None,
     post_launch_keys: str = "",
     post_launch_wait: float = 0.0,
+    post_launch_key_delay: float = 0.03,
+    post_launch_after_text_wait: float = 0.0,
+    post_launch_key_names: list[str] | None = None,
+    agidata_patches: list[dict[str, object]] | None = None,
 ) -> LogicInterpreterCase:
     if init_once_flag is not None and per_cycle_body:
         code = one_time_with_per_cycle_code(
@@ -300,6 +312,10 @@ def _custom_case(
         None if expected_picture_payload is None else expected_picture_payload.hex(),
         post_launch_keys,
         post_launch_wait,
+        post_launch_key_delay,
+        post_launch_after_text_wait,
+        post_launch_key_names,
+        agidata_patches,
     )
 
 
@@ -317,6 +333,10 @@ def _draw_if_case(
     messages: list[str] | None = None,
     post_launch_keys: str = "",
     post_launch_wait: float = 0.0,
+    post_launch_key_delay: float = 0.03,
+    post_launch_after_text_wait: float = 0.0,
+    post_launch_key_names: list[str] | None = None,
+    agidata_patches: list[dict[str, object]] | None = None,
 ) -> LogicInterpreterCase:
     return _custom_case(
         case_id,
@@ -330,6 +350,10 @@ def _draw_if_case(
         messages=messages,
         post_launch_keys=post_launch_keys,
         post_launch_wait=post_launch_wait,
+        post_launch_key_delay=post_launch_key_delay,
+        post_launch_after_text_wait=post_launch_after_text_wait,
+        post_launch_key_names=post_launch_key_names,
+        agidata_patches=agidata_patches,
     )
 
 
@@ -835,6 +859,65 @@ def base_cases() -> list[LogicInterpreterCase]:
             post_launch_keys="\n",
             post_launch_wait=1.0,
         ),
+        _custom_case(
+            "display_formatted_message_then_ack_continues_to_draw",
+            "Action 0x67 displays a positioned/formatted message, accepts Enter, and returns to following bytecode.",
+            byte_action(0x67, 5, 5, 1) + byte_action(0x1A) + draw_view11_at(50),
+            50,
+            messages=["HELLO"],
+            post_launch_keys="\n",
+            post_launch_wait=1.0,
+        ),
+        _custom_case(
+            "display_formatted_message_var_then_ack_continues_to_draw",
+            "Action 0x68 reads positioned/formatted display operands from variables, accepts Enter, and returns.",
+            assignn(1, 5)
+            + assignn(2, 5)
+            + assignn(3, 1)
+            + byte_action(0x68, 1, 2, 3)
+            + byte_action(0x1A)
+            + draw_view11_at(50),
+            50,
+            messages=["HELLO"],
+            post_launch_keys="\n",
+            post_launch_wait=1.0,
+        ),
+        _custom_case(
+            "display_message_configured_var_then_ack_continues_to_draw",
+            "Action 0x98 reads the message number from a variable while using immediate display configuration bytes.",
+            assignn(1, 1) + byte_action(0x98, 1, 5, 5, 12) + byte_action(0x1A) + draw_view11_at(50),
+            50,
+            messages=["HELLO"],
+            post_launch_keys="\n",
+            post_launch_wait=1.0,
+        ),
+        _custom_case(
+            "prompt_string_to_slot_returns_after_enter",
+            "Action 0x73 accepts typed text through helper 0x0da9 and returns to following bytecode after Enter.",
+            byte_action(0x73, 0, 1, 10, 10, 8) + byte_action(0x1A) + draw_view11_at(50),
+            50,
+            messages=["WORD?"],
+            post_launch_keys="look",
+            post_launch_wait=1.0,
+            post_launch_key_delay=0.12,
+            post_launch_after_text_wait=0.5,
+            post_launch_key_names=["ret"],
+        ),
+        _custom_case(
+            "prompt_string_to_slot_stores_typed_word",
+            "Action 0x73 stores typed text into a string slot; condition 0x0f observes equality with a message-filled slot.",
+            byte_action(0x72, 1, 2)
+            + byte_action(0x73, 0, 1, 10, 10, 8)
+            + byte_action(0x1A)
+            + if_then(string_slots_equal_condition(0, 1), draw_view11_at(50)),
+            50,
+            messages=["WORD?", "look"],
+            post_launch_keys="look",
+            post_launch_wait=1.0,
+            post_launch_key_delay=0.12,
+            post_launch_after_text_wait=0.5,
+            post_launch_key_names=["ret"],
+        ),
         _draw_if_case(
             "prompt_number_to_var_accepts_digits",
             "Action 0x76 accepts typed decimal digits and stores the parsed low byte in a variable.",
@@ -843,6 +926,91 @@ def base_cases() -> list[LogicInterpreterCase]:
             messages=["NUMBER?"],
             post_launch_keys="42\n\n",
             post_launch_wait=1.0,
+        ),
+        _custom_case(
+            "input_line_toggle_refresh_erase_dispatch_smoke",
+            "Actions 0x77, 0x78, 0x89, and 0x8a update input-line display state and return to following bytecode.",
+            byte_action(0x77) + byte_action(0x78) + byte_action(0x89) + byte_action(0x8A) + draw_view11_at(50),
+            50,
+        ),
+        _custom_case(
+            "text_rect_clear_dispatch_smoke",
+            "Actions 0x69 and 0x9a clear text rectangles and return to following bytecode.",
+            byte_action(0x69, 0, 0, 0)
+            + byte_action(0x9A, 0, 0, 1, 10, 0)
+            + byte_action(0x1A)
+            + draw_view11_at(50),
+            50,
+        ),
+        _custom_case(
+            "close_text_window_state_dispatch_smoke",
+            "Action 0xa9 closes any active text-window state and returns to following bytecode.",
+            byte_action(0xA9) + draw_view11_at(50),
+            50,
+        ),
+        _custom_case(
+            "text_attribute_mode_dispatch_smoke",
+            "Actions 0x6d, 0x6a, and 0x6b configure text attributes, enter/leave the alternate text mode, and return.",
+            byte_action(0x6D, 15, 0)
+            + byte_action(0x6A)
+            + byte_action(0x6B)
+            + byte_action(0x1A)
+            + draw_view11_at(50),
+            50,
+        ),
+        _custom_case(
+            "screen_shake_dispatch_smoke",
+            "Action 0x6e performs one display-shake iteration and returns to following bytecode.",
+            byte_action(0x6E, 1) + byte_action(0x1A) + draw_view11_at(50),
+            50,
+        ),
+        _custom_case(
+            "input_prompt_config_dispatch_smoke",
+            "Actions 0x6c and 0x6f configure the prompt character and input-line geometry globals, then return.",
+            byte_action(0x6C, 1) + byte_action(0x6F, 0, 0, 22) + byte_action(0x1A) + draw_view11_at(50),
+            50,
+            messages=["?"],
+        ),
+        _custom_case(
+            "status_line_show_hide_dispatch_smoke",
+            "Actions 0x70 and 0x71 show and hide the status-line-like area and return to following bytecode.",
+            byte_action(0x70) + byte_action(0x71) + byte_action(0x1A) + draw_view11_at(50),
+            50,
+        ),
+        _custom_case(
+            "key_event_mapping_dispatch_smoke",
+            "Action 0x79 inserts one key/event mapping table entry and returns to following bytecode.",
+            byte_action(0x79, ord("x"), 0, 7) + draw_view11_at(50),
+            50,
+        ),
+        _custom_case(
+            "input_line_config_operand1_offsets_display_by_8",
+            "Action 0x6f with first operand 1 offsets later visible drawing by eight logical rows.",
+            byte_action(0x6F, 1, 0, 22) + byte_action(0x1A) + draw_view11_at(50),
+            50,
+            expected_baseline_y=88,
+        ),
+        _custom_case(
+            "mapped_key_sets_status_byte",
+            "Action 0x79 maps typed key x to status byte 7 through the event loop; condition 0x0c observes it.",
+            byte_action(0x79, ord("x"), 0, 7),
+            50,
+            init_once_flag=85,
+            per_cycle_body=if_then(status_byte_condition(7), draw_view11_at(50)),
+            post_launch_keys="x",
+            post_launch_wait=1.0,
+            post_launch_key_delay=0.12,
+        ),
+        _draw_if_case(
+            "set_string_from_table_copies_patched_pointer",
+            "Action 0x74 copies from a DS pointer table entry into a string slot; this fixture patches a synthetic table entry.",
+            byte_action(0x74, 0, 0) + byte_action(0x72, 1, 1),
+            string_slots_equal_condition(0, 1),
+            messages=["look"],
+            agidata_patches=[
+                {"offset": 0x0C8F, "data_hex": "c00c"},
+                {"offset": 0x0CC0, "data_hex": "6c6f6f6b00"},
+            ],
         ),
         _draw_if_case(
             "inventory_marker_ff_condition_true",
@@ -879,6 +1047,30 @@ def base_cases() -> list[LogicInterpreterCase]:
             "Action 0x60 stores a variable value into a variable-selected inventory/object-table index.",
             assignn(1, 0) + assignn(2, 9) + byte_action(0x60, 1, 2) + byte_action(0x61, 1, 3),
             var_eq_imm_condition(3, 9),
+        ),
+        _draw_if_case(
+            "inventory_selection_enter_sets_var19",
+            "Interactive action 0x7c writes the selected carried-entry index to absolute byte 0x0022, exposed as variable 0x19, on Enter.",
+            assignn(0x19, 0x7E) + byte_action(0x5C, 0) + set_flag_action(0x0D) + byte_action(0x7C) + byte_action(0x1A),
+            var_eq_imm_condition(0x19, 0),
+            post_launch_keys="\n",
+            post_launch_wait=1.0,
+        ),
+        _draw_if_case(
+            "inventory_selection_escape_sets_var19_ff",
+            "Interactive action 0x7c writes 0xff to absolute byte 0x0022, exposed as variable 0x19, on Escape.",
+            assignn(0x19, 0x7E) + byte_action(0x5C, 0) + set_flag_action(0x0D) + byte_action(0x7C) + byte_action(0x1A),
+            var_eq_imm_condition(0x19, 0xFF),
+            post_launch_key_names=["esc"],
+            post_launch_wait=1.0,
+        ),
+        _custom_case(
+            "inventory_selection_noninteractive_ack_returns",
+            "Noninteractive action 0x7c waits for acknowledgement and then returns to following bytecode.",
+            byte_action(0x5C, 0) + byte_action(0x7C) + byte_action(0x1A) + draw_view11_at(50),
+            50,
+            post_launch_keys="\n",
+            post_launch_wait=1.0,
         ),
         _draw_if_case(
             "object_view_metadata_getters",
@@ -1227,6 +1419,45 @@ def base_cases() -> list[LogicInterpreterCase]:
             byte_action(0x62, 1) + byte_action(0x64) + draw_view11_at(50),
             50,
         ),
+        _custom_case(
+            "pause_message_then_ack_continues_to_draw",
+            "Action 0x88 displays the pause message, accepts Enter, and returns to following bytecode.",
+            byte_action(0x88) + draw_view11_at(50),
+            50,
+            post_launch_keys="\n",
+            post_launch_wait=1.0,
+        ),
+        _custom_case(
+            "heap_status_then_ack_continues_to_draw",
+            "Action 0x87 displays heap/status diagnostics, accepts Enter, and returns to following bytecode.",
+            byte_action(0x87) + draw_view11_at(50),
+            50,
+            post_launch_keys="\n",
+            post_launch_wait=1.0,
+        ),
+        _custom_case(
+            "interpreter_version_then_ack_continues_to_draw",
+            "Action 0x8d displays interpreter version text, accepts Enter, and returns to following bytecode.",
+            byte_action(0x8D) + draw_view11_at(50),
+            50,
+            post_launch_keys="\n",
+            post_launch_wait=1.0,
+        ),
+        _custom_case(
+            "diagnostic_global_actions_dispatch_smoke",
+            "Actions 0x83, 0x84, 0x8e, 0xaa..0xad, 0xa3, and 0xa4 update interpreter globals and return.",
+            byte_action(0x83)
+            + byte_action(0x84)
+            + byte_action(0x8E, 1)
+            + byte_action(0xAA, 0)
+            + byte_action(0xAB)
+            + byte_action(0xAC)
+            + byte_action(0xAD)
+            + byte_action(0xA3)
+            + byte_action(0xA4)
+            + draw_view11_at(50),
+            50,
+        ),
     ]
 
 
@@ -1252,6 +1483,14 @@ def qemu_batch_dos_dir(prefix: str, index: int) -> str:
 
 def build_logic_fixture(case: LogicInterpreterCase, destination: Path) -> Path:
     copy_sq2_tree(destination)
+    if case.agidata_patches:
+        agidata_path = destination / "AGIDATA.OVL"
+        agidata = bytearray(agidata_path.read_bytes())
+        for patch in case.agidata_patches:
+            offset = int(patch["offset"])
+            data = bytes.fromhex(str(patch["data_hex"]))
+            agidata[offset : offset + len(data)] = data
+        agidata_path.write_bytes(agidata)
     records = bytearray()
     logic_offsets: dict[int, int] = {0: 0}
     records.extend(volume_record(logic_resource(case.code, case.messages), volume=3))
@@ -1371,6 +1610,9 @@ def run_snapshot_batch(
                 capture,
                 post_launch_keys=case.post_launch_keys,
                 post_launch_wait=case.post_launch_wait,
+                post_launch_key_delay=case.post_launch_key_delay,
+                post_launch_after_text_wait=case.post_launch_after_text_wait,
+                post_launch_key_names=case.post_launch_key_names,
             )
         )
 
