@@ -621,9 +621,27 @@ Resource and interpreter-control actions observed so far:
 | `0x63` | `start_sound_with_flag` | `0x51d3` | Stops any active sound-like state through `0x5234`, reads immediate sound number `arg0` and immediate flag number `arg1`, stores `arg1` in word `[0x126a]`, clears flag `arg1`, locates or loads sound `arg0` through helper `0x50d8`, and starts it through helper `0x7f96`. If the sound cannot be loaded, it reports error code 9 with the sound number. |
 | `0x64` | `stop_sound_or_clear_sound_state` | `0x5225` | Calls helper `0x5234`, which clears a pending sound-like state at `[0x1258]`, sets flag `[0x126a]`, and calls `0x080af` when that state was active. |
 
-QEMU fixture `load_view_var_allows_following_draw` validates the variable view
-load path by starting without the usual preloaded view 11, setting a variable to
-11, executing `0x1f`, and then successfully drawing that view.
+QEMU fixture `resource_lifecycle_003` validates several resource lifecycle
+paths with synthetic resources:
+
+- `0x15` (`load_logic_var`) can load a variable-selected logic resource before
+  `0x16` calls it.
+- `0x1c` (`overlay_picture_var`) requires the target picture to have already
+  been loaded with `0x18`. The overlay changes logical picture state, but the
+  composed picture was not visible in the QEMU capture until `0x1a`
+  (`show_picture_like`) ran afterward.
+- `0x1b` (`discard_picture_var`) can discard a loaded picture and allow a
+  later reload/overlay path.
+- `0x20` (`discard_view`) and `0x99` (`discard_view_var`) can discard a loaded
+  view; reloading that view with `0x1e` then permits normal drawing.
+- `0x1f` (`load_view_var`) is validated by starting without the usual
+  preloaded view 11, setting a variable to 11, executing `0x1f`, and then
+  successfully drawing that view.
+
+QEMU fixture `menu_sound_001` dispatch-smokes `0x62` (`load_sound`) followed by
+`0x64` (`stop_sound_or_clear_sound_state`) with sound resource 1. This proves
+the load/clear handlers execute and return to following bytecode; it does not
+model sound playback or completion-flag timing for `0x63`.
 
 Room/state switch helper `0x1792`, reached by actions `0x12` (`switch_room_like`) and
 `0x13` (`switch_room_like_var`),
@@ -863,6 +881,11 @@ helper `0x21f0`.
 | `0x97` | `display_message_configured` | `0x1c54` | Reads immediate message number `arg0`, then reads three additional bytes into globals `[0x0d0b]`, `[0x0d0d]`, and `[0x0d09]` before resolving and displaying the message; the globals are reset to `0xffff` afterward. |
 | `0x98` | `display_message_configured_var` | `0x1c71` | Same as `0x97`, but message number is `var[arg0]`. |
 
+QEMU fixture `text_input_002` validates that `0x65`, `0x66`, and `0x97`
+display a message/window, accept Enter through the display helper, then return
+to following bytecode. The same batch validates one typed-input path for
+`0x76`: entering `42` stores byte value `42` in the destination variable.
+
 Menu/list-like UI actions use a circular list rooted at word globals
 `[0x1d2c]`, `[0x1d2e]`, and `[0x1d30]`. The final user-level names remain
 provisional; the observed structures look like a top-level list of headings
@@ -876,6 +899,12 @@ with per-heading circular sublists of selectable items.
 | `0x9f` | `enable_menu_item_like` | `0x92ee` | Calls helper `0x935f(arg0, 1)`. The helper walks all active heading/item lists, finds item nodes whose id at `[node+0x0c]` equals `arg0`, and writes `[node+0x0a] = 1`. |
 | `0xa0` | `disable_menu_item_like` | `0x9340` | Calls helper `0x935f(arg0, 0)`, clearing `[node+0x0a]` for matching item ids. |
 | `0xa1` | `mark_menu_if_flag_0e` | `0x93b1` | Tests flag `0x0e` through helper `0x74e4`; if set, stores word `[0x1d22] = 1`. Its role is likely tied to the same menu/list UI state, but no direct list traversal occurs in this handler. |
+
+QEMU fixture `menu_sound_001` dispatch-smokes `0x9c..0xa0` by creating a
+heading, adding one item, finalizing the structure, disabling and re-enabling
+that item id, and then drawing a known view. A separate case sets flag `0x0e`,
+runs `0xa1`, and draws. These probes prove handler execution and bytecode
+return only; they do not yet validate interactive menu selection semantics.
 
 Text-window and input-line actions:
 
@@ -903,6 +932,11 @@ Text-window and input-line actions:
 | `0xa3` | `set_global_0d0f` | `0x3939` | Sets word `[0x0d0f] = 1`; helper `0x3652` uses this global while computing input-line width and redraw behavior. |
 | `0xa4` | `clear_global_0d0f` | `0x394b` | Clears word `[0x0d0f]`. |
 | `0xa9` | `close_text_window_state` | `0x1f2b` | If word `[0x0d1d]` is nonzero, calls helper `0x560c([0x0d23], [0x0d25])`, which restores a saved display rectangle. It then clears words `[0x0d0f]` and `[0x0d1d]`. This is used both as a no-operand action and as an internal cleanup helper after message/window paths. |
+
+The current QEMU monitor keystroke harness can type into text prompts, but a
+trial `0x73` (`prompt_string_to_slot`) fixture left the editor active after
+typing `look` and Enter. Treat `0x73` as source-backed until its exact
+completion/event path is isolated.
 
 Resource/table actions outside the main object table:
 

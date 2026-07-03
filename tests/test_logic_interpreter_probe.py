@@ -48,6 +48,18 @@ class LogicInterpreterProbeTests(unittest.TestCase):
         self.assertIn("var_comparison_conditions_all_true", case_ids)
         self.assertIn("object_position_getter_observes_setter", case_ids)
         self.assertIn("call_logic_draws_from_called_logic", case_ids)
+        self.assertIn("load_logic_var_then_call_logic_draws", case_ids)
+        self.assertIn("overlay_picture_var_composes_extra_picture", case_ids)
+        self.assertIn("discard_picture_var_allows_reload_and_overlay", case_ids)
+        self.assertIn("discard_view_allows_reload_and_draw", case_ids)
+        self.assertIn("discard_view_var_allows_reload_and_draw", case_ids)
+        self.assertIn("display_message_then_ack_continues_to_draw", case_ids)
+        self.assertIn("display_message_var_then_ack_continues_to_draw", case_ids)
+        self.assertIn("display_message_configured_then_ack_continues_to_draw", case_ids)
+        self.assertIn("prompt_number_to_var_accepts_digits", case_ids)
+        self.assertIn("menu_setup_dispatch_smoke", case_ids)
+        self.assertIn("menu_flag_dispatch_smoke", case_ids)
+        self.assertIn("sound_load_stop_dispatch_smoke", case_ids)
         self.assertIn("setup_transient_object_var_draws_selected_cel", case_ids)
         self.assertIn("object_right_rect_condition_true", case_ids)
         self.assertIn("set_string_from_message_equal_normalized", case_ids)
@@ -105,6 +117,23 @@ class LogicInterpreterProbeTests(unittest.TestCase):
     def test_compare_capture_matches_expected_draw(self) -> None:
         case = next(item for item in base_cases() if item.case_id == "jump_skips_first_draw")
         picture = PictureRenderer(case.picture_payload).render(case.picture_no)
+        frame = render_view_frame(case.expected_view_no, case.expected_group_no, case.expected_frame_no)
+        expected = compose_frame_on_picture(
+            picture,
+            frame,
+            case.expected_x,
+            case.expected_baseline_y,
+            case.expected_priority,
+        )
+        with tempfile.TemporaryDirectory() as temp_dir:
+            capture = Path(temp_dir) / "capture.ppm"
+            write_scaled_capture(capture, expected.visual_nibbles)
+            comparison = compare_capture(case, capture)
+        self.assertEqual(comparison.status, "match")
+
+    def test_compare_capture_uses_expected_picture_payload(self) -> None:
+        case = next(item for item in base_cases() if item.case_id == "overlay_picture_var_composes_extra_picture")
+        picture = PictureRenderer(case.expected_picture_payload).render(case.picture_no)
         frame = render_view_frame(case.expected_view_no, case.expected_group_no, case.expected_frame_no)
         expected = compose_frame_on_picture(
             picture,

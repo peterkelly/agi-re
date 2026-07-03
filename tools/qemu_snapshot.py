@@ -19,6 +19,8 @@ class SnapshotFixtureCase:
     dos_dir: str
     fixture: Path
     capture: Path
+    post_launch_keys: str = ""
+    post_launch_wait: float = 0.0
 
 
 def fixture_input_files(fixture: Path) -> list[Path]:
@@ -139,6 +141,10 @@ def run_snapshot_qemu_cases(
             monitor_type(proc, f"cd \\{case.dos_dir}\n")
             time.sleep(0.5)
             monitor_type(proc, "SIERRA\n")
+            if case.post_launch_wait:
+                time.sleep(case.post_launch_wait)
+            if case.post_launch_keys:
+                monitor_type(proc, case.post_launch_keys)
             time.sleep(draw_wait)
             monitor_command(proc, f"screendump {case.capture}")
             time.sleep(1.0)

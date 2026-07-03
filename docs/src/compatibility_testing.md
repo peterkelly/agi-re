@@ -345,6 +345,42 @@ python3 -B tools/logic_interpreter_probe.py --dos-prefix LP --output build/logic
 This one-case batch matched QEMU with 0 mismatches. It validates that `0x38`
 clears the fixed-priority bit and returns placement to Y-derived priority.
 
+Run the resource lifecycle batch:
+
+```bash
+python3 -B tools/logic_interpreter_probe.py --dos-prefix RL --output build/logic-interpreter-probes/batches/resource_lifecycle_003.json --boot-wait 5 --draw-wait 8 --stop-on-failure --case load_logic_var_then_call_logic_draws --case overlay_picture_var_composes_extra_picture --case discard_picture_var_allows_reload_and_overlay --case discard_view_allows_reload_and_draw --case discard_view_var_allows_reload_and_draw
+```
+
+This five-case batch matched QEMU with 0 mismatches. It validates
+variable-selected logic loading (`0x15`), picture overlay after an explicit load
+and visible finalization (`0x18`, `0x1c`, `0x1a`), picture discard/reload
+(`0x1b`), immediate view discard/reload (`0x20`), and variable-selected view
+discard/reload (`0x99`).
+
+Run the text/message and typed numeric-input batch:
+
+```bash
+python3 -B tools/logic_interpreter_probe.py --dos-prefix TX --output build/logic-interpreter-probes/batches/text_input_002.json --boot-wait 5 --draw-wait 8 --stop-on-failure --case display_message_then_ack_continues_to_draw --case display_message_var_then_ack_continues_to_draw --case display_message_configured_then_ack_continues_to_draw --case prompt_number_to_var_accepts_digits
+```
+
+This four-case batch matched QEMU with 0 mismatches. It uses the
+`SnapshotFixtureCase.post_launch_keys` input path to dismiss message windows and
+type `42` into the numeric prompt. It validates `0x65`, `0x66`, `0x97`, and
+`0x76`. A trial string-prompt fixture for `0x73` visibly typed `look` but did
+not complete through the current monitor keystroke sequence, so that opcode
+remains source-backed.
+
+Run the menu/list and sound dispatch-smoke batch:
+
+```bash
+python3 -B tools/logic_interpreter_probe.py --dos-prefix MS --output build/logic-interpreter-probes/batches/menu_sound_001.json --boot-wait 5 --draw-wait 8 --stop-on-failure --case menu_setup_dispatch_smoke --case menu_flag_dispatch_smoke --case sound_load_stop_dispatch_smoke
+```
+
+This three-case batch matched QEMU with 0 mismatches. It proves the menu/list
+handlers `0x9c..0xa1` and sound handlers `0x62`/`0x64` execute and return to
+following bytecode, but it is dispatch-smoke evidence rather than full
+interactive menu or audio semantics.
+
 Regenerate the opcode evidence matrix after updating opcode labels or probe
 annotations:
 

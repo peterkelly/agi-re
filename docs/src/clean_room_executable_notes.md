@@ -3791,3 +3791,72 @@ Documented result:
   stopping at the old boundary.
 - Promoted actions `0x5a` and `0x5b` in `tools/logic_opcode_evidence.py` to
   QEMU behavior evidence, then regenerated `docs/src/logic_opcode_evidence.md`.
+
+## 2026-07-03: resource lifecycle, text input, menu, and sound probes
+
+Commands run from `/Users/peter/ai/agi/reverse`:
+
+- `rg -n "overlay_picture_var_composes_extra_picture|load_logic_var_then_call_logic_draws|discard_view_allows_reload" tools/logic_interpreter_probe.py tests/test_logic_interpreter_probe.py docs/src`
+- `sed -n '620,820p' tools/logic_interpreter_probe.py`
+- `sed -n '1,180p' tools/qemu_snapshot.py`
+- `python3 -B -m unittest tests.test_logic_interpreter_probe tests.test_qemu_snapshot tests.test_logic_doc_coverage`
+- `python3 -B tools/logic_interpreter_probe.py --dos-prefix RL --output build/logic-interpreter-probes/batches/resource_lifecycle_002.json --boot-wait 5 --draw-wait 8 --stop-on-failure --case load_logic_var_then_call_logic_draws --case overlay_picture_var_composes_extra_picture --case discard_picture_var_allows_reload_and_overlay --case discard_view_allows_reload_and_draw --case discard_view_var_allows_reload_and_draw`
+- `python3 -B -m json.tool build/logic-interpreter-probes/batches/resource_lifecycle_002.json`
+- `python3 -B tools/logic_interpreter_probe.py --dos-prefix RL --output build/logic-interpreter-probes/batches/resource_lifecycle_003.json --boot-wait 5 --draw-wait 8 --stop-on-failure --case load_logic_var_then_call_logic_draws --case overlay_picture_var_composes_extra_picture --case discard_picture_var_allows_reload_and_overlay --case discard_view_allows_reload_and_draw --case discard_view_var_allows_reload_and_draw`
+- `python3 -B tools/logic_interpreter_probe.py --dos-prefix TX --output build/logic-interpreter-probes/batches/text_input_001.json --boot-wait 5 --draw-wait 8 --stop-on-failure --case display_message_then_ack_continues_to_draw --case display_message_var_then_ack_continues_to_draw --case display_message_configured_then_ack_continues_to_draw --case prompt_string_to_slot_accepts_typed_word --case prompt_number_to_var_accepts_digits`
+- `python3 -B -m json.tool build/logic-interpreter-probes/batches/text_input_001.json`
+- `magick build/logic-interpreter-probes/fixtures/prompt_string_to_slot_accepts_typed_word/qemu_capture.ppm build/logic-interpreter-probes/fixtures/prompt_string_to_slot_accepts_typed_word/qemu_capture.png`
+- `python3 -B tools/logic_interpreter_probe.py --dos-prefix TI --output build/logic-interpreter-probes/batches/text_input_prompt_string_002.json --boot-wait 5 --draw-wait 8 --stop-on-failure --case prompt_string_to_slot_accepts_typed_word`
+- `python3 -B tools/logic_interpreter_probe.py --dos-prefix TN --output build/logic-interpreter-probes/batches/text_input_prompt_number_001.json --boot-wait 5 --draw-wait 8 --stop-on-failure --case prompt_number_to_var_accepts_digits`
+- `python3 -B tools/logic_interpreter_probe.py --dos-prefix TX --output build/logic-interpreter-probes/batches/text_input_002.json --boot-wait 5 --draw-wait 8 --stop-on-failure --case display_message_then_ack_continues_to_draw --case display_message_var_then_ack_continues_to_draw --case display_message_configured_then_ack_continues_to_draw --case prompt_number_to_var_accepts_digits`
+- `python3 -B tools/logic_interpreter_probe.py --dos-prefix MS --output build/logic-interpreter-probes/batches/menu_sound_001.json --boot-wait 5 --draw-wait 8 --stop-on-failure --case menu_setup_dispatch_smoke --case menu_flag_dispatch_smoke --case sound_load_stop_dispatch_smoke`
+- `python3 -B tools/logic_opcode_evidence.py`
+
+Documented result:
+
+- Extended `tools/qemu_snapshot.py` so each `SnapshotFixtureCase` can request
+  `post_launch_keys` and `post_launch_wait`. Existing callers keep the default
+  no-input behavior. `tools/logic_interpreter_probe.py` passes those fields
+  through from each logic case to the shared snapshot runner.
+- Extended `LogicInterpreterCase` and fixture generation to support additional
+  synthetic picture resources and a separate `expected_picture_payload` for
+  comparison. This lets one fixture load/overlay picture 1 while rendering the
+  expected final picture state as picture 0 plus the overlay payload.
+- Added resource lifecycle cases:
+  - `load_logic_var_then_call_logic_draws` validates `0x15` followed by
+    `0x16`.
+  - `overlay_picture_var_composes_extra_picture` validates that `0x1c` can
+    overlay an already-loaded picture resource. The first QEMU run,
+    `resource_lifecycle_002`, mismatched only on the overlay pixels because
+    `0x1c` updated logical picture state without a visible full-screen
+    refresh. Adding `0x1a` after `0x1c` made the composed picture visible.
+  - `discard_picture_var_allows_reload_and_overlay` validates a
+    discard/reload/overlay path for `0x1b`.
+  - `discard_view_allows_reload_and_draw` and
+    `discard_view_var_allows_reload_and_draw` validate `0x20` and `0x99`
+    before a reload with `0x1e`.
+- Final lifecycle batch `resource_lifecycle_003` matched with 5 matches, 0
+  mismatches, and 0 errors.
+- Added message-window/input cases:
+  - `display_message_then_ack_continues_to_draw` for `0x65`.
+  - `display_message_var_then_ack_continues_to_draw` for `0x66`.
+  - `display_message_configured_then_ack_continues_to_draw` for `0x97`.
+  - `prompt_number_to_var_accepts_digits` for `0x76`, typing `42` and checking
+    the destination variable through a conditional draw.
+- Trial case `prompt_string_to_slot_accepts_typed_word` for `0x73` visibly
+  displayed `WORD?` and accepted typed `look`, but the editor remained active
+  after Enter in the QEMU capture. It was removed from the default
+  compatibility set until the exact completion/event path is isolated.
+- Final text/input batch `text_input_002` matched with 4 matches, 0 mismatches,
+  and 0 errors.
+- Added menu and sound smoke cases:
+  - `menu_setup_dispatch_smoke` runs `0x9c`, `0x9d`, `0x9e`, `0xa0`, and
+    `0x9f`, then draws.
+  - `menu_flag_dispatch_smoke` sets flag `0x0e`, runs `0xa1`, then draws.
+  - `sound_load_stop_dispatch_smoke` runs `0x62` for sound 1, then `0x64`,
+    then draws.
+- Batch `menu_sound_001` matched with 3 matches, 0 mismatches, and 0 errors.
+  These are dispatch-smoke probes only; they do not claim full interactive menu
+  selection, audio playback, or sound-completion flag semantics.
+- Regenerated `docs/src/logic_opcode_evidence.md` so the new rows are marked
+  as QEMU-validated or QEMU dispatch-smoke as appropriate.

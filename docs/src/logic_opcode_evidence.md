@@ -66,18 +66,18 @@ Evidence levels:
 | `0x12` | `switch_room_like` | imm0 | switch room like | source-backed | Handler disassembly and local SQ2 bytecode scan; see logic_bytecode.md. |
 | `0x13` | `switch_room_like_var` | var0 | switch room like var | source-backed | Handler disassembly and local SQ2 bytecode scan; see logic_bytecode.md. |
 | `0x14` | `load_logic` | imm0 | load logic | QEMU-validated | logic_interpreter_probe: load_logic_then_call_logic_draws |
-| `0x15` | `load_logic_var` | var0 | load logic var | source-backed | Handler disassembly and local SQ2 bytecode scan; see logic_bytecode.md. |
+| `0x15` | `load_logic_var` | var0 | load logic var | QEMU-validated | logic_interpreter_probe: load_logic_var_then_call_logic_draws |
 | `0x16` | `call_logic` | imm0 | call logic | QEMU-validated | logic_interpreter_probe: call_logic_draws_from_called_logic, load_logic_then_call_logic_draws |
 | `0x17` | `call_logic_var` | var0 | call logic var | QEMU-validated | logic_interpreter_probe: call_logic_var_draws_selected_logic |
 | `0x18` | `load_picture_var` | var0 | load picture var | QEMU-validated | picture/view QEMU fixtures load generated picture resources |
 | `0x19` | `prepare_picture_var` | var0 | prepare picture var | QEMU-validated | picture/view QEMU fixtures prepare generated picture resources |
-| `0x1a` | `show_picture_like` | - | show picture like | QEMU-validated | picture/view QEMU fixtures show generated picture resources |
-| `0x1b` | `discard_picture_var` | var0 | discard picture var | source-backed | Handler disassembly and local SQ2 bytecode scan; see logic_bytecode.md. |
-| `0x1c` | `overlay_picture_var` | var0 | overlay picture var | source-backed | Handler disassembly and local SQ2 bytecode scan; see logic_bytecode.md. |
+| `0x1a` | `show_picture_like` | - | show picture like | QEMU-validated | picture/view QEMU fixtures show generated picture resources; logic_interpreter_probe: overlay_picture_var_composes_extra_picture |
+| `0x1b` | `discard_picture_var` | var0 | discard picture var | QEMU-validated | logic_interpreter_probe: discard_picture_var_allows_reload_and_overlay |
+| `0x1c` | `overlay_picture_var` | var0 | overlay picture var | QEMU-validated | logic_interpreter_probe: overlay_picture_var_composes_extra_picture |
 | `0x1d` | `show_priority_screen` | - | show priority screen | source-backed | Handler disassembly and local SQ2 bytecode scan; see logic_bytecode.md. |
 | `0x1e` | `load_view` | imm0 | load view | QEMU-validated | view/object QEMU fixtures load view resources |
 | `0x1f` | `load_view_var` | var0 | load view var | QEMU-validated | logic_interpreter_probe: load_view_var_allows_following_draw |
-| `0x20` | `discard_view` | imm0 | discard view | source-backed | Handler disassembly and local SQ2 bytecode scan; see logic_bytecode.md. |
+| `0x20` | `discard_view` | imm0 | discard view | QEMU-validated | logic_interpreter_probe: discard_view_allows_reload_and_draw |
 | `0x21` | `reset_object_state` | imm0 | reset object state | QEMU-validated | object overlay and movement probes reset object state |
 | `0x22` | `clear_all_object_bits` | - | clear all object bits | QEMU-validated | logic_interpreter_probe: clear_all_object_bits_keeps_current_draw_entry |
 | `0x23` | `activate_object` | imm0 | activate object | QEMU-validated | object overlay and movement probes activate persistent objects |
@@ -143,11 +143,11 @@ Evidence levels:
 | `0x5f` | `set_entry_0971_marker_from_var` | imm0, imm1 | set entry 0971 marker from var | QEMU-validated | logic_interpreter_probe: inventory_marker_from_var |
 | `0x60` | `set_entry_0971_marker_from_var_var` | imm0, var1 | set entry 0971 marker from var var | QEMU-validated | logic_interpreter_probe: inventory_marker_from_var_var |
 | `0x61` | `get_entry_0971_marker_to_var` | var0, var1 | get entry 0971 marker to var | QEMU-validated | logic_interpreter_probe: inventory marker getter probes |
-| `0x62` | `load_sound` | imm0 | load sound | source-backed | Handler disassembly and local SQ2 bytecode scan; see logic_bytecode.md. |
+| `0x62` | `load_sound` | imm0 | load sound | QEMU dispatch-smoke | logic_interpreter_probe: sound_load_stop_dispatch_smoke |
 | `0x63` | `start_sound_with_flag` | imm0, imm1 | start sound with flag | source-backed | Handler disassembly and local SQ2 bytecode scan; see logic_bytecode.md. |
-| `0x64` | `stop_sound_or_clear_sound_state` | - | stop sound or clear sound state | source-backed | Handler disassembly and local SQ2 bytecode scan; see logic_bytecode.md. |
-| `0x65` | `display_message` | imm0 | display message | source-backed | Handler disassembly and local SQ2 bytecode scan; see logic_bytecode.md. |
-| `0x66` | `display_message_var` | var0 | display message var | source-backed | Handler disassembly and local SQ2 bytecode scan; see logic_bytecode.md. |
+| `0x64` | `stop_sound_or_clear_sound_state` | - | stop sound or clear sound state | QEMU dispatch-smoke | logic_interpreter_probe: sound_load_stop_dispatch_smoke |
+| `0x65` | `display_message` | imm0 | display message | QEMU-validated | logic_interpreter_probe: display_message_then_ack_continues_to_draw |
+| `0x66` | `display_message_var` | var0 | display message var | QEMU-validated | logic_interpreter_probe: display_message_var_then_ack_continues_to_draw |
 | `0x67` | `display_formatted_message` | imm0, imm1, imm2 | display formatted message | source-backed | Handler disassembly and local SQ2 bytecode scan; see logic_bytecode.md. |
 | `0x68` | `display_formatted_message_var` | var0, var1, var2 | display formatted message var | source-backed | Handler disassembly and local SQ2 bytecode scan; see logic_bytecode.md. |
 | `0x69` | `clear_text_rect` | imm0, imm1, imm2 | clear text rect | source-backed | Handler disassembly and local SQ2 bytecode scan; see logic_bytecode.md. |
@@ -163,7 +163,7 @@ Evidence levels:
 | `0x73` | `prompt_string_to_slot` | imm0, imm1, imm2, imm3, imm4 | prompt string to slot | source-backed | Handler disassembly and local SQ2 bytecode scan; see logic_bytecode.md. |
 | `0x74` | `set_string_slot_from_table` | imm0, imm1 | set string slot from table | source-backed | Handler disassembly and local SQ2 bytecode scan; see logic_bytecode.md. |
 | `0x75` | `parse_string_slot` | imm0 | parse string slot | QEMU-validated | logic_interpreter_probe: parse_string_slot_sets_input_word_sequence |
-| `0x76` | `prompt_number_to_var` | imm0, var1 | prompt number to var | source-backed | Handler disassembly and local SQ2 bytecode scan; see logic_bytecode.md. |
+| `0x76` | `prompt_number_to_var` | imm0, var1 | prompt number to var | QEMU-validated | logic_interpreter_probe: prompt_number_to_var_accepts_digits |
 | `0x77` | `disable_input_line_like` | - | disable input line like | source-backed | Handler disassembly and local SQ2 bytecode scan; see logic_bytecode.md. |
 | `0x78` | `enable_input_line_like` | - | enable input line like | source-backed | Handler disassembly and local SQ2 bytecode scan; see logic_bytecode.md. |
 | `0x79` | `map_key_event` | imm0, imm1, imm2 | map key event | source-backed | Handler disassembly and local SQ2 bytecode scan; see logic_bytecode.md. |
@@ -196,17 +196,17 @@ Evidence levels:
 | `0x94` | `set_object_pos_dirty_var` | imm0, var1, var2 | set object pos dirty var | QEMU-validated | logic_interpreter_probe: set_object_pos_dirty_var_getter_observes_values |
 | `0x95` | `enable_action_trace_window` | - | enable action trace window | source-backed | Handler disassembly and local SQ2 bytecode scan; see logic_bytecode.md. |
 | `0x96` | `configure_action_trace_window` | imm0, imm1, imm2 | configure action trace window | source-backed | Handler disassembly and local SQ2 bytecode scan; see logic_bytecode.md. |
-| `0x97` | `display_message_configured` | imm0, imm1, imm2, imm3 | display message configured | source-backed | Handler disassembly and local SQ2 bytecode scan; see logic_bytecode.md. |
+| `0x97` | `display_message_configured` | imm0, imm1, imm2, imm3 | display message configured | QEMU-validated | logic_interpreter_probe: display_message_configured_then_ack_continues_to_draw |
 | `0x98` | `display_message_configured_var` | var0, imm1, imm2, imm3 | display message configured var | source-backed | Handler disassembly and local SQ2 bytecode scan; see logic_bytecode.md. |
-| `0x99` | `discard_view_var` | var0 | discard view var | source-backed | Handler disassembly and local SQ2 bytecode scan; see logic_bytecode.md. |
+| `0x99` | `discard_view_var` | var0 | discard view var | QEMU-validated | logic_interpreter_probe: discard_view_var_allows_reload_and_draw |
 | `0x9a` | `clear_text_rect_bounds` | imm0, imm1, imm2, imm3, imm4 | clear text rect bounds | source-backed | Handler disassembly and local SQ2 bytecode scan; see logic_bytecode.md. |
 | `0x9b` | `noop_2` | imm0, imm1 | noop 2 | QEMU-validated | logic_interpreter_probe: noop_9b_consumes_two_operands_then_draws |
-| `0x9c` | `add_menu_heading_like` | imm0 | add menu heading like | source-backed | Handler disassembly and local SQ2 bytecode scan; see logic_bytecode.md. |
-| `0x9d` | `add_menu_item_like` | imm0, imm1 | add menu item like | source-backed | Handler disassembly and local SQ2 bytecode scan; see logic_bytecode.md. |
-| `0x9e` | `finalize_menu_like` | - | finalize menu like | source-backed | Handler disassembly and local SQ2 bytecode scan; see logic_bytecode.md. |
-| `0x9f` | `enable_menu_item_like` | imm0 | enable menu item like | source-backed | Handler disassembly and local SQ2 bytecode scan; see logic_bytecode.md. |
-| `0xa0` | `disable_menu_item_like` | imm0 | disable menu item like | source-backed | Handler disassembly and local SQ2 bytecode scan; see logic_bytecode.md. |
-| `0xa1` | `mark_menu_if_flag_0e` | - | mark menu if flag 0e | source-backed | Handler disassembly and local SQ2 bytecode scan; see logic_bytecode.md. |
+| `0x9c` | `add_menu_heading_like` | imm0 | add menu heading like | QEMU dispatch-smoke | logic_interpreter_probe: menu_setup_dispatch_smoke |
+| `0x9d` | `add_menu_item_like` | imm0, imm1 | add menu item like | QEMU dispatch-smoke | logic_interpreter_probe: menu_setup_dispatch_smoke |
+| `0x9e` | `finalize_menu_like` | - | finalize menu like | QEMU dispatch-smoke | logic_interpreter_probe: menu_setup_dispatch_smoke |
+| `0x9f` | `enable_menu_item_like` | imm0 | enable menu item like | QEMU dispatch-smoke | logic_interpreter_probe: menu_setup_dispatch_smoke |
+| `0xa0` | `disable_menu_item_like` | imm0 | disable menu item like | QEMU dispatch-smoke | logic_interpreter_probe: menu_setup_dispatch_smoke |
+| `0xa1` | `mark_menu_if_flag_0e` | - | mark menu if flag 0e | QEMU dispatch-smoke | logic_interpreter_probe: menu_flag_dispatch_smoke |
 | `0xa2` | `display_view_resource_text_like_var` | imm0 | display view resource text like var | source-backed | Handler disassembly and local SQ2 bytecode scan; see logic_bytecode.md. |
 | `0xa3` | `set_global_0d0f` | - | set global 0d0f | source-backed | Handler disassembly and local SQ2 bytecode scan; see logic_bytecode.md. |
 | `0xa4` | `clear_global_0d0f` | - | clear global 0d0f | source-backed | Handler disassembly and local SQ2 bytecode scan; see logic_bytecode.md. |

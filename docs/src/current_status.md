@@ -11,8 +11,9 @@ QEMU-backed logic batches validate jump, false-branch, inversion, OR-group,
 variable, flag, comparison, arithmetic, selected object-field behavior,
 logic load/call variants, variable-backed resource/object variants, object
 rectangle predicates, string/message parsing, inventory/object marker
-operations, and additional object/view getter and bitfield dispatch behavior
-through visible output.
+operations, resource lifecycle paths, message display helpers, typed numeric
+input, menu/list dispatch, sound load/clear dispatch, and additional
+object/view getter and bitfield dispatch behavior through visible output.
 
 ## Confirmed Motion and Object Findings
 
@@ -109,6 +110,8 @@ through visible output.
 - `tools/disassemble_logic.py`: local logic bytecode disassembler.
 - `tools/logic_interpreter_probe.py`: QEMU logic-interpreter compatibility
   harness for small bytecode behavior probes.
+- `tools/qemu_snapshot.py`: shared snapshot runner; fixtures can now request
+  post-launch keystrokes for deterministic prompt/message probes.
 - `tools/logic_opcode_evidence.py`: generator for the opcode evidence matrix.
 - `tools/object_movement_probe.py`: QEMU movement/motion compatibility harness.
 - `tools/object_overlay_probe.py`: QEMU object/view drawing compatibility
@@ -139,9 +142,11 @@ Return to the logic interpreter:
    `0x46..0x4c`, including visible mode coverage for `0x48`, `0x4a`, and
    `0x4b`.
 2. Prefer QEMU fixture evidence for additional opcodes whose behavior can be made
-   visible. Rectangle-boundary actions `0x5a` and `0x5b` are now promoted; most
-   remaining source-backed rows are UI, save/restore, sound, menu, or
-   diagnostics paths that need specialized harnesses.
+   visible. Resource lifecycle, message display, numeric input, menu dispatch,
+   and sound load/clear now have targeted coverage; most remaining
+   source-backed rows are the string editor, formatted/positioned text,
+   save/restore, restart/system, diagnostics, and full interactive menu/audio
+   paths.
 3. Continue assigning symbolic labels to interpreter helpers, object globals,
    and scanner paths so later interpreter versions can be compared by role
    rather than by absolute address.
@@ -151,20 +156,24 @@ Return to the logic interpreter:
 After the latest object/timing pass, the remaining source-backed action rows
 cluster into families that need specialized probes:
 
-- **Room/resource lifecycle:** `0x12`, `0x13`, `0x15`, `0x1b`, `0x1c`,
-  `0x20`, and `0x99`. These should be probed with generated multi-resource
-  fixtures so load/discard/overlay effects are visible without relying on
-  incidental SQ2 scripts.
-- **Text/window/input:** `0x65..0x71`, `0x73`, `0x74`, `0x76..0x79`,
-  `0x89`, `0x8a`, `0x97`, `0x98`, `0x9a`, and `0xa9`. These need a text
-  capture harness and probably scripted key events.
-- **Menus and inventory UI:** `0x7c`, `0x9c..0xa2`. These likely need a
-  deterministic input/event harness before QEMU screenshots can be stable.
+- **Room/resource lifecycle:** `0x12` and `0x13` remain broad room/state switch
+  paths. `0x15`, `0x1b`, `0x1c`, `0x20`, and `0x99` now have targeted
+  QEMU-backed lifecycle fixtures.
+- **Text/window/input:** `0x65`, `0x66`, `0x76`, and `0x97` now have QEMU
+  evidence. `0x67..0x71`, `0x73`, `0x74`, `0x77..0x79`, `0x89`, `0x8a`,
+  `0x98`, `0x9a`, and `0xa9` still need specialized text/event probes. The
+  current monitor-input path can type into prompts, but a trial `0x73` string
+  prompt did not complete after `look` plus Enter.
+- **Menus and inventory UI:** `0x9c..0xa1` now have dispatch-smoke evidence.
+  `0x7c` and full interactive menu selection behavior still need deterministic
+  input/event probes; `0xa2` remains tied to the view-resource text display
+  path.
 - **Save/restore/restart/system:** `0x7d`, `0x7e`, `0x80`, `0x86`,
   `0x8b..0x90`, and `0xaa..0xad`. Keep source-backed until file-system and
   confirmation-dialog probes are isolated.
-- **Sound:** `0x62..0x64`. These are source-backed; visible confirmation may
-  need flag-side-effect probes for completion rather than audio output.
+- **Sound:** `0x62` and `0x64` now have dispatch-smoke evidence. `0x63`
+  remains source-backed; visible confirmation may need flag-side-effect probes
+  for completion rather than audio output.
 - **Diagnostics/global toggles:** `0x81`, `0x83..0x85`, `0x87`, `0x88`,
   `0x8e`, `0x95`, `0x96`, `0xa3`, and `0xa4`. Some can probably be promoted
   with variable/object state or screenshot probes, but they should be grouped

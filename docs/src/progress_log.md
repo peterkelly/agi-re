@@ -4400,3 +4400,255 @@ Progress updates and outcomes:
      Action/result: The stale-address scan found only deliberate historical
      correction entries and the intermediate `object_bit_2000_003` batch
      recorded in the chronology.
+
+559. Reported: "I'm picking up from the resource-lifecycle probe mismatch. The
+     useful clue from the disassembly is that `overlay_picture_var` appears to
+     require the picture to already be loaded/cached, so I'm going to correct
+     the synthetic bytecode around that rather than treating the black-box
+     result as mysterious."
+
+     Action/result: Re-read current probe and test changes around resource
+     lifecycle fixtures.
+
+560. Reported: "The failure now lines up with the code path: `0x1c` is not a
+     load-and-overlay operation, it's an overlay of an already resident picture.
+     I'm adjusting the probe to exercise that exact precondition, and I'll add
+     a discard-picture lifecycle case while we're in this neighborhood."
+
+     Action/result: Planned the `0x18` + `0x1c` fixture correction and a
+     `0x1b` discard/reload case.
+
+561. Reported: "I'm also checking the shared QEMU snapshot harness before
+     adding input/text probes. If we can represent post-launch keystrokes as
+     data on each fixture, the same runner can handle text prompts and
+     menu/input cases without a separate one-off script."
+
+     Action/result: Inspected `tools/qemu_snapshot.py` and related docs.
+
+562. Reported: "There's already a clean place to put post-launch input:
+     `SnapshotFixtureCase` can grow optional key text, and existing callers
+     stay unchanged. That gives us the scaffolding for prompt/menu/save probes
+     even before every UI path has a pixel-accurate comparator."
+
+     Action/result: Chose a backward-compatible `post_launch_keys` /
+     `post_launch_wait` fixture extension.
+
+563. Reported: "The text/window work is going to be staged honestly: I can add
+     the reusable capture/input plumbing now, but pixel-accurate text rendering
+     is a separate model from the 160x168 graphics renderer. I'll document it
+     as capture/scaffolding plus source assessment, not pretend a coarse
+     screenshot proves the UI semantics."
+
+     Action/result: Scoped UI work to deterministic input plumbing plus
+     narrow visible-output probes.
+
+564. Reported: "I've got the concrete additions now: resource lifecycle cases,
+     text/input cases using delayed monitor keystrokes, and menu/sound
+     dispatch-smoke cases. Next I'm making the fixture schema carry that
+     post-launch input through to QEMU."
+
+     Action/result: Began code edits in `tools/qemu_snapshot.py` and
+     `tools/logic_interpreter_probe.py`.
+
+565. Reported: "The QEMU runner can now type fixture-specific input after
+     launch. I'm threading those fields into the logic probe cases and adding
+     the new bytecode fixtures around the source-backed families."
+
+     Action/result: Added post-launch input fields and logic-probe fixture
+     cases.
+
+566. Reported: "I'm keeping these probes visible-output driven where possible:
+     they don't just run an opcode and hope; they make the original interpreter
+     proceed to a known view draw only if the opcode path returns and the
+     expected state was produced."
+
+     Action/result: Added message, numeric input, menu, sound, and resource
+     lifecycle cases that end in known draw comparisons.
+
+567. Reported: "One little plumbing issue surfaced: `_draw_if_case` did not yet
+     accept input fields, so I'm widening that helper too. This keeps the input
+     cases as normal logic-probe fixtures instead of a special path."
+
+     Action/result: Extended `_draw_if_case` to pass input settings through.
+
+568. Reported: "The probe definitions are in place. I'm adding regression tests
+     for the new case IDs and for the new snapshot input fields so this doesn't
+     silently break later when we add more UI fixtures."
+
+     Action/result: Updated logic-probe and QEMU snapshot unit tests.
+
+569. Reported: "The static tests are next. If these pass, I'll run the new QEMU
+     batches in smaller groups so a bad UI timing assumption doesn't obscure
+     the resource-lifecycle results."
+
+     Action/result: Ran focused unit tests and the opcode evidence check; they
+     passed.
+
+570. Reported: "The focused Python tests passed. I'm running the resource
+     lifecycle batch first: logic-var load, picture overlay with the
+     now-correct load precondition, discard/reload picture, and view
+     discard/reload variants."
+
+     Action/result: Started QEMU batch `resource_lifecycle_002`.
+
+571. Reported: "The lifecycle batch is in QEMU now. It has built the snapshot
+     disk and is stepping through the five fixtures from the saved DOS prompt."
+
+     Action/result: Awaited the QEMU lifecycle batch.
+
+572. Reported: "The corrected overlay precondition still mismatched, so I'm not
+     going to paper over it. I'm reading the report and then I'll go back to the
+     picture-handler code path to see whether the expected composition model is
+     wrong, or whether another action such as show/finalize is needed after
+     overlay."
+
+     Action/result: Read `resource_lifecycle_002`; only overlay pixels were
+     missing.
+
+573. Reported: "The mismatch is narrower now: the view sprite is being drawn,
+     but the overlaid picture pixels are not visible in the display capture.
+     That fits the handler split: `0x1c` mutates the logical picture buffers,
+     while `0x1a` is the full-screen display/finalization path, so I'm adding
+     that explicit show step after the overlay."
+
+     Action/result: Added `0x1a` after `0x1c` in overlay fixtures.
+
+574. Reported: "I've corrected the overlay fixture to include the display
+     finalization path. I'm rerunning the local tests for the probe shape, then
+     the lifecycle batch again."
+
+     Action/result: Focused unit tests passed.
+
+575. Reported: "The local shape tests are still green. I'm rerunning the
+     five-case lifecycle QEMU batch with the explicit `0x1a` finalization after
+     overlay."
+
+     Action/result: Started QEMU batch `resource_lifecycle_003`.
+
+576. Reported: "QEMU is running the lifecycle batch again now. If this passes,
+     I'll move on to the text/input/menu/sound group as separate batches
+     because those touch blocking UI helpers."
+
+     Action/result: Awaited lifecycle batch completion.
+
+577. Reported: "The lifecycle batch passed all five cases. That validates the
+     exact overlay nuance: `0x1c` composes into the logical picture state, and
+     `0x1a` is needed to push that composition to the visible screen. Next I'm
+     running the text/message and typed-input fixtures."
+
+     Action/result: `resource_lifecycle_003` matched 5/5 and text/input QEMU
+     batch was started.
+
+578. Reported: "The text/input batch is running. These cases use the new
+     post-launch keystroke path: Enter to dismiss message windows, then typed
+     `look` and `42` for prompt handlers."
+
+     Action/result: Awaited `text_input_001`.
+
+579. Reported: "The three message-window cases passed; the typed string prompt
+     did not reach the expected final draw. I'm inspecting the capture/report
+     before deciding whether the typed input timing is wrong or the assumed
+     parsed word id/condition is wrong."
+
+     Action/result: Inspected `text_input_001`; `0x65`, `0x66`, and `0x97`
+     matched, while the `0x73` string prompt did not.
+
+580. Reported: "The mismatch region is exactly where the final sprite should
+     be, so the script probably stayed on the prompt path or the condition was
+     false. I'm going to inspect the screenshot visually and then decide
+     whether to relax this to a prompt-capture case or fix the input
+     timing/terminator."
+
+     Action/result: Converted and viewed the prompt capture.
+
+581. Reported: "The screenshot is helpful: the prompt displayed and `look` was
+     typed, but it did not accept/advance before capture. I'm going to give
+     prompt-style input an extra Enter; message windows accepted a single Enter,
+     but this editor helper appears to need a less brittle dismissal sequence
+     under QEMU monitor timing."
+
+     Action/result: Retried the `0x73` prompt fixture with an extra Enter.
+
+582. Reported: "The extra Enter still didn't advance the string prompt. I'm
+     checking whether the second Enter is being ignored while the typed buffer
+     remains active, which would mean this handler needs a different completion
+     key or a more direct event injection strategy."
+
+     Action/result: Confirmed the string prompt remained active; then ran the
+     numeric prompt case separately.
+
+583. Reported: "The numeric prompt case passed with the new key-input path, so
+     the input scaffolding is real. The string-editor prompt still stays active
+     after typed text; I'm removing that from the default compatibility suite
+     for now and documenting it as an observed harness limitation/open item
+     rather than leaving a known-failing default case."
+
+     Action/result: Removed the failing `0x73` case from default probes and
+     kept `0x76` as QEMU-validated input evidence.
+
+584. Reported: "The default suite now contains only input cases we can make
+     deterministic. I'm rerunning the text/input batch with the three message
+     paths plus numeric prompt."
+
+     Action/result: Started QEMU batch `text_input_002`.
+
+585. Reported: "The trimmed text/input batch is running now. This should give
+     us stable QEMU evidence for message display variants and one typed-input
+     path without overclaiming the string editor behavior."
+
+     Action/result: Awaited `text_input_002`.
+
+586. Reported: "The text/input batch passed all four cases. I'm moving to the
+     menu/list and sound dispatch-smoke probes next; these are deliberately
+     narrower, proving handler execution and return-to-bytecode rather than full
+     UI/audio semantics."
+
+     Action/result: `text_input_002` matched 4/4 and menu/sound smoke batch was
+     started.
+
+587. Reported: "QEMU is running the menu/sound smoke batch now. If any of these
+     fail, I'll treat it as a missing precondition and go back to the handler
+     disassembly rather than weakening the result."
+
+     Action/result: Awaited `menu_sound_001`.
+
+588. Reported: "The menu/sound smoke batch passed. I'm updating the generated
+     evidence matrix inputs next so the docs distinguish true pixel/value
+     validation from dispatch-smoke coverage for menu and sound handlers."
+
+     Action/result: Updated `tools/logic_opcode_evidence.py` and regenerated
+     `docs/src/logic_opcode_evidence.md`.
+
+589. Reported: "The evidence generator now knows about the new resource,
+     text/input, menu, and sound probes. I'm regenerating the mdBook evidence
+     chapter from that single source."
+
+     Action/result: Regenerated the opcode evidence chapter.
+
+590. Reported: "I'm turning the QEMU results into spec prose now: one pass in
+     the bytecode reference for behavior, one in compatibility testing for
+     replay commands, one in current status for handoff, and one chronological
+     log with the failed string-prompt attempt included."
+
+     Action/result: Updated bytecode, compatibility, current-status, and
+     clean-room chronology docs.
+
+591. Reported: "A small but important wording point for the spec: I'm
+     documenting the overlay as a two-stage operation, because the failed
+     capture proved that logical composition alone is not the same as a visible
+     full-screen refresh."
+
+     Action/result: Added the two-stage `0x1c` plus `0x1a` overlay note.
+
+592. Reported: "The handoff docs now reflect which families moved from
+     'source-backed' into QEMU-backed or smoke-tested. I'm appending the
+     chronological evidence trail with the exact commands and the failed `0x73`
+     attempt, because that negative result matters for future work."
+
+     Action/result: Appended the clean-room chronology section for this pass.
+
+593. Reported: "The chronological notes are updated. I'm catching up the
+     progress log now with the user-facing updates from this run so the
+     conversational history remains traceable."
+
+     Action/result: Updated this progress log.

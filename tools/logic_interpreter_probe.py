@@ -52,6 +52,10 @@ class LogicInterpreterCase:
     extra_logics: list[dict[str, object]] | None = None
     messages: list[str] | None = None
     expected_extra_sprites: list[dict[str, int]] | None = None
+    extra_pictures: list[dict[str, object]] | None = None
+    expected_picture_payload_hex: str | None = None
+    post_launch_keys: str = ""
+    post_launch_wait: float = 0.0
 
     @property
     def code(self) -> bytes:
@@ -60,6 +64,12 @@ class LogicInterpreterCase:
     @property
     def picture_payload(self) -> bytes:
         return bytes.fromhex(self.picture_payload_hex)
+
+    @property
+    def expected_picture_payload(self) -> bytes:
+        if self.expected_picture_payload_hex is None:
+            return self.picture_payload
+        return bytes.fromhex(self.expected_picture_payload_hex)
 
 
 @dataclass(frozen=True)
@@ -251,6 +261,10 @@ def _custom_case(
     terminate_with_end: bool = False,
     init_once_flag: int | None = None,
     per_cycle_body: bytes = b"",
+    extra_pictures: list[dict[str, object]] | None = None,
+    expected_picture_payload: bytes | None = None,
+    post_launch_keys: str = "",
+    post_launch_wait: float = 0.0,
 ) -> LogicInterpreterCase:
     if init_once_flag is not None and per_cycle_body:
         code = one_time_with_per_cycle_code(
@@ -282,6 +296,10 @@ def _custom_case(
         extra_logics,
         messages,
         expected_extra_sprites,
+        extra_pictures,
+        None if expected_picture_payload is None else expected_picture_payload.hex(),
+        post_launch_keys,
+        post_launch_wait,
     )
 
 
@@ -297,6 +315,8 @@ def _draw_if_case(
     expected_baseline_y: int = 80,
     extra_logics: list[dict[str, object]] | None = None,
     messages: list[str] | None = None,
+    post_launch_keys: str = "",
+    post_launch_wait: float = 0.0,
 ) -> LogicInterpreterCase:
     return _custom_case(
         case_id,
@@ -308,6 +328,8 @@ def _draw_if_case(
         expected_baseline_y=expected_baseline_y,
         extra_logics=extra_logics,
         messages=messages,
+        post_launch_keys=post_launch_keys,
+        post_launch_wait=post_launch_wait,
     )
 
 
@@ -593,6 +615,13 @@ def base_cases() -> list[LogicInterpreterCase]:
             extra_logics=[logic_patch(1, draw_view11_at(50) + self_loop())],
         ),
         _custom_case(
+            "load_logic_var_then_call_logic_draws",
+            "Action 0x15 loads the logic resource selected by a variable before action 0x16 calls it.",
+            assignn(1, 1) + byte_action(0x15, 1) + byte_action(0x16, 1),
+            50,
+            extra_logics=[logic_patch(1, draw_view11_at(50) + self_loop())],
+        ),
+        _custom_case(
             "call_logic_var_draws_selected_logic",
             "Action 0x17 reads the target logic number from a byte variable.",
             assignn(1, 2) + byte_action(0x17, 1),
@@ -649,6 +678,84 @@ def base_cases() -> list[LogicInterpreterCase]:
             50,
             preload_view_no=None,
         ),
+        _custom_case(
+            "overlay_picture_var_composes_extra_picture",
+            "Action 0x1c overlays an already loaded variable-selected picture resource; action 0x1a makes the composed picture visible.",
+            assignn(1, 1) + byte_action(0x18, 1) + byte_action(0x1C, 1) + byte_action(0x1A) + draw_view11_at(50),
+            50,
+            picture_payload=bytes([0xF0, 0x06, 0xF8, 0x00, 0x00, 0xFF]),
+            extra_pictures=[
+                {
+                    "picture_no": 1,
+                    "payload_hex": bytes([0xF0, 0x04, 0xF6, 0x10, 0x10, 0x50, 0x10, 0xFF]).hex(),
+                }
+            ],
+            expected_picture_payload=bytes(
+                [
+                    0xF0,
+                    0x06,
+                    0xF8,
+                    0x00,
+                    0x00,
+                    0xF0,
+                    0x04,
+                    0xF6,
+                    0x10,
+                    0x10,
+                    0x50,
+                    0x10,
+                    0xFF,
+                ]
+            ),
+        ),
+        _custom_case(
+            "discard_picture_var_allows_reload_and_overlay",
+            "Action 0x1b discards a loaded variable-selected picture resource; loading it again allows a later overlay.",
+            assignn(1, 1)
+            + byte_action(0x18, 1)
+            + byte_action(0x1B, 1)
+            + byte_action(0x18, 1)
+            + byte_action(0x1C, 1)
+            + byte_action(0x1A)
+            + draw_view11_at(50),
+            50,
+            picture_payload=bytes([0xF0, 0x06, 0xF8, 0x00, 0x00, 0xFF]),
+            extra_pictures=[
+                {
+                    "picture_no": 1,
+                    "payload_hex": bytes([0xF0, 0x04, 0xF6, 0x10, 0x10, 0x50, 0x10, 0xFF]).hex(),
+                }
+            ],
+            expected_picture_payload=bytes(
+                [
+                    0xF0,
+                    0x06,
+                    0xF8,
+                    0x00,
+                    0x00,
+                    0xF0,
+                    0x04,
+                    0xF6,
+                    0x10,
+                    0x10,
+                    0x50,
+                    0x10,
+                    0xFF,
+                ]
+            ),
+        ),
+        _custom_case(
+            "discard_view_allows_reload_and_draw",
+            "Action 0x20 discards a loaded view resource; reloading the same view allows a following draw.",
+            byte_action(0x20, 11) + byte_action(0x1E, 11) + draw_view11_at(50),
+            50,
+        ),
+        _custom_case(
+            "discard_view_var_allows_reload_and_draw",
+            "Action 0x99 discards the view resource selected by a variable; reloading the same view allows a following draw.",
+            assignn(1, 11) + byte_action(0x99, 1) + byte_action(0x1E, 11) + draw_view11_at(50),
+            50,
+        ),
         _draw_if_case(
             "move_object_to_var_sets_flag_at_existing_target",
             "Action 0x52 reads target and step operands from variables and completes immediately when already at target.",
@@ -700,6 +807,42 @@ def base_cases() -> list[LogicInterpreterCase]:
             + if_then(input_word_sequence_condition(0x0002), draw_view11_at(50)),
             50,
             messages=["look"],
+        ),
+        _custom_case(
+            "display_message_then_ack_continues_to_draw",
+            "Action 0x65 displays a message, accepts Enter through the display helper, and returns to following bytecode.",
+            byte_action(0x65, 1) + draw_view11_at(50),
+            50,
+            messages=["HELLO"],
+            post_launch_keys="\n",
+            post_launch_wait=1.0,
+        ),
+        _custom_case(
+            "display_message_var_then_ack_continues_to_draw",
+            "Action 0x66 reads the message number from a variable, accepts Enter, and returns to following bytecode.",
+            assignn(1, 1) + byte_action(0x66, 1) + draw_view11_at(50),
+            50,
+            messages=["HELLO"],
+            post_launch_keys="\n",
+            post_launch_wait=1.0,
+        ),
+        _custom_case(
+            "display_message_configured_then_ack_continues_to_draw",
+            "Action 0x97 uses configured message-display bytes, accepts Enter, and returns to following bytecode.",
+            byte_action(0x97, 1, 5, 5, 12) + draw_view11_at(50),
+            50,
+            messages=["HELLO"],
+            post_launch_keys="\n",
+            post_launch_wait=1.0,
+        ),
+        _draw_if_case(
+            "prompt_number_to_var_accepts_digits",
+            "Action 0x76 accepts typed decimal digits and stores the parsed low byte in a variable.",
+            byte_action(0x76, 1, 2),
+            var_eq_imm_condition(2, 42),
+            messages=["NUMBER?"],
+            post_launch_keys="42\n\n",
+            post_launch_wait=1.0,
         ),
         _draw_if_case(
             "inventory_marker_ff_condition_true",
@@ -1060,6 +1203,30 @@ def base_cases() -> list[LogicInterpreterCase]:
             object_bitfield_smoke_actions() + draw_view11_at(50),
             50,
         ),
+        _custom_case(
+            "menu_setup_dispatch_smoke",
+            "Menu/list setup actions 0x9c..0xa0 allocate/finalize/toggle entries and return to following bytecode.",
+            byte_action(0x9C, 1)
+            + byte_action(0x9D, 2, 7)
+            + byte_action(0x9E)
+            + byte_action(0xA0, 7)
+            + byte_action(0x9F, 7)
+            + draw_view11_at(50),
+            50,
+            messages=["FILE", "OPEN"],
+        ),
+        _custom_case(
+            "menu_flag_dispatch_smoke",
+            "Action 0xa1 observes flag 0x0e and returns to following bytecode.",
+            set_flag_action(0x0E) + byte_action(0xA1) + draw_view11_at(50),
+            50,
+        ),
+        _custom_case(
+            "sound_load_stop_dispatch_smoke",
+            "Actions 0x62 and 0x64 load a sound resource and clear sound state before returning to following bytecode.",
+            byte_action(0x62, 1) + byte_action(0x64) + draw_view11_at(50),
+            50,
+        ),
     ]
 
 
@@ -1101,9 +1268,14 @@ def build_logic_fixture(case: LogicInterpreterCase, destination: Path) -> Path:
                     volume=3,
                 )
             )
-    picture_offset = len(records)
-    picture_record = volume_record(case.picture_payload, volume=3)
-    records.extend(picture_record)
+    picture_offsets: dict[int, int] = {case.picture_no: len(records)}
+    records.extend(volume_record(case.picture_payload, volume=3))
+    if case.extra_pictures:
+        for extra in case.extra_pictures:
+            picture_no = int(extra["picture_no"])
+            payload = bytes.fromhex(str(extra["payload_hex"]))
+            picture_offsets[picture_no] = len(records)
+            records.extend(volume_record(payload, volume=3))
     (destination / "VOL.3").write_bytes(records)
 
     logdir = (destination / "LOGDIR").read_bytes()
@@ -1112,16 +1284,16 @@ def build_logic_fixture(case: LogicInterpreterCase, destination: Path) -> Path:
     (destination / "LOGDIR").write_bytes(logdir)
 
     picdir = (destination / "PICDIR").read_bytes()
-    (destination / "PICDIR").write_bytes(
-        patch_dir_entry(picdir, case.picture_no, volume=3, offset=picture_offset)
-    )
+    for picture_no, picture_offset in picture_offsets.items():
+        picdir = patch_dir_entry(picdir, picture_no, volume=3, offset=picture_offset)
+    (destination / "PICDIR").write_bytes(picdir)
     return destination
 
 
 def compare_capture(case: LogicInterpreterCase, capture: Path) -> LogicComparison:
     try:
         captured = downsample_qemu_picture_nibbles(read_ppm(capture))
-        picture = PictureRenderer(case.picture_payload).render(case.picture_no)
+        picture = PictureRenderer(case.expected_picture_payload).render(case.picture_no)
         expected_picture = picture
         for sprite in case.expected_extra_sprites or []:
             extra_frame = render_view_frame(sprite["view_no"], sprite["group_no"], sprite["frame_no"])
@@ -1192,7 +1364,15 @@ def run_snapshot_batch(
         started_at[case.case_id] = time.monotonic()
         print(f"[{index + 1}/{len(cases)}] build {case.case_id} -> {dos_dir}", file=sys.stderr, flush=True)
         build_logic_fixture(case, fixture)
-        qemu_cases.append(SnapshotFixtureCase(dos_dir, fixture, capture))
+        qemu_cases.append(
+            SnapshotFixtureCase(
+                dos_dir,
+                fixture,
+                capture,
+                post_launch_keys=case.post_launch_keys,
+                post_launch_wait=case.post_launch_wait,
+            )
+        )
 
     print(f"building snapshot disk: {snapshot_qcow}", file=sys.stderr, flush=True)
     build_snapshot_boot_disk(qemu_cases, snapshot_raw, snapshot_qcow)

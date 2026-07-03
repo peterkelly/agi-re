@@ -12,7 +12,7 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT / "tools"))
 
-from qemu_snapshot import dos_key_name, fixture_input_files, mtools_image  # noqa: E402
+from qemu_snapshot import SnapshotFixtureCase, dos_key_name, fixture_input_files, mtools_image  # noqa: E402
 
 
 class QemuSnapshotTests(unittest.TestCase):
@@ -26,6 +26,11 @@ class QemuSnapshotTests(unittest.TestCase):
 
     def test_mtools_image_uses_partition_offset(self) -> None:
         self.assertEqual(mtools_image(Path("disk.raw")), "disk.raw@@32256")
+
+    def test_snapshot_case_defaults_to_no_post_launch_input(self) -> None:
+        case = SnapshotFixtureCase("CASE", Path("fixture"), Path("capture.ppm"))
+        self.assertEqual(case.post_launch_keys, "")
+        self.assertEqual(case.post_launch_wait, 0.0)
 
     def test_dos_key_names_cover_monitor_specials(self) -> None:
         self.assertEqual(dos_key_name("\\"), "backslash")
