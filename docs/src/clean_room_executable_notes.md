@@ -4514,3 +4514,87 @@ Documented result:
   effects of helper `0x1792`, including object/resource reset, previous-room
   update, entry-boundary placement, and resource-event recording, remain
   source-backed unless separately probed.
+
+## 2026-07-03: room entry-boundary selector QEMU validation
+
+Commands run from `/Users/peter/ai/agi/reverse`:
+
+- Oversized first disassembly attempt, useful for confirming the helper but too
+  broad for citation:
+  `ndisasm -b 16 -o 0x1792 -e 0x1992 build/cleanroom/AGI.decrypted.exe`
+- Focused corrected dump of room-switch helper `0x1792`:
+  `ndisasm -b 16 -o 0x1792 -e 0x1992 build/cleanroom/AGI.decrypted.exe | sed -n '1,90p'`
+- `python3 -B -m unittest tests.test_logic_interpreter_probe`
+- First attempted boundary batch:
+  `python3 -B tools/logic_interpreter_probe.py --case switch_room_boundary_1_sets_object0_bottom_y --case switch_room_boundary_2_sets_object0_left_x --case switch_room_boundary_3_sets_object0_top_y --case switch_room_boundary_4_sets_object0_right_x --dos-prefix RB --output build/logic-interpreter-probes/batches/room_boundary_001.json --boot-wait 5 --draw-wait 8 --stop-on-failure`
+- `sed -n '1,220p' build/logic-interpreter-probes/batches/room_boundary_001.json`
+- `python3 -B tools/inspect_ppm.py build/logic-interpreter-probes/fixtures/switch_room_boundary_1_sets_object0_bottom_y/qemu_capture.ppm`
+- Generated diagnostic object-0 getter case under
+  `build/logic-interpreter-probes/diagnostics/object0_getter.json`.
+- Diagnostic getter run:
+  `python3 -B tools/logic_interpreter_probe.py --cases build/logic-interpreter-probes/diagnostics/object0_getter.json --dos-prefix DG --output build/logic-interpreter-probes/batches/diagnostic_object0_getter_001.json --boot-wait 5 --draw-wait 8 --stop-on-failure`
+- Generated diagnostic marker-map case under
+  `build/logic-interpreter-probes/diagnostics/boundary1_marker_map.json`.
+- Diagnostic marker-map run:
+  `python3 -B tools/logic_interpreter_probe.py --cases build/logic-interpreter-probes/diagnostics/boundary1_marker_map.json --dos-prefix DM --output build/logic-interpreter-probes/batches/diagnostic_boundary1_marker_map_001.json --boot-wait 5 --draw-wait 8`
+- Corrected boundary batch:
+  `python3 -B tools/logic_interpreter_probe.py --case switch_room_boundary_1_sets_object0_bottom_y --case switch_room_boundary_2_sets_object0_left_x --case switch_room_boundary_3_sets_object0_top_y --case switch_room_boundary_4_sets_object0_right_x --dos-prefix RB --output build/logic-interpreter-probes/batches/room_boundary_002.json --boot-wait 5 --draw-wait 8 --stop-on-failure`
+- `python3 -B tools/logic_opcode_evidence.py`
+
+Documented result:
+
+- Re-read helper `0x1792`: after loading the destination logic, it reads byte
+  variable 2 at `DS:0x000b`, dispatches selector values 1 through 4 through a
+  small jump table, writes object 0 fields, clears `DS:0x000b`, sets flag 5,
+  and refreshes display/input state.
+- Added four reusable logic-interpreter probe cases:
+  `switch_room_boundary_1_sets_object0_bottom_y`,
+  `switch_room_boundary_2_sets_object0_left_x`,
+  `switch_room_boundary_3_sets_object0_top_y`, and
+  `switch_room_boundary_4_sets_object0_right_x`.
+- The first QEMU batch `room_boundary_001` mismatched on the first case with an
+  all-white capture. A diagnostic case proved action `0x27` can read object 0
+  fields after ordinary setup. The actual fixture issue was pre-switch setup:
+  object 0 was being bound to view 11 without first loading view 11, so the
+  fixture did not reach the intended room-switch path.
+- After changing the pre-switch setup to load view 11 before binding object 0,
+  QEMU batch `room_boundary_002` matched 4/4 with 0 mismatches.
+- The matched cases validate bytecode-visible entry-boundary behavior for
+  action `0x12`: selector 1 sets object 0 Y to `0xa7`; selector 2 sets object 0
+  X to `0`; selector 3 sets object 0 Y to `0x25`; selector 4 sets object 0 X to
+  `0xa0 - object_width`. In the fixture, view 11 frame 0 has width 20, so
+  selector 4 yields X `140`. All four selectors clear byte variable 2.
+- Regenerated `docs/src/logic_opcode_evidence.md`; action row `0x12` now cites
+  both the re-entry fixture and the boundary selector cases.
+
+## 2026-07-03: room current/previous variable QEMU validation
+
+Commands run from `/Users/peter/ai/agi/reverse`:
+
+- `rg -n "room_reentry_logic0_code|room_boundary_logic0_code|room_switch_reentry_case|room_boundary_case|switch_room_boundary|switch_room_reentry" tools/logic_interpreter_probe.py tests/test_logic_interpreter_probe.py docs/src/current_status.md docs/src/logic_bytecode.md docs/src/compatibility_testing.md`
+- `sed -n '240,380p' tools/logic_interpreter_probe.py`
+- `sed -n '780,850p' tools/logic_interpreter_probe.py`
+- `python3 -B -m unittest tests.test_logic_interpreter_probe`
+- `python3 -B -m py_compile tools/logic_interpreter_probe.py`
+- QEMU validation:
+  `python3 -B tools/logic_interpreter_probe.py --case switch_room_sets_current_previous_and_clears_boundary --case switch_room_v_sets_current_previous_and_clears_boundary --dos-prefix RP --output build/logic-interpreter-probes/batches/room_previous_001.json --boot-wait 5 --draw-wait 8 --stop-on-failure`
+- `python3 -B tools/logic_opcode_evidence.py`
+
+Documented result:
+
+- Added two reusable logic-interpreter probe cases:
+  `switch_room_sets_current_previous_and_clears_boundary` for action `0x12`,
+  and `switch_room_v_sets_current_previous_and_clears_boundary` for action
+  `0x13`.
+- Each fixture writes a synthetic old room number into byte variable 0 before
+  switching to room 1 and writes invalid boundary selector 7 into byte variable
+  2. The switch helper should copy old `v0` into `v1`, write destination room
+  1 into `v0`, and clear `v2` even though selector 7 is not a placement case.
+- The destination room logic validates these bytes with normal logic
+  conditions before drawing a validation sprite.
+- QEMU batch `room_previous_001` matched 2/2 with 0 mismatches. This validates
+  the byte-variable current/previous-room update for both immediate and
+  variable-selected room-switch actions.
+- Regenerated `docs/src/logic_opcode_evidence.md`; action rows `0x12` and
+  `0x13` now cite the previous-room variable probes in addition to the existing
+  room re-entry evidence.

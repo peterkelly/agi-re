@@ -266,6 +266,94 @@ def validation_room_logic(expected_x: int, picture_no: int = 0, view_no: int = 1
     )
 
 
+def room_boundary_logic0_code(
+    switch_action: bytes,
+    boundary_selector: int,
+    init_flag: int,
+    pre_switch_setup: bytes,
+) -> bytes:
+    return (
+        if_then(
+            not_flag_set_condition(init_flag),
+            pre_switch_setup
+            + set_flag_action(init_flag)
+            + assignn(2, boundary_selector)
+            + switch_action,
+        )
+        + byte_action(0x17, 0)
+        + end_action()
+    )
+
+
+def boundary_validation_room_logic(
+    expected_object_x: int,
+    expected_object_y: int,
+    expected_draw_x: int,
+    picture_no: int = 0,
+    view_no: int = 11,
+) -> bytes:
+    return (
+        if_then(
+            flag_set_condition(5),
+            load_show_picture_actions(picture_no)
+            + bytes([0x1E, view_no])
+            + byte_action(0x27, 0, 20, 21)
+            + if_then(
+                all_conditions(
+                    var_eq_imm_condition(20, expected_object_x),
+                    var_eq_imm_condition(21, expected_object_y),
+                    var_eq_imm_condition(2, 0),
+                ),
+                draw_view11_at(expected_draw_x),
+            ),
+        )
+        + self_loop()
+    )
+
+
+def previous_room_logic0_code(
+    switch_action: bytes,
+    previous_room: int,
+    init_flag: int,
+    boundary_selector: int = 7,
+) -> bytes:
+    return (
+        if_then(
+            not_flag_set_condition(init_flag),
+            assignn(0, previous_room)
+            + assignn(2, boundary_selector)
+            + set_flag_action(init_flag)
+            + switch_action,
+        )
+        + byte_action(0x17, 0)
+        + end_action()
+    )
+
+
+def previous_room_validation_logic(
+    expected_previous_room: int,
+    expected_draw_x: int,
+    picture_no: int = 0,
+    view_no: int = 11,
+) -> bytes:
+    return (
+        if_then(
+            flag_set_condition(5),
+            load_show_picture_actions(picture_no)
+            + bytes([0x1E, view_no])
+            + if_then(
+                all_conditions(
+                    var_eq_imm_condition(0, 1),
+                    var_eq_imm_condition(1, expected_previous_room),
+                    var_eq_imm_condition(2, 0),
+                ),
+                draw_view11_at(expected_draw_x),
+            ),
+        )
+        + self_loop()
+    )
+
+
 def room_switch_reentry_case(
     case_id: str,
     description: str,
@@ -294,6 +382,81 @@ def room_switch_reentry_case(
                     expected_x=expected_x,
                     picture_no=picture_no,
                     view_no=view_no,
+                ),
+            )
+        ],
+    )
+
+
+def room_previous_state_case(
+    case_id: str,
+    description: str,
+    switch_action: bytes,
+    previous_room: int,
+    expected_draw_x: int,
+    init_flag: int,
+) -> LogicInterpreterCase:
+    return LogicInterpreterCase(
+        case_id=case_id,
+        description=description,
+        code_hex=previous_room_logic0_code(
+            switch_action,
+            previous_room=previous_room,
+            init_flag=init_flag,
+        ).hex(),
+        picture_payload_hex=b"\xff".hex(),
+        picture_no=0,
+        expected_view_no=11,
+        expected_group_no=0,
+        expected_frame_no=0,
+        expected_x=expected_draw_x,
+        expected_baseline_y=80,
+        expected_priority=15,
+        extra_logics=[
+            logic_patch(
+                1,
+                previous_room_validation_logic(
+                    expected_previous_room=previous_room,
+                    expected_draw_x=expected_draw_x,
+                ),
+            )
+        ],
+    )
+
+
+def room_boundary_case(
+    case_id: str,
+    description: str,
+    boundary_selector: int,
+    expected_object_x: int,
+    expected_object_y: int,
+    expected_draw_x: int,
+    init_flag: int,
+) -> LogicInterpreterCase:
+    return LogicInterpreterCase(
+        case_id=case_id,
+        description=description,
+        code_hex=room_boundary_logic0_code(
+            byte_action(0x12, 1),
+            boundary_selector=boundary_selector,
+            init_flag=init_flag,
+            pre_switch_setup=bytes([0x1E, 11]) + setup_object_for_view11(0, x=44, baseline_y=80),
+        ).hex(),
+        picture_payload_hex=b"\xff".hex(),
+        picture_no=0,
+        expected_view_no=11,
+        expected_group_no=0,
+        expected_frame_no=0,
+        expected_x=expected_draw_x,
+        expected_baseline_y=80,
+        expected_priority=15,
+        extra_logics=[
+            logic_patch(
+                1,
+                boundary_validation_room_logic(
+                    expected_object_x=expected_object_x,
+                    expected_object_y=expected_object_y,
+                    expected_draw_x=expected_draw_x,
                 ),
             )
         ],
@@ -718,6 +881,58 @@ def base_cases() -> list[LogicInterpreterCase]:
             assignn(10, 1) + byte_action(0x13, 10),
             expected_x=58,
             init_flag=121,
+        ),
+        room_previous_state_case(
+            "switch_room_sets_current_previous_and_clears_boundary",
+            "Action 0x12 copies the old current room into v1, writes the destination to v0, and clears v2.",
+            byte_action(0x12, 1),
+            previous_room=37,
+            expected_draw_x=98,
+            init_flag=126,
+        ),
+        room_previous_state_case(
+            "switch_room_v_sets_current_previous_and_clears_boundary",
+            "Action 0x13 copies the old current room into v1, writes the variable-selected destination to v0, and clears v2.",
+            assignn(10, 1) + byte_action(0x13, 10),
+            previous_room=42,
+            expected_draw_x=106,
+            init_flag=127,
+        ),
+        room_boundary_case(
+            "switch_room_boundary_1_sets_object0_bottom_y",
+            "Boundary selector v2=1 sets object 0 Y to the bottom-entry value and clears v2.",
+            boundary_selector=1,
+            expected_object_x=44,
+            expected_object_y=0xA7,
+            expected_draw_x=66,
+            init_flag=122,
+        ),
+        room_boundary_case(
+            "switch_room_boundary_2_sets_object0_left_x",
+            "Boundary selector v2=2 sets object 0 X to the left-entry value and clears v2.",
+            boundary_selector=2,
+            expected_object_x=0,
+            expected_object_y=80,
+            expected_draw_x=74,
+            init_flag=123,
+        ),
+        room_boundary_case(
+            "switch_room_boundary_3_sets_object0_top_y",
+            "Boundary selector v2=3 sets object 0 Y to the top-entry value and clears v2.",
+            boundary_selector=3,
+            expected_object_x=44,
+            expected_object_y=0x25,
+            expected_draw_x=82,
+            init_flag=124,
+        ),
+        room_boundary_case(
+            "switch_room_boundary_4_sets_object0_right_x",
+            "Boundary selector v2=4 sets object 0 X to 0xa0 minus object width and clears v2.",
+            boundary_selector=4,
+            expected_object_x=140,
+            expected_object_y=80,
+            expected_draw_x=90,
+            init_flag=125,
         ),
         _draw_if_case(
             "save_restore_resume_actions_continue_to_draw",

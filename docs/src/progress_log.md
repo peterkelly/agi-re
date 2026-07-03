@@ -6557,3 +6557,232 @@ Progress updates and outcomes:
 
      Action/result: Added closing progress-log entries for validation and
      handoff.
+
+863. Reported: "I’ll start with the `v2` room-entry boundary probe,
+     source-first. I’m going to re-read the switch helper and the existing probe
+     helpers, then shape the QEMU cases so they validate the entry placement
+     through ordinary logic bytecode rather than peeking at memory."
+
+     Action/result: Re-read room-switch helper `0x1792`, probe helper code, and
+     existing room-switch fixtures.
+
+864. Reported: "The switch helper confirms the four `v2` cases in code: `1`
+     writes object 0 Y to `0xa7`, `2` writes X to `0`, `3` writes Y to `0x25`,
+     and `4` writes X to `0xa0 - object_width`, then clears `v2`. I’m shaping
+     the cases so the destination logic reads object 0 with the normal getter
+     and only draws if the expected field matches."
+
+     Action/result: Added helper code for boundary-selector fixtures that use
+     action `0x27` to read object 0 after room-switch re-entry.
+
+865. Reported: "I’m going to cover all four boundary selectors. The fourth case
+     depends on object width, so I’ll initialize object 0 with view 11 frame 0
+     before the switch; the disassembly leaves width intact and uses it for
+     `0xa0 - width`, which should give X `140` for that 20-pixel-wide cel."
+
+     Action/result: Added four base cases for selectors 1 through 4 and pinned
+     them in the logic probe unit test list.
+
+866. Reported: "The cases are registered. I’m running the local unit test for
+     the probe definitions first; if that’s clean, I’ll run just these four
+     cases through QEMU."
+
+     Action/result: Logic probe unit tests and `py_compile` passed.
+
+867. Reported: "The definition tests pass. I’m launching the four
+     boundary-selector fixtures in QEMU now; this will tell us whether the
+     disassembled field writes line up with visible original-engine behavior."
+
+     Action/result: Started QEMU batch `room_boundary_001`.
+
+868. Reported: "The batch is running from one snapshot boot. It has built all
+     four fixture directories and is now executing the captures."
+
+     Action/result: `room_boundary_001` continued running under QEMU snapshot
+     mode.
+
+869. Reported: "The first boundary case mismatched, so I’m not promoting the
+     set yet. I’m going to inspect the generated report and capture signature to
+     see whether the validation draw never happened or whether one of the
+     expected coordinates is wrong."
+
+     Action/result: The first capture was all white; no validation draw
+     occurred.
+
+870. Reported: "The capture is a blank all-white screen, which means the
+     destination room ran far enough to show its picture but the coordinate
+     condition did not pass. I’m going back to the object-position getter and
+     setup path in the disassembly before trying new hypotheses, because the
+     field write may be right while my bytecode-level observation is reading a
+     different or reset field."
+
+     Action/result: Re-read object getter/setup-related disassembly.
+
+871. Reported: "The getter path is byte-based and normal object fields are at
+     `+0x03/+0x05`, as expected. The failure likely means the switch helper’s
+     later refresh calls alter object 0 after the boundary write, or object 0’s
+     special lifecycle differs from ordinary objects. I’m going to build a
+     diagnostic fixture that encodes the observed value into a visible draw
+     choice, still using bytecode and QEMU rather than debugger memory."
+
+     Action/result: Generated a diagnostic under `build/` to test whether
+     action `0x27` can observe object 0 after ordinary setup.
+
+872. Reported: "Before guessing the boundary value, I’m checking the observation
+     mechanism itself with a generated diagnostic case under `build/`: set
+     object 0, read it back with action `0x27`, and draw only if the getter
+     reports the fields we wrote. If that passes, the mismatch is specifically
+     post-switch behavior."
+
+     Action/result: Diagnostic object-0 getter case matched QEMU.
+
+873. Reported: "The diagnostic getter case matched, so action `0x27` can
+     observe object 0 normally. Now I’m generating a single visual diagnostic
+     that draws different marker positions for several post-switch `(x,y)`
+     hypotheses, plus a separate marker if `v2` was cleared. That should reveal
+     which part of the condition is false."
+
+     Action/result: Generated and ran the boundary marker-map diagnostic; it
+     still produced an all-white capture.
+
+874. Reported: "Aha, the diagnostic never drew even the `v2 == 0` marker
+     because my pre-switch object setup bound view 11 without loading it first.
+     That likely aborted before the switch. I’m fixing the fixture to load view
+     11 before setting up object 0, then I’ll rerun the boundary batch."
+
+     Action/result: Corrected boundary fixtures to load view 11 before binding
+     object 0.
+
+875. Reported: "The pre-switch setup now loads the view resource before binding
+     object 0. I’m re-running the quick unit check and then the four-case QEMU
+     batch."
+
+     Action/result: Logic probe unit tests and `py_compile` passed again.
+
+876. Reported: "The corrected boundary batch is executing now. If the
+     disassembly-derived values are right, all four should draw their
+     validation sprite after the re-entry dispatch."
+
+     Action/result: QEMU batch `room_boundary_002` matched 4/4 with 0
+     mismatches and 0 errors.
+
+877. Reported: "Great, all four boundary selectors matched QEMU after fixing
+     the pre-switch setup. I’m going to promote these as compatibility cases
+     and update the docs with the exact distinction we just learned: object 0
+     must have a loaded/bound view before the switch for the right-edge width
+     case to be meaningful."
+
+     Action/result: Promoted the four boundary-selector cases and began
+     documentation updates.
+
+878. Reported: "I’m checking the relevant doc sections and the evidence
+     generator now so the probe list, opcode evidence, compatibility
+     instructions, and clean-room notes all agree."
+
+     Action/result: Found the evidence generator needed to mention the new
+     boundary-selector cases for action `0x12`.
+
+879. Reported: "I’m promoting the boundary coverage in the evidence generator
+     and docs now. The wording will stay careful: the bytecode-visible
+     entry-boundary placements are QEMU-validated; unrelated internals like
+     resource-event recording are still source-backed."
+
+     Action/result: Updated `tools/logic_opcode_evidence.py`.
+
+880. Reported: "The generator is updated. I’m regenerating the opcode evidence
+     chapter before editing the prose around it."
+
+     Action/result: Regenerated `docs/src/logic_opcode_evidence.md`.
+
+881. Reported: "Next I’m editing the room-switch prose and compatibility
+     instructions to include the four matched `v2` selectors and the pre-switch
+     view-load lesson from the failed first attempt."
+
+     Action/result: Updated `docs/src/logic_bytecode.md` and
+     `docs/src/compatibility_testing.md`.
+
+882. Reported: "The bytecode and compatibility chapters now include the
+     boundary batch. I’m updating the handoff page so “entry boundary” moves out
+     of the recommended next step and into validated room-switch behavior."
+
+     Action/result: Updated `docs/src/current_status.md`.
+
+883. Reported: "I have the concise switch-helper dump now. I’m appending a
+     clean-room note section with the failed first batch, the diagnostic getter
+     check, the corrected batch, and the resulting semantics."
+
+     Action/result: Added the room entry-boundary selector QEMU validation
+     section to `docs/src/clean_room_executable_notes.md`.
+
+884. Reported: "I’ll take the next small, crisp room-switch probe: controlled
+     previous-room updates. I’m going to make the fixture set `v0` to a known
+     synthetic previous room before switching, then the destination room logic
+     will assert `v0`, `v1`, and cleared `v2` through normal bytecode before
+     drawing."
+
+     Action/result: Started the current/previous-room variable validation pass.
+
+885. Reported: "I’m checking the current dirty state and helper locations
+     first, since we’re building on the uncommitted boundary-selector work from
+     the last slice."
+
+     Action/result: Confirmed the uncommitted boundary-selector changes were
+     present and identified the room-switch helper insertion points.
+
+886. Reported: "The existing helpers are a good fit. I’m adding a narrow
+     previous-room helper now: pre-switch logic writes a synthetic old room into
+     `v0`, switches to room 1, then the destination room draws only if
+     `v0 == 1`, `v1 == old_room`, and `v2 == 0`."
+
+     Action/result: Added helper code for current/previous-room validation
+     fixtures.
+
+887. Reported: "The helper is in. I’m registering both immediate and variable
+     room-switch versions so `0x12` and `0x13` both get previous-room
+     coverage."
+
+     Action/result: Added `switch_room_sets_current_previous_and_clears_boundary`
+     and `switch_room_v_sets_current_previous_and_clears_boundary`.
+
+888. Reported: "The new cases are pinned in the registry tests. I’m running the
+     local probe tests and Python compile check before QEMU."
+
+     Action/result: `tests.test_logic_interpreter_probe` and `py_compile`
+     passed.
+
+889. Reported: "The local checks pass. I’m running the two previous-room cases
+     in QEMU now."
+
+     Action/result: QEMU batch `room_previous_001` matched 2/2 with 0 errors
+     and 0 mismatches.
+
+890. Reported: "Both previous-room cases matched QEMU. I’m updating the
+     evidence generator and docs now so the room-switch section reflects
+     `v0/v1/v2` as validated behavior, with the rest still source-backed."
+
+     Action/result: Began promoting the current/previous-room evidence into
+     docs.
+
+891. Reported: "I’m going to regenerate the opcode evidence after adding the
+     new case names, then fold the same result into the narrative docs."
+
+     Action/result: Updated `tools/logic_opcode_evidence.py`.
+
+892. Reported: "The evidence table is regenerated. I’m updating the
+     room-switch prose and current-status page next."
+
+     Action/result: Regenerated `docs/src/logic_opcode_evidence.md`.
+
+893. Reported: "I’m patching the docs now: `v1` moves from
+     planned/source-backed to QEMU-validated, while resource replay and broader
+     reset details remain next."
+
+     Action/result: Updated `docs/src/logic_bytecode.md`,
+     `docs/src/compatibility_testing.md`, and `docs/src/current_status.md`.
+
+894. Reported: "The narrative docs are updated. I’m appending the clean-room
+     note section for the `v1` validation run with the exact QEMU command and
+     result."
+
+     Action/result: Added the room current/previous variable QEMU validation
+     section to `docs/src/clean_room_executable_notes.md`.

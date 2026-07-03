@@ -266,6 +266,30 @@ logic 0, and the second pass dispatches the current room through
 `call_logic_var(v0)`. The destination room logic owns the flag-5 entry setup,
 including picture/view loading and drawing.
 
+Run the room current/previous variable update batch:
+
+```bash
+python3 -B tools/logic_interpreter_probe.py --case switch_room_sets_current_previous_and_clears_boundary --case switch_room_v_sets_current_previous_and_clears_boundary --dos-prefix RP --output build/logic-interpreter-probes/batches/room_previous_001.json --boot-wait 5 --draw-wait 8 --stop-on-failure
+```
+
+The two-case batch matched QEMU with 0 mismatches. These fixtures validate that
+both `0x12` and `0x13` copy the old current room from `v0` into previous-room
+byte `v1`, write the destination room into `v0`, and clear boundary selector
+`v2`.
+
+Run the room-entry boundary selector batch:
+
+```bash
+python3 -B tools/logic_interpreter_probe.py --case switch_room_boundary_1_sets_object0_bottom_y --case switch_room_boundary_2_sets_object0_left_x --case switch_room_boundary_3_sets_object0_top_y --case switch_room_boundary_4_sets_object0_right_x --dos-prefix RB --output build/logic-interpreter-probes/batches/room_boundary_002.json --boot-wait 5 --draw-wait 8 --stop-on-failure
+```
+
+The four-case batch matched QEMU with 0 mismatches. These fixtures validate the
+`v2` entry-boundary selector side effect of `0x12`: selector `1` sets object 0 Y
+to `0xa7`, selector `2` sets object 0 X to `0`, selector `3` sets object 0 Y to
+`0x25`, selector `4` sets object 0 X to `0xa0 - object_width`, and each path
+clears `v2`. The fixture preloads view 11 before setting up object 0 so the
+right-edge case has a known width.
+
 Run the inventory selection follow-up batch:
 
 ```bash

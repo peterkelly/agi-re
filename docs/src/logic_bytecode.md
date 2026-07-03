@@ -741,10 +741,31 @@ the user-visible re-entry/current-room dispatch shape: a room switch prepares
 state and loads the destination logic, but room-local drawing/setup belongs to
 the destination room logic reached on the following logic-0 pass.
 
+QEMU fixture `room_previous_001` validates the byte-variable room update
+contract for both `0x12` and `0x13`. The fixture writes a synthetic previous
+room into byte variable 0 before switching to room 1, and writes an invalid
+boundary selector into byte variable 2. The destination room logic draws only
+if byte variable 0 is the destination room, byte variable 1 is the synthetic
+previous room, and byte variable 2 has been cleared. The matched immediate and
+variable-selected cases confirm that the switch helper copies old `v0` to `v1`,
+writes the destination room to `v0`, and clears `v2` on both operand paths.
+
+QEMU fixture `room_boundary_002` validates the four entry-boundary selector
+cases through normal bytecode-visible object state. The fixture initializes
+object 0 with loaded view 11 frame 0 at `(44,80)` before switching rooms. The
+destination room logic then reads object 0 with action `0x27` and draws only if
+the expected position and cleared selector byte are observed. The matched cases
+confirm selector `1` writes Y `0xa7`, selector `2` writes X `0`, selector `3`
+writes Y `0x25`, selector `4` writes X `140` (`0xa0 - 20` for the selected
+cel width), and all four clear byte variable 2. An earlier attempt that bound
+object 0's view without first loading view 11 did not reach the switch; the
+right-edge selector is only meaningful when object width has already been
+derived.
+
 The broader internal reset effects are still source-backed from the
-disassembly: object/resource reset, previous-room byte update, entry-boundary
-selector handling, resource/event recording, optional trace logic reload, and
-the exact redraw/input refresh calls.
+disassembly: object/resource reset beyond the bytecode-visible fields checked
+above, resource/event recording, optional trace logic reload, and the exact
+redraw/input refresh calls.
 
 Additional object-state actions:
 
