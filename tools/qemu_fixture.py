@@ -77,6 +77,13 @@ def not_flag_set_condition(flag_no: int) -> bytes:
     return bytes([0xFD, 0x07, flag_no])
 
 
+def var_eq_imm_condition(var_no: int, value: int) -> bytes:
+    values = [var_no, value]
+    if any(not 0 <= item <= 0xFF for item in values):
+        raise ValueError("variable/immediate operands must fit in one byte")
+    return bytes([0x01, var_no, value])
+
+
 def if_then(condition: bytes, then_actions: bytes) -> bytes:
     if len(then_actions) > 0x7FFF:
         raise ValueError("conditional body is too large for a positive relative delta")
@@ -216,11 +223,37 @@ def set_object_field_1f_from_var_action(object_no: int, var_no: int) -> bytes:
     return bytes([0x4C, object_no, var_no])
 
 
+def set_object_field_23_mode0_action(object_no: int) -> bytes:
+    if not 0 <= object_no <= 0xFF:
+        raise ValueError("object number must fit in one byte")
+    return bytes([0x48, object_no])
+
+
 def set_object_field_23_mode1_action(object_no: int, flag_no: int) -> bytes:
     values = [object_no, flag_no]
     if any(not 0 <= value <= 0xFF for value in values):
         raise ValueError("object/flag operands must fit in one byte")
     return bytes([0x49, object_no, flag_no])
+
+
+def set_object_field_23_mode2_action(object_no: int, flag_no: int) -> bytes:
+    values = [object_no, flag_no]
+    if any(not 0 <= value <= 0xFF for value in values):
+        raise ValueError("object/flag operands must fit in one byte")
+    return bytes([0x4B, object_no, flag_no])
+
+
+def set_object_field_23_mode3_action(object_no: int) -> bytes:
+    if not 0 <= object_no <= 0xFF:
+        raise ValueError("object number must fit in one byte")
+    return bytes([0x4A, object_no])
+
+
+def get_object_field_0e_action(object_no: int, var_no: int) -> bytes:
+    values = [object_no, var_no]
+    if any(not 0 <= value <= 0xFF for value in values):
+        raise ValueError("object/variable operands must fit in one byte")
+    return bytes([0x32, object_no, var_no])
 
 
 def clear_object_bit_0020_action(object_no: int) -> bytes:

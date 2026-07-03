@@ -117,10 +117,10 @@ Evidence levels:
 | `0x45` | `object_distance_to_var` | imm0, imm1, var2 | object distance to var | QEMU-validated | logic_interpreter_probe: object_distance_inactive_pair_sets_ff |
 | `0x46` | `clear_object_bit_0020` | imm0 | clear object bit 0020 | QEMU-validated | object_movement_probe: frame_timer_001 |
 | `0x47` | `set_object_bit_0020` | imm0 | set object bit 0020 | QEMU-validated | object_movement_probe: frame_timer_001 |
-| `0x48` | `set_object_field_23_mode0` | imm0 | set object field 23 mode0 | QEMU dispatch-smoke | logic_interpreter_probe: object_field_23_mode0_dispatch_smoke |
+| `0x48` | `set_object_field_23_mode0` | imm0 | set object field 23 mode0 | QEMU-validated | object_movement_probe: frame_timer_modes_002 |
 | `0x49` | `set_object_field_23_mode1` | imm0, imm1 | set object field 23 mode1 | QEMU-validated | logic_interpreter_probe: object_field_23_mode1_clears_flag |
-| `0x4a` | `set_object_field_23_mode3` | imm0 | set object field 23 mode3 | QEMU dispatch-smoke | logic_interpreter_probe: object_field_23_mode3_dispatch_smoke |
-| `0x4b` | `set_object_field_23_mode2` | imm0, imm1 | set object field 23 mode2 | QEMU-validated | logic_interpreter_probe: object_field_23_mode2_clears_flag |
+| `0x4a` | `set_object_field_23_mode3` | imm0 | set object field 23 mode3 | QEMU-validated | object_movement_probe: frame_timer_modes_002 |
+| `0x4b` | `set_object_field_23_mode2` | imm0, imm1 | set object field 23 mode2 | QEMU-validated | logic_interpreter_probe: object_field_23_mode2_clears_flag; object_movement_probe: frame_timer_modes_002 |
 | `0x4c` | `set_object_field_1f_var` | imm0, var1 | set object field 1f var | QEMU-validated | object_movement_probe: frame_timer_001 |
 | `0x4d` | `clear_object_fields_21_22` | imm0 | clear object fields 21 22 | QEMU-validated | logic_interpreter_probe: clear_object_fields_21_22_clears_direction |
 | `0x4e` | `clear_object_field_22_and_global` | imm0 | clear object field 22 and global | QEMU-validated | object_movement_probe: clear_field_22_001 |

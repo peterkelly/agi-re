@@ -385,7 +385,7 @@ object byte `+0x0e` and the last valid frame index `+0x0f - 1`:
 | ---: | --- | --- |
 | `0` | `0x48` | Increment frame and wrap from the last frame to frame 0. |
 | `1` | `0x49` | Increment toward the last frame. On the callback that reaches the last frame, set flag `+0x27`, clear bit `0x0020`, clear direction byte `+0x21`, and reset mode `+0x23` to 0. |
-| `2` | `0x4b` | Decrement once if not already at frame 0, then set flag `+0x27`, clear bit `0x0020`, clear direction byte `+0x21`, and reset mode `+0x23` to 0. If already at frame 0, complete without changing frame. |
+| `2` | `0x4b` | Decrement toward frame 0. If the decrement reaches frame 0, or if the object was already at frame 0, set flag `+0x27`, clear bit `0x0020`, clear direction byte `+0x21`, and reset mode `+0x23` to 0. |
 | `3` | `0x4a` | Decrement frame and wrap from frame 0 to the last frame. |
 
 After choosing the frame, the helper calls `code.object.select_frame` to update
@@ -396,6 +396,14 @@ mode-1 path: action `0x4c` seeds the countdown, action `0x49` starts forward
 completion mode, and view 11/group 0 advances from frame 0 to frame 1. The same
 batch confirms that action `0x46` suppresses the frame advance by clearing bit
 `0x0020`, while action `0x47` restores it.
+
+QEMU movement batch `frame_timer_modes_002` validates the other visible frame
+modes against this static model. From view 11/group 0/frame 1, action `0x48`
+mode 0 wraps forward to frame 0. From frame 1, action `0x4b` mode 2 reaches
+frame 0 and stops. From frame 0, action `0x4a` mode 3 wraps backward to the
+last frame, frame 1. The looping-mode fixtures use a small bytecode guard that
+reads object field `+0x0e` with action `0x32` and clears bit `0x0020` once the
+expected frame appears, making the final capture deterministic.
 
 In addition to absolute positioning through actions `0x25` (`set_object_pos`),
 `0x26` (`set_object_pos_var`), `0x93` (`set_object_pos_dirty`), and

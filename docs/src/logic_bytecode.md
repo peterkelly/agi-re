@@ -651,17 +651,24 @@ nonzero, and decrementing `+0x20` reaches zero, it calls
 `code.object.advance_frame_by_mode` (`0x48b3`) and reloads `+0x20` from
 `+0x1f`. The advance helper treats `+0x23` as a frame mode: mode 0 loops
 forward, mode 1 advances forward and completes at the last frame, mode 2 steps
-backward and completes, and mode 3 loops backward. Completion in modes 1 and 2
-sets flag `+0x27`, clears bit `0x0020`, clears direction byte `+0x21`, and
-resets `+0x23` to 0. Actions `0x49` and `0x4b` also set bit `0x1000`; the
-first advance callback after setup clears that bit and returns without changing
-frame.
+backward until it reaches frame 0 and completes, and mode 3 loops backward.
+Completion in modes 1 and 2 sets flag `+0x27`, clears bit `0x0020`, clears
+direction byte `+0x21`, and resets `+0x23` to 0. Actions `0x49` and `0x4b`
+also set bit `0x1000`; the first advance callback after setup clears that bit
+and returns without changing frame.
 
 QEMU movement batch `frame_timer_001` validates the visible mode-1 path: after
 `0x4c` seeds the interval and `0x49` starts mode 1, view 11/group 0 advances
 from frame 0 to frame 1. The same batch validates that `0x46` prevents the
 advance by clearing bit `0x0020`, and `0x47` restores the advance when executed
 after `0x46`.
+
+QEMU movement batch `frame_timer_modes_002` validates the remaining visible
+frame-mode actions: `0x48` mode 0 wraps view 11/group 0 from frame 1 to frame
+0, `0x4b` mode 2 moves from frame 1 to frame 0 and stops, and `0x4a` mode 3
+wraps backward from frame 0 to frame 1. The looping-mode fixtures stop the
+timer with `0x46` after a bytecode guard observes the expected frame through
+`0x32`.
 
 Movement probe `move_collision_clear_skip_bit_blocks_again` validates `0x44` by
 first setting collision-skip bit `0x0200` with `0x43`, then clearing it with

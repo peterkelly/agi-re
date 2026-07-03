@@ -72,7 +72,9 @@ QEMU_ACTIONS = {
     0x44: "object_movement_probe: clear_skip_bit_001",
     0x46: "object_movement_probe: frame_timer_001",
     0x47: "object_movement_probe: frame_timer_001",
+    0x48: "object_movement_probe: frame_timer_modes_002",
     0x4C: "object_movement_probe: frame_timer_001",
+    0x4A: "object_movement_probe: frame_timer_modes_002",
     0x4F: "object_movement_probe: autonomous_modes_003 and motion_modes_004",
     0x50: "object_movement_probe: autonomous_modes_003 and motion_modes_004",
     0x51: "object_movement_probe: motion_modes_004",
@@ -86,7 +88,7 @@ QEMU_ACTIONS = {
     0x59: "object_movement_probe: rect_bit_0002_001",
     0x45: "logic_interpreter_probe: object_distance_inactive_pair_sets_ff",
     0x49: "logic_interpreter_probe: object_field_23_mode1_clears_flag",
-    0x4B: "logic_interpreter_probe: object_field_23_mode2_clears_flag",
+    0x4B: "logic_interpreter_probe: object_field_23_mode2_clears_flag; object_movement_probe: frame_timer_modes_002",
     0x4D: "logic_interpreter_probe: clear_object_fields_21_22_clears_direction",
     0x4E: "object_movement_probe: clear_field_22_001",
     0x5C: "logic_interpreter_probe: inventory_marker_ff_condition_true",
@@ -119,8 +121,6 @@ QEMU_SMOKE_ACTIONS = {
     0x3A: "logic_interpreter_probe: object_bitfield_actions_dispatch_smoke",
     0x3B: "logic_interpreter_probe: object_bitfield_actions_dispatch_smoke",
     0x3C: "logic_interpreter_probe: object_bitfield_actions_dispatch_smoke",
-    0x48: "logic_interpreter_probe: object_field_23_mode0_dispatch_smoke",
-    0x4A: "logic_interpreter_probe: object_field_23_mode3_dispatch_smoke",
 }
 
 

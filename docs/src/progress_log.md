@@ -3373,3 +3373,152 @@ Progress updates and outcomes:
      the log changed."
 
      Action/result: Recorded the successful validation suite result.
+
+422. Reported: "I'll proceed with the disassembly-first next slice: the object
+     frame-mode family around `0x48`, `0x4a`, and `0x4b`. I'll use QEMU only
+     after the static path says exactly what should happen."
+
+     Action/result: Started a static-first pass over the frame-mode setup
+     actions and the frame advance helper.
+
+423. Reported: "I've refreshed the repo instructions and current notes. Next
+     I'm reading the movement fixture code so any validation case mirrors the
+     disassembled behavior instead of guessing from screenshots."
+
+     Action/result: Re-read local harness files and AGENTS/project guidance.
+
+424. Reported: "Before touching harness code, I'm re-reading the exact action
+     handlers and the frame dispatcher bytes. The goal is to nail down where
+     mode 2 actually completes, since that's the one most likely to hide an
+     off-by-one misunderstanding."
+
+     Action/result: Cut and disassembled focused executable slices around image
+     offsets `0x48b3` and `0x6b82`.
+
+425. Reported: "The static read turned up one correction: mode 2 doesn't just
+     decrement once and stop. It keeps stepping backward and completes when it
+     reaches frame 0, with an immediate-complete shortcut if it starts at frame
+     0."
+
+     Action/result: Corrected the frame-mode model before adding runtime probes.
+
+426. Reported: "For looping modes, I don't want a flaky 'capture at just the
+     right cycle' test. I'm going to make the logic fixture stop the timer after
+     it observes the expected frame, using the already decoded `0x32` object
+     frame read plus `0x46` to clear the timer bit."
+
+     Action/result: Chose deterministic loop-stopping bytecode for mode 0 and
+     mode 3 validation cases.
+
+427. Reported: "I'm going to add tiny byte helpers for the exact opcodes the
+     fixture needs, then keep the QEMU cases narrow: mode 0 wraps forward, mode
+     2 reaches frame 0 and stops, mode 3 wraps backward."
+
+     Action/result: Planned scoped fixture helper additions for actions `0x48`,
+     `0x4a`, `0x4b`, and `0x32`.
+
+428. Reported: "The fixture helpers are in. I'm wiring them into the movement
+     probe as explicit animation modes rather than making a one-off custom
+     fixture, so future frame-mode cases can reuse the same path."
+
+     Action/result: Added helper encoders to `tools/qemu_fixture.py` and threaded
+     animation mode selection through `tools/object_movement_probe.py`.
+
+429. Reported: "The movement probe now has three new frame-mode cases. I'm
+     adding unit coverage for the helper encodings and registry entries before I
+     put the original engine through it."
+
+     Action/result: Added tests for the new helper bytes and movement case IDs.
+
+430. Reported: "The tests now cover the new byte helpers and all three cases.
+     I'm running the focused Python tests first; if those pass, I'll run the
+     QEMU batch against the original interpreter."
+
+     Action/result: Ran focused unit tests for fixture helpers and movement
+     probes.
+
+431. Reported: "Focused tests passed. I'm running the QEMU validation batch now
+     with the three frame-mode cases against the original engine."
+
+     Action/result: Started `frame_timer_modes_002` through
+     `tools/object_movement_probe.py`.
+
+432. Reported: "QEMU has built the snapshot disk and is stepping through the
+     cases now. So far the harness is using the same one-boot snapshot pattern
+     as the earlier movement batches."
+
+     Action/result: QEMU validation proceeded through the snapshot fixture
+     harness.
+
+433. Reported: "All three frame-mode cases matched QEMU: mode 0 forward wrap,
+     mode 2 backward completion at frame 0, and mode 3 backward wrap. I'm
+     promoting the opcode evidence and then I'll record the correction and
+     replay command in the docs."
+
+     Action/result: Confirmed `frame_timer_modes_002` with 3 matches, 0
+     mismatches, and 0 errors.
+
+434. Reported: "The evidence metadata is updated: `0x48` and `0x4a` are now
+     behavior-backed instead of dispatch-smoke, and `0x4b` has both its flag
+     side effect and visible mode-2 completion covered."
+
+     Action/result: Updated `tools/logic_opcode_evidence.py`.
+
+435. Reported: "The generated chapter is refreshed. I'm finding every place
+     where the old 'mode 2 decrements once' wording survived so the docs don't
+     carry a stale hypothesis."
+
+     Action/result: Regenerated `docs/src/logic_opcode_evidence.md` and searched
+     the docs for old frame-mode wording.
+
+436. Reported: "I found the places where the older mode-2 wording lives. I'm
+     correcting those and adding the exact QEMU command/result to the
+     compatibility and clean-room notes."
+
+     Action/result: Began patching prose docs for the corrected mode-2 behavior
+     and `frame_timer_modes_002`.
+
+437. Reported: "I'll pick this back up at the doc-integration step: the code
+     and QEMU probe are in place, so I'm going to finish recording the evidence
+     trail and then run the book/tests checks."
+
+     Action/result: Resumed after context compaction and continued from the
+     documentation integration step.
+
+438. Reported: "The scan shows the new code and two doc chapters already
+     changed, with the older mode-2 wording still present in the clean-room
+     chronology and the compatibility/current-status pages not yet caught up.
+     I'm going to patch those together so the evidence trail stays coherent."
+
+     Action/result: Located remaining docs needing updates.
+
+439. Reported: "I'm making the doc edits now: correcting the static mode-2 note,
+     adding the exact new QEMU replay command/result, and updating the status
+     page so `0x48`/`0x4a` are no longer described as smoke-only."
+
+     Action/result: Updated compatibility testing, current status, clean-room
+     notes, and logic-bytecode prose.
+
+440. Reported: "The main docs are patched. I'm appending the progress-log
+     entries next, including the short updates from this resumed turn so the
+     historical record remains continuous."
+
+     Action/result: Appended this progress-log block.
+
+441. Reported: "All core checks passed: 97 tests, evidence check, mdBook build,
+     and whitespace check. One search command tripped over shell backticks in
+     the pattern, so I'm rerunning that search safely and then adding the
+     validation note to the log."
+
+     Action/result: `python3 -B -m unittest discover -s tests`,
+     `python3 -B tools/logic_opcode_evidence.py --check`, `mdbook build docs`,
+     and `git diff --check` passed. The corrected safe search found only the
+     historical progress-log mention of the old wording and the corrected
+     clean-room sentence.
+
+442. Reported: "The safe search only finds the historical progress note and the
+     corrected sentence, so the stale wording is gone from the actual spec
+     prose. I'm logging the validation result and then doing the small final
+     doc/whitespace rerun because the log changed."
+
+     Action/result: Added the validation result to this progress log.

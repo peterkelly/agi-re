@@ -58,7 +58,8 @@ through visible output.
   `code.object.advance_frame_by_mode` interprets modes `0..3` as forward loop,
   forward-to-last completion, backward completion, and backward loop. QEMU
   batch `frame_timer_001` validates visible mode-1 advancement and the
-  `0x46`/`0x47` bit gate.
+  `0x46`/`0x47` bit gate; batch `frame_timer_modes_002` validates visible
+  modes 0, 2, and 3 for actions `0x48`, `0x4b`, and `0x4a`.
 
 ## Confirmed Graphics and View Findings
 
@@ -109,9 +110,10 @@ Return to the logic interpreter:
    QEMU-backed evidence for `0x22`, `0x24`, `0x28`, `0x7f`, `0x82`, `0x93`,
    `0x94`, `0x9b`, and `0xaf`; notably, `0x22` clears bits but does not
    immediately unlink an already activated current-cycle draw entry. The latest
-   small batch adds QEMU evidence for variable-selected view loading (`0x1f`),
-   flag-clearing side effects of object field `+0x23` mode actions `0x49` and
-   `0x4b`, and dispatch-smoke coverage for `0x48` and `0x4a`.
+   small batch adds QEMU evidence for variable-selected view loading (`0x1f`);
+   the frame-timer batches add behavior evidence for object frame actions
+   `0x46..0x4c`, including visible mode coverage for `0x48`, `0x4a`, and
+   `0x4b`.
 2. Prefer QEMU fixture evidence for additional opcodes whose behavior can be made visible;
    keep source-only wording for UI, save/restore, sound, and diagnostics until a
    narrow probe is practical.

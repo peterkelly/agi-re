@@ -3554,9 +3554,9 @@ Documented result:
   `0x1000` is set, the helper clears that bit and returns without changing the
   selected frame. Otherwise byte `+0x23` selects one of four frame behaviors:
   mode 0 increments and wraps; mode 1 increments toward the last frame and
-  completes there; mode 2 decrements once and completes, or completes
-  immediately at frame 0; mode 3 decrements and wraps from frame 0 to the last
-  frame.
+  completes there; mode 2 decrements toward frame 0 and completes there, or
+  completes immediately if already at frame 0; mode 3 decrements and wraps from
+  frame 0 to the last frame.
 - Completion in frame modes 1 and 2 sets flag byte `+0x27`, clears object bit
   `0x0020`, clears direction byte `+0x21`, and resets byte `+0x23` to zero.
 - Updated `docs/src/symbolic_labels.md`, `docs/src/logic_bytecode.md`,
@@ -3594,3 +3594,42 @@ Documented result:
   `docs/src/logic_opcode_evidence.md`.
 - Updated `docs/src/logic_bytecode.md`, `docs/src/graphics_object_pipeline.md`,
   and `docs/src/compatibility_testing.md` with the replay command and result.
+
+## 2026-07-03: QEMU validation of remaining frame modes
+
+Commands run from `/Users/peter/ai/agi/reverse`:
+
+- `dd if=build/cleanroom/AGI.decrypted.exe of=build/cleanroom/slice_48b3_49c8.bin bs=1 skip=19123 count=280`
+- `dd if=build/cleanroom/AGI.decrypted.exe of=build/cleanroom/slice_6b82_6ce0.bin bs=1 skip=28034 count=350`
+- `ndisasm -b 16 -o 0x48b3 build/cleanroom/slice_48b3_49c8.bin`
+- `ndisasm -b 16 -o 0x6b82 build/cleanroom/slice_6b82_6ce0.bin`
+- `python3 -B -c "import sys; sys.path.insert(0,'tools'); from disassemble_logic import AGIDATA, load_table; data=AGIDATA.read_bytes(); table=load_table(data,0x061d,0xb0); [print(f'{op:02x} handler={table[op].handler:04x} argc={table[op].argc} meta={table[op].meta:02x}') for op in [0x46,0x47,0x48,0x49,0x4a,0x4b,0x4c]]"`
+- `python3 -B -m unittest tests.test_qemu_fixture tests.test_object_movement_probe`
+- `python3 -B tools/object_movement_probe.py --dos-prefix MF --output build/object-movement-probes/batches/frame_timer_modes_002.json --boot-wait 5 --draw-wait 8 --stop-on-failure --case animation_mode0_forward_loop_wraps_to_frame0 --case animation_mode2_backward_completion_reaches_frame0 --case animation_mode3_backward_loop_wraps_to_frame1`
+- `python3 -B tools/logic_opcode_evidence.py`
+
+Documented result:
+
+- Re-read the frame-mode dispatcher and corrected the previous source note for
+  mode 2. The branch at `0x4934` completes immediately only when the current
+  frame is already 0; otherwise it decrements, and the shared completion path is
+  reached only when the new frame becomes 0.
+- Added fixture helpers for action `0x48`, `0x4a`, `0x4b`, condition
+  `var == immediate`, and action `0x32` so looping frame modes can be stopped
+  deterministically after the desired frame appears.
+- Added movement cases `animation_mode0_forward_loop_wraps_to_frame0`,
+  `animation_mode2_backward_completion_reaches_frame0`, and
+  `animation_mode3_backward_loop_wraps_to_frame1`.
+- Focused tests `tests.test_qemu_fixture` and `tests.test_object_movement_probe`
+  passed with 37 tests.
+- QEMU batch `build/object-movement-probes/batches/frame_timer_modes_002.json`
+  matched with 3 matches, 0 mismatches, and 0 errors:
+  - `animation_mode0_forward_loop_wraps_to_frame0`: action `0x48` mode 0 wraps
+    view 11/group 0 from frame 1 to frame 0.
+  - `animation_mode2_backward_completion_reaches_frame0`: action `0x4b` mode 2
+    moves from frame 1 to frame 0 and stops.
+  - `animation_mode3_backward_loop_wraps_to_frame1`: action `0x4a` mode 3 wraps
+    backward from frame 0 to frame 1.
+- Promoted actions `0x48` and `0x4a` from QEMU dispatch-smoke to behavior
+  evidence, and extended `0x4b` behavior evidence with the visible mode-2
+  completion probe. Regenerated `docs/src/logic_opcode_evidence.md`.

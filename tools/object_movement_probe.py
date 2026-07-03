@@ -22,9 +22,14 @@ from qemu_fixture import (
     clear_object_bit_0002_action,
     clear_object_bit_0020_action,
     clear_object_bit_0200_action,
+    get_object_field_0e_action,
+    if_then,
     move_object_to_action,
     set_object_field_1f_from_var_action,
+    set_object_field_23_mode0_action,
     set_object_field_23_mode1_action,
+    set_object_field_23_mode2_action,
+    set_object_field_23_mode3_action,
     set_object_bit_0002_action,
     set_object_bit_0100_action,
     set_object_bit_0020_action,
@@ -35,6 +40,7 @@ from qemu_fixture import (
     set_object_tick_from_var_action,
     setup_persistent_object_actions,
     start_random_motion_action,
+    var_eq_imm_condition,
 )
 from qemu_snapshot import SnapshotFixtureCase, build_snapshot_boot_disk, run_snapshot_qemu_cases
 
@@ -46,6 +52,7 @@ DEFAULT_SNAPSHOT_RAW = Path("build/object-movement-probes/snapshot/object_moveme
 DEFAULT_SNAPSHOT_QCOW = Path("build/object-movement-probes/snapshot/object_movement.qcow2")
 MOTION_VALUE_VAR = 249
 MOTION_TICK_VAR = 248
+FRAME_OBS_VAR = 247
 
 
 @dataclass(frozen=True)
@@ -93,6 +100,8 @@ class ObjectMovementCase:
     expected_frame_no: int | None = None
     animation_interval: int = 0
     animation_flag: int = 0
+    animation_mode: int = 1
+    animation_stop_frame: int | None = None
     animation_clear_bit_0020: bool = False
     animation_set_bit_0020: bool = False
 
@@ -494,6 +503,75 @@ def base_cases() -> list[ObjectMovementCase]:
             animation_flag=231,
             animation_clear_bit_0020=True,
             animation_set_bit_0020=True,
+        ),
+        ObjectMovementCase(
+            "animation_mode0_forward_loop_wraps_to_frame0",
+            "Action 0x48 starts mode 0; from frame 1, the frame callback increments and wraps to frame 0.",
+            b"\xff".hex(),
+            0,
+            11,
+            0,
+            1,
+            50,
+            80,
+            15,
+            0,
+            0,
+            0,
+            232,
+            50,
+            80,
+            motion_kind="animation_only",
+            expected_frame_no=0,
+            animation_interval=1,
+            animation_mode=0,
+            animation_stop_frame=0,
+        ),
+        ObjectMovementCase(
+            "animation_mode2_backward_completion_reaches_frame0",
+            "Action 0x4b starts mode 2; from frame 1, the frame callback decrements to frame 0 and stops.",
+            b"\xff".hex(),
+            0,
+            11,
+            0,
+            1,
+            50,
+            80,
+            15,
+            0,
+            0,
+            0,
+            233,
+            50,
+            80,
+            motion_kind="animation_only",
+            expected_frame_no=0,
+            animation_interval=1,
+            animation_flag=233,
+            animation_mode=2,
+        ),
+        ObjectMovementCase(
+            "animation_mode3_backward_loop_wraps_to_frame1",
+            "Action 0x4a starts mode 3; from frame 0, the frame callback decrements and wraps to the last frame.",
+            b"\xff".hex(),
+            0,
+            11,
+            0,
+            0,
+            50,
+            80,
+            15,
+            0,
+            0,
+            0,
+            234,
+            50,
+            80,
+            motion_kind="animation_only",
+            expected_frame_no=1,
+            animation_interval=1,
+            animation_mode=3,
+            animation_stop_frame=1,
         ),
         ObjectMovementCase(
             "move_left_to_target",
@@ -965,7 +1043,16 @@ def post_activate_actions(case: ObjectMovementCase) -> bytes:
     if case.animation_interval:
         actions += assignn_action(MOTION_VALUE_VAR, case.animation_interval)
         actions += set_object_field_1f_from_var_action(case.object_no, MOTION_VALUE_VAR)
-        actions += set_object_field_23_mode1_action(case.object_no, case.animation_flag)
+        if case.animation_mode == 0:
+            actions += set_object_field_23_mode0_action(case.object_no)
+        elif case.animation_mode == 1:
+            actions += set_object_field_23_mode1_action(case.object_no, case.animation_flag)
+        elif case.animation_mode == 2:
+            actions += set_object_field_23_mode2_action(case.object_no, case.animation_flag)
+        elif case.animation_mode == 3:
+            actions += set_object_field_23_mode3_action(case.object_no)
+        else:
+            raise ValueError(f"{case.case_id}: unsupported animation mode {case.animation_mode}")
         if case.animation_clear_bit_0020:
             actions += clear_object_bit_0020_action(case.object_no)
         if case.animation_set_bit_0020:
@@ -1016,6 +1103,11 @@ def post_activate_actions(case: ObjectMovementCase) -> bytes:
 
 
 def per_cycle_actions(case: ObjectMovementCase) -> bytes:
+    if case.animation_stop_frame is not None:
+        return get_object_field_0e_action(case.object_no, FRAME_OBS_VAR) + if_then(
+            var_eq_imm_condition(FRAME_OBS_VAR, case.animation_stop_frame),
+            clear_object_bit_0020_action(case.object_no),
+        )
     if case.motion_kind == "move_to":
         return move_object_to_action(
             case.object_no,

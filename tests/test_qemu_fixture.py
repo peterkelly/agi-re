@@ -46,11 +46,16 @@ from qemu_fixture import (  # noqa: E402
     set_object_field_23_mode1_action,
     set_rect_bounds_action,
     clear_object_bit_0200_action,
+    get_object_field_0e_action,
     set_object_step_from_var_action,
     set_object_tick_from_var_action,
+    set_object_field_23_mode0_action,
+    set_object_field_23_mode2_action,
+    set_object_field_23_mode3_action,
     setup_transient_object_action,
     start_random_motion_action,
     stop_motion_mode_action,
+    var_eq_imm_condition,
     volume_record,
 )
 from agi_graphics import PALETTE, render_picture  # noqa: E402
@@ -148,6 +153,7 @@ class QemuFixtureTests(unittest.TestCase):
         body = bytes([0x03, 1, 2])
         block = if_then(not_flag_set_condition(199), body)
         self.assertEqual(block, bytes([0xFF, 0xFD, 0x07, 199, 0xFF, 0x03, 0x00, 0x03, 1, 2]))
+        self.assertEqual(var_eq_imm_condition(247, 1), bytes([0x01, 247, 1]))
 
     def test_run_once_logic_wraps_actions_with_init_guard_and_end(self) -> None:
         payload = run_once_logic(bytes([0x1A]), init_flag=199)
@@ -251,7 +257,11 @@ class QemuFixtureTests(unittest.TestCase):
 
     def test_frame_timer_actions_encode_fixed_operands(self) -> None:
         self.assertEqual(set_object_field_1f_from_var_action(3, 249), bytes([0x4C, 3, 249]))
+        self.assertEqual(set_object_field_23_mode0_action(3), bytes([0x48, 3]))
         self.assertEqual(set_object_field_23_mode1_action(3, 77), bytes([0x49, 3, 77]))
+        self.assertEqual(set_object_field_23_mode2_action(3, 77), bytes([0x4B, 3, 77]))
+        self.assertEqual(set_object_field_23_mode3_action(3), bytes([0x4A, 3]))
+        self.assertEqual(get_object_field_0e_action(3, 247), bytes([0x32, 3, 247]))
         self.assertEqual(clear_object_bit_0020_action(3), bytes([0x46, 3]))
         self.assertEqual(set_object_bit_0020_action(3), bytes([0x47, 3]))
 

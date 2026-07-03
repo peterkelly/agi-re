@@ -449,6 +449,16 @@ python3 -B tools/picture_fuzz.py compare-capture base_004_clamped_absolute build
   The batch matched QEMU with 3 matches, 0 mismatches, and 0 errors. It
   validates that `0x4c` seeds the frame timer, `0x46` disables the timer-driven
   frame advance by clearing bit `0x0020`, and `0x47` restores that advance.
+- A follow-up frame-mode batch validates actions `0x48`, `0x4a`, and `0x4b`
+  against the static `code.object.advance_frame_by_mode` model:
+
+  ```bash
+  python3 -B tools/object_movement_probe.py --dos-prefix MF --output build/object-movement-probes/batches/frame_timer_modes_002.json --boot-wait 5 --draw-wait 8 --stop-on-failure --case animation_mode0_forward_loop_wraps_to_frame0 --case animation_mode2_backward_completion_reaches_frame0 --case animation_mode3_backward_loop_wraps_to_frame1
+  ```
+
+  The batch matched QEMU with 3 matches, 0 mismatches, and 0 errors. It
+  validates forward looping mode 0 (`0x48`), backward completion mode 2
+  (`0x4b`), and backward looping mode 3 (`0x4a`) on view 11/group 0.
 - Targeted movement batches validate additional object control/priority bits:
 
   ```bash
