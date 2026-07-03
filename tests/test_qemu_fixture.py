@@ -190,6 +190,19 @@ class QemuFixtureTests(unittest.TestCase):
     def test_logic_resource_wraps_code_with_empty_message_table(self) -> None:
         self.assertEqual(logic_resource(b"\xff"), b"\x01\x00\xff\x00\x02\x00")
 
+    def test_logic_resource_encodes_custom_messages(self) -> None:
+        payload = logic_resource(b"\x00", ["HELLO", "look"])
+        code_len = payload[0] | (payload[1] << 8)
+        self.assertEqual(code_len, 1)
+        count_offset = 2 + code_len
+        self.assertEqual(payload[count_offset], 2)
+        table = payload[count_offset + 1 : count_offset + 7]
+        offsets = [table[index] | (table[index + 1] << 8) for index in range(0, len(table), 2)]
+        self.assertEqual(offsets[1], 6)
+        self.assertEqual(offsets[2], 12)
+        self.assertEqual(offsets[0], 17)
+        self.assertNotIn(b"HELLO", payload[count_offset + 7 :])
+
     def test_move_object_to_action_encodes_fixed_operands(self) -> None:
         self.assertEqual(move_object_to_action(0, 50, 80, 5, 200), bytes([0x51, 0, 50, 80, 5, 200]))
 

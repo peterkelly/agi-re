@@ -62,10 +62,10 @@ Evidence levels:
 | `0x11` | `toggle_flag_var` | var0 | toggle flag var | QEMU-validated | logic_interpreter_probe: flag_var_actions_and_condition |
 | `0x12` | `switch_room_like` | imm0 | switch room like | source-backed | Handler disassembly and local SQ2 bytecode scan; see logic_bytecode.md. |
 | `0x13` | `switch_room_like_var` | var0 | switch room like var | source-backed | Handler disassembly and local SQ2 bytecode scan; see logic_bytecode.md. |
-| `0x14` | `load_logic` | imm0 | load logic | source-backed | Handler disassembly and local SQ2 bytecode scan; see logic_bytecode.md. |
+| `0x14` | `load_logic` | imm0 | load logic | QEMU-validated | logic_interpreter_probe: load_logic_then_call_logic_draws |
 | `0x15` | `load_logic_var` | var0 | load logic var | source-backed | Handler disassembly and local SQ2 bytecode scan; see logic_bytecode.md. |
-| `0x16` | `call_logic` | imm0 | call logic | source-backed | Handler disassembly and local SQ2 bytecode scan; see logic_bytecode.md. |
-| `0x17` | `call_logic_var` | var0 | call logic var | source-backed | Handler disassembly and local SQ2 bytecode scan; see logic_bytecode.md. |
+| `0x16` | `call_logic` | imm0 | call logic | QEMU-validated | logic_interpreter_probe: call_logic_draws_from_called_logic, load_logic_then_call_logic_draws |
+| `0x17` | `call_logic_var` | var0 | call logic var | QEMU-validated | logic_interpreter_probe: call_logic_var_draws_selected_logic |
 | `0x18` | `load_picture_var` | var0 | load picture var | QEMU-validated | picture/view QEMU fixtures load generated picture resources |
 | `0x19` | `prepare_picture_var` | var0 | prepare picture var | QEMU-validated | picture/view QEMU fixtures prepare generated picture resources |
 | `0x1a` | `show_picture_like` | - | show picture like | QEMU-validated | picture/view QEMU fixtures show generated picture resources |
@@ -80,17 +80,17 @@ Evidence levels:
 | `0x23` | `activate_object` | imm0 | activate object | QEMU-validated | object overlay and movement probes activate persistent objects |
 | `0x24` | `deactivate_object` | imm0 | deactivate object | source-backed | Handler disassembly and local SQ2 bytecode scan; see logic_bytecode.md. |
 | `0x25` | `set_object_pos` | imm0, imm1, imm2 | set object pos | QEMU-validated | logic_interpreter_probe: object_position_getter_observes_setter |
-| `0x26` | `set_object_pos_var` | imm0, var1, var2 | set object pos var | source-backed | Handler disassembly and local SQ2 bytecode scan; see logic_bytecode.md. |
+| `0x26` | `set_object_pos_var` | imm0, var1, var2 | set object pos var | QEMU-validated | logic_interpreter_probe: set_object_pos_var_getter_observes_values |
 | `0x27` | `get_object_pos` | imm0, var1, var2 | get object pos | QEMU-validated | logic_interpreter_probe: object_position_getter_observes_setter |
 | `0x28` | `add_object_pos_from_vars` | imm0, var1, var2 | add object pos from vars | source-backed | Handler disassembly and local SQ2 bytecode scan; see logic_bytecode.md. |
 | `0x29` | `set_object_resource` | imm0, imm1 | set object resource | QEMU-validated | object overlay and movement probes bind object resources |
-| `0x2a` | `set_object_resource_var` | imm0, var1 | set object resource var | source-backed | Handler disassembly and local SQ2 bytecode scan; see logic_bytecode.md. |
+| `0x2a` | `set_object_resource_var` | imm0, var1 | set object resource var | QEMU-validated | logic_interpreter_probe: var_resource_group_frame_setup_draws_persistent_object |
 | `0x2b` | `set_object_subresource` | imm0, imm1 | set object subresource | QEMU-validated | object overlay and movement probes select object groups |
-| `0x2c` | `set_object_subresource_var` | imm0, var1 | set object subresource var | source-backed | Handler disassembly and local SQ2 bytecode scan; see logic_bytecode.md. |
+| `0x2c` | `set_object_subresource_var` | imm0, var1 | set object subresource var | QEMU-validated | logic_interpreter_probe: var_resource_group_frame_setup_draws_persistent_object |
 | `0x2d` | `set_object_bit_2000` | imm0 | set object bit 2000 | source-backed | Handler disassembly and local SQ2 bytecode scan; see logic_bytecode.md. |
 | `0x2e` | `clear_object_bit_2000` | imm0 | clear object bit 2000 | source-backed | Handler disassembly and local SQ2 bytecode scan; see logic_bytecode.md. |
 | `0x2f` | `set_object_derived_resource_2` | imm0, imm1 | set object derived resource 2 | QEMU-validated | object overlay and movement probes select object frames |
-| `0x30` | `set_object_derived_resource_2_var` | imm0, var1 | set object derived resource 2 var | source-backed | Handler disassembly and local SQ2 bytecode scan; see logic_bytecode.md. |
+| `0x30` | `set_object_derived_resource_2_var` | imm0, var1 | set object derived resource 2 var | QEMU-validated | logic_interpreter_probe: var_resource_group_frame_setup_draws_persistent_object |
 | `0x31` | `get_object_resource_loop_count` | imm0, var1 | get object resource loop count | source-backed | Handler disassembly and local SQ2 bytecode scan; see logic_bytecode.md. |
 | `0x32` | `get_object_field_0e` | imm0, var1 | get object field 0e | source-backed | Handler disassembly and local SQ2 bytecode scan; see logic_bytecode.md. |
 | `0x33` | `get_object_field_0a` | imm0, var1 | get object field 0a | source-backed | Handler disassembly and local SQ2 bytecode scan; see logic_bytecode.md. |
@@ -124,7 +124,7 @@ Evidence levels:
 | `0x4f` | `set_object_field_1e_var` | imm0, var1 | set object field 1e var | QEMU-validated | object_movement_probe: autonomous_modes_003 and motion_modes_004 |
 | `0x50` | `set_object_field_01_var` | imm0, var1 | set object field 01 var | QEMU-validated | object_movement_probe: autonomous_modes_003 and motion_modes_004 |
 | `0x51` | `move_object_to` | imm0, imm1, imm2, imm3, imm4 | move object to | QEMU-validated | object_movement_probe: motion_modes_004 |
-| `0x52` | `move_object_to_var` | imm0, var1, var2, var3, imm4 | move object to var | source-backed | Handler disassembly and local SQ2 bytecode scan; see logic_bytecode.md. |
+| `0x52` | `move_object_to_var` | imm0, var1, var2, var3, imm4 | move object to var | QEMU-validated | logic_interpreter_probe: move_object_to_var_sets_flag_at_existing_target |
 | `0x53` | `approach_first_object_until_near` | imm0, imm1, imm2 | approach first object until near | QEMU-validated | object_movement_probe: autonomous_modes_003 |
 | `0x54` | `start_random_motion` | imm0 | start random motion | QEMU-validated | object_movement_probe: motion_modes_004 |
 | `0x55` | `stop_motion_mode` | imm0 | stop motion mode | QEMU-validated | object_movement_probe setup paths |
@@ -134,12 +134,12 @@ Evidence levels:
 | `0x59` | `clear_object_bit_0002` | imm0 | clear object bit 0002 | source-backed | Handler disassembly and local SQ2 bytecode scan; see logic_bytecode.md. |
 | `0x5a` | `set_rect_bounds_0131` | imm0, imm1, imm2, imm3 | set rect bounds 0131 | source-backed | Handler disassembly and local SQ2 bytecode scan; see logic_bytecode.md. |
 | `0x5b` | `clear_rect_bounds_0131` | - | clear rect bounds 0131 | source-backed | Handler disassembly and local SQ2 bytecode scan; see logic_bytecode.md. |
-| `0x5c` | `set_entry_0971_marker_ff` | imm0 | set entry 0971 marker ff | source-backed | Handler disassembly and local SQ2 bytecode scan; see logic_bytecode.md. |
-| `0x5d` | `set_entry_0971_marker_ff_var` | var0 | set entry 0971 marker ff var | source-backed | Handler disassembly and local SQ2 bytecode scan; see logic_bytecode.md. |
-| `0x5e` | `clear_entry_0971_marker` | imm0 | clear entry 0971 marker | source-backed | Handler disassembly and local SQ2 bytecode scan; see logic_bytecode.md. |
-| `0x5f` | `set_entry_0971_marker_from_var` | imm0, imm1 | set entry 0971 marker from var | source-backed | Handler disassembly and local SQ2 bytecode scan; see logic_bytecode.md. |
-| `0x60` | `set_entry_0971_marker_from_var_var` | imm0, var1 | set entry 0971 marker from var var | source-backed | Handler disassembly and local SQ2 bytecode scan; see logic_bytecode.md. |
-| `0x61` | `get_entry_0971_marker_to_var` | var0, var1 | get entry 0971 marker to var | source-backed | Handler disassembly and local SQ2 bytecode scan; see logic_bytecode.md. |
+| `0x5c` | `set_entry_0971_marker_ff` | imm0 | set entry 0971 marker ff | QEMU-validated | logic_interpreter_probe: inventory_marker_ff_condition_true |
+| `0x5d` | `set_entry_0971_marker_ff_var` | var0 | set entry 0971 marker ff var | QEMU-validated | logic_interpreter_probe: inventory_marker_ff_var_and_getter |
+| `0x5e` | `clear_entry_0971_marker` | imm0 | clear entry 0971 marker | QEMU-validated | logic_interpreter_probe: inventory_marker_clear_and_getter |
+| `0x5f` | `set_entry_0971_marker_from_var` | imm0, imm1 | set entry 0971 marker from var | QEMU-validated | logic_interpreter_probe: inventory_marker_from_var |
+| `0x60` | `set_entry_0971_marker_from_var_var` | imm0, var1 | set entry 0971 marker from var var | QEMU-validated | logic_interpreter_probe: inventory_marker_from_var_var |
+| `0x61` | `get_entry_0971_marker_to_var` | var0, var1 | get entry 0971 marker to var | QEMU-validated | logic_interpreter_probe: inventory marker getter probes |
 | `0x62` | `load_sound` | imm0 | load sound | source-backed | Handler disassembly and local SQ2 bytecode scan; see logic_bytecode.md. |
 | `0x63` | `start_sound_with_flag` | imm0, imm1 | start sound with flag | source-backed | Handler disassembly and local SQ2 bytecode scan; see logic_bytecode.md. |
 | `0x64` | `stop_sound_or_clear_sound_state` | - | stop sound or clear sound state | source-backed | Handler disassembly and local SQ2 bytecode scan; see logic_bytecode.md. |
@@ -156,16 +156,16 @@ Evidence levels:
 | `0x6f` | `set_input_line_config` | imm0, imm1, imm2 | set input line config | source-backed | Handler disassembly and local SQ2 bytecode scan; see logic_bytecode.md. |
 | `0x70` | `show_status_line_like` | - | show status line like | source-backed | Handler disassembly and local SQ2 bytecode scan; see logic_bytecode.md. |
 | `0x71` | `hide_status_line_like` | - | hide status line like | source-backed | Handler disassembly and local SQ2 bytecode scan; see logic_bytecode.md. |
-| `0x72` | `set_string_slot_from_message` | imm0, imm1 | set string slot from message | source-backed | Handler disassembly and local SQ2 bytecode scan; see logic_bytecode.md. |
+| `0x72` | `set_string_slot_from_message` | imm0, imm1 | set string slot from message | QEMU-validated | logic_interpreter_probe: set_string_from_message_equal_normalized and parse_string_slot_sets_input_word_sequence |
 | `0x73` | `prompt_string_to_slot` | imm0, imm1, imm2, imm3, imm4 | prompt string to slot | source-backed | Handler disassembly and local SQ2 bytecode scan; see logic_bytecode.md. |
 | `0x74` | `set_string_slot_from_table` | imm0, imm1 | set string slot from table | source-backed | Handler disassembly and local SQ2 bytecode scan; see logic_bytecode.md. |
-| `0x75` | `parse_string_slot` | imm0 | parse string slot | source-backed | Handler disassembly and local SQ2 bytecode scan; see logic_bytecode.md. |
+| `0x75` | `parse_string_slot` | imm0 | parse string slot | QEMU-validated | logic_interpreter_probe: parse_string_slot_sets_input_word_sequence |
 | `0x76` | `prompt_number_to_var` | imm0, var1 | prompt number to var | source-backed | Handler disassembly and local SQ2 bytecode scan; see logic_bytecode.md. |
 | `0x77` | `disable_input_line_like` | - | disable input line like | source-backed | Handler disassembly and local SQ2 bytecode scan; see logic_bytecode.md. |
 | `0x78` | `enable_input_line_like` | - | enable input line like | source-backed | Handler disassembly and local SQ2 bytecode scan; see logic_bytecode.md. |
 | `0x79` | `map_key_event` | imm0, imm1, imm2 | map key event | source-backed | Handler disassembly and local SQ2 bytecode scan; see logic_bytecode.md. |
 | `0x7a` | `setup_transient_object` | imm0, imm1, imm2, imm3, imm4, imm5, imm6 | setup transient object | QEMU-validated | logic_interpreter_probe and object_overlay_probe transient drawing |
-| `0x7b` | `setup_transient_object_var` | var0, var1, var2, var3, var4, var5, var6 | setup transient object var | source-backed | Handler disassembly and local SQ2 bytecode scan; see logic_bytecode.md. |
+| `0x7b` | `setup_transient_object_var` | var0, var1, var2, var3, var4, var5, var6 | setup transient object var | QEMU-validated | logic_interpreter_probe: setup_transient_object_var_draws_selected_cel |
 | `0x7c` | `show_inventory_selection` | - | show inventory selection | source-backed | Handler disassembly and local SQ2 bytecode scan; see logic_bytecode.md. |
 | `0x7d` | `save_game_state` | - | save game state | source-backed | Handler disassembly and local SQ2 bytecode scan; see logic_bytecode.md. |
 | `0x7e` | `restore_game_state` | - | restore game state | source-backed | Handler disassembly and local SQ2 bytecode scan; see logic_bytecode.md. |
@@ -187,8 +187,8 @@ Evidence levels:
 | `0x8e` | `set_global_0141_and_refresh` | imm0 | set global 0141 and refresh | source-backed | Handler disassembly and local SQ2 bytecode scan; see logic_bytecode.md. |
 | `0x8f` | `verify_game_signature` | imm0 | verify game signature | source-backed | Handler disassembly and local SQ2 bytecode scan; see logic_bytecode.md. |
 | `0x90` | `append_message_to_log_file` | imm0 | append message to log file | source-backed | Handler disassembly and local SQ2 bytecode scan; see logic_bytecode.md. |
-| `0x91` | `save_logic_resume_ip` | - | save logic resume ip | source-backed | Handler disassembly and local SQ2 bytecode scan; see logic_bytecode.md. |
-| `0x92` | `restore_logic_entry_ip` | - | restore logic entry ip | source-backed | Handler disassembly and local SQ2 bytecode scan; see logic_bytecode.md. |
+| `0x91` | `save_logic_resume_ip` | - | save logic resume ip | QEMU-validated | logic_interpreter_probe: save_restore_resume_actions_continue_to_draw |
+| `0x92` | `restore_logic_entry_ip` | - | restore logic entry ip | QEMU-validated | logic_interpreter_probe: save_restore_resume_actions_continue_to_draw |
 | `0x93` | `set_object_pos_dirty` | imm0, imm1, imm2 | set object pos dirty | source-backed | Handler disassembly and local SQ2 bytecode scan; see logic_bytecode.md. |
 | `0x94` | `set_object_pos_dirty_var` | imm0, var1, var2 | set object pos dirty var | source-backed | Handler disassembly and local SQ2 bytecode scan; see logic_bytecode.md. |
 | `0x95` | `enable_action_trace_window` | - | enable action trace window | source-backed | Handler disassembly and local SQ2 bytecode scan; see logic_bytecode.md. |
@@ -232,13 +232,13 @@ Evidence levels:
 | `0x06` | `var_gt_var` | var0, var1 | var gt var | QEMU-validated | logic_interpreter_probe: var_comparison_conditions_all_true |
 | `0x07` | `flag_set` | imm0 | flag set | QEMU-validated | logic_interpreter_probe: flag_set_clear_toggle_actions and OR-group probe |
 | `0x08` | `flag_set_var` | var0 | flag set var | QEMU-validated | logic_interpreter_probe: flag_var_actions_and_condition |
-| `0x09` | `obj_table_room_ff` | imm0 | obj table room ff | source-backed | Handler disassembly and local SQ2 bytecode scan; see logic_bytecode.md. |
-| `0x0a` | `obj_table_room_eq_var` | imm0, var1 | obj table room eq var | source-backed | Handler disassembly and local SQ2 bytecode scan; see logic_bytecode.md. |
-| `0x0b` | `object_left_baseline_in_rect` | imm0, imm1, imm2, imm3, imm4 | object left baseline in rect | source-backed | Handler disassembly and local SQ2 bytecode scan; see logic_bytecode.md. |
+| `0x09` | `obj_table_room_ff` | imm0 | obj table room ff | QEMU-validated | logic_interpreter_probe: inventory_marker_ff_condition_true |
+| `0x0a` | `obj_table_room_eq_var` | imm0, var1 | obj table room eq var | QEMU-validated | logic_interpreter_probe: inventory_marker_eq_var_condition_true |
+| `0x0b` | `object_left_baseline_in_rect` | imm0, imm1, imm2, imm3, imm4 | object left baseline in rect | QEMU-validated | logic_interpreter_probe: object_left_rect_condition_true |
 | `0x0c` | `status_byte_1218` | imm0 | status byte 1218 | source-backed | Handler disassembly and local SQ2 bytecode scan; see logic_bytecode.md. |
 | `0x0d` | `raw_key_event_available` | - | raw key event available | source-backed | Handler disassembly and local SQ2 bytecode scan; see logic_bytecode.md. |
-| `0x0e` | `input_word_sequence` | varlen word sequence | input word sequence | source-backed | Handler disassembly and local SQ2 bytecode scan; see logic_bytecode.md. |
-| `0x0f` | `string_slots_equal_normalized` | imm0, imm1 | string slots equal normalized | source-backed | Handler disassembly and local SQ2 bytecode scan; see logic_bytecode.md. |
-| `0x10` | `object_width_baseline_in_rect` | imm0, imm1, imm2, imm3, imm4 | object width baseline in rect | source-backed | Handler disassembly and local SQ2 bytecode scan; see logic_bytecode.md. |
-| `0x11` | `object_center_baseline_in_rect` | imm0, imm1, imm2, imm3, imm4 | object center baseline in rect | source-backed | Handler disassembly and local SQ2 bytecode scan; see logic_bytecode.md. |
-| `0x12` | `object_right_baseline_in_rect` | imm0, imm1, imm2, imm3, imm4 | object right baseline in rect | source-backed | Handler disassembly and local SQ2 bytecode scan; see logic_bytecode.md. |
+| `0x0e` | `input_word_sequence` | varlen word sequence | input word sequence | QEMU-validated | logic_interpreter_probe: parse_string_slot_sets_input_word_sequence |
+| `0x0f` | `string_slots_equal_normalized` | imm0, imm1 | string slots equal normalized | QEMU-validated | logic_interpreter_probe: set_string_from_message_equal_normalized |
+| `0x10` | `object_width_baseline_in_rect` | imm0, imm1, imm2, imm3, imm4 | object width baseline in rect | QEMU-validated | logic_interpreter_probe: object_width_rect_condition_true |
+| `0x11` | `object_center_baseline_in_rect` | imm0, imm1, imm2, imm3, imm4 | object center baseline in rect | QEMU-validated | logic_interpreter_probe: object_center_rect_condition_true |
+| `0x12` | `object_right_baseline_in_rect` | imm0, imm1, imm2, imm3, imm4 | object right baseline in rect | QEMU-validated | logic_interpreter_probe: object_right_rect_condition_true |

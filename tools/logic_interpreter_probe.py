@@ -48,6 +48,8 @@ class LogicInterpreterCase:
     expected_x: int
     expected_baseline_y: int
     expected_priority: int
+    extra_logics: list[dict[str, object]] | None = None
+    messages: list[str] | None = None
 
     @property
     def code(self) -> bytes:
@@ -89,6 +91,10 @@ def byte_action(opcode: int, *operands: int) -> bytes:
     if any(not 0 <= value <= 0xFF for value in values):
         raise ValueError("logic action bytes must fit in one byte")
     return bytes(values)
+
+
+def logic_patch(logic_no: int, code: bytes, messages: list[str] | None = None) -> dict[str, object]:
+    return {"logic_no": logic_no, "code_hex": code.hex(), "messages": messages}
 
 
 def base_code(body: bytes, picture_no: int = 0) -> bytes:
@@ -135,6 +141,29 @@ def flag_set_var_condition(var_no: int) -> bytes:
     return bytes([0x08, var_no])
 
 
+def obj_table_room_ff_condition(index: int) -> bytes:
+    return bytes([0x09, index])
+
+
+def obj_table_room_eq_var_condition(index: int, var_no: int) -> bytes:
+    return bytes([0x0A, index, var_no])
+
+
+def object_rect_condition(opcode: int, object_no: int, left: int, top: int, right: int, bottom: int) -> bytes:
+    return bytes([opcode, object_no, left, top, right, bottom])
+
+
+def input_word_sequence_condition(*word_ids: int) -> bytes:
+    out = bytearray([0x0E, len(word_ids)])
+    for word_id in word_ids:
+        out.extend(u16le(word_id))
+    return bytes(out)
+
+
+def string_slots_equal_condition(left_slot: int, right_slot: int) -> bytes:
+    return bytes([0x0F, left_slot, right_slot])
+
+
 def not_var_eq_imm_condition(var_no: int, value: int) -> bytes:
     return bytes([0xFD, 0x01, var_no, value])
 
@@ -152,6 +181,21 @@ def all_conditions(*conditions: bytes) -> bytes:
 
 
 def _case(case_id: str, description: str, body: bytes, expected_x: int) -> LogicInterpreterCase:
+    return _custom_case(case_id, description, body, expected_x)
+
+
+def _custom_case(
+    case_id: str,
+    description: str,
+    body: bytes,
+    expected_x: int,
+    *,
+    expected_group_no: int = 0,
+    expected_frame_no: int = 0,
+    expected_baseline_y: int = 80,
+    extra_logics: list[dict[str, object]] | None = None,
+    messages: list[str] | None = None,
+) -> LogicInterpreterCase:
     return LogicInterpreterCase(
         case_id,
         description,
@@ -159,11 +203,13 @@ def _case(case_id: str, description: str, body: bytes, expected_x: int) -> Logic
         b"\xff".hex(),
         0,
         11,
-        0,
-        0,
+        expected_group_no,
+        expected_frame_no,
         expected_x,
-        80,
+        expected_baseline_y,
         15,
+        extra_logics,
+        messages,
     )
 
 
@@ -173,12 +219,42 @@ def _draw_if_case(
     setup: bytes,
     condition: bytes,
     expected_x: int = 50,
+    *,
+    expected_group_no: int = 0,
+    expected_frame_no: int = 0,
+    expected_baseline_y: int = 80,
+    extra_logics: list[dict[str, object]] | None = None,
+    messages: list[str] | None = None,
 ) -> LogicInterpreterCase:
-    return _case(case_id, description, setup + if_then(condition, draw_view11_at(expected_x)), expected_x)
+    return _custom_case(
+        case_id,
+        description,
+        setup + if_then(condition, draw_view11_at(expected_x)),
+        expected_x,
+        expected_group_no=expected_group_no,
+        expected_frame_no=expected_frame_no,
+        expected_baseline_y=expected_baseline_y,
+        extra_logics=extra_logics,
+        messages=messages,
+    )
 
 
 def assignn(var_no: int, value: int) -> bytes:
     return byte_action(0x03, var_no, value)
+
+
+def setup_object_10_for_view11() -> bytes:
+    return (
+        byte_action(0x21, 10)
+        + byte_action(0x29, 10, 11)
+        + byte_action(0x2B, 10, 0)
+        + byte_action(0x2F, 10, 0)
+        + byte_action(0x25, 10, 42, 80)
+    )
+
+
+def object_10_rect_setup() -> bytes:
+    return setup_object_10_for_view11()
 
 
 def base_cases() -> list[LogicInterpreterCase]:
@@ -355,14 +431,174 @@ def base_cases() -> list[LogicInterpreterCase]:
             assignn(1, 8) + byte_action(0x56, 10, 1) + byte_action(0x57, 10, 2),
             var_eq_imm_condition(2, 8),
         ),
+        _custom_case(
+            "call_logic_draws_from_called_logic",
+            "Action 0x16 switches to another logic resource and executes its bytecode.",
+            byte_action(0x16, 1),
+            50,
+            extra_logics=[logic_patch(1, draw_view11_at(50) + self_loop())],
+        ),
+        _custom_case(
+            "load_logic_then_call_logic_draws",
+            "Action 0x14 loads a logic resource that action 0x16 can subsequently call.",
+            byte_action(0x14, 1) + byte_action(0x16, 1),
+            50,
+            extra_logics=[logic_patch(1, draw_view11_at(50) + self_loop())],
+        ),
+        _custom_case(
+            "call_logic_var_draws_selected_logic",
+            "Action 0x17 reads the target logic number from a byte variable.",
+            assignn(1, 2) + byte_action(0x17, 1),
+            50,
+            extra_logics=[logic_patch(2, draw_view11_at(50) + self_loop())],
+        ),
+        _draw_if_case(
+            "save_restore_resume_actions_continue_to_draw",
+            "Actions 0x91 and 0x92 execute without preventing subsequent bytecode.",
+            byte_action(0x91) + byte_action(0x92),
+            bytes([0xFD]) + always_false_condition(),
+        ),
+        _draw_if_case(
+            "set_object_pos_var_getter_observes_values",
+            "Action 0x26 sets object position bytes from variables and 0x27 reads them back.",
+            assignn(1, 42) + assignn(2, 80) + byte_action(0x26, 10, 1, 2) + byte_action(0x27, 10, 3, 4),
+            all_conditions(var_eq_imm_condition(3, 42), var_eq_imm_condition(4, 80)),
+        ),
+        _custom_case(
+            "var_resource_group_frame_setup_draws_persistent_object",
+            "Actions 0x2a, 0x2c, and 0x30 select object view/group/frame from variables.",
+            assignn(1, 11)
+            + assignn(2, 1)
+            + assignn(3, 1)
+            + byte_action(0x21, 10)
+            + byte_action(0x2A, 10, 1)
+            + byte_action(0x2C, 10, 2)
+            + byte_action(0x30, 10, 3)
+            + byte_action(0x25, 10, 50, 80)
+            + byte_action(0x23, 10),
+            50,
+            expected_group_no=1,
+            expected_frame_no=1,
+        ),
+        _custom_case(
+            "setup_transient_object_var_draws_selected_cel",
+            "Action 0x7b reads all transient object operands from variables.",
+            assignn(1, 11)
+            + assignn(2, 1)
+            + assignn(3, 1)
+            + assignn(4, 50)
+            + assignn(5, 80)
+            + assignn(6, 15)
+            + assignn(7, 15)
+            + byte_action(0x7B, 1, 2, 3, 4, 5, 6, 7),
+            50,
+            expected_group_no=1,
+            expected_frame_no=1,
+        ),
+        _draw_if_case(
+            "move_object_to_var_sets_flag_at_existing_target",
+            "Action 0x52 reads target and step operands from variables and completes immediately when already at target.",
+            setup_object_10_for_view11()
+            + assignn(1, 42)
+            + assignn(2, 80)
+            + assignn(3, 5)
+            + byte_action(0x52, 10, 1, 2, 3, 56),
+            flag_set_condition(56),
+        ),
+        _draw_if_case(
+            "object_left_rect_condition_true",
+            "Condition 0x0b tests an object's left/baseline point against a rectangle.",
+            object_10_rect_setup(),
+            object_rect_condition(0x0B, 10, 0, 0, 100, 100),
+        ),
+        _draw_if_case(
+            "object_width_rect_condition_true",
+            "Condition 0x10 tests an object's width/baseline extent against a rectangle.",
+            object_10_rect_setup(),
+            object_rect_condition(0x10, 10, 0, 0, 100, 100),
+        ),
+        _draw_if_case(
+            "object_center_rect_condition_true",
+            "Condition 0x11 tests an object's center/baseline point against a rectangle.",
+            object_10_rect_setup(),
+            object_rect_condition(0x11, 10, 0, 0, 100, 100),
+        ),
+        _draw_if_case(
+            "object_right_rect_condition_true",
+            "Condition 0x12 tests an object's right/baseline point against a rectangle.",
+            object_10_rect_setup(),
+            object_rect_condition(0x12, 10, 0, 0, 100, 100),
+        ),
+        _custom_case(
+            "set_string_from_message_equal_normalized",
+            "Action 0x72 copies messages into string slots and condition 0x0f compares normalized text.",
+            byte_action(0x72, 0, 1)
+            + byte_action(0x72, 1, 2)
+            + if_then(string_slots_equal_condition(0, 1), draw_view11_at(50)),
+            50,
+            messages=["HELLO!", "hello"],
+        ),
+        _custom_case(
+            "parse_string_slot_sets_input_word_sequence",
+            "Action 0x75 parses a message-filled string slot for condition 0x0e.",
+            byte_action(0x72, 0, 1)
+            + byte_action(0x75, 0)
+            + if_then(input_word_sequence_condition(0x0002), draw_view11_at(50)),
+            50,
+            messages=["look"],
+        ),
+        _draw_if_case(
+            "inventory_marker_ff_condition_true",
+            "Action 0x5c marks an inventory/object-table entry as 0xff and condition 0x09 observes it.",
+            byte_action(0x5C, 0),
+            obj_table_room_ff_condition(0),
+        ),
+        _draw_if_case(
+            "inventory_marker_eq_var_condition_true",
+            "Condition 0x0a compares an inventory/object-table marker with a variable.",
+            byte_action(0x5C, 0) + assignn(1, 0xFF),
+            obj_table_room_eq_var_condition(0, 1),
+        ),
+        _draw_if_case(
+            "inventory_marker_ff_var_and_getter",
+            "Actions 0x5d and 0x61 use a variable-selected inventory/object-table index.",
+            assignn(1, 0) + byte_action(0x5D, 1) + byte_action(0x61, 1, 2),
+            var_eq_imm_condition(2, 0xFF),
+        ),
+        _draw_if_case(
+            "inventory_marker_clear_and_getter",
+            "Actions 0x5e and 0x61 clear and read an inventory/object-table marker.",
+            assignn(1, 0) + byte_action(0x5C, 0) + byte_action(0x5E, 0) + byte_action(0x61, 1, 2),
+            var_eq_imm_condition(2, 0),
+        ),
+        _draw_if_case(
+            "inventory_marker_from_var",
+            "Action 0x5f stores a variable value into an immediate inventory/object-table index.",
+            assignn(1, 0) + assignn(2, 7) + byte_action(0x5F, 0, 2) + byte_action(0x61, 1, 3),
+            var_eq_imm_condition(3, 7),
+        ),
+        _draw_if_case(
+            "inventory_marker_from_var_var",
+            "Action 0x60 stores a variable value into a variable-selected inventory/object-table index.",
+            assignn(1, 0) + assignn(2, 9) + byte_action(0x60, 1, 2) + byte_action(0x61, 1, 3),
+            var_eq_imm_condition(3, 9),
+        ),
     ]
 
 
-def load_cases(path: Path | None) -> list[LogicInterpreterCase]:
+def load_cases(path: Path | None, selected_ids: list[str] | None = None) -> list[LogicInterpreterCase]:
     if path is None:
-        return base_cases()
-    data = json.loads(path.read_text(encoding="ascii"))
-    return [LogicInterpreterCase(**item) for item in data]
+        cases = base_cases()
+    else:
+        data = json.loads(path.read_text(encoding="ascii"))
+        cases = [LogicInterpreterCase(**item) for item in data]
+    if selected_ids:
+        selected = set(selected_ids)
+        cases = [case for case in cases if case.case_id in selected]
+        missing = selected - {case.case_id for case in cases}
+        if missing:
+            raise ValueError(f"unknown case id(s): {', '.join(sorted(missing))}")
+    return cases
 
 
 def qemu_batch_dos_dir(prefix: str, index: int) -> str:
@@ -372,13 +608,31 @@ def qemu_batch_dos_dir(prefix: str, index: int) -> str:
 
 def build_logic_fixture(case: LogicInterpreterCase, destination: Path) -> Path:
     copy_sq2_tree(destination)
-    logic_record = volume_record(logic_resource(case.code), volume=3)
-    picture_offset = len(logic_record)
+    records = bytearray()
+    logic_offsets: dict[int, int] = {0: 0}
+    records.extend(volume_record(logic_resource(case.code, case.messages), volume=3))
+    if case.extra_logics:
+        for extra in case.extra_logics:
+            logic_no = int(extra["logic_no"])
+            logic_offsets[logic_no] = len(records)
+            messages = extra.get("messages")
+            if messages is not None and not isinstance(messages, list):
+                raise TypeError("extra logic messages must be a list when provided")
+            records.extend(
+                volume_record(
+                    logic_resource(bytes.fromhex(str(extra["code_hex"])), messages),
+                    volume=3,
+                )
+            )
+    picture_offset = len(records)
     picture_record = volume_record(case.picture_payload, volume=3)
-    (destination / "VOL.3").write_bytes(logic_record + picture_record)
+    records.extend(picture_record)
+    (destination / "VOL.3").write_bytes(records)
 
     logdir = (destination / "LOGDIR").read_bytes()
-    (destination / "LOGDIR").write_bytes(patch_logdir_entry_zero(logdir, volume=3, offset=0))
+    for logic_no, offset in logic_offsets.items():
+        logdir = patch_dir_entry(logdir, logic_no, volume=3, offset=offset)
+    (destination / "LOGDIR").write_bytes(logdir)
 
     picdir = (destination / "PICDIR").read_bytes()
     (destination / "PICDIR").write_bytes(
@@ -497,6 +751,7 @@ def write_report(results: list[LogicBatchResult], output: Path) -> dict[str, obj
 def main() -> None:
     parser = argparse.ArgumentParser()
     parser.add_argument("--cases", type=Path)
+    parser.add_argument("--case", action="append", dest="case_ids")
     parser.add_argument("--fixture-root", type=Path, default=DEFAULT_FIXTURES)
     parser.add_argument("--output", type=Path, default=DEFAULT_RESULTS / "logic_interpreter_base.json")
     parser.add_argument("--dos-prefix", default="LI")
@@ -508,7 +763,7 @@ def main() -> None:
     args = parser.parse_args()
 
     results = run_snapshot_batch(
-        load_cases(args.cases),
+        load_cases(args.cases, args.case_ids),
         args.fixture_root,
         args.boot_wait,
         args.draw_wait,

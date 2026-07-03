@@ -12,14 +12,42 @@ from disassemble_logic import SQ2
 
 SCRATCH_VAR = 250
 DEFAULT_INIT_FLAG = 199
+MESSAGE_XOR_KEY = b"Avis Durgan"
 
 
 def u16le(value: int) -> bytes:
     return bytes([value & 0xFF, (value >> 8) & 0xFF])
 
 
-def logic_resource(code: bytes) -> bytes:
-    return u16le(len(code)) + code + bytes([0x00]) + u16le(0x0002)
+def xor_message_text(text: bytes) -> bytes:
+    out = bytearray()
+    for idx, value in enumerate(text):
+        out.append(value ^ MESSAGE_XOR_KEY[idx % len(MESSAGE_XOR_KEY)])
+    return bytes(out)
+
+
+def logic_resource(code: bytes, messages: list[str | bytes] | None = None) -> bytes:
+    if messages is None:
+        return u16le(len(code)) + code + bytes([0x00]) + u16le(0x0002)
+
+    encoded_messages = []
+    for message in messages:
+        raw = message.encode("ascii") if isinstance(message, str) else bytes(message)
+        encoded_messages.append(raw.rstrip(b"\x00") + b"\x00")
+
+    table_size = (len(encoded_messages) + 1) * 2
+    offsets = []
+    cursor = table_size
+    text = bytearray()
+    for message in encoded_messages:
+        offsets.append(cursor)
+        text.extend(message)
+        cursor += len(message)
+    table = bytearray()
+    table.extend(u16le(cursor))
+    for offset in offsets:
+        table.extend(u16le(offset))
+    return u16le(len(code)) + code + bytes([len(encoded_messages)]) + bytes(table) + xor_message_text(bytes(text))
 
 
 def self_loop() -> bytes:

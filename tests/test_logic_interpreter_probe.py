@@ -47,8 +47,13 @@ class LogicInterpreterProbeTests(unittest.TestCase):
         self.assertIn("flag_var_actions_and_condition", case_ids)
         self.assertIn("var_comparison_conditions_all_true", case_ids)
         self.assertIn("object_position_getter_observes_setter", case_ids)
+        self.assertIn("call_logic_draws_from_called_logic", case_ids)
+        self.assertIn("setup_transient_object_var_draws_selected_cel", case_ids)
+        self.assertIn("object_right_rect_condition_true", case_ids)
+        self.assertIn("set_string_from_message_equal_normalized", case_ids)
+        self.assertIn("inventory_marker_from_var_var", case_ids)
         self.assertEqual(len(case_ids), len(base_cases()))
-        self.assertGreaterEqual(len(case_ids), 27)
+        self.assertGreaterEqual(len(case_ids), 47)
 
     def test_json_case_loading(self) -> None:
         case = base_cases()[0]
@@ -57,6 +62,10 @@ class LogicInterpreterProbeTests(unittest.TestCase):
             path.write_text(json.dumps([case.__dict__]) + "\n", encoding="ascii")
             loaded = load_cases(path)
         self.assertEqual(loaded, [case])
+
+    def test_case_filtering(self) -> None:
+        loaded = load_cases(None, ["call_logic_draws_from_called_logic"])
+        self.assertEqual([case.case_id for case in loaded], ["call_logic_draws_from_called_logic"])
 
     def test_dos_dir_name_is_stable(self) -> None:
         self.assertEqual(qemu_batch_dos_dir("logic", 2), "LOG00002")

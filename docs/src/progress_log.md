@@ -1578,3 +1578,152 @@ Progress updates and outcomes:
 
      Action/result: Updated compatibility, current-status, logic-bytecode, and
      progress docs with the expanded logic probe and evidence matrix.
+
+172. Reported: "I'll do these in order and keep the artifacts testable: first
+     multi-logic call/resume fixtures, then variable-backed resource/object
+     variants, then object predicates, then strings/messages, then
+     inventory/table predicates. I'm going to inspect the current fixture
+     builder and logic resource format first so the new probes extend the
+     existing QEMU harness instead of becoming a separate one-off."
+
+     Action/result: Reviewed the logic interpreter probe, QEMU fixture helper,
+     tests, opcode evidence generator, and local logic resource documentation.
+
+173. Reported: "The existing `logic_resource()` helper emits a minimal
+     no-message resource, which is fine for the first three steps. For the
+     string/message step I need to construct a real custom message table, so
+     I'm checking the locally documented message format and existing logic
+     parser before editing."
+
+     Action/result: Re-read `docs/src/logic_resources.md`, confirming
+     `code_length`, `message_count`, table offsets relative to table base, and
+     XOR-encrypted text using the `Avis Durgan` key.
+
+174. Reported: "I'm going to extend the single logic probe harness rather than
+     create five tools. The key change is letting a case patch multiple logic
+     resources into `VOL.3` and optionally give logic 0 a custom message table,
+     which unlocks call/load and string/message probes cleanly."
+
+     Action/result: Updated `tools/qemu_fixture.py` so `logic_resource()` can
+     encode custom message tables.
+
+175. Reported: "The fixture helper now supports encrypted custom logic messages
+     using the locally documented XOR key and offset-table layout. Next I'm
+     adding the multi-logic/resource patching and the new probe cases in
+     sequence."
+
+     Action/result: Added extra-logic metadata, message metadata, multi-logic
+     `VOL.3` packing, and new logic probe cases for the five requested groups.
+
+176. Reported: "I've got the new cases drafted; I spotted two fixture-shape
+     issues before running them: a persistent-object var-resource case should
+     not use the conditional transient-draw wrapper, and the NOT-always-false
+     probe needs the marker before the condition byte. I'm tightening those now
+     and then I'll run the local tests."
+
+     Action/result: Corrected the persistent object case and the NOT marker
+     ordering.
+
+177. Reported: "Multi-resource fixture patching is in. I'm running the focused
+     tests now; if they pass, I'll inspect a generated fixture byte layout
+     before letting QEMU at the larger batch."
+
+     Action/result: Ran focused logic probe and fixture tests; 28 tests passed.
+     The default logic probe batch now contains 47 cases.
+
+178. Reported: "The focused tests pass and the default batch is now 47 cases.
+     I'm starting QEMU with stop-on-failure; this will validate the steps in
+     sequence and stop at the first semantic mismatch so I can correct the
+     model before continuing."
+
+     Action/result: Started the all-case QEMU run
+     `five_steps_001.json`.
+
+179. Reported: "Because the batch is ordered, the first failing case will tell
+     us which requested step needs attention. Cases 28-31 are call/load/resume,
+     then the variable-backed object/resource cases, then object predicates,
+     strings/messages, and inventory/table markers."
+
+     Action/result: The all-case QEMU run did not reach execution. The snapshot
+     disk filled while copying fixture directories, so the failure was a
+     harness capacity limit rather than an interpreter mismatch.
+
+180. Reported: "The first QEMU attempt did not reach execution: the snapshot
+     boot disk filled up while copying 47 full SQ2 fixture directories. That's
+     a harness capacity issue, not an interpreter mismatch. I'll run the new
+     five-step cases as a smaller batch and add a case filter so future runs
+     don't have to copy the entire corpus."
+
+     Action/result: Added repeated `--case` filtering to
+     `tools/logic_interpreter_probe.py`.
+
+181. Reported: "The harness can now run named subsets with repeated `--case`
+     flags. I'm going to validate the five requested steps in chunks: call/load
+     /resume first, then variable-backed resources, then predicates,
+     strings/messages, and inventory/table markers."
+
+     Action/result: Started filtered QEMU validation.
+
+182. Reported: "Starting step 1 now: `call_logic`, `load_logic` plus
+     `call_logic`, `call_logic_var`, and the resume-action smoke probe."
+
+     Action/result: Step 1 matched QEMU with 4 matches, 0 mismatches, and
+     0 errors.
+
+183. Reported: "Step 1 is green: all four call/load/resume probes matched. I'm
+     moving to step 2, the variable-backed object/resource variants, including
+     var-based transient drawing and immediate-completion `move_object_to_var`."
+
+     Action/result: Step 2 matched QEMU with 4 matches, 0 mismatches, and
+     0 errors.
+
+184. Reported: "Step 2 is green too. The persistent object selected through
+     variable-backed resource/group/frame actions matched view 11 group 1 frame
+     1, and `0x7b` matched the same cel through all-variable operands. Next is
+     object rectangle predicates."
+
+     Action/result: Step 3 matched QEMU with 4 matches, 0 mismatches, and
+     0 errors.
+
+185. Reported: "Step 3 is green: all four object rectangle predicates matched.
+     I'm moving to strings/messages now; this is the new custom-message-table
+     path, so if anything breaks it will most likely be message encoding or
+     parser state rather than drawing."
+
+     Action/result: Step 4 matched QEMU with 2 matches, 0 mismatches, and
+     0 errors.
+
+186. Reported: "Step 4 is green. The custom message resource was accepted by
+     the original loader, `0x72` copied message text into string slots, `0x0f`
+     normalized and compared it, and `0x75` plus `0x0e` recognized `look`. Now
+     I'm validating the inventory/object-table marker actions and predicates."
+
+     Action/result: Started the inventory/table marker QEMU batch.
+
+187. Reported: "The inventory/table step covers both predicates (`0x09`,
+     `0x0a`) and the marker actions `0x5c..0x61`. I'm running them together
+     because they're small and all use the same table entry."
+
+     Action/result: Step 5 matched QEMU with 6 matches, 0 mismatches, and
+     0 errors.
+
+188. Reported: "QEMU is executing the six inventory/table cases now. If these
+     match, all five requested steps will have QEMU-backed evidence, with the
+     larger all-cases run split only because the DOS snapshot disk filled up."
+
+     Action/result: Confirmed the six inventory/table cases matched.
+
+189. Reported: "Step 5 is green. I'm updating tests and the evidence matrix
+     annotations now so the new QEMU-backed opcodes show up as validated rather
+     than source-only."
+
+     Action/result: Updated regression tests and regenerated the opcode
+     evidence matrix.
+
+190. Reported: "The evidence matrix is regenerated with the newly validated
+     opcodes. I'm documenting both the successful step runs and the one failed
+     'all 47 at once' attempt, because the failure tells future us about
+     snapshot disk capacity rather than AGI behavior."
+
+     Action/result: Updated compatibility, current-status, clean-room notes,
+     and progress docs.

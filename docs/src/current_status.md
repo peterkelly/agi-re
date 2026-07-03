@@ -8,8 +8,10 @@ engineering work.
 The most recent work returned to the logic interpreter. The opcode catalog now
 has a test-backed coverage check against `tools/disassemble_logic.py`, and the
 QEMU-backed logic batches validate jump, false-branch, inversion, OR-group,
-variable, flag, comparison, arithmetic, and selected object-field behavior
-through visible output.
+variable, flag, comparison, arithmetic, selected object-field behavior,
+logic load/call variants, variable-backed resource/object variants, object
+rectangle predicates, string/message parsing, and inventory/object marker
+operations through visible output.
 
 ## Confirmed Motion and Object Findings
 
@@ -78,9 +80,11 @@ Return to the logic interpreter:
 1. Expand `tools/logic_interpreter_probe.py` beyond control-flow bytes into
    additional action/condition groups that can expose state through pictures,
    transient objects, variables, flags, strings, and object fields. The current
-   27-case batch covers the core variable/flag/comparison family and selected
-   object fields.
-2. Prefer QEMU fixture evidence for opcodes whose behavior can be made visible;
+   filtered QEMU batches cover the core variable/flag/comparison family,
+   selected object fields, call/load/resume smoke behavior, var-backed resource
+   setup, object predicates, string/message operations, and inventory marker
+   operations.
+2. Prefer QEMU fixture evidence for additional opcodes whose behavior can be made visible;
    keep source-only wording for UI, save/restore, sound, and diagnostics until a
    narrow probe is practical.
 3. Continue assigning symbolic labels to interpreter helpers, object globals,

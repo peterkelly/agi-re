@@ -231,6 +231,28 @@ variable-selected actions, comparison predicates `0x02..0x06`, and simple
 object-field getter/setter pairs for position, field `+0x24`, and field
 `+0x21`.
 
+The logic probe harness now supports repeated `--case CASE_ID` filters. Use
+filtered batches for larger probe sets because each case currently copies a
+full SQ2 fixture into the snapshot disk.
+
+Run the five follow-up logic-interpreter batches:
+
+```bash
+python3 -B tools/logic_interpreter_probe.py --dos-prefix LA --output build/logic-interpreter-probes/batches/step1_call_resume_001.json --boot-wait 5 --draw-wait 8 --stop-on-failure --case call_logic_draws_from_called_logic --case load_logic_then_call_logic_draws --case call_logic_var_draws_selected_logic --case save_restore_resume_actions_continue_to_draw
+python3 -B tools/logic_interpreter_probe.py --dos-prefix LB --output build/logic-interpreter-probes/batches/step2_var_backed_001.json --boot-wait 5 --draw-wait 8 --stop-on-failure --case set_object_pos_var_getter_observes_values --case var_resource_group_frame_setup_draws_persistent_object --case setup_transient_object_var_draws_selected_cel --case move_object_to_var_sets_flag_at_existing_target
+python3 -B tools/logic_interpreter_probe.py --dos-prefix LC --output build/logic-interpreter-probes/batches/step3_object_predicates_001.json --boot-wait 5 --draw-wait 8 --stop-on-failure --case object_left_rect_condition_true --case object_width_rect_condition_true --case object_center_rect_condition_true --case object_right_rect_condition_true
+python3 -B tools/logic_interpreter_probe.py --dos-prefix LD --output build/logic-interpreter-probes/batches/step4_string_message_001.json --boot-wait 5 --draw-wait 8 --stop-on-failure --case set_string_from_message_equal_normalized --case parse_string_slot_sets_input_word_sequence
+python3 -B tools/logic_interpreter_probe.py --dos-prefix LE --output build/logic-interpreter-probes/batches/step5_inventory_table_001.json --boot-wait 5 --draw-wait 8 --stop-on-failure --case inventory_marker_ff_condition_true --case inventory_marker_eq_var_condition_true --case inventory_marker_ff_var_and_getter --case inventory_marker_clear_and_getter --case inventory_marker_from_var --case inventory_marker_from_var_var
+```
+
+All five filtered batches matched QEMU with 0 mismatches. Together they add
+evidence for logic load/call variants, resume-state actions as executable
+opcodes, variable-backed object/resource setup, variable-backed transient
+objects, immediate-completion `move_object_to_var`, object rectangle predicates,
+custom message-table loading, string-slot normalization, dictionary parsing for
+`look`, input-word sequence testing, inventory/object marker predicates, and
+marker actions `0x5c..0x61`.
+
 Regenerate the opcode evidence matrix after updating opcode labels or probe
 annotations:
 
