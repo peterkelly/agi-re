@@ -146,8 +146,9 @@ Return to the logic interpreter:
 2. Prefer QEMU fixture evidence for additional opcodes whose behavior can be made
    visible. Resource lifecycle, message display, string/numeric input,
    formatted/positioned text, input-line/window dispatch, text/status
-   configuration dispatch, selected diagnostics, menu dispatch, and sound
-   load/clear now have targeted coverage; most remaining source-backed rows are
+   configuration dispatch, selected diagnostics, menu dispatch, priority screen,
+   object diagnostics, log-file content, and sound load/clear/stop-flag behavior
+   now have targeted coverage; most remaining source-backed rows are
    key-map event conversion, `0x74` string-table copying in a non-empty table,
    selection UI, save/restore/restart, room/system transition paths, and full
    interactive menu/audio paths.
@@ -161,8 +162,10 @@ After the latest object/timing pass, the remaining source-backed action rows
 cluster into families that need specialized probes:
 
 - **Room/resource lifecycle:** `0x12` and `0x13` remain broad room/state switch
-  paths. `0x15`, `0x1b`, `0x1c`, `0x20`, and `0x99` now have targeted
-  QEMU-backed lifecycle fixtures.
+  paths. Two direct QEMU fixture attempts failed to produce stable reusable
+  evidence, likely because these actions participate in a broader
+  logic-0/current-room loop and reset resource state. `0x15`, `0x1b`, `0x1c`,
+  `0x20`, and `0x99` now have targeted QEMU-backed lifecycle fixtures.
 - **Text/window/input:** `0x65`, `0x66`, `0x67`, `0x68`, `0x6a`, `0x6b`,
   `0x6c`, `0x6d`, `0x6e`, `0x6f`, `0x70`, `0x71`, `0x73`, `0x76`, `0x77`,
   `0x78`, `0x79`, `0x89`, `0x8a`, `0x97`, `0x98`, `0x9a`, and `0xa9` now have
@@ -175,18 +178,22 @@ cluster into families that need specialized probes:
 - **Menus and inventory UI:** `0x7c` now has QEMU behavior evidence for
   interactive Enter, interactive Escape, and noninteractive acknowledgement.
   The selection result is absolute byte `DS:0x0022`, exposed as script variable
-  `0x19`. `0x9c..0xa1` have setup/dispatch evidence, and the one-item Enter
-  path through `0xa1` now has behavior evidence via condition `0x0c 7`. Further
-  menu work should cover disabled items, heading movement, Escape, and arrow-key
-  navigation. `0xa2` now has view-resource display coverage.
+  `0x19`. `0x9c..0xa1` now have behavior evidence for setup, Escape without
+  status, disabled-item Enter without status, re-enable, and one-item Enter via
+  condition `0x0c 7`. Further menu work should cover heading movement and
+  arrow-key navigation; a down-arrow QEMU fixture was attempted but did not
+  reach the expected second-item event. `0xa2` now has view-resource display
+  coverage.
 - **Save/restore/restart/system:** `0x7d`, `0x7e`, `0x80`, `0x86`, `0x8b`,
   `0x8c`, `0x8f`, `0x95`, and `0x96` now have focused QEMU coverage for
-  cancel/no-op/signature/gated-trace paths. `0x90` has dispatch-smoke evidence
-  for append-and-return, but file-content assertions remain future work.
+  cancel/no-op/signature/gated-trace paths. `0x1d` now has priority-screen
+  return coverage. `0x90` has file-content evidence from a post-run DOS image:
+  the extracted `LOGFILE` contains the expected room/input/message record.
 - **Sound:** `0x62`, `0x63`, and `0x64` now have dispatch-smoke evidence using
-  load/start/stop on sound resource 1. Exact audio output and asynchronous
-  completion-flag lifetime remain source-backed.
+  load/start/stop on sound resource 1, and `0x64` has behavior evidence for
+  setting the completion flag configured by `0x63`. Exact audio output and
+  asynchronous playback lifetime remain source-backed.
 - **Diagnostics/global toggles:** `0x83`, `0x84`, `0x87`, `0x88`, `0x8d`,
   `0x8e`, `0xa3`, `0xa4`, and `0xaa..0xad` now have QEMU message or
-  dispatch-smoke evidence. `0x81` is covered together with `0xa2`; `0x85`
-  remains source-backed.
+  dispatch-smoke evidence. `0x81` is covered together with `0xa2`; `0x85` now
+  has QEMU return-to-bytecode evidence for the object diagnostics display.

@@ -5625,3 +5625,260 @@ Progress updates and outcomes:
 
      Action/result: Added the resumed verification updates to this progress
      log.
+
+741. Reported: "I’ll take these in the order we sketched: room transitions,
+     priority screen, object diagnostics, menu edge behavior, then promotion
+     of selected dispatch-smoke cases. I’m starting source-first by reading the
+     existing handler notes and probe harness so the new tests line up with
+     the interpreter rather than just poking at it."
+
+     Action/result: Reviewed current status, opcode evidence, probe harness,
+     and tests.
+
+742. Reported: "The docs already summarize these handlers, but I’m going back
+     to disassembly for the next changes. In particular I want the branch
+     details for `0x1792`, `0x731b`, `0x72b5`, the menu interaction loop, and
+     the file/log path before I add or promote probes."
+
+     Action/result: Re-read focused disassembly for room switch, priority
+     screen, object diagnostics, menu interaction, and log append paths.
+
+743. Reported: "A few probe shapes are emerging cleanly from the source pass:
+     room switching can be exposed through `var0`/`var1`, priority screen and
+     object diagnostics can be tested as blocking UI actions that return after
+     Enter, and menu disabled/Escape/navigation behavior can be asserted
+     through status-byte conditions. The trace enabled path is still awkward
+     for pixel comparison because it intentionally leaves text-plane artifacts,
+     so I’m not going to overclaim that one."
+
+     Action/result: Selected initial source-derived fixture designs.
+
+744. Reported: "I’m going to add new harness cases now. The cases are
+     intentionally narrow: each one turns a source-observed side effect into
+     either a variable/status-byte assertion or a stable return-to-draw
+     assertion, so the evidence level stays honest."
+
+     Action/result: Added new logic probe cases for room attempts, priority
+     screen, object diagnostics, menu edges, and sound stop flag.
+
+745. Reported: "The first batch of new cases is in: immediate/variable room
+     switch, priority screen return, object diagnostics return, menu
+     Escape/disabled/re-enable/down-arrow, and a sound-stop completion-flag
+     assertion. I’m wiring them into the registry test before I ask QEMU
+     anything."
+
+     Action/result: Updated `tests/test_logic_interpreter_probe.py`.
+
+746. Reported: "Registry coverage is updated. I’ll run the cheap Python checks
+     now; then I’ll run the new QEMU cases by family so any failure points
+     back to a small source path."
+
+     Action/result: Focused Python tests and opcode evidence check passed.
+
+747. Reported: "The local tests are clean. I’m starting with the non-menu QEMU
+     cases: room switch, priority display, object diagnostics, and sound stop
+     flag. Those should tell us quickly whether the source-derived assertions
+     are stable under the original engine."
+
+     Action/result: Started `room_priority_diag_sound_001`; the first room
+     case mismatched.
+
+748. Reported: "The immediate room-switch case mismatched first, so I’m
+     stopping there and inspecting the capture/report. This is useful: room
+     switching is broad enough that one of the “obvious” assumptions, likely
+     initial previous-room value or post-switch control flow, is off."
+
+     Action/result: Report showed the validation sprite was absent; first
+     previous-room assertion was rejected.
+
+749. Reported: "The room switch did change control flow enough to clear the
+     expected sprite, but the `var1 == 0` assertion was too specific. The
+     source says `var1` receives the previous room byte, and the boot fixture
+     appears not to start from zero there, so I’m narrowing the QEMU assertion
+     to the stable source effect: `var0` becomes the target room."
+
+     Action/result: Narrowed and renamed the room cases.
+
+750. Reported: "Room switching still isn’t returning to logic 0 with a simple
+     `var0` assertion, which is itself a useful correction. I’m adjusting the
+     fixture to validate the destination-room execution path instead: after
+     `0x12`/`0x13`, the target logic resource should be loaded/run and draw the
+     marker."
+
+     Action/result: Reworked room cases to draw from target logic.
+
+751. Reported: "The target logic ran into another source-derived reset effect:
+     room switching clears resource/object state, so the destination logic
+     cannot rely on the preloaded view/picture from before the switch. I’m
+     updating the destination logic to load/show picture 0 and load view 11
+     before drawing."
+
+     Action/result: Made target logic self-contained; room cases still
+     mismatched.
+
+752. Reported: "The room-switch fixture still doesn’t produce a stable draw,
+     even with a self-contained destination logic. I’m going to treat
+     `0x12/0x13` as source-backed for now and document the failed attempts;
+     they probably need a fuller synthetic logic-0/current-room loop rather
+     than a tiny one-shot fixture. I’m removing those failing cases from the
+     reusable base registry and continuing with the other four steps."
+
+     Action/result: Removed failing room cases from reusable probe registry.
+
+753. Reported: "The failing room cases are out of the reusable suite. I’m
+     running the remaining priority/diagnostics/sound family now; these still
+     directly cover steps 2, 3, and part of step 5."
+
+     Action/result: Started `priority_diag_sound_001`.
+
+754. Reported: "The non-room batch is running with three stable assertions:
+     `0x64` setting the completion flag, `0x1d` returning from priority
+     display, and `0x85` returning from object diagnostics."
+
+     Action/result: `priority_diag_sound_001` matched 3/3.
+
+755. Reported: "Good: sound stop flag, priority screen, and object diagnostics
+     all matched. I’m moving to the menu edge batch now: Escape, disabled item
+     Enter, disable-then-enable, and down-arrow selection."
+
+     Action/result: Started `menu_edges_001`.
+
+756. Reported: "The menu edge cases are running. If one fails, the likely
+     culprit is key timing or the exact QEMU key name for arrows, so I’ll
+     separate timing problems from semantic problems by checking the
+     capture/report."
+
+     Action/result: Three menu edge cases matched; down-arrow case mismatched.
+
+757. Reported: "Three of four menu edge cases matched. The down-arrow case
+     mismatched, so I’m checking whether `down` was the wrong key name/timing
+     or whether the menu interpreter uses a different event for vertical
+     movement than I assumed."
+
+     Action/result: Capture/report showed the down-arrow case did not reach
+     the expected status-8 validation path.
+
+758. Reported: "The failed arrow case may simply be the key sequence arriving
+     too tightly while the menu is redrawing. I’m increasing the delay between
+     Down and Enter and rerunning just that case once; if it still fails, I’ll
+     keep arrow navigation as an attempted-but-not-promoted path."
+
+     Action/result: Slower down-arrow retry still mismatched.
+
+759. Reported: "The slower Down/Enter attempt still mismatched, so I’m taking
+     that failed arrow fixture out of the reusable suite. We’ll keep the source
+     mapping and failed capture as evidence, but not as a compatibility test
+     until we can instrument the exact key/event conversion path."
+
+     Action/result: Removed the down-arrow case from the reusable suite.
+
+760. Reported: "The reusable menu suite now contains the three stable edge
+     cases: Escape without status, disabled Enter without status, and
+     disable-then-enable followed by Enter setting status. I’m rerunning that
+     menu batch cleanly."
+
+     Action/result: `menu_edges_002` matched 3/3.
+
+761. Reported: "Menu edges are clean. For the dispatch-smoke promotion step,
+     I’ve already got a stable sound completion-flag assertion; now I’m going
+     to see if the `0x90` logfile content can be inspected from the post-run
+     qcow image after a single-case run. If that works, we can promote log
+     append beyond pixels."
+
+     Action/result: Ran `log_file_contents_001`; visual comparison matched.
+
+762. Reported: "The single log case matched visually. I’m converting that
+     qcow back to a raw image and trying to pull `LOGFILE` out of the fixture
+     directory with mtools, which will tell us whether file-content assertions
+     are practical in this harness."
+
+     Action/result: Converted the qcow image to raw and extracted
+     `LF00000/LOGFILE`.
+
+763. Reported: "Great, the converted post-run image contains `LOGFILE`, and
+     mtools extracted it. I’m reading the bytes now so we can decide whether
+     to formalize a file-content check in the harness or document it as a
+     reproducible manual assertion."
+
+     Action/result: File content decoded to two leading newlines, `Room 0`,
+     empty `Input line: `, and `LOG`.
+
+764. Reported: "The logfile content matches the source-derived format exactly:
+     blank line, `Room 0`, `Input line: `, and the message `LOG`. I’m promoting
+     only the parts now backed by stable evidence, while leaving room switching
+     and enabled trace as source-backed or attempted."
+
+     Action/result: Updated opcode evidence mapping.
+
+765. Reported: "Evidence mapping is updated: priority display, object
+     diagnostics, log append content, stable menu setup/toggle behavior, and
+     sound stop flag are promoted; room switching and enabled trace stay out of
+     the promoted set. I’m regenerating the evidence chapter."
+
+     Action/result: Regenerated `docs/src/logic_opcode_evidence.md`.
+
+766. Reported: "Now I’m updating the prose docs with the exact scope: three
+     successful menu edge cases, priority/diagnostics/sound flag successes,
+     logfile extraction, and the failed room/down-arrow attempts as
+     non-promoted evidence."
+
+     Action/result: Updated `docs/src/logic_bytecode.md`.
+
+767. Reported: "The logic bytecode chapter now records both the successful
+     promotions and the failed room/down-arrow attempts. I’m adding replay
+     commands for the new batches and logfile extraction to the compatibility
+     chapter next."
+
+     Action/result: Updated `docs/src/compatibility_testing.md`.
+
+768. Reported: "I’m refreshing the current-status handoff so the next session
+     starts from the real frontier: room switch still needs a fuller fixture,
+     menu arrows still need better key/event instrumentation, but
+     priority/diagnostics/log/sound/menu toggles moved forward."
+
+     Action/result: Updated `docs/src/current_status.md`.
+
+769. Reported: "I’m adding labels for the newly touched stable anchors: room
+     switch helper, priority display flag/action, object diagnostics action,
+     and updating existing menu/sound/log notes to mention the new evidence."
+
+     Action/result: Updated `docs/src/symbolic_labels.md`.
+
+770. Reported: "I’m appending a new clean-room note for this pass with the
+     exact disassembly commands, successful QEMU batches, failed room/down-arrow
+     attempts, and the logfile extraction bytes."
+
+     Action/result: Updated `docs/src/clean_room_executable_notes.md`.
+
+771. Reported: "I’m catching the progress log up with the actual updates from
+     this run before doing final validation. This one is a little verbose
+     because the room/menu failures are historically useful, not just noise."
+
+     Action/result: Added these progress-log entries.
+
+772. Reported: "The docs and progress log are caught up. I’m running the full
+     validation pass now: unit suite, evidence check, mdBook build, and
+     whitespace check."
+
+     Action/result: Unit tests, evidence check, and mdBook build passed;
+     whitespace check found one trailing space in a logfile code block.
+
+773. Reported: "Validation is clean except for one trailing space in the
+     literal logfile block. I’m fixing that formatting nit and rerunning the
+     doc/whitespace checks."
+
+     Action/result: Removed the trailing space and clarified that the input
+     line buffer is empty.
+
+774. Reported: "The trailing-space issue is fixed, and the prose now
+     explicitly says the input-line buffer is empty so the code block can stay
+     whitespace-clean. Rechecking the touched validation pieces."
+
+     Action/result: mdBook build, whitespace check, and opcode evidence check
+     passed.
+
+775. Reported: "The rechecks are clean. I’m adding the last validation updates
+     to the progress log, then I’ll inspect the final diff/status for the
+     handoff."
+
+     Action/result: Added final validation updates to this progress log.

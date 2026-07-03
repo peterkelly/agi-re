@@ -74,7 +74,7 @@ Evidence levels:
 | `0x1a` | `show_picture_like` | - | show picture like | QEMU-validated | picture/view QEMU fixtures show generated picture resources; logic_interpreter_probe: overlay_picture_var_composes_extra_picture |
 | `0x1b` | `discard_picture_var` | var0 | discard picture var | QEMU-validated | logic_interpreter_probe: discard_picture_var_allows_reload_and_overlay |
 | `0x1c` | `overlay_picture_var` | var0 | overlay picture var | QEMU-validated | logic_interpreter_probe: overlay_picture_var_composes_extra_picture |
-| `0x1d` | `show_priority_screen` | - | show priority screen | source-backed | Handler disassembly and local SQ2 bytecode scan; see logic_bytecode.md. |
+| `0x1d` | `show_priority_screen` | - | show priority screen | QEMU-validated | logic_interpreter_probe: priority_screen_enter_returns |
 | `0x1e` | `load_view` | imm0 | load view | QEMU-validated | view/object QEMU fixtures load view resources |
 | `0x1f` | `load_view_var` | var0 | load view var | QEMU-validated | logic_interpreter_probe: load_view_var_allows_following_draw |
 | `0x20` | `discard_view` | imm0 | discard view | QEMU-validated | logic_interpreter_probe: discard_view_allows_reload_and_draw |
@@ -145,7 +145,7 @@ Evidence levels:
 | `0x61` | `get_entry_0971_marker_to_var` | var0, var1 | get entry 0971 marker to var | QEMU-validated | logic_interpreter_probe: inventory marker getter probes |
 | `0x62` | `load_sound` | imm0 | load sound | QEMU dispatch-smoke | logic_interpreter_probe: sound_load_stop_dispatch_smoke |
 | `0x63` | `start_sound_with_flag` | imm0, imm1 | start sound with flag | QEMU dispatch-smoke | logic_interpreter_probe: sound_start_stop_dispatch_smoke |
-| `0x64` | `stop_sound_or_clear_sound_state` | - | stop sound or clear sound state | QEMU dispatch-smoke | logic_interpreter_probe: sound_load_stop_dispatch_smoke |
+| `0x64` | `stop_sound_or_clear_sound_state` | - | stop sound or clear sound state | QEMU-validated | logic_interpreter_probe: sound_stop_sets_completion_flag |
 | `0x65` | `display_message` | imm0 | display message | QEMU-validated | logic_interpreter_probe: display_message_then_ack_continues_to_draw |
 | `0x66` | `display_message_var` | var0 | display message var | QEMU-validated | logic_interpreter_probe: display_message_var_then_ack_continues_to_draw |
 | `0x67` | `display_formatted_message` | imm0, imm1, imm2 | display formatted message | QEMU-validated | logic_interpreter_probe: display_formatted_message_then_ack_continues_to_draw |
@@ -178,7 +178,7 @@ Evidence levels:
 | `0x82` | `random_range_to_var` | imm0, imm1, var2 | random range to var | QEMU-validated | logic_interpreter_probe: random_equal_bounds_stores_bound |
 | `0x83` | `clear_global_0139` | - | clear global 0139 | QEMU dispatch-smoke | logic_interpreter_probe: diagnostic_global_actions_dispatch_smoke |
 | `0x84` | `set_global_0139_and_clear_object0_field_22` | - | set global 0139 and clear object0 field 22 | QEMU dispatch-smoke | logic_interpreter_probe: diagnostic_global_actions_dispatch_smoke |
-| `0x85` | `display_object_diagnostics_var` | var0 | display object diagnostics var | source-backed | Handler disassembly and local SQ2 bytecode scan; see logic_bytecode.md. |
+| `0x85` | `display_object_diagnostics_var` | var0 | display object diagnostics var | QEMU-validated | logic_interpreter_probe: object_diagnostics_var_enter_returns |
 | `0x86` | `confirm_and_restart_like` | imm0 | confirm and restart like | QEMU-validated | logic_interpreter_probe: confirm_restart_like_escape_continues_to_draw |
 | `0x87` | `show_heap_status` | - | show heap status | QEMU-validated | logic_interpreter_probe: heap_status_then_ack_continues_to_draw |
 | `0x88` | `pause_game_message` | - | pause game message | QEMU-validated | logic_interpreter_probe: pause_message_then_ack_continues_to_draw |
@@ -189,7 +189,7 @@ Evidence levels:
 | `0x8d` | `show_interpreter_version` | - | show interpreter version | QEMU-validated | logic_interpreter_probe: interpreter_version_then_ack_continues_to_draw |
 | `0x8e` | `set_global_0141_and_refresh` | imm0 | set global 0141 and refresh | QEMU dispatch-smoke | logic_interpreter_probe: diagnostic_global_actions_dispatch_smoke |
 | `0x8f` | `verify_game_signature` | imm0 | verify game signature | QEMU-validated | logic_interpreter_probe: signature_check_matching_message_returns |
-| `0x90` | `append_message_to_log_file` | imm0 | append message to log file | QEMU dispatch-smoke | logic_interpreter_probe: log_file_append_dispatch_smoke |
+| `0x90` | `append_message_to_log_file` | imm0 | append message to log file | QEMU-validated | logic_interpreter_probe: log_file_append_dispatch_smoke plus extracted LOGFILE content |
 | `0x91` | `save_logic_resume_ip` | - | save logic resume ip | QEMU-validated | logic_interpreter_probe: save_restore_resume_actions_continue_to_draw |
 | `0x92` | `restore_logic_entry_ip` | - | restore logic entry ip | QEMU-validated | logic_interpreter_probe: save_restore_resume_actions_continue_to_draw |
 | `0x93` | `set_object_pos_dirty` | imm0, imm1, imm2 | set object pos dirty | QEMU-validated | logic_interpreter_probe: set_object_pos_dirty_getter_observes_values |
@@ -201,12 +201,12 @@ Evidence levels:
 | `0x99` | `discard_view_var` | var0 | discard view var | QEMU-validated | logic_interpreter_probe: discard_view_var_allows_reload_and_draw |
 | `0x9a` | `clear_text_rect_bounds` | imm0, imm1, imm2, imm3, imm4 | clear text rect bounds | QEMU dispatch-smoke | logic_interpreter_probe: text_rect_clear_dispatch_smoke |
 | `0x9b` | `noop_2` | imm0, imm1 | noop 2 | QEMU-validated | logic_interpreter_probe: noop_9b_consumes_two_operands_then_draws |
-| `0x9c` | `add_menu_heading_like` | imm0 | add menu heading like | QEMU dispatch-smoke | logic_interpreter_probe: menu_setup_dispatch_smoke |
-| `0x9d` | `add_menu_item_like` | imm0, imm1 | add menu item like | QEMU dispatch-smoke | logic_interpreter_probe: menu_setup_dispatch_smoke |
-| `0x9e` | `finalize_menu_like` | - | finalize menu like | QEMU dispatch-smoke | logic_interpreter_probe: menu_setup_dispatch_smoke |
-| `0x9f` | `enable_menu_item_like` | imm0 | enable menu item like | QEMU dispatch-smoke | logic_interpreter_probe: menu_setup_dispatch_smoke |
-| `0xa0` | `disable_menu_item_like` | imm0 | disable menu item like | QEMU dispatch-smoke | logic_interpreter_probe: menu_setup_dispatch_smoke |
-| `0xa1` | `mark_menu_if_flag_0e` | - | mark menu if flag 0e | QEMU-validated | logic_interpreter_probe: menu_interactive_enter_sets_status_byte |
+| `0x9c` | `add_menu_heading_like` | imm0 | add menu heading like | QEMU-validated | logic_interpreter_probe: menu_interactive/menu_edges setup cases |
+| `0x9d` | `add_menu_item_like` | imm0, imm1 | add menu item like | QEMU-validated | logic_interpreter_probe: menu_interactive/menu_edges setup cases |
+| `0x9e` | `finalize_menu_like` | - | finalize menu like | QEMU-validated | logic_interpreter_probe: menu_interactive/menu_edges setup cases |
+| `0x9f` | `enable_menu_item_like` | imm0 | enable menu item like | QEMU-validated | logic_interpreter_probe: menu_enable_after_disable_allows_enter_status_byte |
+| `0xa0` | `disable_menu_item_like` | imm0 | disable menu item like | QEMU-validated | logic_interpreter_probe: menu_disabled_item_enter_does_not_set_status_byte and menu_enable_after_disable_allows_enter_status_byte |
+| `0xa1` | `mark_menu_if_flag_0e` | - | mark menu if flag 0e | QEMU-validated | logic_interpreter_probe: menu_interactive_enter_sets_status_byte and menu_edges_002 |
 | `0xa2` | `display_view_resource_text_like_var` | imm0 | display view resource text like var | QEMU-validated | logic_interpreter_probe: view_resource_display_var_returns |
 | `0xa3` | `set_global_0d0f` | - | set global 0d0f | QEMU dispatch-smoke | logic_interpreter_probe: diagnostic_global_actions_dispatch_smoke |
 | `0xa4` | `clear_global_0d0f` | - | clear global 0d0f | QEMU dispatch-smoke | logic_interpreter_probe: diagnostic_global_actions_dispatch_smoke |

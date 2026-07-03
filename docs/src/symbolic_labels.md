@@ -178,7 +178,7 @@ Address columns use these meanings:
 | `code.menu.add_item` | image `0x91cf` | Action handler for `0x9d`; allocates and links a 14-byte menu item node and stores the item id at node offset `+0x0c`. |
 | `code.menu.finalize_setup` | image `0x92ba` | Action handler for `0x9e`; finalizes/freezes menu setup. |
 | `code.menu.set_item_enabled` | image `0x935f` | Shared helper used by `0x9f` and `0xa0` to enable or disable menu items by id. |
-| `code.menu.interact` | image `0x93d1` | Interactive menu path. Draws the menu, waits for input, and enqueues type-3 events with selected item ids for enabled items; QEMU `menu_interaction_001` validates one-item Enter selection. |
+| `code.menu.interact` | image `0x93d1` | Interactive menu path. Draws the menu, waits for input, and enqueues type-3 events with selected item ids for enabled items; QEMU `menu_interaction_001` validates one-item Enter selection and `menu_edges_002` validates Escape, disabled Enter, and re-enable behavior. |
 | `data.menu.finalized` | data `0x1d2a` | Menu setup finalization flag set by `code.menu.finalize_setup`. |
 | `data.menu.request_interaction` | data `0x1d22` | Word set by action `0xa1` when flag 14 is set; the input/event path enters `code.menu.interact` and clears this word after handling menu interaction. |
 | `data.menu.heading_root` | data `0x1d2c` | Root/current circular menu heading list pointer used by menu setup and interaction routines. |
@@ -187,6 +187,10 @@ Address columns use these meanings:
 
 | Label | SQ2 address | Notes/evidence |
 | --- | --- | --- |
+| `code.room.switch_state` | image `0x1792` | Shared helper for actions `0x12` and `0x13`; resets object/resource state, updates room variables, loads destination logic, handles entry-boundary placement, and sets flag 5. Direct QEMU fixture attempts were not stable enough to promote beyond source-backed evidence. |
+| `code.display.show_priority_screen_action` | image `0x731b` | Action handler for `0x1d`; sets `data.display.priority_screen_mode`, refreshes the screen, waits for an event, refreshes again, then clears the mode. QEMU `priority_diag_sound_001` validates return after Enter. |
+| `data.display.priority_screen_mode` | data `0x1755` | Word tested by the full-screen refresh path to display priority/control nibbles instead of normal visual nibbles. |
+| `code.object.display_diagnostics_action` | image `0x72b5` | Action handler for `0x85`; formats object fields into the diagnostic template at data `0x1713` and displays the text. QEMU `priority_diag_sound_001` validates return after Enter. |
 | `code.trace.enable_window_action` | image `0x8c91` | Action handler for `0x95`; when the trace window is already active, consumes one extra byte, otherwise calls `code.trace.enable_window_if_flagged`. |
 | `code.trace.enable_window_if_flagged` | image `0x8cae` | Enables and draws the trace window only when flag 10 is set. QEMU covers the flag-clear dispatch path; enabled drawing is source-backed and visibly leaves a trace box. |
 | `code.trace.configure_window_action` | image `0x8d3d` | Action handler for `0x96`; stores trace logic/resource, row offset, and height globals, clamping height to at least 2. |
@@ -195,10 +199,10 @@ Address columns use these meanings:
 | `data.trace.row_offset` | data `0x1d08` | Row offset configured by action `0x96`. |
 | `data.trace.height` | data `0x1d0a` | Trace-window height configured by action `0x96`, clamped upward to at least 2. |
 | `code.sound.start_with_flag` | image `0x51d3` | Action handler for `0x63`; stops prior sound, stores/clears completion flag, locates a loaded sound resource, and starts playback. QEMU `sound_completion_001` validates load/start/stop dispatch after a prior `0x62`. |
-| `code.sound.stop_or_clear_state` | image `0x5234` | Shared stop helper used by `0x64` and before starting another sound. Clears active state and sets the configured completion flag when a sound was active. |
+| `code.sound.stop_or_clear_state` | image `0x5234` | Shared stop helper used by `0x64` and before starting another sound. Clears active state and sets the configured completion flag when a sound was active; QEMU `priority_diag_sound_001` validates that stop sets flag 77 after `0x63(1,77)`. |
 | `data.sound.active_state` | data `0x1258` | Word set while sound playback state is active. |
 | `data.sound.completion_flag` | data `0x126a` | Word holding the flag number set by `code.sound.stop_or_clear_state`; `0x63` stores and clears this flag before starting playback. |
-| `code.log.append_message` | image `0x828f` | Action handler for `0x90`; opens/creates `logfile`, appends a room/input/message record, closes the handle, and returns. |
+| `code.log.append_message` | image `0x828f` | Action handler for `0x90`; opens/creates `logfile`, appends a room/input/message record, closes the handle, and returns. QEMU `log_file_contents_001` validates the extracted `LOGFILE` content for a synthetic message. |
 | `data.log.file_handle` | data `0x1823` | DOS file handle for the log file; `0xffff` means closed/unopened. |
 | `data.log.filename` | data `0x1825` | Zero-terminated log filename, observed as `logfile`. |
 

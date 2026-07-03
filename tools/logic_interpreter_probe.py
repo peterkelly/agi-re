@@ -1429,6 +1429,56 @@ def base_cases() -> list[LogicInterpreterCase]:
             post_launch_wait=1.0,
         ),
         _custom_case(
+            "menu_escape_exits_without_status_byte",
+            "Escape exits a menu opened through 0xa1 without setting the item status byte.",
+            byte_action(0x9C, 1)
+            + byte_action(0x9D, 2, 7)
+            + byte_action(0x9E)
+            + set_flag_action(0x0E)
+            + byte_action(0xA1),
+            50,
+            messages=["FILE", "OPEN"],
+            init_once_flag=87,
+            per_cycle_body=byte_action(0x1A) + if_then(bytes([0xFD]) + status_byte_condition(7), draw_view11_at(50)),
+            post_launch_key_names=["esc"],
+            post_launch_wait=1.0,
+        ),
+        _custom_case(
+            "menu_disabled_item_enter_does_not_set_status_byte",
+            "Enter on a disabled menu item stays in the menu loop and does not enqueue the disabled item id before Escape exits.",
+            byte_action(0x9C, 1)
+            + byte_action(0x9D, 2, 7)
+            + byte_action(0x9E)
+            + byte_action(0xA0, 7)
+            + set_flag_action(0x0E)
+            + byte_action(0xA1),
+            50,
+            messages=["FILE", "OPEN"],
+            init_once_flag=88,
+            per_cycle_body=byte_action(0x1A) + if_then(bytes([0xFD]) + status_byte_condition(7), draw_view11_at(50)),
+            post_launch_keys="\n",
+            post_launch_wait=1.0,
+            post_launch_after_text_wait=0.5,
+            post_launch_key_names=["esc"],
+        ),
+        _custom_case(
+            "menu_enable_after_disable_allows_enter_status_byte",
+            "Disabling and then re-enabling a menu item lets Enter enqueue that item id.",
+            byte_action(0x9C, 1)
+            + byte_action(0x9D, 2, 7)
+            + byte_action(0x9E)
+            + byte_action(0xA0, 7)
+            + byte_action(0x9F, 7)
+            + set_flag_action(0x0E)
+            + byte_action(0xA1),
+            50,
+            messages=["FILE", "OPEN"],
+            init_once_flag=89,
+            per_cycle_body=if_then(status_byte_condition(7), byte_action(0x1A) + draw_view11_at(50)),
+            post_launch_keys="\n",
+            post_launch_wait=1.0,
+        ),
+        _custom_case(
             "sound_load_stop_dispatch_smoke",
             "Actions 0x62 and 0x64 load a sound resource and clear sound state before returning to following bytecode.",
             byte_action(0x62, 1) + byte_action(0x64) + draw_view11_at(50),
@@ -1439,6 +1489,33 @@ def base_cases() -> list[LogicInterpreterCase]:
             "Action 0x63 starts a sound with a completion flag operand and returns; 0x64 then clears sound state.",
             byte_action(0x62, 1) + byte_action(0x63, 1, 77) + byte_action(0x64) + draw_view11_at(50),
             50,
+        ),
+        _draw_if_case(
+            "sound_stop_sets_completion_flag",
+            "After 0x63 associates a completion flag with an active sound, 0x64 sets that flag while clearing sound state.",
+            byte_action(0x62, 1) + byte_action(0x63, 1, 77) + byte_action(0x64),
+            flag_set_condition(77),
+        ),
+        _custom_case(
+            "priority_screen_enter_returns",
+            "Action 0x1d displays the priority/control view, accepts an input event, restores the normal screen, and returns.",
+            byte_action(0x1D) + byte_action(0x1A) + draw_view11_at(50),
+            50,
+            post_launch_keys="\n",
+            post_launch_wait=1.0,
+        ),
+        _custom_case(
+            "object_diagnostics_var_enter_returns",
+            "Action 0x85 formats object fields selected by a variable, accepts Enter, and returns to following bytecode.",
+            setup_object_for_view11(10, x=42, baseline_y=80)
+            + byte_action(0x36, 10, 12)
+            + assignn(1, 10)
+            + byte_action(0x85, 1)
+            + byte_action(0x1A)
+            + draw_view11_at(50),
+            50,
+            post_launch_keys="\n",
+            post_launch_wait=1.0,
         ),
         _custom_case(
             "view_resource_display_immediate_returns",

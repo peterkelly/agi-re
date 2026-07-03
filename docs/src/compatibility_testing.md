@@ -469,6 +469,33 @@ no-joystick calibration return, guarded display-mode no-op, gated trace-window
 configuration dispatch, save/restore Escape cancellation, log append dispatch,
 and sound load/start/stop dispatch.
 
+Run the follow-up priority/diagnostics/sound and menu-edge batches:
+
+```bash
+python3 -B tools/logic_interpreter_probe.py --dos-prefix PS --output build/logic-interpreter-probes/batches/priority_diag_sound_001.json --boot-wait 5 --draw-wait 8 --stop-on-failure --case priority_screen_enter_returns --case object_diagnostics_var_enter_returns --case sound_stop_sets_completion_flag
+python3 -B tools/logic_interpreter_probe.py --dos-prefix ME --output build/logic-interpreter-probes/batches/menu_edges_002.json --boot-wait 5 --draw-wait 8 --stop-on-failure --case menu_escape_exits_without_status_byte --case menu_disabled_item_enter_does_not_set_status_byte --case menu_enable_after_disable_allows_enter_status_byte
+```
+
+Both batches matched QEMU with 0 mismatches. They validate `0x1d` priority
+screen return, `0x85` object diagnostics return, `0x64` setting the completion
+flag configured by `0x63`, Escape menu exit without a status event, disabled
+menu-item Enter not setting a status event, and disable-then-enable restoring
+Enter selection.
+
+To reproduce the `0x90` logfile-content check, run the log case alone, convert
+the post-run qcow2 disk to raw, and extract `LOGFILE` from the generated DOS
+directory:
+
+```bash
+python3 -B tools/logic_interpreter_probe.py --dos-prefix LF --output build/logic-interpreter-probes/batches/log_file_contents_001.json --boot-wait 5 --draw-wait 8 --stop-on-failure --case log_file_append_dispatch_smoke
+qemu-img convert -f qcow2 -O raw build/logic-interpreter-probes/snapshot/logic_interpreter.qcow2 build/logic-interpreter-probes/snapshot/logic_interpreter_after_log.raw
+mcopy -o -i build/logic-interpreter-probes/snapshot/logic_interpreter_after_log.raw@@32256 ::/LF00000/LOGFILE build/logic-interpreter-probes/fixtures/log_file_append_dispatch_smoke/logfile_from_qemu.txt
+xxd -g 1 build/logic-interpreter-probes/fixtures/log_file_append_dispatch_smoke/logfile_from_qemu.txt
+```
+
+The observed file content was two leading newlines followed by `Room 0`, an
+empty `Input line: ` record, and the message `LOG`.
+
 Regenerate the opcode evidence matrix after updating opcode labels or probe
 annotations:
 

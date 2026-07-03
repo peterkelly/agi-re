@@ -646,6 +646,12 @@ clearing sound state with `0x64`. These prove the load/start/clear handlers
 execute and return to following bytecode; they do not yet model audio output or
 the exact completion-flag lifetime after asynchronous playback.
 
+QEMU fixture `priority_diag_sound_001` adds a narrower behavior assertion for
+`0x64`: after `0x63` has associated completion flag 77 with sound 1, `0x64`
+sets that flag while clearing sound state. The same batch validates `0x1d` as a
+blocking priority/control display that returns after Enter and `0x85` as an
+object-diagnostics display action that returns after Enter.
+
 Room/state switch helper `0x1792`, reached by actions `0x12` (`switch_room_like`) and
 `0x13` (`switch_room_like_var`),
 resets all object records from `[0x096b]` to `[0x096d]`. For each 43-byte
@@ -655,6 +661,13 @@ stores `1` in bytes `+0x00` and `+0x01`. After loading the destination logic,
 it interprets byte variable `[0x000b]` as an entry boundary for object 0:
 `1` places Y at `0xa7`, `2` places X at `0`, `3` places Y at `0x25`, and `4`
 places X at `0xa0 - object_width`; the byte is then cleared.
+
+Two attempted QEMU probes for `0x12`/`0x13` did not produce stable reusable
+evidence. A direct `var0` assertion after the switch failed, and a target-logic
+draw probe also failed until it became clear the room switch resets resource
+state and participates in a broader logic-0/current-room control loop. These
+actions therefore remain source-backed until a fuller synthetic room-cycle
+fixture is built.
 
 Additional object-state actions:
 
@@ -921,6 +934,16 @@ structure, sets flag `0x0e`, and runs `0xa1`. The following input cycle enters
 observes the resulting status byte. The comparison refreshes the picture before
 the validation draw because the menu leaves a top text strip visible.
 
+QEMU fixture `menu_edges_002` validates three additional menu edge cases.
+Escape exits the interactive menu without setting item status byte 7. Enter on
+a disabled item also leaves status byte 7 clear before Escape exits. Disabling
+then re-enabling the same item allows Enter to enqueue status byte 7 again.
+These promote `0x9c..0xa0` from setup-only dispatch evidence to behavior
+evidence for the tested setup, disable, and re-enable paths. A down-arrow
+navigation fixture was attempted twice, but the QEMU key sequence did not reach
+the expected second-item status path, so arrow-key navigation remains
+source-backed from the `code.menu.interact` dispatch table.
+
 Text-window and input-line actions:
 
 | Opcode | Label | Handler | Observed action |
@@ -1057,8 +1080,22 @@ source-backed rather than part of the visual comparison suite.
 QEMU fixture `file_log_001` validates that `0x7d` and `0x7e` open their
 save/restore selector paths and return after Escape cancellation. It also
 dispatch-smokes `0x90` by appending a formatted record to the DOS `logfile` and
-returning to following bytecode; the current comparison does not inspect the
-file contents.
+returning to following bytecode.
+
+Follow-up fixture `log_file_contents_001` ran the log append case alone, then
+converted the post-run qcow2 disk image to raw and extracted `LF00000\LOGFILE`
+with mtools. The file bytes were:
+
+```text
+
+
+Room 0
+Input line:
+LOG
+```
+
+This matches the source-derived `0x90` format: leading newlines, current room,
+empty input-line buffer, and the resolved current-logic message.
 
 Miscellaneous actions:
 

@@ -4212,3 +4212,75 @@ Documented result:
   regenerated `docs/src/logic_opcode_evidence.md`. Trace/log/sound are marked
   according to their current evidence scope rather than overclaiming deeper
   side effects.
+
+## 2026-07-03: priority, diagnostics, menu edges, sound flag, and log file follow-up
+
+Commands run from `/Users/peter/ai/agi/reverse`:
+
+- `ndisasm -b 16 -o 0x175c -e 0x195c build/cleanroom/AGI.decrypted.exe`
+- `ndisasm -b 16 -o 0x731b -e 0x751b build/cleanroom/AGI.decrypted.exe`
+- `ndisasm -b 16 -o 0x72b5 -e 0x74b5 build/cleanroom/AGI.decrypted.exe`
+- `ndisasm -b 16 -o 0x828f -e 0x848f build/cleanroom/AGI.decrypted.exe`
+- `python3 -B -m unittest tests.test_logic_interpreter_probe tests.test_qemu_snapshot`
+- Attempted room-switch batch:
+  `python3 -B tools/logic_interpreter_probe.py --dos-prefix RS --output build/logic-interpreter-probes/batches/room_priority_diag_sound_001.json --boot-wait 5 --draw-wait 8 --stop-on-failure --case switch_room_immediate_sets_room_and_previous_room --case switch_room_var_sets_room_and_previous_room --case priority_screen_enter_returns --case object_diagnostics_var_enter_returns --case sound_stop_sets_completion_flag`
+- Corrected but still-failing room attempts using target-room-only and
+  target-logic-draw assertions, also under output
+  `build/logic-interpreter-probes/batches/room_priority_diag_sound_001.json`.
+- Stable priority/diagnostics/sound run:
+  `python3 -B tools/logic_interpreter_probe.py --dos-prefix PS --output build/logic-interpreter-probes/batches/priority_diag_sound_001.json --boot-wait 5 --draw-wait 8 --stop-on-failure --case priority_screen_enter_returns --case object_diagnostics_var_enter_returns --case sound_stop_sets_completion_flag`
+- Initial menu edge run:
+  `python3 -B tools/logic_interpreter_probe.py --dos-prefix ME --output build/logic-interpreter-probes/batches/menu_edges_001.json --boot-wait 5 --draw-wait 8 --stop-on-failure --case menu_escape_exits_without_status_byte --case menu_disabled_item_enter_does_not_set_status_byte --case menu_enable_after_disable_allows_enter_status_byte --case menu_down_arrow_selects_second_item_status_byte`
+- Focused down-arrow retry:
+  `python3 -B tools/logic_interpreter_probe.py --dos-prefix MD --output build/logic-interpreter-probes/batches/menu_down_arrow_002.json --boot-wait 5 --draw-wait 8 --stop-on-failure --case menu_down_arrow_selects_second_item_status_byte`
+- Stable menu edge run:
+  `python3 -B tools/logic_interpreter_probe.py --dos-prefix ME --output build/logic-interpreter-probes/batches/menu_edges_002.json --boot-wait 5 --draw-wait 8 --stop-on-failure --case menu_escape_exits_without_status_byte --case menu_disabled_item_enter_does_not_set_status_byte --case menu_enable_after_disable_allows_enter_status_byte`
+- Log file run and extraction:
+  `python3 -B tools/logic_interpreter_probe.py --dos-prefix LF --output build/logic-interpreter-probes/batches/log_file_contents_001.json --boot-wait 5 --draw-wait 8 --stop-on-failure --case log_file_append_dispatch_smoke`
+- `qemu-img convert -f qcow2 -O raw build/logic-interpreter-probes/snapshot/logic_interpreter.qcow2 build/logic-interpreter-probes/snapshot/logic_interpreter_after_log.raw`
+- `mdir -i build/logic-interpreter-probes/snapshot/logic_interpreter_after_log.raw@@32256 ::/LF00000`
+- `mcopy -o -i build/logic-interpreter-probes/snapshot/logic_interpreter_after_log.raw@@32256 ::/LF00000/LOGFILE build/logic-interpreter-probes/fixtures/log_file_append_dispatch_smoke/logfile_from_qemu.txt`
+- `xxd -g 1 build/logic-interpreter-probes/fixtures/log_file_append_dispatch_smoke/logfile_from_qemu.txt`
+- `python3 -B tools/logic_opcode_evidence.py`
+
+Documented result:
+
+- Reconfirmed `0x1792` room-switch helper from disassembly. It stops sound,
+  restores heap/list state, clears active/update state for each object record,
+  stores the target in byte variable 0, copies the previous room byte into byte
+  variable 1, clears selected flags/bytes, loads the destination logic, handles
+  entry-boundary placement from byte variable 2, sets flag 5, and refreshes
+  display/input state.
+- Three QEMU fixture shapes for `0x12`/`0x13` were attempted and rejected as
+  reusable evidence: direct `var1 == 0` previous-room assertion, target-room
+  `var0` assertion, and target-logic draw after making the target logic
+  self-contained. These actions remain source-backed until a fuller synthetic
+  room-cycle fixture models the logic-0/current-room relationship.
+- Reconfirmed `0x1d` at image `0x731b`: it sets word `[0x1755]`, calls full
+  refresh `0x5546`, waits for an event, refreshes again, then clears
+  `[0x1755]`. QEMU case `priority_screen_enter_returns` matched.
+- Reconfirmed `0x85` at image `0x72b5`: it reads an object index from a
+  variable operand, gathers object fields, formats them through template
+  `0x1713`, and displays the result. QEMU case
+  `object_diagnostics_var_enter_returns` matched.
+- QEMU case `sound_stop_sets_completion_flag` matched: after `0x62(1)` and
+  `0x63(1,77)`, action `0x64` sets flag 77 before the validation draw. This
+  validates the configured completion-flag effect of the stop helper, while
+  exact audio output and asynchronous playback lifetime remain source-backed.
+- QEMU batch `priority_diag_sound_001` matched 3/3.
+- QEMU batch `menu_edges_002` matched 3/3. Escape exits without setting status
+  byte 7. Enter on disabled item 7 does not set status byte 7 before Escape
+  exits. Disabling and then re-enabling item 7 restores Enter selection and
+  status byte 7.
+- The attempted down-arrow menu navigation case did not reach status byte 8
+  even after increasing the delay between Down and Enter. It remains an
+  attempted-but-not-promoted QEMU fixture; arrow navigation is still
+  source-backed from the `code.menu.interact` event dispatch table.
+- `log_file_contents_001` matched visually. Converting the post-run qcow2 image
+  to raw and extracting `LF00000\LOGFILE` showed bytes
+  `0a 0a 52 6f 6f 6d 20 30 0a 49 6e 70 75 74 20 6c 69 6e 65 3a 20 0a 4c 4f 47`,
+  which decodes as two leading newlines, `Room 0`, `Input line: `, and `LOG`.
+- Promoted `0x1d`, `0x64`, `0x85`, `0x90`, and the tested `0x9c..0xa0` menu
+  setup/toggle paths in the opcode evidence generator, regenerated
+  `logic_opcode_evidence.md`, and updated symbolic labels for the newly touched
+  routines/globals.
