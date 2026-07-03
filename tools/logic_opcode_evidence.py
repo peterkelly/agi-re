@@ -51,6 +51,8 @@ QEMU_ACTIONS = {
     0x2A: "logic_interpreter_probe: var_resource_group_frame_setup_draws_persistent_object",
     0x2B: "object overlay and movement probes select object groups",
     0x2C: "logic_interpreter_probe: var_resource_group_frame_setup_draws_persistent_object",
+    0x2D: "logic_interpreter_probe: object_bit_2000_002",
+    0x2E: "logic_interpreter_probe: object_bit_2000_002",
     0x2F: "object overlay and movement probes select object frames",
     0x30: "logic_interpreter_probe: var_resource_group_frame_setup_draws_persistent_object",
     0x31: "logic_interpreter_probe: object_view_metadata_getters",
@@ -62,6 +64,9 @@ QEMU_ACTIONS = {
     0x37: "logic_interpreter_probe: object_field_24_var_getter_observes_value",
     0x38: "logic_interpreter_probe: clear_fixed_priority_bit_uses_derived_priority",
     0x39: "logic_interpreter_probe: object_field_24_getter_observes_setter",
+    0x3A: "logic_interpreter_probe: object_root_partition_004",
+    0x3B: "logic_interpreter_probe: object_root_partition_004",
+    0x3C: "logic_interpreter_probe: object_root_partition_004",
     0x3D: "logic_interpreter_probe: horizon_exempt_bit_keeps_object_above_horizon",
     0x3E: "logic_interpreter_probe: horizon_clear_exempt_bit_restores_clamp",
     0x3F: "logic_interpreter_probe: horizon_clamps_object_when_bit_clear",
@@ -86,6 +91,8 @@ QEMU_ACTIONS = {
     0x57: "logic_interpreter_probe: object_field_21_getter_observes_setter",
     0x58: "object_movement_probe: rect_bit_0002_001",
     0x59: "object_movement_probe: rect_bit_0002_001",
+    0x5A: "object_movement_probe: rect_bit_0002_001 and rect_bounds_clear_001",
+    0x5B: "object_movement_probe: rect_bounds_clear_001",
     0x45: "logic_interpreter_probe: object_distance_inactive_pair_sets_ff",
     0x49: "logic_interpreter_probe: object_field_23_mode1_clears_flag",
     0x4B: "logic_interpreter_probe: object_field_23_mode2_clears_flag; object_movement_probe: frame_timer_modes_002",
@@ -118,9 +125,6 @@ QEMU_ACTIONS = {
 
 
 QEMU_SMOKE_ACTIONS = {
-    0x3A: "logic_interpreter_probe: object_bitfield_actions_dispatch_smoke",
-    0x3B: "logic_interpreter_probe: object_bitfield_actions_dispatch_smoke",
-    0x3C: "logic_interpreter_probe: object_bitfield_actions_dispatch_smoke",
 }
 
 

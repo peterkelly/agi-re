@@ -161,7 +161,7 @@ ACTION_NAMES = {
     0x39: "get_object_field_24",
     0x3A: "clear_object_bit_0010",
     0x3B: "set_object_bit_0010",
-    0x3C: "refresh_object_helper",
+    0x3C: "refresh_object_lists",
     0x3D: "set_object_bit_0008",
     0x3E: "clear_object_bit_0008",
     0x3F: "set_global_012d",

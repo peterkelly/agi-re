@@ -202,6 +202,10 @@ def set_rect_bounds_action(left: int, top: int, right: int, bottom: int) -> byte
     return bytes([0x5A, left, top, right, bottom])
 
 
+def clear_rect_bounds_action() -> bytes:
+    return bytes([0x5B])
+
+
 def set_object_step_from_var_action(object_no: int, var_no: int) -> bytes:
     values = [object_no, var_no]
     if any(not 0 <= value <= 0xFF for value in values):

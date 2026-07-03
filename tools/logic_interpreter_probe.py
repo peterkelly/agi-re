@@ -15,6 +15,7 @@ from compare_picture_capture import downsample_qemu_picture_nibbles
 from ppm_tools import read_ppm
 from qemu_fixture import (
     copy_sq2_tree,
+    end_action,
     if_then,
     load_show_picture_actions,
     logic_resource,
@@ -105,6 +106,13 @@ def base_code(body: bytes, picture_no: int = 0, preload_view_no: int | None = 11
     return code + body + self_loop()
 
 
+def end_code(body: bytes, picture_no: int = 0, preload_view_no: int | None = 11) -> bytes:
+    code = load_show_picture_actions(picture_no)
+    if preload_view_no is not None:
+        code += bytes([0x1E, preload_view_no])
+    return code + body + end_action()
+
+
 def jump(delta_body: bytes) -> bytes:
     return bytes([0xFE]) + u16le(len(delta_body))
 
@@ -188,6 +196,38 @@ def all_conditions(*conditions: bytes) -> bytes:
     return b"".join(conditions)
 
 
+def one_time_code(
+    body: bytes,
+    init_flag: int,
+    picture_no: int = 0,
+    preload_view_no: int | None = 11,
+) -> bytes:
+    setup = load_show_picture_actions(picture_no)
+    if preload_view_no is not None:
+        setup += bytes([0x1E, preload_view_no])
+    return (
+        if_then(not_flag_set_condition(init_flag), setup + body + set_flag_action(init_flag))
+        + end_action()
+    )
+
+
+def one_time_with_per_cycle_code(
+    setup_body: bytes,
+    per_cycle_body: bytes,
+    init_flag: int,
+    picture_no: int = 0,
+    preload_view_no: int | None = 11,
+) -> bytes:
+    setup = load_show_picture_actions(picture_no)
+    if preload_view_no is not None:
+        setup += bytes([0x1E, preload_view_no])
+    return (
+        if_then(not_flag_set_condition(init_flag), setup + setup_body + set_flag_action(init_flag))
+        + per_cycle_body
+        + end_action()
+    )
+
+
 def _case(case_id: str, description: str, body: bytes, expected_x: int) -> LogicInterpreterCase:
     return _custom_case(case_id, description, body, expected_x)
 
@@ -207,14 +247,33 @@ def _custom_case(
     preload_view_no: int | None = 11,
     picture_payload: bytes = b"\xff",
     expected_priority: int = 15,
+    expected_view_no: int = 11,
+    terminate_with_end: bool = False,
+    init_once_flag: int | None = None,
+    per_cycle_body: bytes = b"",
 ) -> LogicInterpreterCase:
+    if init_once_flag is not None and per_cycle_body:
+        code = one_time_with_per_cycle_code(
+            body,
+            per_cycle_body,
+            init_once_flag,
+            preload_view_no=preload_view_no,
+        )
+    elif init_once_flag is not None:
+        code = one_time_code(body, init_once_flag, preload_view_no=preload_view_no)
+    else:
+        code = (
+            end_code(body, preload_view_no=preload_view_no)
+            if terminate_with_end
+            else base_code(body, preload_view_no=preload_view_no)
+        )
     return LogicInterpreterCase(
         case_id,
         description,
-        base_code(body, preload_view_no=preload_view_no).hex(),
+        code.hex(),
         picture_payload.hex(),
         0,
-        11,
+        expected_view_no,
         expected_group_no,
         expected_frame_no,
         expected_x,
@@ -257,9 +316,20 @@ def assignn(var_no: int, value: int) -> bytes:
 
 
 def setup_object_for_view11(object_no: int, x: int = 42, baseline_y: int = 80, group_no: int = 0, frame_no: int = 0) -> bytes:
+    return setup_object_for_view(11, object_no, x, baseline_y, group_no, frame_no)
+
+
+def setup_object_for_view(
+    view_no: int,
+    object_no: int,
+    x: int = 42,
+    baseline_y: int = 80,
+    group_no: int = 0,
+    frame_no: int = 0,
+) -> bytes:
     return (
         byte_action(0x21, object_no)
-        + byte_action(0x29, object_no, 11)
+        + byte_action(0x29, object_no, view_no)
         + byte_action(0x2B, object_no, group_no)
         + byte_action(0x2F, object_no, frame_no)
         + byte_action(0x25, object_no, x, baseline_y)
@@ -788,6 +858,177 @@ def base_cases() -> list[LogicInterpreterCase]:
             50,
             picture_payload=bytes([0xF2, 0x06, 0xF8, 0x00, 0x00, 0xFF]),
             expected_priority=7,
+        ),
+        _custom_case(
+            "clear_bit_0010_moves_object_behind_set_partition",
+            "Action 0x3a clears bit 0x0010, moving the object to the root 0x1703 partition drawn before root 0x16ff.",
+            setup_object_for_view11(10, x=50, baseline_y=80, frame_no=0)
+            + byte_action(0x23, 10)
+            + setup_object_for_view11(11, x=90, baseline_y=80, frame_no=1)
+            + byte_action(0x23, 11)
+            + byte_action(0x25, 11, 50, 80)
+            + byte_action(0x3A, 11)
+            + byte_action(0x3C, 11),
+            50,
+            expected_frame_no=0,
+            expected_extra_sprites=[
+                {
+                    "view_no": 11,
+                    "group_no": 0,
+                    "frame_no": 1,
+                    "x": 90,
+                    "baseline_y": 80,
+                    "priority": 15,
+                },
+                {
+                    "view_no": 11,
+                    "group_no": 0,
+                    "frame_no": 1,
+                    "x": 50,
+                    "baseline_y": 80,
+                    "priority": 15,
+                }
+            ],
+        ),
+        _custom_case(
+            "set_bit_0010_moves_object_over_clear_partition",
+            "Action 0x3b sets bit 0x0010, moving the object to the root 0x16ff partition drawn after root 0x1703.",
+            setup_object_for_view11(10, x=50, baseline_y=80, frame_no=0)
+            + byte_action(0x23, 10)
+            + byte_action(0x3A, 10)
+            + setup_object_for_view11(11, x=90, baseline_y=80, frame_no=1)
+            + byte_action(0x23, 11)
+            + byte_action(0x25, 11, 50, 80)
+            + byte_action(0x3A, 11)
+            + byte_action(0x3B, 11)
+            + byte_action(0x3C, 11),
+            50,
+            expected_frame_no=1,
+            expected_extra_sprites=[
+                {
+                    "view_no": 11,
+                    "group_no": 0,
+                    "frame_no": 1,
+                    "x": 90,
+                    "baseline_y": 80,
+                    "priority": 15,
+                },
+                {
+                    "view_no": 11,
+                    "group_no": 0,
+                    "frame_no": 0,
+                    "x": 50,
+                    "baseline_y": 80,
+                    "priority": 15,
+                }
+            ],
+        ),
+        _custom_case(
+            "clear_bit_2000_allows_direction_group_selection",
+            "Action 0x2e leaves automatic direction-based group selection enabled; direction 6 selects view 4 group 1.",
+            setup_object_for_view(4, 10, x=50, baseline_y=90, group_no=0, frame_no=0)
+            + byte_action(0x23, 10)
+            + assignn(1, 6)
+            + byte_action(0x56, 10, 1)
+            + assignn(2, 1)
+            + byte_action(0x50, 10, 2)
+            + byte_action(0x2E, 10),
+            50,
+            expected_view_no=4,
+            expected_group_no=1,
+            expected_frame_no=0,
+            expected_baseline_y=90,
+            preload_view_no=4,
+            init_once_flag=79,
+        ),
+        _custom_case(
+            "set_bit_2000_suppresses_direction_group_selection",
+            "Action 0x2d suppresses automatic direction-based group selection; direction 6 leaves view 4 on group 0.",
+            setup_object_for_view(4, 10, x=50, baseline_y=90, group_no=0, frame_no=0)
+            + byte_action(0x23, 10)
+            + assignn(1, 6)
+            + byte_action(0x56, 10, 1)
+            + assignn(2, 1)
+            + byte_action(0x50, 10, 2)
+            + byte_action(0x2D, 10),
+            50,
+            expected_view_no=4,
+            expected_group_no=0,
+            expected_frame_no=0,
+            expected_baseline_y=90,
+            preload_view_no=4,
+            init_once_flag=80,
+        ),
+        _custom_case(
+            "clear_bit_2000_two_or_three_group_direction6_selects_group1",
+            "With a 3-group view, clear bit 0x2000 lets direction 6 select group 1 through the two/three-group table.",
+            setup_object_for_view(5, 10, x=50, baseline_y=112, group_no=0, frame_no=0)
+            + byte_action(0x23, 10)
+            + assignn(1, 6)
+            + byte_action(0x56, 10, 1)
+            + assignn(2, 1)
+            + byte_action(0x50, 10, 2)
+            + byte_action(0x2E, 10),
+            50,
+            expected_view_no=5,
+            expected_group_no=1,
+            expected_frame_no=0,
+            expected_baseline_y=112,
+            preload_view_no=5,
+            init_once_flag=81,
+        ),
+        _custom_case(
+            "clear_bit_2000_two_or_three_group_direction5_is_sentinel",
+            "With a 3-group view, clear bit 0x2000 and direction 5 produce sentinel group 4, so group 0 remains selected.",
+            setup_object_for_view(5, 10, x=50, baseline_y=112, group_no=0, frame_no=0)
+            + byte_action(0x23, 10)
+            + assignn(1, 5)
+            + byte_action(0x56, 10, 1)
+            + assignn(2, 1)
+            + byte_action(0x50, 10, 2)
+            + byte_action(0x2E, 10),
+            50,
+            expected_view_no=5,
+            expected_group_no=0,
+            expected_frame_no=0,
+            expected_baseline_y=112,
+            preload_view_no=5,
+            init_once_flag=82,
+        ),
+        _custom_case(
+            "clear_bit_2000_field01_countdown_eventually_selects_group",
+            "Clear bit 0x2000 with object byte +0x01 set to 2 skips one pass, then selects when the countdown reaches 1.",
+            setup_object_for_view(4, 10, x=50, baseline_y=90, group_no=0, frame_no=0)
+            + byte_action(0x23, 10)
+            + assignn(1, 6)
+            + byte_action(0x56, 10, 1)
+            + assignn(2, 2)
+            + byte_action(0x50, 10, 2)
+            + byte_action(0x2E, 10),
+            50,
+            expected_view_no=4,
+            expected_group_no=1,
+            expected_frame_no=0,
+            expected_baseline_y=90,
+            preload_view_no=4,
+            init_once_flag=83,
+        ),
+        _custom_case(
+            "clear_bit_2000_requires_field01_equal_one_when_forced",
+            "Per-cycle forcing object byte +0x01 to 2 prevents automatic direction-based group selection.",
+            setup_object_for_view(4, 10, x=50, baseline_y=90, group_no=0, frame_no=0)
+            + byte_action(0x23, 10)
+            + assignn(1, 6)
+            + byte_action(0x56, 10, 1)
+            + byte_action(0x2E, 10),
+            50,
+            expected_view_no=4,
+            expected_group_no=0,
+            expected_frame_no=0,
+            expected_baseline_y=90,
+            preload_view_no=4,
+            init_once_flag=84,
+            per_cycle_body=assignn(2, 2) + byte_action(0x50, 10, 2),
         ),
         _custom_case(
             "object_field_23_mode0_dispatch_smoke",

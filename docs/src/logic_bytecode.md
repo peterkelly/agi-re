@@ -111,6 +111,35 @@ Putting the observed dispatch ranges together:
 | `0xfe` | Relative jump handled by the main interpreter loop. |
 | `0xff` | Conditional block marker handled by the main interpreter loop. |
 
+## Top-Level Cycle Timing
+
+The top-level engine cycle observed at `code.engine.main_cycle` (`0x0150`)
+wraps logic execution with object and input/update passes. The current source
+model is:
+
+1. Run several input, sound, and display-maintenance helpers.
+2. Mirror direction state between object 0 byte `+0x21` and global byte
+   `[0x000f]`, depending on global word `[0x0139]`.
+3. Call `code.motion.pre_mode_and_boundary_update` (`0x0644`). This pass scans
+   active/update-eligible objects whose byte `+0x01 == 1`, dispatches motion
+   mode byte `+0x22` through `code.motion.dispatch_mode_step` (`0x067a`), and
+   applies rectangle-boundary checks through
+   `code.motion.rectangle_boundary_check` (`0x06d9`) when enabled.
+4. Invoke logic 0 through `code.logic.call_logic` (`0x12ae`). Nested logic calls
+   use the same helper but preserve and restore the previous current-logic
+   record.
+5. If byte `[0x1757]` is zero, call `code.object.frame_timer_update` (`0x0563`).
+   That pass performs automatic direction-based group selection, frame-timer
+   callbacks, movement update `code.motion.update_objects` (`0x150a`), and
+   update-list draw/dirty-rectangle refresh. If `[0x1757]` is nonzero, the
+   top-level loop skips `0x0563` for that cycle.
+
+This ordering matters for generated probes and for compatibility. For example,
+automatic group selection observes object byte `+0x01` before
+`code.motion.update_objects` later decrements that countdown byte. A one-shot
+script write of `+0x01 = 2` therefore delays direction-based group selection by
+one later cycle rather than suppressing it permanently.
+
 ## Conditional blocks
 
 Opcode `0xff` introduces a condition list. The condition parser uses these
@@ -612,11 +641,11 @@ Additional object-state actions:
 | ---: | --- | ---: | --- |
 | `0x21` | `reset_object_state` | `0x04d9` | Calls helper `0x04f5` for object `arg0`. If object word `[+0x25]` does not have bit `0x0040`, the helper sets `[+0x25] = 0x0070` and clears bytes `[+0x22]`, `[+0x23]`, and `[+0x21]`. |
 | `0x22` | `clear_all_object_bits` | `0x053d` | Iterates all 43-byte object entries from `[0x096b]` to `[0x096d]` and clears bits `0x0041` in word field `[+0x25]`. |
-| `0x2d` | `set_object_bit_2000` | `0x497b` | Sets object bit `0x2000` in `[+0x25]`. |
-| `0x2e` | `clear_object_bit_2000` | `0x49a3` | Clears object bit `0x2000` in `[+0x25]`. |
-| `0x3a` | `clear_object_bit_0010` | `0x6ac8` | Calls helper `0x6b44`, which clears object bit `0x0010` if it was set and wraps the update in helpers `0x6a54` and `0x6a8e`. |
-| `0x3b` | `set_object_bit_0010` | `0x6af0` | Calls helper `0x6b62`, which sets object bit `0x0010` if it was clear and wraps the update in helpers `0x6a54` and `0x6a8e`. |
-| `0x3c` | `refresh_object_helper` | `0x6b18` | Calls helpers `0x6a54`, `0x6a8e`, and `0x6aab` for object `arg0`, with no direct object field writes in the handler itself. |
+| `0x2d` | `set_object_bit_2000` | `0x497b` | Sets object bit `0x2000` in `[+0x25]`. In the per-cycle frame/group update helper, this bit suppresses automatic direction-based group selection. |
+| `0x2e` | `clear_object_bit_2000` | `0x49a3` | Clears object bit `0x2000` in `[+0x25]`, allowing automatic direction-based group selection when the object's view/group count field is in a supported range. |
+| `0x3a` | `clear_object_bit_0010` | `0x6ac8` | Calls helper `0x6b44`, which clears object bit `0x0010` if it was set. The bit partitions active objects between update-list root `0x16ff` and root `0x1703`; the helper wraps a membership change with `0x6a54` and `0x6a8e` to flush/rebuild the two lists. |
+| `0x3b` | `set_object_bit_0010` | `0x6af0` | Calls helper `0x6b62`, which sets object bit `0x0010` if it was clear. As with `0x3a`, a real membership change flushes and rebuilds the two update-list roots through `0x6a54` and `0x6a8e`. |
+| `0x3c` | `refresh_object_lists` | `0x6b18` | Computes the object record address from `arg0`, then calls helpers `0x6a54`, `0x6a8e`, and `0x6aab`. The computed object address is not passed to those helpers; the observed effect is an all-list flush, rebuild/draw, and dirty-rectangle refresh pass, with no direct object field writes in the handler itself. |
 | `0x3d` | `set_object_bit_0008` | `0x7e94` | Sets object bit `0x0008` in `[+0x25]`. |
 | `0x3e` | `clear_object_bit_0008` | `0x7eb9` | Clears object bit `0x0008` in `[+0x25]`. |
 | `0x3f` | `set_global_012d` | `0x7e7c` | Stores immediate `arg0` as a word at `DS:0x012d`. |
@@ -638,11 +667,38 @@ Additional object-state actions:
 | `0x4f` | `set_object_field_1e_var` | `0x6f3e` | Stores `var[arg1]` in object byte `[+0x1e]`. |
 | `0x50` | `set_object_field_01_var` | `0x6f7c` | Stores `var[arg1]` in object byte `[+0x01]` and clears object byte `[+0x00]`. |
 
+QEMU batch `object_root_partition_004` validates the visible behavior of
+`0x3a`, `0x3b`, and `0x3c`: clearing bit `0x0010` moves an active object into
+the root `0x1703` partition drawn before root `0x16ff`; setting the bit moves
+it back into the later-drawn `0x16ff` partition; and `0x3c` refreshes the lists
+without an object-local field write.
+
+Static analysis of `code.object.frame_timer_update` (`0x0563`) ties bit
+`0x2000` to automatic group selection. The helper initializes a local target
+group to sentinel value `4`. If bit `0x2000` is clear and object byte `+0x0b`
+is `2` or `3`, it indexes
+`data.object.group_for_direction_two_or_three_groups` (`AGIDATA.OVL:0x08dd`)
+by direction byte `+0x21`; if `+0x0b >= 4`, it instead indexes
+`data.object.group_for_direction_four_plus_groups` (`AGIDATA.OVL:0x08e7`).
+When object byte `+0x01 == 1`, the target group is not sentinel `4`, and the
+target differs from byte `+0x0a`, it calls `code.object.select_group`
+(`0x3bb7`). QEMU batches `object_bit_2000_002` and `object_bit_2000_004`
+validate this behavior:
+
+- In the four-plus-groups table, view 4 with direction `6` changes from group 0
+  to group 1 after `0x2e`; after `0x2d`, the same object remains on group 0.
+- In the two/three-groups table, view 5 with direction `6` changes from group 0
+  to group 1.
+- Direction `5` in the two/three-groups table yields sentinel `4`, so no group
+  change occurs.
+- A one-shot `+0x01 = 2` delays selection until the countdown reaches 1 in a
+  later cycle. A probe that writes `+0x01 = 2` every logic cycle keeps the
+  object on its original group, confirming the exact `+0x01 == 1` gate.
+
 QEMU probes validate the observable flag-clearing side effect of `0x49` and
 `0x4b`: each clears its flag operand before following bytecode tests that the
-flag is no longer set. Separate dispatch-smoke probes show `0x48` and `0x4a`
-execute and return to following bytecode; those probes do not directly observe
-the hidden object byte `+0x23`.
+flag is no longer set. Later frame-timer movement probes validate visible
+frame-mode behavior for `0x48`, `0x4a`, and `0x4b`.
 
 Static analysis now ties `0x46..0x4c` to the frame-cycling path. Per-cycle
 helper `code.object.frame_timer_update` (`0x0563`) scans active objects with
@@ -852,8 +908,8 @@ Resource/table actions outside the main object table:
 
 | Opcode | Label | Handler | Observed action |
 | ---: | --- | ---: | --- |
-| `0x5a` | `set_rect_bounds_0131` | `0x7b4e` | Sets word `[0x013d] = 1` and stores four immediate operands as words at `[0x0131]`, `[0x0133]`, `[0x0135]`, and `[0x0137]`. Helper `0x7be6` later tests whether an `(x,y)` pair lies strictly inside those bounds. |
-| `0x5b` | `clear_rect_bounds_0131` | `0x7b8a` | Clears word `[0x013d]`. |
+| `0x5a` | `set_rect_bounds_0131` | `0x7b4e` | Sets word `[0x013d] = 1` and stores four immediate operands as words at `[0x0131]`, `[0x0133]`, `[0x0135]`, and `[0x0137]`. Helper `0x7be6` later tests whether an `(x,y)` pair lies strictly inside those bounds. QEMU movement probes validate that these bounds stop an object before it crosses the configured rectangle. |
+| `0x5b` | `clear_rect_bounds_0131` | `0x7b8a` | Clears word `[0x013d]`. QEMU movement probe `rect_bounds_clear_001` validates that clearing after `0x5a` lets the same object cross the former rectangle boundary and reach its target. |
 | `0x5c` | `set_entry_0971_marker_ff` | `0x7538` | Resolves a 3-byte entry from the table rooted at `[0x0971]` using immediate index `arg0`, validates it against end pointer `[0x0973]`, and stores byte `[entry+0x02] = 0xff`. Invalid indices report error code `0x17` through helper `0x3fe8`. |
 | `0x5d` | `set_entry_0971_marker_ff_var` | `0x7554` | Same as `0x5c`, but the entry index is read from `var[arg0]`. |
 | `0x5e` | `clear_entry_0971_marker` | `0x7570` | Resolves a 3-byte entry from the table rooted at `[0x0971]` using immediate index `arg0` and stores byte `[entry+0x02] = 0`. |

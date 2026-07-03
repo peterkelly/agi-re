@@ -3522,3 +3522,881 @@ Progress updates and outcomes:
      doc/whitespace rerun because the log changed."
 
      Action/result: Added the validation result to this progress log.
+
+443. Reported: "I'll continue from the post-frame-mode checkpoint. I'm going to
+     re-open the current status and evidence matrix, pick the highest-value
+     source-backed opcode cluster that is still weakly documented, and keep the
+     progress log moving before substantial new work."
+
+     Action/result: Reviewed current status, git state, recent progress, and
+     evidence gaps after commit `a27928a`.
+
+444. Reported: "The evidence scan also caught a stale sentence in
+     `logic_bytecode.md` that still calls `0x48`/`0x4a` dispatch-smoke. I'll
+     fix that as part of this pass, then dig into the next weak cluster: the
+     object bitfield/refresh opcodes `0x3a..0x3c`, which currently have only
+     smoke evidence."
+
+     Action/result: Selected the `0x3a..0x3c` object bitfield/refresh action
+     cluster for the next source-first investigation.
+
+445. Reported: "The existing docs already know the direct field writes, but the
+     high-value gap is semantics: bit `0x0010` partitions active objects between
+     update-list roots. I'm reading the surrounding wrappers/list helpers now
+     so the opcode names can graduate from 'bit twiddles' toward actual engine
+     behavior."
+
+     Action/result: Re-read the `0x3a..0x3c`, `0x6a54`, `0x6a8e`, `0x6aab`,
+     `0x0307`, `0x0358`, `0x045e`, and `0x0488` source paths.
+
+446. Reported: "The source read shows `0x3c` is broader than its old label
+     implies: it computes the object address from the operand, but then runs
+     the all-list flush, rebuild/draw, and dirty-rectangle refresh path. I'm
+     checking whether that label is baked into tests before renaming it to
+     something more accurate."
+
+     Action/result: Found no test dependency on `refresh_object_helper`.
+
+447. Reported: "There are no tests pinning the old `0x3c` label, so I can
+     safely tighten the terminology. I'm going to treat `0x3a`/`0x3b` as
+     list-membership partition toggles and `0x3c` as an all-object-list
+     refresh/repaint action, then regenerate the evidence table from the local
+     opcode names."
+
+     Action/result: Planned the label change to `refresh_object_lists`.
+
+448. Reported: "I'm going to edit the label and prose now, not the runtime
+     behavior. The evidence level will stay as QEMU dispatch-smoke until we
+     build a visible fixture, but the specification text can still record the
+     static source semantics precisely."
+
+     Action/result: Updated `tools/disassemble_logic.py`, `logic_bytecode.md`,
+     and `graphics_object_pipeline.md` with `refresh_object_lists` semantics.
+
+449. Reported: "Before editing, I checked the evidence generator: it derives
+     summaries from the opcode labels, so a better `0x3c` label will
+     automatically make the table less misleading. I'm applying that targeted
+     terminology update plus the stale `0x48`/`0x4a` sentence fix."
+
+     Action/result: Removed the stale `0x48`/`0x4a` smoke-only wording from
+     `logic_bytecode.md`.
+
+450. Reported: "The label/prose update is in. I'm regenerating the opcode
+     evidence chapter now so the generated matrix uses `refresh_object_lists`
+     consistently."
+
+     Action/result: Regenerated `docs/src/logic_opcode_evidence.md`.
+
+451. Reported: "The regenerated matrix has the new label. One search command
+     again interpreted backticks, but the useful result confirms the generated
+     evidence row changed; I'll rerun searches with safe quoting when checking
+     cleanup. Next I'm checking the symbolic label map so the update-list
+     helpers have stable names for later interpreter-version comparisons."
+
+     Action/result: Reviewed `docs/src/symbolic_labels.md` and confirmed the
+     update-list wrapper helpers were not yet named there.
+
+452. Reported: "The symbolic map does not yet name the update-list wrappers or
+     the `0x0010` toggle helpers, even though those are exactly the kind of
+     cross-version anchors you asked us to preserve. I'm adding stable labels
+     for them and then I'll see whether there's a clean visible QEMU validation
+     for the root-order effect."
+
+     Action/result: Added symbolic labels for update-list builders, flush,
+     rebuild, refresh, and bit-`0x0010` membership helpers.
+
+453. Reported: "The symbolic labels are in. I'm reading the fixture builders
+     now to find the least invasive way to validate the predicted draw-order
+     effect from bit `0x0010`, preferably with two overlapping objects and a
+     stable pixel/sample comparison."
+
+     Action/result: Reviewed logic and object overlay probe fixture builders.
+
+454. Reported: "A clean QEMU validation looks feasible: activate two
+     overlapping objects, clear bit `0x0010` on one, then use the source-derived
+     root order to predict which object draws on top. I'm checking the fixture
+     helper defaults and view frames so the expected image is stable and
+     distinguishable."
+
+     Action/result: Confirmed view 11/group 0 frames 0 and 1 have overlapping
+     nontransparent pixels with different colors.
+
+455. Reported: "The probe framework can already compare multiple sprites by
+     compositing extras first and the primary sprite last, which fits the
+     predicted root-order test. I hit a small local attribute-name mismatch
+     while checking frame transparency; I'm inspecting the rendered frame
+     structure and then I'll add the case."
+
+     Action/result: Confirmed frame transparency is `frame.control & 0x0f`.
+
+456. Reported: "The frame renderer uses `control & 0x0f` as transparency; view
+     11 frames 0 and 1 differ enough to reveal order. I'm adding one
+     source-derived behavior case to the logic probe: object 11 is moved to the
+     `0x1703` partition with `0x3a`, object 10 stays in `0x16ff`, and the
+     expected composite has object 10 on top."
+
+     Action/result: Prepared a visible root-order probe design.
+
+457. Reported: "I can cover both toggles with two cases rather than overloading
+     one: one where `0x3a` moves frame-1 behind a still-`0x16ff` frame-0 object,
+     and one where `0x3b` moves frame-1 back over a `0x1703` frame-0 object.
+     I'll include `0x3c` after the partitioning in both cases to validate that
+     the global refresh preserves the predicted order."
+
+     Action/result: Added two root-partition cases to `tools/logic_interpreter_probe.py`.
+
+458. Reported: "The two behavior cases are in the probe list. I'm adding unit
+     coverage for their registration before trying them under QEMU, so a typo
+     in the case IDs or expected sprites gets caught locally first."
+
+     Action/result: Added the new case IDs to
+     `tests/test_logic_interpreter_probe.py`.
+
+459. Reported: "I'm making the test registration check explicit for the two new
+     root-partition cases. That keeps the probe catalogue honest as it grows."
+
+     Action/result: Updated the base-case registration test.
+
+460. Reported: "The catalogue test is updated. I'm running the focused
+     logic-probe tests now, then I'll run the two new cases through QEMU if
+     local composition passes."
+
+     Action/result: `python3 -B -m unittest tests.test_logic_interpreter_probe
+     tests.test_logic_doc_coverage` passed.
+
+461. Reported: "Focused tests passed. I'm running the two new root-partition
+     cases against the original engine now; this one needs QEMU/VNC access, so
+     I'll request the same kind of permission as prior batches."
+
+     Action/result: Ran `object_root_partition_001`; the first case mismatched.
+
+462. Reported: "The first QEMU case mismatched, which is useful evidence rather
+     than a dead end: my source-derived draw-order prediction is missing another
+     ordering detail. I'm opening the report and capture samples now, then I'll
+     go back to the list builder/sort code before adjusting the model."
+
+     Action/result: Inspected mismatch samples and re-read the list builder and
+     node traversal.
+
+463. Reported: "The mismatch is not just 'opposite top sprite'; there are white
+     pixels where the local expectation has object colors, so another
+     object-state detail is in play. I'm comparing the capture against a few
+     source-plausible composites before changing the probe, then I'll inspect
+     the activation/list code around that detail."
+
+     Action/result: Determined that activation-time placement/collision was
+     affecting the first fixture design.
+
+464. Reported: "The capture points to placement, not root order: activating two
+     objects at exactly the same position lets the placement helper nudge one to
+     avoid collision. I'm revising the fixtures to activate the second object
+     elsewhere, then use the already decoded dirty position setter `0x93` to
+     overlap it after activation, so the test isolates the `0x0010` partition
+     effect."
+
+     Action/result: Updated the fixture to activate object 11 at X 90, then move
+     it to X 50 with `0x93`.
+
+465. Reported: "The fixtures now avoid activation-time collision adjustment. I'm
+     rerunning focused tests and then the same QEMU batch."
+
+     Action/result: Focused tests passed, but `object_root_partition_002`
+     mismatched.
+
+466. Reported: "The revised case still mismatched, so the remaining issue is
+     likely not placement. I'm going back to the render/list order carefully:
+     the list builder inserts nodes at the head, and the processor walks from
+     the tail, so I need to model that actual traversal instead of assuming root
+     order alone determines topmost pixels."
+
+     Action/result: Rechecked the source traversal and mismatch report.
+
+467. Reported: "The second mismatch is identical, so `0x93` did not isolate the
+     object from the placement/update behavior the way I hoped. I'm going to
+     inspect the `0x93` handler before touching the fixture again; if it calls
+     placement or refreshes through the same collision path, I'll avoid it for
+     this validation."
+
+     Action/result: Static read confirmed `0x93` calls placement helper
+     `0x593a`.
+
+468. Reported: "Confirmed: `0x93` calls placement helper `0x593a`, so it was
+     still letting collision adjustment move the object. I'm switching the
+     isolation step to `0x25`, which static docs say writes current and saved
+     position fields directly without placement, then the explicit `0x3c`
+     refresh will make the final overlap visible."
+
+     Action/result: Replaced `0x93` with `0x25` in the root-partition fixtures.
+
+469. Reported: "The fixture now uses `0x25` for direct overlap, with `0x3c`
+     doing the refresh. I'm rerunning the focused unit test and QEMU batch
+     again."
+
+     Action/result: Focused tests passed, but `object_root_partition_003`
+     mismatched.
+
+470. Reported: "Still mismatching. At this point the fixture is no longer a
+     quick validation, so I'm going to stop iterating by trial and inspect the
+     actual captured shape and relevant draw code before deciding whether this
+     is worth continuing now. The source trail matters more than forcing a
+     probe."
+
+     Action/result: The capture showed object 11 drawn at both X 50 and X 90.
+
+471. Reported: "The capture reveals object 11 is still at its activation X
+     (`90`), so the direct `0x25` write after activation is not enough to move
+     the already-listed persistent object in this path. I'm disassembling the
+     generated fixture and the `0x25`/activation code paths to understand why
+     before deciding whether to keep or drop this QEMU case."
+
+     Action/result: Confirmed the generated fixture contained `0x25 0b 32 50`
+     and that `0x25` rewrites both current and saved coordinates.
+
+472. Reported: "Now the behavior is clear: `0x25` updates the saved position
+     too, so the restore pass no longer knows to erase the old object at X 90.
+     The result is a deliberate ghost plus the new overlap. I'm checking whether
+     modeling that ghost makes the QEMU capture match; if it does, this becomes
+     a useful combined observation about `0x25` plus the list refresh."
+
+     Action/result: Local comparison matched exactly when the stale X-90 drawing
+     was included in the expected image.
+
+473. Reported: "That matches exactly when I include the stale X-90 image left by
+     `0x25`. I'm updating the expected composites to include that ghost
+     explicitly, then I'll rerun both cases; the root-order part still cleanly
+     validates at the overlapping X-50 pixels."
+
+     Action/result: Updated the two root-partition cases to include the
+     activation-position ghost sprite in expected output.
+
+474. Reported: "The expected composites now include the observed stale image
+     from the direct position rewrite. I'm rerunning focused tests and then the
+     two-case QEMU batch."
+
+     Action/result: Focused tests passed.
+
+475. Reported: "Focused tests pass. I'm running the corrected QEMU batch; this
+     should now distinguish the documented ghost from any actual root-order
+     mismatch."
+
+     Action/result: QEMU batch `object_root_partition_004` matched with 2
+     matches, 0 mismatches, and 0 errors.
+
+476. Reported: "Great, both root-partition cases matched the original engine.
+     I'm promoting `0x3a`, `0x3b`, and `0x3c` from smoke to behavior evidence,
+     then I'll document the source correction, the failed fixture attempts, and
+     the final passing QEMU batch."
+
+     Action/result: Promoted `0x3a`, `0x3b`, and `0x3c` in
+     `tools/logic_opcode_evidence.py`.
+
+477. Reported: "The evidence generator now treats the root-partition opcodes as
+     behavior-validated. I'm regenerating the matrix and then I'll patch the
+     prose docs around the exact command and result."
+
+     Action/result: Regenerated `docs/src/logic_opcode_evidence.md`.
+
+478. Reported: "The matrix now shows `0x3a`, `0x3b`, and `0x3c` as
+     QEMU-validated. I'm updating the prose docs next, including the important
+     caveat that the fixture initially failed until we accounted for `0x25`
+     preserving the stale saved rectangle."
+
+     Action/result: Began updating compatibility, status, graphics, and opcode
+     prose docs.
+
+479. Reported: "I found two stale spots: the older view-load/field23
+     compatibility paragraph still says `0x48`/`0x4a` are smoke-only, and
+     current status still mentions generic bitfield smoke coverage. I'm
+     patching those along with the new `object_root_partition_004` replay
+     command."
+
+     Action/result: Patched compatibility, current status, graphics pipeline,
+     and logic bytecode prose.
+
+480. Reported: "The compatibility, status, graphics, and opcode chapters are
+     patched. I'm adding the chronological clean-room record now, including the
+     mismatch sequence and why the final fixture needed to model the `0x25`
+     stale image."
+
+     Action/result: Added the object update-list partition section to
+     `docs/src/clean_room_executable_notes.md`.
+
+481. Reported: "The clean-room chronology now has the source commands, the
+     three failed fixture variants, and the final passing QEMU evidence. I'm
+     adding a compact current-status bullet so future resumption sees `0x0010`
+     as confirmed behavior, not just next-work detail."
+
+     Action/result: Added the root-partition summary to current status.
+
+482. Reported: "Current status is updated. I'm appending the work log now so the
+     intermediate false starts and the eventual source correction are preserved
+     for the historical record."
+
+     Action/result: Appended this progress-log block.
+
+483. Reported: "The progress log is caught up. I'm running the full validation
+     suite now: all Python tests, evidence check, mdBook build, whitespace
+     check, and a stale-wording search."
+
+     Action/result: `python3 -B -m unittest discover -s tests` passed 97 tests;
+     `python3 -B tools/logic_opcode_evidence.py --check`, `mdbook build docs`,
+     and `git diff --check` passed. The stale-wording search found only
+     historical command/log references plus an older chronology sentence.
+
+484. Reported: "The validation suite passed. The stale search only found
+     historical command/log references plus one old 'Current smoke rows'
+     sentence from an earlier chronology section; I'm changing that sentence to
+     make clear it was the state at the time, not the current evidence status."
+
+     Action/result: Reworded the older clean-room chronology sentence to
+     describe the smoke rows as historical.
+
+485. Reported: "That historical sentence is corrected. I'm recording the
+     validation result in the progress log, then doing a final mdBook and
+     whitespace rerun because documentation changed after the checks."
+
+     Action/result: Added this final validation note.
+
+486. Reported: "I'll keep going from the uncommitted root-partition work. I'm
+     going to scan the current evidence gaps and pick the next source-backed
+     opcode cluster that can be upgraded without muddying the model."
+
+     Action/result: Reviewed git status and the opcode evidence matrix after the
+     root-partition pass.
+
+487. Reported: "The evidence matrix has no remaining dispatch-smoke rows; the
+     next good target is a source-backed-but-not-behavior-validated object bit.
+     I'm going after `0x2d`/`0x2e` and bit `0x2000`, because it appears in the
+     per-cycle frame/group selection path and should be possible to validate
+     visibly."
+
+     Action/result: Selected actions `0x2d` and `0x2e` for the next
+     source-first investigation.
+
+488. Reported: "I'll pick up from the `0x2000` object flag mismatch and start
+     by reading the generated batch report/captures, then I'll go back to the
+     disassembly before changing the model. The useful thing here is to
+     separate 'our expected sprite is wrong' from 'the flag means something
+     subtler than the static read suggested.'"
+
+     Action/result: Inspected `object_bit_2000_001.json`; the mismatch was
+     confined to the object pixels.
+
+489. Reported: "The mismatch is tight: all differing pixels are exactly where
+     the object is drawn, not a random screen-state problem. The captured colors
+     look like a different cel/group than expected, so I'm going to inspect the
+     fixture and renderer expectations before touching the opcode description."
+
+     Action/result: Listed the fixture and inspected the capture metadata.
+
+490. Reported: "The probe itself is doing what I intended: object 10 is
+     initialized to view 11 group 0, direction 6, tick divider 1, then either
+     clears or sets bit `0x2000`. Next I'm checking whether the engine picked a
+     different group/frame or whether the group-selection pass is gated by
+     another field I missed."
+
+     Action/result: Re-read the probe setup code and the `0x0563` static
+     frame-update slice.
+
+491. Reported: "The static slice confirms the bit gate exactly at `0x0593`: if
+     `0x2000` is set, it skips the direction-to-group lookup; if clear, it can
+     call the group selector. I'm correcting a local import path for the
+     comparison helper now so I can identify which cel the original engine
+     actually drew."
+
+     Action/result: Corrected the local helper invocation and tested alternate
+     expected group/frame combinations.
+
+492. Reported: "The miniature render dump is useful: group 0 cels are `20x5`,
+     group 1 cels are `13x7`. The capture's mismatch bbox height spans seven
+     rows, so the original engine likely selected group 1 but mirrored or used
+     the opposite group-1 frame from my expectation."
+
+     Action/result: Rendered compact view-11 cel dumps; this hypothesis was
+     corrected by the subsequent exact-frame comparison.
+
+493. Reported: "That explains the failed expectation: the engine drew group 0
+     frame 0 exactly. The disassembly says the automatic lookup only runs when
+     object byte `+0x0b` is `2`, `3`, or `>=4`; view 11 appears to leave that
+     byte below the threshold, so it was a bad fixture for this flag."
+
+     Action/result: Exact comparison showed the capture matched view 11 group 0
+     frame 0. Later source review kept the result but corrected the reason to a
+     fixture-lifecycle problem rather than the view's group count.
+
+494. Reported: "The right fixture should use a view whose loaded metadata
+     crosses that threshold. I'm going to generalize the helper from 'view 11
+     only' to 'selected view,' use a four-group SQ2 view, and rerun the
+     bit-`0x2000` pair against QEMU."
+
+     Action/result: Inspected view resources and selected view 4 as a compact
+     four-group fixture target.
+
+495. Reported: "One important wrinkle just popped out: these probe logics loop,
+     so a setup sequence inside the main body can keep reselecting group 0
+     every cycle after the engine's update pass. I'm checking the loop shape
+     now; the fix may be to guard initialization so the automatic selector has a
+     later cycle where our script no longer resets the group."
+
+     Action/result: Re-read `base_code` and `self_loop`.
+
+496. Reported: "I need to revise my earlier loop thought: the fixture's
+     `self_loop` is an infinite bytecode jump at the end, so the script body is
+     not repeating, but it may also prevent the engine's later per-cycle object
+     update from running. I'm going to make these two cases use an `end`-style
+     logic so the engine can advance into the frame-timer pass, then freeze via
+     the already-drawn persistent object state."
+
+     Action/result: Compared the logic probe shape to the movement harness,
+     which uses a normal `0x00` end action for per-cycle movement tests.
+
+497. Reported: "The movement harness already has a pattern for this: initialize
+     once, let per-cycle actions run until a flag, and end the logic instead of
+     pinning the interpreter in a bytecode jump. I'm borrowing that structure
+     conceptually for the logic opcode probe rather than inventing a separate
+     tester."
+
+     Action/result: Located the guarded one-time setup pattern in
+     `tools/qemu_fixture.py`.
+
+498. Reported: "Before editing, I'm going to keep the change small: add a
+     reusable 'end after body' option to the logic probe case builder, add an
+     arbitrary-view setup helper, and switch only the two `0x2000` cases to
+     that mode. Then QEMU can tell us whether the static interpretation
+     survives runtime."
+
+     Action/result: Added `end_code`, arbitrary-view object setup, and an
+     expected-view parameter to `tools/logic_interpreter_probe.py`.
+
+499. Reported: "One more refinement before running it: an `end` case that
+     redraws the picture every cycle would erase useful evidence, so I'm
+     putting the load/show/setup sequence behind a one-time flag guard. That
+     gives the engine normal cycles afterward without the script resetting the
+     object or repainting the background each time."
+
+     Action/result: Added guarded `one_time_code` support.
+
+500. Reported: "I've added the guarded one-time execution path; now I'm wiring
+     the two cases to it and using a loaded view whose group metadata should
+     make the direction table path observable."
+
+     Action/result: Reworked the `0x2000` cases to use view 4, direction 6, and
+     one-time initialization flags.
+
+501. Reported: "The probe now initializes view 4 exactly once, sets direction 6
+     and the bit state once, then returns from logic each cycle. I'm running
+     focused unit tests first so the generated fixture shape is sane before
+     spending another QEMU cycle."
+
+     Action/result: Focused unit tests passed.
+
+502. Reported: "The focused tests passed. I accidentally launched a one-case
+     QEMU run with zero waits while checking the command path; I'm letting it
+     finish/close cleanly before starting the real two-case validation."
+
+     Action/result: The zero-wait run produced a throwaway mismatch and exited.
+
+503. Reported: "That zero-wait run produced the expected throwaway mismatch, so
+     I'm ignoring it. Now I'm running the real two-case snapshot batch with the
+     normal wait times."
+
+     Action/result: QEMU batch `object_bit_2000_002` matched both cases.
+
+504. Reported: "Good, the corrected `0x2000` pair matches the original engine:
+     clear bit allows direction-based group selection, set bit suppresses it.
+     I'm promoting those opcodes in the evidence table now and then I'll update
+     the spec notes with the false start and the static addresses that explain
+     it."
+
+     Action/result: Added `0x2d` and `0x2e` to `QEMU_ACTIONS`.
+
+505. Reported: "The docs already had the raw `0x2d`/`0x2e` bit writes, but not
+     the higher-level meaning. I'm adding the two direction-to-group data tables
+     and the frame-update helper labels so future version comparisons can key
+     off names instead of SQ2 addresses."
+
+     Action/result: Added symbolic labels for the two direction-to-group tables.
+
+506. Reported: "The evidence generator now points `0x2d` and `0x2e` at the
+     passing `object_bit_2000_002` batch. Next I'm adding the stable labels for
+     the two small direction lookup tables in `AGIDATA.OVL`."
+
+     Action/result: Continued symbol-map update.
+
+507. Reported: "The symbol map is updated. I'm expanding the bytecode and
+     graphics chapters so the higher-level behavior is visible where an
+     implementer would look first, not only buried in the chronological notes."
+
+     Action/result: Patched `logic_bytecode.md`.
+
+508. Reported: "The opcode chapter now states both the raw field mutation and
+     the runtime meaning. I'm doing the same in the object pipeline chapter,
+     including the two actual table byte sequences so a clean implementation
+     can reproduce the mapping."
+
+     Action/result: Patched `graphics_object_pipeline.md`.
+
+509. Reported: "The object pipeline chapter now has the implementation-level
+     mapping and the QEMU replay name. I'm adding the chronological clean-room
+     record next, including the first mismatching fixture and why it was wrong."
+
+     Action/result: Added the clean-room chronology section for bit `0x2000`.
+
+510. Reported: "The chronology now captures both the successful source model
+     and the fixture correction. I'm updating the handoff/status and
+     compatibility chapters so this is visible in the project dashboard too."
+
+     Action/result: Updated current status.
+
+511. Reported: "The compatibility patch missed because that chapter's wording
+     has drifted a bit. I'm locating the nearby section and applying the same
+     replay block against the current text."
+
+     Action/result: Located the root-partition compatibility section.
+
+512. Reported: "I found a stale compatibility sentence still calling the old
+     bitfield batch 'dispatch smoke.' Since the evidence matrix no longer has
+     smoke rows, I'm cleaning that wording while inserting the new `0x2000`
+     replay command."
+
+     Action/result: Patched compatibility testing with the new replay command
+     and updated the stale smoke wording.
+
+513. Reported: "The progress log is caught up through the docs edits. I'm
+     regenerating the opcode evidence chapter now, then I'll run the full local
+     validation set."
+
+     Action/result: Regenerated `docs/src/logic_opcode_evidence.md`.
+
+514. Reported: "The evidence chapter regenerated cleanly. I noticed two long
+     helper lines in the probe while reviewing the diff, so I'm wrapping those
+     before the full validation run."
+
+     Action/result: Wrapped helper code in `tools/logic_interpreter_probe.py`.
+
+515. Reported: "The helper is tidied up. I'm running the full validation pass
+     now: Python unit tests, regenerated evidence check, mdBook build, and
+     whitespace checks."
+
+     Action/result: `python3 -B -m unittest discover -s tests` passed 97
+     tests; `python3 -B tools/logic_opcode_evidence.py --check`, `mdbook build
+     docs`, and `git diff --check` passed.
+
+516. Reported: "Validation passed: all 97 tests, evidence check, mdBook build,
+     and `git diff --check`. I'm doing a quick stale-wording/status scan and
+     then I'll record the validation result in the progress log."
+
+     Action/result: Stale scan found only historical progress/chronology
+     mentions and the still-supported generator/category prose, not current
+     opcode evidence rows.
+
+517. Reported: "I'll run this as a full pass rather than a proposal: first
+     finish the automatic direction/group semantics, then trace the per-cycle
+     scheduler, then use that to promote more source-backed opcode rows, and
+     finally document the timing model plus the next less-visual families. I'm
+     starting by reading the current evidence matrix and the relevant
+     object/frame-update code so the next probes stay source-led."
+
+     Action/result: Created the five-step task plan and read current status,
+     opcode evidence, and probe code.
+
+518. Reported: "The current `0x2000` validation covers the four-plus-groups
+     table only. I'm going to add three focused cases now: one for the
+     2/3-group table, one sentinel value that must leave the group alone, and
+     one `+0x01 != 1` gate case that should block selection even when the table
+     says to change."
+
+     Action/result: Inspected view 5 as a visibly distinct three-group fixture
+     and dumped the two direction tables from `SQ2/AGIDATA.OVL`.
+
+519. Reported: "View 5 is a good 3-group target: group 0 and group 1 are
+     visibly distinct mirror-like cels, so the 2/3-group table can be observed
+     cleanly. I'm adding those cases to the existing logic probe list now."
+
+     Action/result: Added three initial bit-`0x2000` follow-up cases.
+
+520. Reported: "The three new fixtures are in: 3-group direction 6, 3-group
+     sentinel direction 5, and the `+0x01` gate. I'm updating the case registry
+     test, then I'll run the focused unit tests before QEMU."
+
+     Action/result: Updated the logic probe registry test.
+
+521. Reported: "The focused registry tests passed. I again started a zero-wait
+     harness sanity run while checking fixture build behavior; I'll let that
+     close and then run the real snapshot batch with normal timing."
+
+     Action/result: The zero-wait dry run mismatched, as expected.
+
+522. Reported: "The zero-wait dry run mismatched as expected because it captured
+     before the engine had useful draw time. Now I'm running the actual
+     three-case QEMU batch."
+
+     Action/result: Started QEMU batch `object_bit_2000_003`.
+
+523. Reported: "The QEMU batch is still running; it's in the snapshot execution
+     phase. I'll wait for the result before deciding whether these fixtures are
+     good enough or need the same kind of source-led correction as the previous
+     one."
+
+     Action/result: Batch `object_bit_2000_003` matched the table and sentinel
+     cases but mismatched the initial `+0x01` gate expectation.
+
+524. Reported: "Two of the three new cases matched: the 2/3-group table and
+     sentinel value are confirmed. The `+0x01 != 1` case changed anyway, so I'm
+     inspecting the capture and then tracing who decrements or rewrites `+0x01`;
+     that may turn the 'gate' into a cadence condition rather than a permanent
+     block."
+
+     Action/result: Exact comparison showed the mismatching case eventually
+     selected group 1.
+
+525. Reported: "The capture shows the `+0x01 = 2` object eventually selected
+     group 1. The source explains why: `code.object.frame_timer_update` checks
+     `+0x01` before `code.motion.update_objects` decrements the countdown, so a
+     one-shot `2` skips once, then becomes `1` for the next cycle. I'm changing
+     this into two clearer probes: one for that countdown behavior, and one
+     that rewrites `+0x01 = 2` every logic cycle to prove the gate itself."
+
+     Action/result: Added a one-time setup plus per-cycle action fixture helper.
+
+526. Reported: "I've added a reusable one-time-setup plus per-cycle-action
+     fixture shape, which is exactly what we need for timing-sensitive engine
+     behavior. Now I'm revising the `+0x01` case and adding the explicit 'keep
+     forcing 2' gate probe."
+
+     Action/result: Replaced the initial gate case with a countdown case and
+     added a forced-gate case.
+
+527. Reported: "The old gate case is now a countdown case, and the new gate
+     case keeps setting `+0x01` to 2 before each engine update. I'm updating the
+     tests and rerunning the targeted batch."
+
+     Action/result: Updated the registry test for the renamed and new cases.
+
+528. Reported: "I'm running the focused tests and then a four-case QEMU batch:
+     the two table cases, the countdown case, and the forced-gate case. If the
+     forced case holds, that completes the `0x2000` semantic set cleanly."
+
+     Action/result: Focused tests passed and QEMU batch `object_bit_2000_004`
+     started.
+
+529. Reported: "The unit tests passed; QEMU is still running the four fixtures.
+     This is the interesting one because it tests timing, not just final object
+     state."
+
+     Action/result: QEMU batch `object_bit_2000_004` matched all four cases.
+
+530. Reported: "The four-case batch matched: both direction tables, sentinel
+     behavior, countdown-to-1, and the forced `+0x01 != 1` gate are now
+     validated. I'm moving to the scheduler trace next: who calls the
+     frame/group update, motion update, logic execution, and redraw steps, and
+     in what order."
+
+     Action/result: Completed the automatic direction/group semantics plan
+     item.
+
+531. Reported: "The near-call scan found the key top-level calls:
+     `code.object.frame_timer_update` is called at image `0x024b`, and a
+     pre-pass at `0x0644` is called at `0x0198`. I'm disassembling that
+     top-level range now to pin the cycle ordering rather than relying on old
+     notes."
+
+     Action/result: Disassembled image `0x0100..0x0270` and scanned direct calls
+     in that range.
+
+532. Reported: "The top-level loop is now visible at `0x0150`: it calls
+     input/system helpers, a pre-motion pass, then repeatedly calls logic 0
+     through `code.logic.call_logic`, and only after that reaches
+     `code.object.frame_timer_update` at `0x024b`. I'm labeling that cycle and
+     identifying the currently unknown calls well enough to document the
+     ordering without over-naming uncertain helpers."
+
+     Action/result: Read existing labels and call references around the
+     top-level loop.
+
+533. Reported: "A useful correction fell out of the scheduler trace: the
+     pre-motion mode dispatcher is at image `0x0644`, not `0x0844`, and its
+     rectangle helper is `0x06d9`, not `0x08d9`. The earlier docs had those
+     labels shifted; I'm going to correct the symbolic map and prose before
+     building on them."
+
+     Action/result: Located all current references to the shifted labels.
+
+534. Reported: "The scheduler correction also gives us an easy next promotion
+     target: some resource/display opcodes are still source-backed but can be
+     observed visually. After I patch the scheduler labels, I'll add narrow
+     probes for view discard and picture overlay/priority display where
+     possible."
+
+     Action/result: Added `code.engine.main_cycle` and corrected motion helper
+     labels in `docs/src/symbolic_labels.md`.
+
+535. Reported: "The symbolic map now has the top-level
+     `code.engine.main_cycle` label and corrected motion helper addresses. I'm
+     fixing the object pipeline prose so the scheduler order matches the actual
+     top-level call sites."
+
+     Action/result: Updated per-cycle movement prose in the graphics/object
+     pipeline chapter.
+
+536. Reported: "The movement chapter now distinguishes the pre-logic
+     motion-mode pass from the post-logic frame/group/movement pass. I'm
+     scanning the evidence matrix for source-backed rows that can be promoted
+     with small, deterministic visual probes."
+
+     Action/result: Listed source-backed opcode rows from the generated matrix.
+
+537. Reported: "The remaining source-backed rows are mostly UI/save/sound, but
+     a few are still small and visual. The rectangle-boundary opcodes
+     `0x5a`/`0x5b` already have movement semantics in the harness, so I'm
+     checking whether they can be promoted from existing QEMU batches before
+     writing new fixtures."
+
+     Action/result: Confirmed existing movement cases exercise `0x5a`; `0x5b`
+     still needed a focused case.
+
+538. Reported: "The existing rectangle movement batch already exercises `0x5a`
+     because it configures the crossing bounds. `0x5b` is not isolated yet, so
+     I'm adding one movement case that sets the bounds and then clears them; the
+     object should reach the target instead of stopping at the rectangle edge."
+
+     Action/result: Located fixture helper and movement harness extension
+     points.
+
+539. Reported: "I need a tiny helper for action `0x5b` in the fixture layer,
+     then I can add the movement case without special-casing the generated
+     logic. This stays inside the existing object movement harness."
+
+     Action/result: Added `clear_rect_bounds_action()`.
+
+540. Reported: "I'm making the `0x5b` support as a simple bytecode helper, plus
+     one boolean on the movement case. Then the case can share the same
+     comparison and snapshot machinery as the existing rectangle-boundary
+     probes."
+
+     Action/result: Added `move_rect_boundary_clear_bounds_reaches_target`.
+
+541. Reported: "The new `0x5b` movement case is in. I'm running focused tests,
+     then I'll run the one-case QEMU batch for the clear-bounds behavior."
+
+     Action/result: Focused fixture/movement tests passed; first QEMU attempt
+     failed under the sandbox VNC bind restriction.
+
+542. Reported: "The focused tests passed. The QEMU run hit the sandbox's VNC
+     bind restriction, so I'm rerunning the exact same one-case batch with the
+     required elevated permission."
+
+     Action/result: Elevated QEMU batch `rect_bounds_clear_001` matched with 1
+     match, 0 mismatches, and 0 errors.
+
+543. Reported: "The `0x5b` QEMU probe matched: after `0x5a` sets rectangle
+     bounds, `0x5b` clears them and the object reaches the target. I'm promoting
+     `0x5a` and `0x5b` in the evidence matrix now: `0x5a` is covered by the
+     existing rectangle-boundary batch, and `0x5b` by this new clear-bounds
+     batch."
+
+     Action/result: Promoted `0x5a` and `0x5b` in
+     `tools/logic_opcode_evidence.py`.
+
+544. Reported: "The evidence generator is updated. I'm adding the fixture helper
+     test coverage so the new `0x5b` bytecode helper is protected like the
+     other generated opcodes."
+
+     Action/result: Located the relevant fixture and movement registry tests.
+
+545. Reported: "I found the helper tests and the movement case registry test.
+     I'm adding one assertion for the `0x5b` bytecode and one assertion that the
+     new movement case is registered."
+
+     Action/result: Updated `tests/test_qemu_fixture.py` and
+     `tests/test_object_movement_probe.py`.
+
+546. Reported: "The tests now cover the `0x5b` helper and case registration.
+     I'm regenerating the opcode evidence matrix and running the focused
+     fixture/movement tests once more."
+
+     Action/result: Regenerated the evidence matrix; focused tests passed 48
+     tests.
+
+547. Reported: "The focused tests passed and the evidence matrix regenerated.
+     I'm doing the documentation pass now: first the opcode/object chapters,
+     then compatibility/current-status, then the chronological clean-room log
+     with the exact commands and corrections."
+
+     Action/result: Began documentation updates.
+
+548. Reported: "A small checkpoint: steps 1 through 3 are now done in code and
+     QEMU evidence. I'm currently on step 4, turning the scheduler/order
+     findings into spec prose that a future implementation can follow."
+
+     Action/result: Marked the first three plan items complete.
+
+549. Reported: "The bytecode chapter text has slightly different surrounding
+     lines, so I'm applying this as smaller patches: one new cycle-timing
+     section, one replacement for the `0x2000` QEMU paragraph, and one table-row
+     update for `0x5a`/`0x5b`."
+
+     Action/result: Updated `docs/src/logic_bytecode.md`.
+
+550. Reported: "The bytecode chapter now has the top-level timing model, the
+     expanded `0x2000` behavior, and QEMU-backed `0x5a`/`0x5b` rows. I'm
+     aligning the object pipeline chapter's `0x2000` paragraph with the new
+     four-case batch."
+
+     Action/result: Updated `docs/src/graphics_object_pipeline.md`.
+
+551. Reported: "Next I'm adding replay commands to the compatibility chapter:
+     the expanded `0x2000` batch and the `0x5b` clear-bounds movement batch.
+     That keeps the QEMU evidence directly reproducible."
+
+     Action/result: Updated `docs/src/compatibility_testing.md`.
+
+552. Reported: "The compatibility chapter has the new replay commands. I'm
+     updating the handoff/status page next so future sessions see these as
+     completed findings, not just raw test reports."
+
+     Action/result: Updated `docs/src/current_status.md`.
+
+553. Reported: "The status page now reflects the completed scheduler and
+     rectangle-boundary work. I'm adding the clean-room chronology next,
+     including the correction that the `0x067a` mode dispatcher is reached from
+     `0x0644`, not `0x0563`."
+
+     Action/result: Corrected an older clean-room chronology paragraph.
+
+554. Reported: "The historical correction is in place. I'm appending a new
+     chronology section with the exact commands and results from this pass."
+
+     Action/result: Added the expanded direction/scheduler/rectangle chronology
+     section.
+
+555. Reported: "The clean-room notes now have the new command trail and the
+     corrected scheduler addresses. I'm adding the remaining-family survey so
+     the 'what next' trail is explicit for UI/save/sound/text instead of
+     vague."
+
+     Action/result: Added the remaining source-backed family survey to current
+     status.
+
+556. Reported: "That completes the survey step in the handoff doc. I'm marking
+     the last two plan items complete, then I'll update the progress log and
+     run the full validation suite."
+
+     Action/result: Marked all five requested steps complete in the task plan.
+
+557. Reported: "The progress log is caught up. I'm running the full validation
+     suite now: all Python tests, evidence check, mdBook build, and whitespace
+     checking."
+
+     Action/result: `python3 -B -m unittest discover -s tests` passed 97 tests;
+     `python3 -B tools/logic_opcode_evidence.py --check`, `mdbook build docs`,
+     and `git diff --check` passed.
+
+558. Reported: "The full validation suite passed: 97 tests, evidence check,
+     mdBook build, and whitespace check. I'm doing a final stale-address scan
+     for the corrected scheduler labels, then I'll record the validation
+     result."
+
+     Action/result: The stale-address scan found only deliberate historical
+     correction entries and the intermediate `object_bit_2000_003` batch
+     recorded in the chronology.

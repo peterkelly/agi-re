@@ -33,6 +33,7 @@ Address columns use these meanings:
 
 | Label | SQ2 address | Notes/evidence |
 | --- | --- | --- |
+| `code.engine.main_cycle` | image `0x0150` | Top-level interpreter cycle. Calls input/system helpers, mirrors object-0 direction/global direction state, runs pre-motion mode updates, invokes logic 0 through `code.logic.call_logic`, then runs `code.object.frame_timer_update` unless text-attribute mode byte `[0x1757]` is nonzero. |
 | `code.logic.interpret_main` | image `0x293c` | Main logic bytecode loop. Reads opcodes from current logic bytecode and dispatches actions/conditions. |
 | `code.logic.action_dispatch` | image `0x02c4` | Action dispatcher. Uses `table.logic.action_dispatch`. |
 | `code.logic.condition_dispatch` | image `0x07e3` | Condition dispatcher. Uses `table.logic.condition_dispatch`. |
@@ -110,14 +111,23 @@ Address columns use these meanings:
 | `code.object.control_acceptance` | image `0x56b8` | Tests an object's proposed footprint against high-nibble control/priority classes in `data.display.logical_buffer_segment`; QEMU probes validate selected `0x0002`, `0x0100`, and `0x0800` flag effects. |
 | `code.object.frame_timer_update` | image `0x0563` | Per-cycle active-object scan that decrements frame timer byte `+0x20`, calls `code.object.advance_frame_by_mode` at zero, and reloads `+0x20` from `+0x1f`. |
 | `code.object.advance_frame_by_mode` | image `0x48b3` | Dispatches object frame mode byte `+0x23`; modes loop or stop frames and may set completion flag byte `+0x27`. |
+| `data.object.group_for_direction_two_or_three_groups` | data `0x08dd` | Direction-to-group table used by `code.object.frame_timer_update` when object byte `+0x0b` is 2 or 3 and bit `0x2000` is clear. |
+| `data.object.group_for_direction_four_plus_groups` | data `0x08e7` | Direction-to-group table used by `code.object.frame_timer_update` when object byte `+0x0b` is at least 4 and bit `0x2000` is clear. |
+| `code.object.build_active_update_list` | image `0x6a26` | Builds update-list root `0x16ff` using callback `code.object.accept_active_root_16ff`. |
+| `code.object.build_inactive_partition_list` | image `0x6a3d` | Builds update-list root `0x1703` using callback `code.object.accept_root_1703`. |
+| `code.object.flush_update_lists_restore` | image `0x6a54` | Flushes roots `0x16ff` and `0x1703` through helper `0x0307`, restoring saved backing rectangles and freeing nodes. |
+| `code.object.rebuild_draw_update_lists` | image `0x6a8e` | Rebuilds/draws root `0x1703`, then rebuilds/draws root `0x16ff`. |
+| `code.object.refresh_update_lists` | image `0x6aab` | Runs dirty-rectangle/saved-position refresh helper `0x0488` over root `0x1703`, then root `0x16ff`. |
+| `code.object.clear_root_16ff_membership` | image `0x6b44` | Clears object bit `0x0010` when set, moving an active object from root `0x16ff` eligibility to root `0x1703` eligibility after a flush/rebuild. |
+| `code.object.set_root_16ff_membership` | image `0x6b62` | Sets object bit `0x0010` when clear, moving an active object from root `0x1703` eligibility to root `0x16ff` eligibility after a flush/rebuild. |
 | `code.object.update_dirty_rect` | image `0x5762` | Refreshes object dirty-rectangle state. |
 | `code.object.save_rect_overlay_entry` | overlay `IBM_OBJS.OVL:0x9db0` | Entry jump to rectangle save routine. |
 | `code.object.restore_rect_overlay_entry` | overlay `IBM_OBJS.OVL:0x9db3` | Entry jump to rectangle restore routine. |
 | `code.object.draw_overlay_entry` | overlay `IBM_OBJS.OVL:0x9db6` | Entry jump to selected-frame drawing routine. |
 | `code.object.rewrite_frame_orientation` | image `0x587d` | Rewrites bit-`0x80` frame data when cached orientation bits differ from object `+0x0a`. |
 | `code.motion.update_objects` | image `0x150a` | Per-cycle object movement/update pass. |
-| `code.motion.pre_mode_and_boundary_update` | image `0x0844` | Scans active objects with countdown byte `+0x01 == 1`, dispatches mode byte `+0x22`, then applies rectangle-boundary helper `code.motion.rectangle_boundary_check` when enabled. |
-| `code.motion.rectangle_boundary_check` | image `0x08d9` | Compares current and next baseline points against script rectangle globals `[0x0131..0x013d]`, setting bit `0x0080` and clearing direction on crossing when bit `0x0002` is clear. |
+| `code.motion.pre_mode_and_boundary_update` | image `0x0644` | Scans active objects with countdown byte `+0x01 == 1`, dispatches mode byte `+0x22`, then applies rectangle-boundary helper `code.motion.rectangle_boundary_check` when enabled. |
+| `code.motion.rectangle_boundary_check` | image `0x06d9` | Compares current and next baseline points against script rectangle globals `[0x0131..0x013d]`, setting bit `0x0080` and clearing direction on crossing when bit `0x0002` is clear. |
 | `code.motion.dispatch_mode_step` | image `0x067a` | Dispatches object mode byte `+0x22` to random, approach-first-object, or target-direction helpers when countdown byte `+0x01` is ready. |
 | `code.motion.start_target_direction` | image `0x1672` | Computes initial direction toward object target fields. |
 | `code.motion.compute_direction` | image `0x16ed` | Direction lookup from current and target coordinates. |

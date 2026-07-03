@@ -48,6 +48,7 @@ class ObjectMovementProbeTests(unittest.TestCase):
         self.assertIn("move_rect_boundary_without_bit_0002_stops_at_edge", case_ids)
         self.assertIn("move_rect_boundary_set_bit_0002_reaches_target", case_ids)
         self.assertIn("move_rect_boundary_clear_bit_0002_stops_again", case_ids)
+        self.assertIn("move_rect_boundary_clear_bounds_reaches_target", case_ids)
         self.assertIn("move_control_2_set_bit_0100_blocks", case_ids)
         self.assertIn("move_control_2_clear_bits_0900_reaches_target", case_ids)
         self.assertIn("move_control_3_set_bit_0800_blocks", case_ids)

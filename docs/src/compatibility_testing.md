@@ -263,9 +263,37 @@ This five-case batch matched QEMU with 0 mismatches. Four cases are value
 probes: view/object metadata getters `0x31..0x35`, variable-backed field
 `+0x24` setter `0x37`, inactive object-distance result `0xff` for `0x45`, and
 `0x4d` clearing direction byte `+0x21` as observed through getter `0x57`. The
-fifth case is a dispatch smoke probe for bitfield/helper actions whose direct
-bit state is not yet exposed by a script predicate; the evidence matrix marks
-those rows as `QEMU dispatch-smoke`.
+fifth case began as a dispatch smoke probe for bitfield/helper actions; later
+focused batches promote the visible bit behaviors for those rows in the
+evidence matrix.
+
+Run the object root-partition follow-up batch:
+
+```bash
+python3 -B tools/logic_interpreter_probe.py --dos-prefix LR --output build/logic-interpreter-probes/batches/object_root_partition_004.json --boot-wait 5 --draw-wait 8 --stop-on-failure --case clear_bit_0010_moves_object_behind_set_partition --case set_bit_0010_moves_object_over_clear_partition
+```
+
+This two-case batch matched QEMU with 2 matches, 0 mismatches, and 0 errors. It
+validates that `0x3a` moves an active object into the root `0x1703` partition
+drawn before root `0x16ff`, `0x3b` moves it back into the root `0x16ff`
+partition, and `0x3c` performs the refresh pass that makes the partition order
+visible. The fixtures also preserve the stale drawing left behind when `0x25`
+rewrites current and saved coordinates after activation; that ghost is modeled
+as fixture setup, not as the root-partition behavior under test.
+
+Run the object bit-`0x2000` direction/group-selection follow-up batch:
+
+```bash
+python3 -B tools/logic_interpreter_probe.py --dos-prefix L2 --output build/logic-interpreter-probes/batches/object_bit_2000_002.json --boot-wait 5 --draw-wait 8 --stop-on-failure --case clear_bit_2000_allows_direction_group_selection --case set_bit_2000_suppresses_direction_group_selection
+python3 -B tools/logic_interpreter_probe.py --dos-prefix L3 --output build/logic-interpreter-probes/batches/object_bit_2000_004.json --boot-wait 5 --draw-wait 8 --stop-on-failure --case clear_bit_2000_two_or_three_group_direction6_selects_group1 --case clear_bit_2000_two_or_three_group_direction5_is_sentinel --case clear_bit_2000_field01_countdown_eventually_selects_group --case clear_bit_2000_requires_field01_equal_one_when_forced
+```
+
+The first batch matched QEMU with 2 matches, 0 mismatches, and 0 errors. It
+validates that `0x2e` leaves automatic direction-based group selection enabled
+for a four-group view, and that `0x2d` suppresses that selection. The second
+batch matched QEMU with 4 matches, 0 mismatches, and 0 errors. It validates the
+two/three-group direction table, sentinel value `4`, countdown-to-1 behavior,
+and the exact `+0x01 == 1` gate when `+0x01` is forced to 2 every logic cycle.
 
 Run the object-state/random/no-op follow-up batch:
 
@@ -294,8 +322,9 @@ python3 -B tools/logic_interpreter_probe.py --dos-prefix LH --output build/logic
 
 This five-case batch matched QEMU with 0 mismatches. It validates `0x1f`
 loading a variable-selected view before a draw, validates the observable flag
-clearing side effect of `0x49` and `0x4b`, and adds dispatch-smoke evidence for
-`0x48` and `0x4a`.
+clearing side effect of `0x49` and `0x4b`. Later frame-timer movement batches
+promote `0x48`, `0x4a`, and the visible mode-2 behavior of `0x4b` to behavior
+evidence.
 
 Run the horizon-bit placement batch:
 
@@ -465,12 +494,14 @@ python3 -B tools/picture_fuzz.py compare-capture base_004_clamped_absolute build
   python3 -B tools/object_movement_probe.py --dos-prefix M1 --output build/object-movement-probes/batches/control_class_1_hidden_001.json --boot-wait 5 --draw-wait 8 --stop-on-failure --case move_control_1_without_bit_0002_blocks --case move_control_1_set_bit_0002_still_hidden --case move_control_1_clear_bit_0002_still_hidden
   python3 -B tools/object_movement_probe.py --dos-prefix MB --output build/object-movement-probes/batches/rect_bit_0002_001.json --boot-wait 5 --draw-wait 8 --stop-on-failure --case move_rect_boundary_without_bit_0002_stops_at_edge --case move_rect_boundary_set_bit_0002_reaches_target --case move_rect_boundary_clear_bit_0002_stops_again
   python3 -B tools/object_movement_probe.py --dos-prefix M9 --output build/object-movement-probes/batches/control_bits_0900_002.json --boot-wait 5 --draw-wait 8 --stop-on-failure --case move_control_2_set_bit_0100_blocks --case move_control_2_clear_bits_0900_reaches_target --case move_control_3_set_bit_0800_blocks --case move_control_3_clear_bits_0900_reaches_target
+  python3 -B tools/object_movement_probe.py --dos-prefix RB --output build/object-movement-probes/batches/rect_bounds_clear_001.json --boot-wait 5 --draw-wait 8 --stop-on-failure --case move_rect_boundary_clear_bounds_reaches_target
   ```
 
   These batches matched QEMU with 0 mismatches. They validate `0x58`/`0x59`
   through rectangle-boundary crossing behavior, `0x40`/`0x41` through
-  control-class movement rejection, and `0x42` restoring movement after either
-  rejection bit is set. The control-class-1 batch also records that a
+  control-class movement rejection, `0x42` restoring movement after either
+  rejection bit is set, and `0x5b` clearing rectangle bounds after `0x5a` so the
+  object can cross the former boundary. The control-class-1 batch also records that a
   priority-14 object on a full control-class-1 picture remains hidden even when
   bit `0x0002` is set.
 - `tests/test_picture_fuzz.py` covers deterministic fuzz generation, manifest

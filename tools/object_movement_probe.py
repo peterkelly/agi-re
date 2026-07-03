@@ -18,6 +18,7 @@ from qemu_fixture import (
     approach_first_object_until_near_action,
     build_synthetic_picture_persistent_object_fixture,
     clear_object_field_22_and_global_action,
+    clear_rect_bounds_action,
     clear_object_bits_0900_action,
     clear_object_bit_0002_action,
     clear_object_bit_0020_action,
@@ -85,6 +86,7 @@ class ObjectMovementCase:
     moving_set_bit_0100: bool = False
     moving_set_bit_0800: bool = False
     moving_clear_bits_0900: bool = False
+    clear_rect_bounds: bool = False
     rect_left: int | None = None
     rect_top: int | None = None
     rect_right: int | None = None
@@ -352,6 +354,30 @@ def base_cases() -> list[ObjectMovementCase]:
             motion_kind="move_to_once_autonomous",
             moving_set_bit_0002=True,
             moving_clear_bit_0002=True,
+            rect_left=30,
+            rect_top=70,
+            rect_right=60,
+            rect_bottom=90,
+        ),
+        ObjectMovementCase(
+            "move_rect_boundary_clear_bounds_reaches_target",
+            "Action 0x5b clears configured rectangle bounds after 0x5a, so rectangle crossing no longer stops movement.",
+            b"\xff".hex(),
+            0,
+            11,
+            0,
+            0,
+            20,
+            80,
+            15,
+            50,
+            80,
+            5,
+            225,
+            50,
+            80,
+            motion_kind="move_to_once_autonomous",
+            clear_rect_bounds=True,
             rect_left=30,
             rect_top=70,
             rect_right=60,
@@ -1030,6 +1056,8 @@ def post_activate_actions(case: ObjectMovementCase) -> bytes:
         if case.rect_top is None or case.rect_right is None or case.rect_bottom is None:
             raise ValueError(f"{case.case_id}: all rectangle bounds must be set together")
         actions += set_rect_bounds_action(case.rect_left, case.rect_top, case.rect_right, case.rect_bottom)
+    if case.clear_rect_bounds:
+        actions += clear_rect_bounds_action()
     if case.moving_set_bit_0002:
         actions += set_object_bit_0002_action(case.object_no)
     if case.moving_clear_bit_0002:

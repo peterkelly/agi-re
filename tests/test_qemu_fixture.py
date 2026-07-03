@@ -24,6 +24,7 @@ from qemu_fixture import (  # noqa: E402
     logic_resource,
     clear_object_bit_0020_action,
     clear_object_field_22_and_global_action,
+    clear_rect_bounds_action,
     clear_object_bits_0900_action,
     clear_object_bit_0002_action,
     move_object_to_action,
@@ -233,6 +234,7 @@ class QemuFixtureTests(unittest.TestCase):
         self.assertEqual(start_random_motion_action(2), bytes([0x54, 2]))
         self.assertEqual(stop_motion_mode_action(2), bytes([0x55, 2]))
         self.assertEqual(set_rect_bounds_action(30, 70, 60, 90), bytes([0x5A, 30, 70, 60, 90]))
+        self.assertEqual(clear_rect_bounds_action(), bytes([0x5B]))
         self.assertEqual(set_object_step_from_var_action(1, 249), bytes([0x4F, 1, 249]))
         self.assertEqual(set_object_tick_from_var_action(1, 248), bytes([0x50, 1, 248]))
 

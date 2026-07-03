@@ -3061,14 +3061,16 @@ Documented result:
   `5`, sets countdown byte `+0x01` to `1`, starts `0x53` toward object 0 with
   near threshold `35`, and confirms autonomous mode 2 completes at `(50,80)`
   without reissuing `0x53` from script logic.
-- Call-site analysis refined the per-cycle ordering. Helper `0x0563` scans
-  active/update-eligible objects, and for objects whose countdown byte `+0x01`
-  is exactly `1`, calls dispatcher `0x067a`. Dispatcher `0x067a` calls
-  `0x3f5a` for mode `+0x22 == 1`, `0x0b36` for mode `2`, and `0x1672` for mode
-  `3`. It then calls extra rectangle-boundary logic when global `[0x013d]` is
-  nonzero and direction byte `+0x21` is nonzero. Helper `0x0563` later invokes
-  `0x150a`, then rebuilds/draws/refreshes the update list rooted at `0x16ff`.
-  A later generated QEMU movement fixture isolates the countdown-gated
+- Later call-site analysis corrected this per-cycle ordering. Helper `0x0644`,
+  not `0x0563`, scans active/update-eligible objects before logic execution
+  and calls dispatcher `0x067a` for objects whose countdown byte `+0x01` is
+  exactly `1`. Dispatcher `0x067a` calls `0x3f5a` for mode `+0x22 == 1`,
+  `0x0b36` for mode `2`, and `0x1672` for mode `3`. It then calls extra
+  rectangle-boundary logic when global `[0x013d]` is nonzero and direction byte
+  `+0x21` is nonzero. Helper `0x0563` is called later, after logic 0, and
+  performs automatic group/frame work before invoking `0x150a` and
+  rebuilding/drawing/refreshing the update list rooted at `0x16ff`. A later
+  generated QEMU movement fixture isolates the countdown-gated
   `0x067a -> 0x1672` path directly.
 
 ## Countdown-gated motion and additional view cel probes
@@ -3286,8 +3288,10 @@ Documented result:
   `docs/src/logic_opcode_evidence.md`. The smoke case proves that selected
   bitfield/helper opcodes execute, consume operands, and return to subsequent
   bytecode under the original interpreter, but does not claim to expose every
-  downstream state mutation. Current smoke rows include `0x38`, `0x3a..0x3e`,
-  `0x40..0x42`, `0x44`, `0x46..0x47`, `0x4c`, `0x4e`, and `0x58..0x59`.
+  downstream state mutation. At the time of this pass, smoke rows included
+  `0x38`, `0x3a..0x3e`, `0x40..0x42`, `0x44`, `0x46..0x47`, `0x4c`, `0x4e`,
+  and `0x58..0x59`; later passes promoted several of those rows to behavior
+  evidence.
 
 ## 2026-07-03: object state, random, and no-op runtime probes
 
@@ -3633,3 +3637,157 @@ Documented result:
 - Promoted actions `0x48` and `0x4a` from QEMU dispatch-smoke to behavior
   evidence, and extended `0x4b` behavior evidence with the visible mode-2
   completion probe. Regenerated `docs/src/logic_opcode_evidence.md`.
+
+## 2026-07-03: object update-list partition actions
+
+Commands run from `/Users/peter/ai/agi/reverse`:
+
+- `python3 -B -c "import sys; sys.path.insert(0,'tools'); from disassemble_logic import AGIDATA, load_table; data=AGIDATA.read_bytes(); table=load_table(data,0x061d,0xb0); [print(f'{op:02x} handler={table[op].handler:04x} argc={table[op].argc} meta={table[op].meta:02x}') for op in range(0x36,0x3d)]"`
+- `rg -n "0x3a|0x3b|0x3c|clear_object_bit_0010|set_object_bit_0010|refresh_object_helper|0x0010|refresh" docs/src/logic_bytecode.md docs/src/graphics_object_pipeline.md docs/src/clean_room_executable_notes.md docs/src/symbolic_labels.md tools tests`
+- `ndisasm -b 16 -o 0x6a30 -e 0x6c30 build/cleanroom/AGI.decrypted.exe`
+- `ndisasm -b 16 -o 0x0440 -e 0x0640 build/cleanroom/AGI.decrypted.exe`
+- `python3 -B -m unittest tests.test_logic_interpreter_probe tests.test_logic_doc_coverage`
+- `python3 -B tools/logic_interpreter_probe.py --dos-prefix LR --output build/logic-interpreter-probes/batches/object_root_partition_001.json --boot-wait 5 --draw-wait 8 --stop-on-failure --case clear_bit_0010_moves_object_behind_set_partition --case set_bit_0010_moves_object_over_clear_partition`
+- `python3 -B tools/logic_interpreter_probe.py --dos-prefix LR --output build/logic-interpreter-probes/batches/object_root_partition_002.json --boot-wait 5 --draw-wait 8 --stop-on-failure --case clear_bit_0010_moves_object_behind_set_partition --case set_bit_0010_moves_object_over_clear_partition`
+- `python3 -B tools/logic_interpreter_probe.py --dos-prefix LR --output build/logic-interpreter-probes/batches/object_root_partition_003.json --boot-wait 5 --draw-wait 8 --stop-on-failure --case clear_bit_0010_moves_object_behind_set_partition --case set_bit_0010_moves_object_over_clear_partition`
+- `python3 -B tools/logic_interpreter_probe.py --dos-prefix LR --output build/logic-interpreter-probes/batches/object_root_partition_004.json --boot-wait 5 --draw-wait 8 --stop-on-failure --case clear_bit_0010_moves_object_behind_set_partition --case set_bit_0010_moves_object_over_clear_partition`
+- `python3 -B tools/logic_opcode_evidence.py`
+
+Documented result:
+
+- Re-read action handlers `0x3a..0x3c` and renamed action `0x3c` from
+  `refresh_object_helper` to `refresh_object_lists`. The handler computes the
+  object record address from its operand, but the called helpers do not receive
+  that address; the observed action is a global update-list refresh.
+- Added symbolic labels for the update-list wrappers and the bit-`0x0010`
+  membership helpers:
+  - `code.object.build_active_update_list` at image `0x6a26`.
+  - `code.object.build_inactive_partition_list` at image `0x6a3d`.
+  - `code.object.flush_update_lists_restore` at image `0x6a54`.
+  - `code.object.rebuild_draw_update_lists` at image `0x6a8e`.
+  - `code.object.refresh_update_lists` at image `0x6aab`.
+  - `code.object.clear_root_16ff_membership` at image `0x6b44`.
+  - `code.object.set_root_16ff_membership` at image `0x6b62`.
+- Source model: bit `0x0010` partitions active objects between root `0x16ff`
+  (`(flags & 0x0051) == 0x0051`) and root `0x1703`
+  (`(flags & 0x0051) == 0x0041`). `0x3a` clears the bit through helper
+  `0x6b44`; `0x3b` sets it through helper `0x6b62`; `0x3c` flushes, rebuilds,
+  draws, and refreshes both roots.
+- The first three QEMU batches were deliberately kept in the record as fixture
+  corrections:
+  - `_001` placed two active objects at the same coordinates during activation;
+    placement helper `0x593a` could adjust an object before the partition effect
+    was isolated.
+  - `_002` used `0x93` after activation; static re-read confirmed `0x93` calls
+    placement helper `0x593a`.
+  - `_003` used `0x25` after activation; the capture showed the object at both
+    the old and new X positions because `0x25` rewrites both current and saved
+    coordinates, so the restore pass no longer erases the old drawing.
+- Final QEMU batch `build/logic-interpreter-probes/batches/object_root_partition_004.json`
+  matched with 2 matches, 0 mismatches, and 0 errors after the expected image
+  explicitly modeled the stale `0x25` drawing as setup:
+  - `clear_bit_0010_moves_object_behind_set_partition`: after `0x3a`, the
+    frame-1 object is drawn behind the still-bit-set frame-0 object.
+  - `set_bit_0010_moves_object_over_clear_partition`: after `0x3a` then `0x3b`,
+    the frame-1 object is drawn over a frame-0 object left in the clear
+    partition.
+- Promoted actions `0x3a`, `0x3b`, and `0x3c` in
+  `tools/logic_opcode_evidence.py` from QEMU dispatch-smoke to QEMU behavior
+  evidence backed by `logic_interpreter_probe: object_root_partition_004`, then
+  regenerated `docs/src/logic_opcode_evidence.md`.
+
+## 2026-07-03: object bit `0x2000` and automatic direction group selection
+
+Commands run from `/Users/peter/ai/agi/reverse`:
+
+- `dd if=build/cleanroom/AGI.decrypted.exe of=build/cleanroom/slice_0563_0620.bin bs=1 skip=1891 count=190`
+- `dd if=build/cleanroom/AGI.decrypted.exe of=build/cleanroom/slice_497b_49d0.bin bs=1 skip=19323 count=100`
+- `ndisasm -b 16 -o 0x0563 build/cleanroom/slice_0563_0620.bin`
+- `ndisasm -b 16 -o 0x497b build/cleanroom/slice_497b_49d0.bin`
+- `python3 -B -m unittest tests.test_logic_interpreter_probe tests.test_logic_doc_coverage`
+- `python3 -B tools/logic_interpreter_probe.py --dos-prefix L2 --output build/logic-interpreter-probes/batches/object_bit_2000_001.json --boot-wait 5 --draw-wait 8 --stop-on-failure --case clear_bit_2000_allows_direction_group_selection --case set_bit_2000_suppresses_direction_group_selection`
+- `python3 -B tools/logic_interpreter_probe.py --dos-prefix L2 --output build/logic-interpreter-probes/batches/object_bit_2000_002.json --boot-wait 5 --draw-wait 8 --stop-on-failure --case clear_bit_2000_allows_direction_group_selection --case set_bit_2000_suppresses_direction_group_selection`
+
+Documented result:
+
+- Action handler `0x2d` at image `0x497b` sets object bit `0x2000`; handler
+  `0x2e` at image `0x49a3` clears that bit.
+- `code.object.frame_timer_update` at image `0x0563` tests bit `0x2000` at
+  image `0x0593`. If the bit is set, it skips automatic direction-based group
+  selection. If the bit is clear, it may index one of two `AGIDATA.OVL` tables
+  by object direction byte `+0x21`:
+  - `data.object.group_for_direction_two_or_three_groups` at data `0x08dd`
+    when object byte `+0x0b` is 2 or 3.
+  - `data.object.group_for_direction_four_plus_groups` at data `0x08e7` when
+    object byte `+0x0b` is at least 4.
+- The helper only calls `code.object.select_group` (`0x3bb7`) when object byte
+  `+0x01 == 1`, the table target is not sentinel `4`, and the target differs
+  from the current group byte `+0x0a`.
+- Initial QEMU batch `object_bit_2000_001` used view 11 and a self-looping
+  fixture. The first case mismatched because the persistent object still drew
+  as group 0 frame 0. Direct comparison against rendered view-11 frames showed
+  the original capture exactly matched group 0 frame 0, so the fixture was not
+  exposing the per-cycle selection path.
+- The corrected fixture uses a guarded one-time initialization and a normal
+  `0x00` end action so the engine can advance later cycles without the logic
+  script repainting or resetting the object. It also uses view 4, whose four
+  groups exercise the `data.object.group_for_direction_four_plus_groups` table.
+- Final QEMU batch `object_bit_2000_002` matched with 2 matches, 0 mismatches,
+  and 0 errors:
+  - `clear_bit_2000_allows_direction_group_selection`: action `0x2e` leaves
+    bit `0x2000` clear; direction `6` selects view 4 group 1.
+  - `set_bit_2000_suppresses_direction_group_selection`: action `0x2d` sets
+    bit `0x2000`; the same direction leaves view 4 on group 0.
+- Promoted actions `0x2d` and `0x2e` in `tools/logic_opcode_evidence.py` to
+  QEMU behavior evidence backed by `logic_interpreter_probe:
+  object_bit_2000_002`, then regenerated `docs/src/logic_opcode_evidence.md`.
+
+## 2026-07-03: expanded direction groups, scheduler order, and rectangle bounds
+
+Commands run from `/Users/peter/ai/agi/reverse`:
+
+- `xxd -g1 -l 32 -s 0x08dd SQ2/AGIDATA.OVL`
+- `xxd -g1 -l 32 -s 0x08e7 SQ2/AGIDATA.OVL`
+- `dd if=build/cleanroom/AGI.decrypted.exe of=build/cleanroom/slice_0100_0270.bin bs=1 skip=768 count=368`
+- `ndisasm -b 16 -o 0x0100 build/cleanroom/slice_0100_0270.bin`
+- Local Python scan for near calls to `0x0563`, `0x0644`, `0x150a`,
+  `0x293c`, `0x6a8e`, and `0x6aab`.
+- `python3 -B -m unittest tests.test_logic_interpreter_probe tests.test_logic_doc_coverage`
+- `python3 -B tools/logic_interpreter_probe.py --dos-prefix L3 --output build/logic-interpreter-probes/batches/object_bit_2000_003.json --boot-wait 5 --draw-wait 8 --stop-on-failure --case clear_bit_2000_two_or_three_group_direction6_selects_group1 --case clear_bit_2000_two_or_three_group_direction5_is_sentinel --case clear_bit_2000_requires_field01_equal_one`
+- `python3 -B tools/logic_interpreter_probe.py --dos-prefix L3 --output build/logic-interpreter-probes/batches/object_bit_2000_004.json --boot-wait 5 --draw-wait 8 --stop-on-failure --case clear_bit_2000_two_or_three_group_direction6_selects_group1 --case clear_bit_2000_two_or_three_group_direction5_is_sentinel --case clear_bit_2000_field01_countdown_eventually_selects_group --case clear_bit_2000_requires_field01_equal_one_when_forced`
+- `python3 -B -m unittest tests.test_qemu_fixture tests.test_object_movement_probe`
+- `python3 -B tools/object_movement_probe.py --dos-prefix RB --output build/object-movement-probes/batches/rect_bounds_clear_001.json --boot-wait 5 --draw-wait 8 --stop-on-failure --case move_rect_boundary_clear_bounds_reaches_target`
+
+Documented result:
+
+- Expanded the `0x2000` direction/group probes:
+  - `object_bit_2000_004` matched with 4 matches, 0 mismatches, and 0 errors.
+  - View 5 validates the two/three-group table at `AGIDATA.OVL:0x08dd`:
+    direction `6` selects group 1.
+  - Direction `5` in the same table maps to sentinel `4`, so the group remains
+    unchanged.
+  - A one-shot `+0x01 = 2` does not permanently block selection. The first
+    `code.object.frame_timer_update` pass sees `+0x01 != 1`, then
+    `code.motion.update_objects` decrements the countdown; a later cycle sees
+    `+0x01 == 1` and selects the direction group.
+  - A per-cycle logic write that keeps `+0x01 = 2` prevents the group change,
+    confirming the exact gate.
+- Re-read the top-level cycle at image `0x0150`:
+  - `0x0198` calls `code.motion.pre_mode_and_boundary_update` at image
+    `0x0644`.
+  - `0x01bd` calls `code.logic.call_logic` (`0x12ae`) with logic number 0.
+  - `0x024b` calls `code.object.frame_timer_update` (`0x0563`) unless byte
+    `[0x1757]` is nonzero.
+  - `code.object.frame_timer_update` calls `code.motion.update_objects`
+    (`0x150a`) at image `0x061e`, then rebuilds/draws/refreshes the root
+    `0x16ff` update list.
+- Corrected symbolic labels for the pre-motion pass and rectangle helper:
+  - `code.motion.pre_mode_and_boundary_update` is image `0x0644`.
+  - `code.motion.rectangle_boundary_check` is image `0x06d9`.
+- Added QEMU movement case `move_rect_boundary_clear_bounds_reaches_target`.
+  Batch `rect_bounds_clear_001` matched with 1 match, 0 mismatches, and 0
+  errors, validating action `0x5b` by setting bounds with `0x5a`, clearing them
+  with `0x5b`, and observing that the object reaches `(50,80)` instead of
+  stopping at the old boundary.
+- Promoted actions `0x5a` and `0x5b` in `tools/logic_opcode_evidence.py` to
+  QEMU behavior evidence, then regenerated `docs/src/logic_opcode_evidence.md`.

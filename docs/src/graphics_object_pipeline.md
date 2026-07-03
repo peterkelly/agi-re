@@ -361,6 +361,7 @@ Observed flag bits in object word `+0x25` include:
 | `0x0200` | Excludes an object from object-object collision/crossing tests. |
 | `0x0400` | Marks an object as just positioned or otherwise dirty; the movement pass skips applying direction deltas for that cycle and then clears the bit. |
 | `0x1000` | One-callback startup delay for frame modes set by actions `0x49` and `0x4b`; `code.object.advance_frame_by_mode` clears this bit and returns without changing frames. |
+| `0x2000` | Suppresses automatic direction-based group selection in `code.object.frame_timer_update`. |
 | `0x4000` | Set by `0x0488` when an object remains at its saved position on an update cadence; later autonomous-direction helpers use it as a stationary/stuck marker. |
 
 A QEMU logic-interpreter probe validates the visible effect of clearing bit
@@ -371,10 +372,40 @@ synthetic control-6 background.
 
 `code.object.frame_timer_update` (`0x0563`) is a separate per-cycle scan over
 active object records. It considers objects whose flag word has `(flags &
-0x0051) == 0x0051`. If bit `0x0020` is set and byte `+0x20` is nonzero, it
-decrements `+0x20`; when the decrement reaches zero it calls
-`code.object.advance_frame_by_mode` (`0x48b3`) and reloads `+0x20` from
-`+0x1f`.
+0x0051) == 0x0051`. Before frame-timer handling, it may automatically select a
+group from the object's direction byte `+0x21`. The local target starts as
+sentinel `4`; if bit `0x2000` is clear and byte `+0x0b` is `2` or `3`, the
+target comes from `data.object.group_for_direction_two_or_three_groups`
+(`AGIDATA.OVL:0x08dd`). If byte `+0x0b >= 4`, it comes from
+`data.object.group_for_direction_four_plus_groups` (`AGIDATA.OVL:0x08e7`).
+When byte `+0x01 == 1`, the target is not sentinel `4`, and it differs from
+current group byte `+0x0a`, the helper calls `code.object.select_group`
+(`0x3bb7`).
+
+The observed table bytes for directions `0..8` are:
+
+| Table | Values for directions `0..8` |
+| --- | --- |
+| `data.object.group_for_direction_two_or_three_groups` | `4, 4, 0, 0, 0, 4, 1, 1, 1` |
+| `data.object.group_for_direction_four_plus_groups` | `4, 3, 0, 0, 0, 2, 1, 1, 1` |
+
+QEMU batches `object_bit_2000_002` and `object_bit_2000_004` validate the
+visible bit gate and table behavior:
+
+- For a four-group view, direction `6` selects group 1 after action `0x2e`
+  clears bit `0x2000`, while action `0x2d` sets the bit and leaves the same
+  object on group 0.
+- For a three-group view, direction `6` also selects group 1 through
+  `data.object.group_for_direction_two_or_three_groups`.
+- Direction `5` in the two/three-group table maps to sentinel `4`, so the
+  selected group does not change.
+- A one-shot `+0x01 = 2` delays selection until the countdown reaches 1; a
+  per-cycle script write that keeps `+0x01 = 2` prevents the group change.
+
+After the group-selection check, if bit `0x0020` is set and byte `+0x20` is
+nonzero, `code.object.frame_timer_update` decrements `+0x20`; when the
+decrement reaches zero it calls `code.object.advance_frame_by_mode` (`0x48b3`)
+and reloads `+0x20` from `+0x1f`.
 
 `code.object.advance_frame_by_mode` interprets byte `+0x23` as a frame-cycling
 mode. Before dispatch, it checks bit `0x1000`; if set, the helper clears that
@@ -687,14 +718,22 @@ byte `[0x000f]`. If the result does not change, it clears bit `0x0080`.
 
 Movement-related work is split across two nearby passes:
 
-1. Helper `0x0563` scans active/update-eligible objects before the movement
-   pass. For objects with byte `+0x01 == 1`, it calls `0x067a(object)`.
-   Dispatcher `0x067a` uses motion/control byte `+0x22`: mode `1` calls random
-   motion helper `0x3f5a`, mode `2` calls approach-first-object helper
-   `0x0b36`, and mode `3` calls targeted-motion helper `0x1672`.
-2. Helper `0x150a` then applies the current direction byte `+0x21` and step
-   byte `+0x1e`, checks collision/control acceptance, records boundary events,
-   and clears bit `0x0400`.
+1. Top-level helper `code.engine.main_cycle` (`0x0150`) calls
+   `code.motion.pre_mode_and_boundary_update` (`0x0644`) before script logic 0.
+   That pass scans active/update-eligible objects and, for objects with byte
+   `+0x01 == 1`, calls `code.motion.dispatch_mode_step` (`0x067a`). Dispatcher
+   `0x067a` uses motion/control byte `+0x22`: mode `1` calls random motion
+   helper `0x3f5a`, mode `2` calls approach-first-object helper `0x0b36`, and
+   mode `3` calls targeted-motion helper `0x1672`. The same pre-pass applies
+   rectangle-boundary helper `code.motion.rectangle_boundary_check` (`0x06d9`)
+   when enabled.
+2. After logic 0 returns, `code.engine.main_cycle` calls
+   `code.object.frame_timer_update` (`0x0563`) unless byte `[0x1757]` is
+   nonzero. This pass performs automatic direction-based group selection, frame
+   timer updates, then calls `code.motion.update_objects` (`0x150a`).
+3. Helper `0x150a` applies the current direction byte `+0x21` and step byte
+   `+0x1e`, checks collision/control acceptance, records boundary events, and
+   clears bit `0x0400`.
 
 The movement pass at `0x150a` scans all 43-byte object records from `[0x096b]`
 to `[0x096d]`. It processes only records whose flag word satisfies:
@@ -888,7 +927,17 @@ Two linked-list roots are central to the update pipeline:
 The predicates show that bit `0x0010` partitions otherwise active/eligible
 objects between the two roots. Helpers `0x6b44` and `0x6b62` clear and set that
 bit respectively, wrapping the change with `0x6a54` and `0x6a8e` so the update
-lists are rebuilt around the new membership.
+lists are rebuilt around the new membership. Logic action `0x3c`
+(`refresh_object_lists`) computes the object address for its operand but then
+calls `0x6a54`, `0x6a8e`, and `0x6aab`; in the observed code this is a global
+flush/rebuild/refresh pass rather than an object-local field mutation.
+
+QEMU batch `object_root_partition_004` validates the visible ordering implied by
+that source model. With two overlapping view-11 objects, `0x3a` on the frame-1
+object makes it draw behind the still-`0x0010` frame-0 object, while clearing
+and then re-setting `0x0010` with `0x3b` makes the frame-1 object draw over a
+frame-0 object that remains in the clear partition. The fixtures use `0x3c` as
+the final refresh action.
 
 The wrapper helpers around those roots are now distinct:
 
