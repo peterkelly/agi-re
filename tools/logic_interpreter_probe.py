@@ -98,8 +98,11 @@ def logic_patch(logic_no: int, code: bytes, messages: list[str] | None = None) -
     return {"logic_no": logic_no, "code_hex": code.hex(), "messages": messages}
 
 
-def base_code(body: bytes, picture_no: int = 0) -> bytes:
-    return load_show_picture_actions(picture_no) + bytes([0x1E, 11]) + body + self_loop()
+def base_code(body: bytes, picture_no: int = 0, preload_view_no: int | None = 11) -> bytes:
+    code = load_show_picture_actions(picture_no)
+    if preload_view_no is not None:
+        code += bytes([0x1E, preload_view_no])
+    return code + body + self_loop()
 
 
 def jump(delta_body: bytes) -> bytes:
@@ -140,6 +143,10 @@ def flag_set_condition(flag_no: int) -> bytes:
 
 def flag_set_var_condition(var_no: int) -> bytes:
     return bytes([0x08, var_no])
+
+
+def not_flag_set_condition(flag_no: int) -> bytes:
+    return bytes([0xFD]) + flag_set_condition(flag_no)
 
 
 def obj_table_room_ff_condition(index: int) -> bytes:
@@ -197,19 +204,22 @@ def _custom_case(
     extra_logics: list[dict[str, object]] | None = None,
     messages: list[str] | None = None,
     expected_extra_sprites: list[dict[str, int]] | None = None,
+    preload_view_no: int | None = 11,
+    picture_payload: bytes = b"\xff",
+    expected_priority: int = 15,
 ) -> LogicInterpreterCase:
     return LogicInterpreterCase(
         case_id,
         description,
-        base_code(body).hex(),
-        b"\xff".hex(),
+        base_code(body, preload_view_no=preload_view_no).hex(),
+        picture_payload.hex(),
         0,
         11,
         expected_group_no,
         expected_frame_no,
         expected_x,
         expected_baseline_y,
-        15,
+        expected_priority,
         extra_logics,
         messages,
         expected_extra_sprites,
@@ -562,6 +572,13 @@ def base_cases() -> list[LogicInterpreterCase]:
             expected_group_no=1,
             expected_frame_no=1,
         ),
+        _custom_case(
+            "load_view_var_allows_following_draw",
+            "Action 0x1f loads the view resource selected by a variable before a following draw.",
+            assignn(1, 11) + byte_action(0x1F, 1) + draw_view11_at(50),
+            50,
+            preload_view_no=None,
+        ),
         _draw_if_case(
             "move_object_to_var_sets_flag_at_existing_target",
             "Action 0x52 reads target and step operands from variables and completes immediately when already at target.",
@@ -724,6 +741,77 @@ def base_cases() -> list[LogicInterpreterCase]:
                     "priority": 15,
                 }
             ],
+        ),
+        _custom_case(
+            "horizon_clamps_object_when_bit_clear",
+            "Action 0x3f sets the horizon-like global; with bit 0x0008 clear, placement clamps baseline to horizon + 1.",
+            byte_action(0x3F, 100) + setup_object_for_view11(10, x=50, baseline_y=80) + byte_action(0x23, 10),
+            50,
+            expected_baseline_y=101,
+        ),
+        _custom_case(
+            "horizon_exempt_bit_keeps_object_above_horizon",
+            "Action 0x3d sets bit 0x0008, exempting placement from the horizon-like clamp.",
+            byte_action(0x3F, 100)
+            + byte_action(0x21, 10)
+            + byte_action(0x3D, 10)
+            + byte_action(0x29, 10, 11)
+            + byte_action(0x2B, 10, 0)
+            + byte_action(0x2F, 10, 0)
+            + byte_action(0x25, 10, 50, 80)
+            + byte_action(0x23, 10),
+            50,
+            expected_baseline_y=80,
+        ),
+        _custom_case(
+            "horizon_clear_exempt_bit_restores_clamp",
+            "Action 0x3e clears bit 0x0008 after it was set, restoring the horizon-like clamp.",
+            byte_action(0x3F, 100)
+            + byte_action(0x21, 10)
+            + byte_action(0x3D, 10)
+            + byte_action(0x3E, 10)
+            + byte_action(0x29, 10, 11)
+            + byte_action(0x2B, 10, 0)
+            + byte_action(0x2F, 10, 0)
+            + byte_action(0x25, 10, 50, 80)
+            + byte_action(0x23, 10),
+            50,
+            expected_baseline_y=101,
+        ),
+        _custom_case(
+            "clear_fixed_priority_bit_uses_derived_priority",
+            "Action 0x38 clears bit 0x0004 so placement uses the Y-derived priority instead of fixed object byte +0x24.",
+            setup_object_for_view11(10, x=50, baseline_y=80)
+            + byte_action(0x36, 10, 5)
+            + byte_action(0x38, 10)
+            + byte_action(0x23, 10),
+            50,
+            picture_payload=bytes([0xF2, 0x06, 0xF8, 0x00, 0x00, 0xFF]),
+            expected_priority=7,
+        ),
+        _custom_case(
+            "object_field_23_mode0_dispatch_smoke",
+            "Action 0x48 sets object byte +0x23 to mode 0 and returns to following bytecode.",
+            setup_object_for_view11(10) + byte_action(0x48, 10) + draw_view11_at(50),
+            50,
+        ),
+        _draw_if_case(
+            "object_field_23_mode1_clears_flag",
+            "Action 0x49 clears its flag operand while setting object byte +0x23 mode 1 state.",
+            setup_object_for_view11(10) + set_flag_action(77) + byte_action(0x49, 10, 77),
+            not_flag_set_condition(77),
+        ),
+        _custom_case(
+            "object_field_23_mode3_dispatch_smoke",
+            "Action 0x4a sets object byte +0x23 to mode 3 and returns to following bytecode.",
+            setup_object_for_view11(10) + byte_action(0x4A, 10) + draw_view11_at(50),
+            50,
+        ),
+        _draw_if_case(
+            "object_field_23_mode2_clears_flag",
+            "Action 0x4b clears its flag operand while setting object byte +0x23 mode 2 state.",
+            setup_object_for_view11(10) + set_flag_action(78) + byte_action(0x4B, 10, 78),
+            not_flag_set_condition(78),
         ),
         _custom_case(
             "object_bitfield_actions_dispatch_smoke",

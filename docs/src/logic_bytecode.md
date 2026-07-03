@@ -592,6 +592,10 @@ Resource and interpreter-control actions observed so far:
 | `0x63` | `start_sound_with_flag` | `0x51d3` | Stops any active sound-like state through `0x5234`, reads immediate sound number `arg0` and immediate flag number `arg1`, stores `arg1` in word `[0x126a]`, clears flag `arg1`, locates or loads sound `arg0` through helper `0x50d8`, and starts it through helper `0x7f96`. If the sound cannot be loaded, it reports error code 9 with the sound number. |
 | `0x64` | `stop_sound_or_clear_sound_state` | `0x5225` | Calls helper `0x5234`, which clears a pending sound-like state at `[0x1258]`, sets flag `[0x126a]`, and calls `0x080af` when that state was active. |
 
+QEMU fixture `load_view_var_allows_following_draw` validates the variable view
+load path by starting without the usual preloaded view 11, setting a variable to
+11, executing `0x1f`, and then successfully drawing that view.
+
 Room/state switch helper `0x1792`, reached by actions `0x12` (`switch_room_like`) and
 `0x13` (`switch_room_like_var`),
 resets all object records from `[0x096b]` to `[0x096d]`. For each 43-byte
@@ -616,9 +620,9 @@ Additional object-state actions:
 | `0x3d` | `set_object_bit_0008` | `0x7e94` | Sets object bit `0x0008` in `[+0x25]`. |
 | `0x3e` | `clear_object_bit_0008` | `0x7eb9` | Clears object bit `0x0008` in `[+0x25]`. |
 | `0x3f` | `set_global_012d` | `0x7e7c` | Stores immediate `arg0` as a word at `DS:0x012d`. |
-| `0x40` | `set_object_bit_0100` | `0x7e0d` | Sets bit `0x0100` in object word field `[+0x25]`. |
-| `0x41` | `set_object_bit_0800` | `0x7e32` | Sets bit `0x0800` in object word field `[+0x25]`. |
-| `0x42` | `clear_object_bits_0900` | `0x7e57` | Clears object bits `0x0100` and `0x0800` by ANDing `[+0x25]` with `0xf6ff`. |
+| `0x40` | `set_object_bit_0100` | `0x7e0d` | Sets bit `0x0100` in object word field `[+0x25]`. QEMU validates that this makes a priority-14 object on a full control-class-2 picture remain visible but unable to move from `(20,80)` to `(50,80)`. |
+| `0x41` | `set_object_bit_0800` | `0x7e32` | Sets bit `0x0800` in object word field `[+0x25]`. QEMU validates that this makes a priority-14 object on a full control-class-3 picture remain visible but unable to move from `(20,80)` to `(50,80)`. |
+| `0x42` | `clear_object_bits_0900` | `0x7e57` | Clears object bits `0x0100` and `0x0800` by ANDing `[+0x25]` with `0xf6ff`. QEMU validates that clearing after `0x40` or `0x41` restores movement to `(50,80)` on the same synthetic control-class pictures. |
 | `0x43` | `set_object_bit_0200` | `0x479f` | Sets bit `0x0200` in object word field `[+0x25]`. |
 | `0x44` | `clear_object_bit_0200` | `0x47c7` | Clears bit `0x0200` in object word field `[+0x25]`. |
 | `0x45` | `object_distance_to_var` | `0x47ef` | Reads two object indices and a destination variable index. If either object lacks bit `0x0001`, stores `0xff` in the destination variable. Otherwise computes `abs(y0-y1) + abs((x0 + width0/2) - (x1 + width1/2))`, caps the result at `0xfe`, and stores it in the destination variable. |
@@ -628,11 +632,45 @@ Additional object-state actions:
 | `0x49` | `set_object_field_23_mode1` | `0x6bae` | Sets object byte `[+0x23] = 1`, sets bits `0x1030` in `[+0x25]`, stores immediate `arg1` in byte `[+0x27]`, and clears flag `arg1`. |
 | `0x4a` | `set_object_field_23_mode3` | `0x6beb` | Sets object byte `[+0x23] = 3` and sets bit `0x0020` in `[+0x25]`. |
 | `0x4b` | `set_object_field_23_mode2` | `0x6c17` | Sets object byte `[+0x23] = 2`, sets bits `0x1030` in `[+0x25]`, stores immediate `arg1` in byte `[+0x27]`, and clears flag `arg1`. |
-| `0x4c` | `set_object_field_1f_var` | `0x6c54` | Stores `var[arg1]` in object byte `[+0x1f]` and clears object byte `[+0x20]`. |
+| `0x4c` | `set_object_field_1f_var` | `0x6c54` | Stores `var[arg1]` in object byte `[+0x1f]` and copies the same byte to object byte `[+0x20]`. These bytes are the reload and current countdown for `code.object.frame_timer_update`. |
 | `0x4d` | `clear_object_fields_21_22` | `0x6ec8` | Clears object bytes `[+0x21]` and `[+0x22]`; if the object is the first object entry, also clears byte `DS:0x000f` and word `[0x0139]`. |
-| `0x4e` | `clear_object_field_22_and_global` | `0x6f05` | Clears object byte `[+0x22]`; if the object is the first object entry, clears byte `DS:0x000f` and sets word `[0x0139] = 1`. |
+| `0x4e` | `clear_object_field_22_and_global` | `0x6f05` | Clears object byte `[+0x22]`; if the object is the first object entry, clears byte `DS:0x000f` and sets word `[0x0139] = 1`. A QEMU movement probe validates the byte `[+0x22]` effect by starting random motion with `0x54`, immediately executing `0x4e`, and observing that the object remains at its starting position. |
 | `0x4f` | `set_object_field_1e_var` | `0x6f3e` | Stores `var[arg1]` in object byte `[+0x1e]`. |
 | `0x50` | `set_object_field_01_var` | `0x6f7c` | Stores `var[arg1]` in object byte `[+0x01]` and clears object byte `[+0x00]`. |
+
+QEMU probes validate the observable flag-clearing side effect of `0x49` and
+`0x4b`: each clears its flag operand before following bytecode tests that the
+flag is no longer set. Separate dispatch-smoke probes show `0x48` and `0x4a`
+execute and return to following bytecode; those probes do not directly observe
+the hidden object byte `+0x23`.
+
+Static analysis now ties `0x46..0x4c` to the frame-cycling path. Per-cycle
+helper `code.object.frame_timer_update` (`0x0563`) scans active objects with
+`(flags & 0x0051) == 0x0051`; when bit `0x0020` is set, byte `+0x20` is
+nonzero, and decrementing `+0x20` reaches zero, it calls
+`code.object.advance_frame_by_mode` (`0x48b3`) and reloads `+0x20` from
+`+0x1f`. The advance helper treats `+0x23` as a frame mode: mode 0 loops
+forward, mode 1 advances forward and completes at the last frame, mode 2 steps
+backward and completes, and mode 3 loops backward. Completion in modes 1 and 2
+sets flag `+0x27`, clears bit `0x0020`, clears direction byte `+0x21`, and
+resets `+0x23` to 0. Actions `0x49` and `0x4b` also set bit `0x1000`; the
+first advance callback after setup clears that bit and returns without changing
+frame.
+
+QEMU movement batch `frame_timer_001` validates the visible mode-1 path: after
+`0x4c` seeds the interval and `0x49` starts mode 1, view 11/group 0 advances
+from frame 0 to frame 1. The same batch validates that `0x46` prevents the
+advance by clearing bit `0x0020`, and `0x47` restores the advance when executed
+after `0x46`.
+
+Movement probe `move_collision_clear_skip_bit_blocks_again` validates `0x44` by
+first setting collision-skip bit `0x0200` with `0x43`, then clearing it with
+`0x44`, and observing that the default object-object collision stop returns.
+
+QEMU horizon probes validate `0x3f`, `0x3d`, and `0x3e` together. With
+`0x3f` setting `[0x012d] = 100`, ordinary placement at baseline `80` clamps to
+baseline `101`. Setting bit `0x0008` with `0x3d` keeps the object at baseline
+`80`, and clearing the bit with `0x3e` restores the clamp.
 
 Movement-mode actions have compact setup contracts but richer per-cycle
 semantics, so the entry points are summarized in a table and the state machines
@@ -713,8 +751,8 @@ run the final position was `(140,112)`.
 | `0x55` | `stop_motion_mode` | `0x6ea1` | Stops the autonomous motion mode for object operand 0 by clearing object byte `[+0x22]`. Unlike `0x4d` (`clear_object_fields_21_22`) it does not clear direction byte `[+0x21]`, and unlike `0x4e` (`clear_object_field_22_and_global`) it does not update the first-object globals. |
 | `0x56` | `set_object_field_21_var` | `0x6fbe` | Stores `var[arg1]` in object byte `[+0x21]`. |
 | `0x57` | `get_object_field_21` | `0x6ffc` | Stores object byte `[+0x21]` into `var[arg1]`. |
-| `0x58` | `set_object_bit_0002` | `0x7b9c` | Sets bit `0x0002` in object word field `[+0x25]`. |
-| `0x59` | `clear_object_bit_0002` | `0x7bc1` | Clears bit `0x0002` in object word field `[+0x25]`. |
+| `0x58` | `set_object_bit_0002` | `0x7b9c` | Sets bit `0x0002` in object word field `[+0x25]`. QEMU validates that this bypasses the rectangle-boundary crossing stop configured by `0x5a`; the object reaches `(50,80)` instead of stopping at `(30,80)`. |
+| `0x59` | `clear_object_bit_0002` | `0x7bc1` | Clears bit `0x0002` in object word field `[+0x25]`. QEMU validates that clearing after `0x58` restores the rectangle-boundary crossing stop at `(30,80)`. |
 | `0x83` | `clear_global_0139` | `0x702f` | Sets global word `[0x0139] = 0`. |
 | `0x84` | `set_global_0139_and_clear_object0_field_22` | `0x7041` | Sets global word `[0x0139] = 1` and clears byte `[+0x22]` on the first object entry. |
 | `0x85` | `display_object_diagnostics_var` | `0x72b5` | Reads an object index from `var[arg0]`, gathers object fields `[+0x03]`, `[+0x05]`, `[+0x1a]`, `[+0x1c]`, `[+0x24]`, and `[+0x1e]`, formats them with string template `DS:0x1713` through helper `0x2374`, and displays the result through `0x1ce8`. |
@@ -747,7 +785,7 @@ Actions that update object byte `[+0x24]`:
 | ---: | --- | ---: | --- |
 | `0x36` | `set_object_field_24` | `0x7a80` | Sets bit `0x0004` in object word field `[+0x25]` and writes immediate `arg1` to byte `[+0x24]`. |
 | `0x37` | `set_object_field_24_var` | `0x7b08` | Same as `0x36`, but writes `var[arg1]` to byte `[+0x24]`. |
-| `0x38` | `clear_object_bit_0004` | `0x7ab0` | Clears bit `0x0004` in object word field `[+0x25]`. |
+| `0x38` | `clear_object_bit_0004` | `0x7ab0` | Clears bit `0x0004` in object word field `[+0x25]`. A QEMU probe confirms that this stops using the fixed byte `[+0x24]`; a view placed at baseline `80` then derives priority `7` and draws over a control-6 background. |
 | `0x39` | `get_object_field_24` | `0x7ad5` | Stores object byte `[+0x24]` into `var[arg1]`. |
 
 Message-display actions use the current logic resource's message table through

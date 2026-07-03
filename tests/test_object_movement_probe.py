@@ -42,6 +42,16 @@ class ObjectMovementProbeTests(unittest.TestCase):
         self.assertIn("move_right_to_screen_edge", case_ids)
         self.assertIn("move_down_to_bottom_edge", case_ids)
         self.assertIn("move_allowed_on_control_zero", case_ids)
+        self.assertIn("move_control_1_without_bit_0002_blocks", case_ids)
+        self.assertIn("move_control_1_set_bit_0002_still_hidden", case_ids)
+        self.assertIn("move_control_1_clear_bit_0002_still_hidden", case_ids)
+        self.assertIn("move_rect_boundary_without_bit_0002_stops_at_edge", case_ids)
+        self.assertIn("move_rect_boundary_set_bit_0002_reaches_target", case_ids)
+        self.assertIn("move_rect_boundary_clear_bit_0002_stops_again", case_ids)
+        self.assertIn("move_control_2_set_bit_0100_blocks", case_ids)
+        self.assertIn("move_control_2_clear_bits_0900_reaches_target", case_ids)
+        self.assertIn("move_control_3_set_bit_0800_blocks", case_ids)
+        self.assertIn("move_control_3_clear_bits_0900_reaches_target", case_ids)
         self.assertIn("move_left_to_target", case_ids)
         self.assertIn("move_up_to_target", case_ids)
         self.assertIn("move_diagonal_down_right", case_ids)
@@ -51,9 +61,11 @@ class ObjectMovementProbeTests(unittest.TestCase):
         self.assertIn("move_zero_step_override", case_ids)
         self.assertIn("move_blocked_by_object_collision", case_ids)
         self.assertIn("move_collision_skip_bit_reaches_target", case_ids)
+        self.assertIn("move_collision_clear_skip_bit_blocks_again", case_ids)
         self.assertIn("approach_first_object_until_near_band", case_ids)
         self.assertIn("move_to_once_countdown_gated_completion", case_ids)
         self.assertIn("random_motion_visible_somewhere", case_ids)
+        self.assertIn("clear_field_22_after_random_motion_stops_motion", case_ids)
 
     def test_json_case_loading(self) -> None:
         case = base_cases()[0]
@@ -62,6 +74,10 @@ class ObjectMovementProbeTests(unittest.TestCase):
             path.write_text(json.dumps([case.__dict__]) + "\n", encoding="ascii")
             loaded = load_cases(path)
         self.assertEqual(loaded, [case])
+
+    def test_case_filtering(self) -> None:
+        loaded = load_cases(None, ["move_collision_clear_skip_bit_blocks_again"])
+        self.assertEqual([case.case_id for case in loaded], ["move_collision_clear_skip_bit_blocks_again"])
 
     def test_dos_dir_name_is_stable(self) -> None:
         self.assertEqual(qemu_batch_dos_dir("movement", 2), "MOV00002")
@@ -89,6 +105,15 @@ class ObjectMovementProbeTests(unittest.TestCase):
         with tempfile.TemporaryDirectory() as temp_dir:
             capture = Path(temp_dir) / "capture.ppm"
             write_scaled_capture(capture, expected.visual_nibbles)
+            comparison = compare_capture(case, capture)
+        self.assertEqual(comparison.status, "match")
+
+    def test_compare_capture_matches_picture_only_case(self) -> None:
+        case = next(item for item in base_cases() if item.case_id == "move_control_1_without_bit_0002_blocks")
+        picture = PictureRenderer(case.picture_payload).render(case.picture_no)
+        with tempfile.TemporaryDirectory() as temp_dir:
+            capture = Path(temp_dir) / "capture.ppm"
+            write_scaled_capture(capture, picture.visual_nibbles)
             comparison = compare_capture(case, capture)
         self.assertEqual(comparison.status, "match")
 

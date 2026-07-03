@@ -107,12 +107,17 @@ Address columns use these meanings:
 | `code.object.select_group_table` | image `0x3c1b` | Computes a group table pointer from the view payload. |
 | `code.object.select_frame` | image `0x3ccb` | Selects a derived frame/entry and updates object size/pointers. |
 | `code.object.place` | image `0x593a` | Places an object and performs priority/control collision adjustment. |
+| `code.object.control_acceptance` | image `0x56b8` | Tests an object's proposed footprint against high-nibble control/priority classes in `data.display.logical_buffer_segment`; QEMU probes validate selected `0x0002`, `0x0100`, and `0x0800` flag effects. |
+| `code.object.frame_timer_update` | image `0x0563` | Per-cycle active-object scan that decrements frame timer byte `+0x20`, calls `code.object.advance_frame_by_mode` at zero, and reloads `+0x20` from `+0x1f`. |
+| `code.object.advance_frame_by_mode` | image `0x48b3` | Dispatches object frame mode byte `+0x23`; modes loop or stop frames and may set completion flag byte `+0x27`. |
 | `code.object.update_dirty_rect` | image `0x5762` | Refreshes object dirty-rectangle state. |
 | `code.object.save_rect_overlay_entry` | overlay `IBM_OBJS.OVL:0x9db0` | Entry jump to rectangle save routine. |
 | `code.object.restore_rect_overlay_entry` | overlay `IBM_OBJS.OVL:0x9db3` | Entry jump to rectangle restore routine. |
 | `code.object.draw_overlay_entry` | overlay `IBM_OBJS.OVL:0x9db6` | Entry jump to selected-frame drawing routine. |
 | `code.object.rewrite_frame_orientation` | image `0x587d` | Rewrites bit-`0x80` frame data when cached orientation bits differ from object `+0x0a`. |
 | `code.motion.update_objects` | image `0x150a` | Per-cycle object movement/update pass. |
+| `code.motion.pre_mode_and_boundary_update` | image `0x0844` | Scans active objects with countdown byte `+0x01 == 1`, dispatches mode byte `+0x22`, then applies rectangle-boundary helper `code.motion.rectangle_boundary_check` when enabled. |
+| `code.motion.rectangle_boundary_check` | image `0x08d9` | Compares current and next baseline points against script rectangle globals `[0x0131..0x013d]`, setting bit `0x0080` and clearing direction on crossing when bit `0x0002` is clear. |
 | `code.motion.dispatch_mode_step` | image `0x067a` | Dispatches object mode byte `+0x22` to random, approach-first-object, or target-direction helpers when countdown byte `+0x01` is ready. |
 | `code.motion.start_target_direction` | image `0x1672` | Computes initial direction toward object target fields. |
 | `code.motion.compute_direction` | image `0x16ed` | Direction lookup from current and target coordinates. |

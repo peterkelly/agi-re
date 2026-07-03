@@ -2160,3 +2160,1216 @@ Progress updates and outcomes:
 
      Action/result: Confirmed the modified tracked files and removed
      `tools/__pycache__/`.
+
+247. Reported: "I'll continue from the freshly committed logic-probe work. I'm
+     going to scan the evidence matrix for still source-backed opcodes and pick
+     another cluster that can be validated through visible state or
+     script-observable getters."
+
+     Action/result: Confirmed the worktree only had the known generated/input
+     directories and that the opcode evidence matrix was current.
+
+248. Reported: "The worktree is clean except the known generated/input
+     directories, and the evidence matrix is current. My first grep had shell
+     quoting trouble around backticks, so I'm switching to a small local parse
+     of the generated matrix."
+
+     Action/result: Replaced the failing backtick-sensitive scan with simpler
+     source-backed and dispatch-smoke matrix scans.
+
+249. Reported: "The current harness already has good coverage for variables,
+     strings, inventory markers, object positions, and several draw paths. I'm
+     checking the remaining source-backed rows now with simpler shell quoting;
+     likely next targets are object bitfield helpers or small global/object
+     field actions that can be observed indirectly."
+
+     Action/result: Identified `0x1f` and the object field `+0x23` family
+     `0x48..0x4b` as practical next targets.
+
+250. Reported: "The best near-term candidates are object/state opcodes, not
+     UI/save/sound paths. I'm going to focus on opcodes around `0x2d..0x50`
+     where disassembly says they change object bits or fields; some can be made
+     visible via drawing, getters, or movement side effects."
+
+     Action/result: Reviewed object-state docs and movement harness context for
+     observable probe options.
+
+251. Reported: "A useful small batch is emerging: variable-backed `load_view`
+     (`0x1f`) can be validated by drawing the loaded view, while `0x49` and
+     `0x4b` can at least be value-probed for their documented flag-clearing
+     operand. I'll add those, plus dispatch-smoke cases for `0x48` and `0x4a`
+     so the whole `+0x23` setup family has runtime coverage."
+
+     Action/result: Chose a five-case follow-up batch covering `0x1f` and
+     `0x48..0x4b`.
+
+252. Reported: "I'm going to add a small bit of flexibility to the logic probe
+     harness first: most cases preload view 11, but the `load_view_var` probe
+     must start without that preload or it wouldn't prove anything. Then I'll
+     add the five cases."
+
+     Action/result: Added the optional `preload_view_no` hook to
+     `tools/logic_interpreter_probe.py`.
+
+253. Reported: "The preload hook is in. I'm adding a tiny local condition
+     helper for 'flag is not set,' then the new runtime cases in the existing
+     case catalog."
+
+     Action/result: Added `not_flag_set_condition()`.
+
+254. Reported: "Now I'm inserting the cases themselves: one `load_view_var`
+     value probe, two `+0x23` mode actions that clear a flag as documented, and
+     two dispatch-smoke cases for the no-flag mode variants."
+
+     Action/result: Added `load_view_var_allows_following_draw`,
+     `object_field_23_mode0_dispatch_smoke`,
+     `object_field_23_mode1_clears_flag`,
+     `object_field_23_mode3_dispatch_smoke`, and
+     `object_field_23_mode2_clears_flag`.
+
+255. Reported: "The new cases are in. I'm updating the unit test's named
+     coverage list so these probes stay pinned in the default catalog."
+
+     Action/result: Updated `tests/test_logic_interpreter_probe.py` to require
+     the five new case ids.
+
+256. Reported: "I'll run the local harness tests before QEMU. If any of these
+     bytecode snippets are malformed, it's cheaper to catch it here."
+
+     Action/result: `python3 -B -m unittest tests.test_logic_interpreter_probe`
+     passed.
+
+257. Reported: "Local tests pass. I'll run the five new cases against the
+     original engine now; if the VNC bind hits the sandbox again I'll rerun with
+     approval."
+
+     Action/result: The first QEMU run was blocked by the sandbox VNC bind
+     restriction.
+
+258. Reported: "The sandbox blocked the VNC socket as expected. I'll rerun the
+     same batch with QEMU permission."
+
+     Action/result: Reran the five-case batch with elevated QEMU permission.
+
+259. Reported: "The QEMU snapshot batch is running. While it does that, I'll
+     prepare the evidence-map changes so they're ready if the cases match."
+
+     Action/result: Reviewed the evidence generator and existing docs while the
+     QEMU batch ran.
+
+260. Reported: "The docs already have source notes for `0x1f` and `0x48..0x4b`;
+     this batch is specifically trying to convert part of that into observed
+     engine behavior. I'm checking the QEMU run now."
+
+     Action/result: The batch
+     `build/logic-interpreter-probes/batches/load_view_field23_001.json`
+     matched all five cases with 0 mismatches and 0 errors.
+
+261. Reported: "All five matched. I'll promote `0x1f`, `0x49`, and `0x4b` to
+     QEMU-validated evidence, and mark `0x48`/`0x4a` as dispatch-smoke since
+     those cases prove runtime execution and operand consumption but not the
+     hidden `+0x23` byte value directly."
+
+     Action/result: Updated `tools/logic_opcode_evidence.py` accordingly.
+
+262. Reported: "The evidence generator is updated. I'm regenerating the matrix
+     and checking it, then I'll record the commands and results in the
+     clean-room docs."
+
+     Action/result: Regenerated `docs/src/logic_opcode_evidence.md` and checked
+     it successfully.
+
+263. Reported: "The matrix regenerated cleanly. I'm updating the narrative docs
+     now: compatibility commands, chronological clean-room notes, current
+     status, and the progress log for the updates from this run."
+
+     Action/result: Updated the clean-room notes, compatibility testing page,
+     and current status.
+
+264. Reported: "I'm appending a short dated evidence section and compatibility
+     snippet for this batch. The key distinction in the docs will be
+     'value-backed' for `0x1f`, `0x49`, `0x4b` versus 'dispatch-smoke' for
+     `0x48`, `0x4a`."
+
+     Action/result: Added the dated evidence section and compatibility command.
+
+265. Reported: "The compatibility docs now have the replay command. I'm updating
+     current status so the next session won't repeat this cluster."
+
+     Action/result: Current status now mentions the `0x1f` and `0x48..0x4b`
+     follow-up batch.
+
+266. Reported: "I'm also adding a couple of concise notes in the opcode chapter
+     itself, so readers of the spec see what was runtime-confirmed without
+     having to jump to the evidence matrix."
+
+     Action/result: Added concise QEMU evidence notes to
+     `docs/src/logic_bytecode.md`.
+
+267. Reported: "Docs are updated. I'm running the validation pass now: full
+     tests, evidence consistency, mdBook build, and diff whitespace checks."
+
+     Action/result: `python3 -B -m unittest discover -s tests` passed 91 tests;
+     `python3 -B tools/logic_opcode_evidence.py --check`, `mdbook build docs`,
+     and `git diff --check` also passed.
+
+268. Reported: "Everything validates: 91 tests, evidence check, mdBook, and
+     whitespace checks are clean. I'm doing final status and diff review, then
+     I'll wrap this pass."
+
+     Action/result: Confirmed the diff is limited to logic-probe source,
+     evidence generation, tests, and documentation; generated/input directories
+     remain untracked.
+
+269. Reported: "I'll continue with the object bit/control path I recommended:
+     first I'm checking the current uncommitted pass so I can build on it
+     cleanly rather than trampling the latest probe work."
+
+     Action/result: Confirmed the previous variable-view/object-field probe
+     pass was still uncommitted and read `AGENTS.md` for the project rules.
+
+270. Reported: "The previous pass is still uncommitted, and I'm going to extend
+     it rather than split the thread artificially. The most promising value
+     probe is `0x44`: set the collision-skip bit with `0x43`, clear it with
+     `0x44`, then prove collision blocking returns during movement."
+
+     Action/result: Inspected the object movement harness and existing
+     collision-skip evidence.
+
+271. Reported: "The movement harness has exactly the shape we need, but it only
+     has a 'set skip bit' helper. I'm adding the companion `0x44` encoder plus
+     a filtered movement case that sets then clears the bit and should collide
+     again."
+
+     Action/result: Added `clear_object_bit_0200_action()` to
+     `tools/qemu_fixture.py`.
+
+272. Reported: "The raw encoder is in. Now I'm threading a clear-skip option
+     through the movement case model and adding the concrete collision-restored
+     case."
+
+     Action/result: Added `moving_clear_skip_collision`, filtered `--case`
+     support, and case `move_collision_clear_skip_bit_blocks_again` to
+     `tools/object_movement_probe.py`.
+
+273. Reported: "The tests now cover the new encoder, filtered movement case
+     loading, and the new collision-restored case. I'll run the focused tests,
+     then the single QEMU case."
+
+     Action/result: Updated `tests/test_qemu_fixture.py` and
+     `tests/test_object_movement_probe.py`; focused tests passed.
+
+274. Reported: "Focused local tests pass. I'm running just the new movement
+     probe in QEMU now; the new `--case` filter avoids rerunning the whole
+     movement suite."
+
+     Action/result: The first QEMU run was blocked by the sandbox VNC bind
+     restriction.
+
+275. Reported: "The QEMU VNC bind hit the sandbox restriction. I'll rerun the
+     same single-case probe with permission."
+
+     Action/result: Reran the single-case movement probe with elevated QEMU
+     permission.
+
+276. Reported: "The `0x44` probe matched: after setting and then clearing the
+     collision-skip bit, the object is blocked by the obstacle again. I'm
+     promoting `0x44` from dispatch-smoke to QEMU-validated evidence."
+
+     Action/result: QEMU batch
+     `build/object-movement-probes/batches/clear_skip_bit_001.json` matched
+     with 1 match, 0 mismatches, and 0 errors.
+
+277. Reported: "Evidence metadata is updated. I'll regenerate the generated
+     matrix, then update the docs with the movement batch command and result."
+
+     Action/result: Added `0x44` to QEMU-validated evidence and removed it from
+     dispatch-smoke evidence.
+
+278. Reported: "The matrix now treats `0x44` as QEMU-validated. I'm adding the
+     clean-room evidence trail and a short spec note explaining what the new
+     collision-restored probe proves."
+
+     Action/result: Regenerated and checked `docs/src/logic_opcode_evidence.md`.
+
+279. Reported: "I'm patching the docs in the same evidence-first style: one
+     dated note in the clean-room log, one compatibility command, and one
+     concise semantics sentence in the object/graphics model."
+
+     Action/result: Updated `docs/src/graphics_object_pipeline.md` and
+     `docs/src/logic_bytecode.md` with the `0x44` observation.
+
+280. Reported: "The spec now records the behavior. I'm adding the reproducible
+     QEMU command to the compatibility chapter next."
+
+     Action/result: Added the `clear_skip_bit_001.json` QEMU command to
+     `docs/src/compatibility_testing.md`.
+
+281. Reported: "Compatibility has the new command. I'm updating current status
+     and the clean-room notes with the exact batch result."
+
+     Action/result: Updated `docs/src/current_status.md`.
+
+282. Reported: "I'm adding a dated clean-room entry rather than folding this
+     into the older movement section, because it's a new QEMU observation made
+     in this pass."
+
+     Action/result: Added the dated `0x44` clean-room section to
+     `docs/src/clean_room_executable_notes.md`.
+
+283. Reported: "The clean-room notes now include the exact `0x44` batch and
+     result. I'm adding progress-log entries for this continuation before the
+     final validation run."
+
+     Action/result: Appended progress-log entries for the `0x44` probe pass.
+
+284. Reported: "Progress log is updated. I'm running the full validation sweep
+     now, including the movement tests touched by this pass."
+
+     Action/result: `python3 -B -m unittest discover -s tests` passed 93 tests;
+     `python3 -B tools/logic_opcode_evidence.py --check`, `mdbook build docs`,
+     and `git diff --check` also passed.
+
+285. Reported: "Validation passed: 93 tests now, evidence check, mdBook build,
+     and whitespace check are all clean. I'm doing a final status/diff pass and
+     adding the validation note to the progress log."
+
+     Action/result: Reviewed the final status and diff summary for the combined
+     variable-view/object-field and `0x44` probe pass.
+
+286. Reported: "I'll keep going in the same object-control lane. Since there's
+     already a validated uncommitted batch, I'm going to look for one more
+     nearby bit action that can be promoted from dispatch-smoke to value-backed
+     evidence without dragging us into UI or save/restore behavior."
+
+     Action/result: Reviewed remaining object/control bit documentation and the
+     current uncommitted worktree.
+
+287. Reported: "The next likely value-backed target is the horizon-exempt bit
+     `0x0008`: docs say `0x3d` sets it and `0x3e` clears it, and the placement
+     helper clamps objects against the horizon when the bit is clear. I'm going
+     to add two small visible placement probes around that."
+
+     Action/result: Chose horizon-like placement probes targeting `0x3d`,
+     `0x3e`, and `0x3f`.
+
+288. Reported: "I'm adding three horizon placement cases: default bit-clear
+     clamping proves the horizon global is active, `0x3d` keeps the object
+     above the horizon, and `0x3e` restores the clamp after the bit was set. If
+     these pass, they give us clean value evidence for `0x3d`, `0x3e`, and
+     `0x3f`."
+
+     Action/result: Added `horizon_clamps_object_when_bit_clear`,
+     `horizon_exempt_bit_keeps_object_above_horizon`, and
+     `horizon_clear_exempt_bit_restores_clamp`.
+
+289. Reported: "The horizon cases are in the probe catalog. I'll pin them in
+     the local test list and run the focused harness tests before QEMU."
+
+     Action/result: Updated `tests/test_logic_interpreter_probe.py` to require
+     the three new case ids.
+
+290. Reported: "I'll run the focused logic probe unit tests now. If those pass,
+     the bytecode is at least structurally sane."
+
+     Action/result: `python3 -B -m unittest tests.test_logic_interpreter_probe`
+     passed.
+
+291. Reported: "The focused unit tests pass. I'll run these three horizon cases
+     in QEMU now; if the baseline expectation is wrong, the capture comparison
+     should give us the actual position."
+
+     Action/result: The first QEMU run was blocked by the sandbox VNC bind
+     restriction.
+
+292. Reported: "The usual QEMU VNC bind was blocked by the sandbox. I'll rerun
+     the same three-case batch with permission."
+
+     Action/result: Reran the horizon-bit batch with elevated QEMU permission.
+
+293. Reported: "The horizon-bit batch is running from a snapshot. I'll let it
+     complete and then either promote the opcodes or adjust the expected
+     baseline if QEMU tells us the clamp differs."
+
+     Action/result: Waited for the snapshot-backed QEMU run to complete.
+
+294. Reported: "All three horizon probes matched. That gives us QEMU-backed
+     behavior for `0x3f` setting the horizon, `0x3d` exempting the object from
+     the clamp, and `0x3e` restoring the clamp. I'm updating the evidence matrix
+     now."
+
+     Action/result: QEMU batch
+     `build/logic-interpreter-probes/batches/horizon_bits_001.json` matched
+     with 3 matches, 0 mismatches, and 0 errors.
+
+295. Reported: "Evidence metadata now promotes `0x3d`, `0x3e`, and `0x3f`.
+     I'll regenerate the matrix and then patch the docs with the exact QEMU
+     batch and behavior."
+
+     Action/result: Updated `tools/logic_opcode_evidence.py` and regenerated
+     `docs/src/logic_opcode_evidence.md`.
+
+296. Reported: "The generated evidence matrix is current. I'm adding the
+     horizon-bit observations to the prose docs now: the object pipeline, opcode
+     chapter, compatibility command, current status, and the chronological
+     clean-room notes."
+
+     Action/result: Began documenting the horizon-bit QEMU observations.
+
+297. Reported: "The placement text has slightly different wording than I
+     expected. I've got the exact paragraph now and will insert the horizon QEMU
+     note there."
+
+     Action/result: Added the horizon clamp note to
+     `docs/src/graphics_object_pipeline.md`.
+
+298. Reported: "I'm adding the same observation to the opcode chapter beside
+     the object-bit table, keeping it short and tied to the generated probe
+     names."
+
+     Action/result: Added the `0x3d`/`0x3e`/`0x3f` QEMU note to
+     `docs/src/logic_bytecode.md`.
+
+299. Reported: "Next I'm adding the exact horizon batch command to the
+     compatibility chapter so the result can be replayed later."
+
+     Action/result: Added the horizon-bit batch command to
+     `docs/src/compatibility_testing.md`.
+
+300. Reported: "Compatibility docs have the replay command. I'm updating
+     current status so the horizon-bit evidence is visible in the 'where are we
+     now' page."
+
+     Action/result: Added the horizon-bit finding to `docs/src/current_status.md`.
+
+301. Reported: "I'm adding the dated clean-room note for the horizon probes with
+     the exact commands and observed match count."
+
+     Action/result: Added the horizon-bit placement section to
+     `docs/src/clean_room_executable_notes.md`.
+
+302. Reported: "Progress log is updated for the horizon pass. I'm running the
+     full suite and documentation checks now."
+
+     Action/result: `python3 -B -m unittest discover -s tests` passed 93 tests;
+     `python3 -B tools/logic_opcode_evidence.py --check`, `mdbook build docs`,
+     and `git diff --check` also passed.
+
+303. Reported: "Everything validates again: 93 tests, evidence check, mdBook,
+     and diff whitespace. I'm adding the final validation entry and doing one
+     last status review."
+
+     Action/result: Recorded the validation result for the horizon-bit pass.
+
+304. Reported: "I'll keep going on the nearby object/control bits, using the
+     same pattern as the horizon probes: make the object state visible in a tiny
+     generated fixture, run it through QEMU, then promote only the behavior that
+     actually matches."
+
+     Action/result: Selected action `0x38` (`clear_object_bit_0004`) as the
+     next target because its visible effect can be tested through priority
+     derivation during object placement.
+
+305. Reported: "The overlay tests give us a nice pattern for this one: put a
+     control-6 background under a fixed-priority object, clear the fixed-priority
+     bit, and see whether the original engine goes back to the Y-derived
+     priority."
+
+     Action/result: Planned a fixture that fixes object priority/control to
+     `5`, clears bit `0x0004`, places the object at baseline `80`, and expects
+     the Y-derived priority `7`.
+
+306. Reported: "The harness now accepts custom picture payloads and expected
+     priority values, which makes this fixed-priority probe small instead of
+     needing a separate one-off tool."
+
+     Action/result: Extended `tools/logic_interpreter_probe.py` to allow custom
+     picture payloads and expected priority values in generated cases.
+
+307. Reported: "The `0x38` probe is in. I'm running the focused unit test first
+     so any fixture-building mistake shows up before we spend a QEMU run on it."
+
+     Action/result: Added the
+     `clear_fixed_priority_bit_uses_derived_priority` case and the matching
+     unit-test expectation.
+
+308. Reported: "The focused test passes. I'm moving to the original-engine run
+     now; if QEMU agrees, `0x38` can move out of dispatch-smoke status."
+
+     Action/result: Began the QEMU validation attempt for the one-case
+     fixed-priority batch.
+
+309. Reported: "I'll pick up from the fixed-priority probe that was interrupted
+     by the sandboxed VNC bind. First I'm going to verify the current file
+     state, then I'll rerun that one QEMU case with the needed permission and
+     fold the result back into the docs."
+
+     Action/result: Verified the working tree and confirmed `0x38` was still
+     listed as dispatch-smoke evidence.
+
+310. Reported: "The working tree matches the handoff summary, and the
+     fixed-priority probe is already wired in but still listed only as
+     dispatch-smoke evidence. I'm rerunning that single case now through QEMU so
+     we can see whether `0x38` deserves promotion."
+
+     Action/result: Reran the fixed-priority QEMU batch with elevated QEMU
+     permission after the sandbox rejected the VNC bind.
+
+311. Reported: "That matched cleanly: one QEMU case, zero mismatches. I'm going
+     to promote `0x38` from 'dispatch returned' to 'behavior validated', then
+     regenerate the evidence table and document exactly what the probe proved."
+
+     Action/result: QEMU report
+     `build/logic-interpreter-probes/batches/fixed_priority_bit_001.json`
+     matched with 1 match, 0 mismatches, and 0 errors.
+
+312. Reported: "Evidence metadata is patched. I'm regenerating the generated
+     opcode evidence chapter next, then I'll make the prose changes around the
+     same observation."
+
+     Action/result: Promoted `0x38` in `tools/logic_opcode_evidence.py` and
+     regenerated `docs/src/logic_opcode_evidence.md`.
+
+313. Reported: "The generated evidence file is refreshed. I'm reading the exact
+     local paragraphs now so the new fixed-priority note lands with the related
+     object-bit and compatibility material instead of becoming a stray footnote."
+
+     Action/result: Located the relevant sections in the opcode, object
+     pipeline, compatibility, clean-room notes, and current status chapters.
+
+314. Reported: "I found the doc anchors. The new note is intentionally narrow:
+     `0x38` clears the fixed-priority bit, and the original engine then derives
+     priority from Y, enough to draw over a control-6 synthetic background at
+     baseline 80."
+
+     Action/result: Updated `docs/src/logic_bytecode.md` with the
+     QEMU-validated visible effect of `0x38`.
+
+315. Reported: "Opcode prose is updated. I'm now tying the same behavior into
+     the object pipeline chapter and the compatibility replay chapter."
+
+     Action/result: Added the fixed-priority clear-bit note to
+     `docs/src/graphics_object_pipeline.md`.
+
+316. Reported: "The object pipeline now records the visible `0x38` effect next
+     to the flag-bit map. I'm adding the exact one-case QEMU command to the
+     compatibility chapter so it can be replayed later."
+
+     Action/result: Added the fixed-priority batch command and summary to
+     `docs/src/compatibility_testing.md`.
+
+317. Reported: "The replay command is in. I'm adding the chronological
+     clean-room note next, including the initial sandbox failure and the
+     successful elevated QEMU run because both are part of the evidence trail."
+
+     Action/result: Added the fixed-priority clear-bit QEMU section to
+     `docs/src/clean_room_executable_notes.md`.
+
+318. Reported: "The clean-room log now has the fixed-priority probe as a dated
+     section. I'm updating the handoff status page so the latest confirmed
+     object-bit behavior is visible at a glance."
+
+     Action/result: Added the fixed-priority finding to
+     `docs/src/current_status.md`.
+
+319. Reported: "The progress log is caught up through the docs edits. I'm
+     running the compatibility/unit checks, the generated evidence check, mdBook
+     build, and whitespace check now."
+
+     Action/result: `python3 -B -m unittest discover -s tests` passed 93 tests;
+     `python3 -B tools/logic_opcode_evidence.py --check`, `mdbook build docs`,
+     and `git diff --check` also passed.
+
+320. Reported: "All checks passed: 93 unit tests, evidence check, mdBook, and
+     diff whitespace. I'm recording that validation in the progress log, then
+     I'll do a final status/diff review."
+
+     Action/result: Recorded the validation result for the fixed-priority
+     clear-bit pass.
+
+321. Reported: "I'll keep advancing the object-state opcode evidence, staying
+     close to the current uncommitted work. The next useful pocket is the
+     remaining bitfield actions that are still only dispatch-smoke: I'll inspect
+     the harness support and pick ones whose effects can be made visible
+     without inventing too much scaffolding."
+
+     Action/result: Reviewed the current working tree, logic-interpreter probe
+     cases, evidence metadata, and existing docs for the remaining
+     dispatch-smoke object opcodes.
+
+322. Reported: "The remaining smoke list splits into two kinds: bits that
+     affect drawing/update-list behavior, and fields/modes that can be observed
+     through existing getters or movement outcomes. I'm narrowing on the
+     low-risk ones first: `0x4c`/`0x4e` and the bit toggles that have a visible
+     movement or placement consequence."
+
+     Action/result: Inspected existing logic and movement probe support to find
+     observable paths for object-state opcodes.
+
+323. Reported: "There are already getters for some fields, so we can convert
+     several smoke cases into ordinary logic probes without touching the
+     renderer. I'm going to add focused cases for `0x4c` and `0x4e`, and then
+     look for a clean way to make `0x40..0x42` or `0x58..0x59` observable."
+
+     Action/result: Confirmed that `0x4e` can be observed through motion
+     behavior, while `0x4c` still lacks a direct visible assertion.
+
+324. Reported: "`0x4e` has a natural visible test: start an autonomous mode,
+     immediately clear mode byte `+0x22`, and confirm the object stays put
+     during the later update cycles. I’m also reading the acceptance-test docs
+     because bits `0x0100`, `0x0800`, and `0x0002` appear to influence movement
+     against control pixels."
+
+     Action/result: Read the movement pipeline and control/priority acceptance
+     sections to confirm that `0x4e` can be validated with a focused movement
+     fixture.
+
+325. Reported: "The movement docs confirm a few of the remaining bits are not
+     just hidden state; they sit inside the movement acceptance predicate. For
+     this pass I'm going to add one focused `0x4e` movement case first, since it
+     is straightforward and should either match or give us a precise
+     correction."
+
+     Action/result: Chose a one-case QEMU movement probe for `0x4e`.
+
+326. Reported: "I'm going to make a small fixture addition rather than
+     hand-assembling bytes in the movement harness. That keeps the evidence
+     trail readable: `clear_object_field_22_and_global_action()` will map
+     directly to opcode `0x4e`."
+
+     Action/result: Added `clear_object_field_22_and_global_action()` to
+     `tools/qemu_fixture.py`.
+
+327. Reported: "The opcode helper is in place. Next I'm adding the movement
+     case that starts random motion on object 0 and immediately applies `0x4e`,
+     expecting the later QEMU capture to remain at the starting position."
+
+     Action/result: Added movement case
+     `clear_field_22_after_random_motion_stops_motion` and a new
+     `random_motion_then_clear_4e` path in `tools/object_movement_probe.py`.
+
+328. Reported: "The movement harness now has a `random_motion_then_clear_4e`
+     path. I'm updating the tests so the new case and byte helper are pinned
+     before I run QEMU."
+
+     Action/result: Added the new case id to
+     `tests/test_object_movement_probe.py`.
+
+329. Reported: "The case list test is updated. I'm adding the direct byte-level
+     fixture test for the new `0x4e` helper too, so the generated logic is
+     self-checking."
+
+     Action/result: Imported and tested
+     `clear_object_field_22_and_global_action()` in
+     `tests/test_qemu_fixture.py`.
+
+330. Reported: "The helper test area already has the autonomous-motion byte
+     encodings. I'm adding `0x4e` there beside the related motion-control
+     opcodes."
+
+     Action/result: Added the expected byte sequence `4e 02` to the autonomous
+     motion fixture test.
+
+331. Reported: "The fixture tests now pin the new action byte sequence. I'll
+     run the focused unit tests before spending a QEMU run."
+
+     Action/result: `python3 -B -m unittest tests.test_object_movement_probe
+     tests.test_qemu_fixture` passed 33 tests, and
+     `python3 -B -m unittest tests.test_logic_interpreter_probe` passed 6 tests.
+
+332. Reported: "The focused tests pass. I'm running the single original-engine
+     movement case now; if QEMU agrees, `0x4e` can move from dispatch-smoke to
+     behavior validated for clearing the active motion mode."
+
+     Action/result: Ran the focused `0x4e` movement probe through QEMU with
+     elevated VNC permission.
+
+333. Reported: "QEMU matched: the object stayed at its start after `0x4e`
+     cleared the just-started random-motion mode. I'm promoting `0x4e` in the
+     evidence matrix and then documenting the exact replay command and
+     interpretation."
+
+     Action/result: QEMU report
+     `build/object-movement-probes/batches/clear_field_22_001.json` matched
+     with 1 match, 0 mismatches, and 0 errors.
+
+334. Reported: "`0x4e` is now marked as a QEMU-backed action in the evidence
+     metadata. I'm regenerating the generated evidence chapter."
+
+     Action/result: Promoted `0x4e` in `tools/logic_opcode_evidence.py` and
+     regenerated `docs/src/logic_opcode_evidence.md`.
+
+335. Reported: "The generated matrix is refreshed. I'm patching the prose docs
+     now: opcode row note, movement pipeline note, compatibility replay command,
+     clean-room chronology, and current status."
+
+     Action/result: Began documenting the `0x4e` QEMU result in prose docs.
+
+336. Reported: "The documentation shape is clear. I'm adding the `0x4e` result
+     as 'motion-mode clearing is visible', while keeping the global side effect
+     sourced to static analysis until we build a direct flag/global probe."
+
+     Action/result: Updated `docs/src/logic_bytecode.md` with the
+     QEMU-validated visible `0x4e` effect.
+
+337. Reported: "The opcode row now names the exact QEMU-visible part of
+     `0x4e`. I'm adding the same observation to the movement chapter near the
+     mode-control description."
+
+     Action/result: Began updating `docs/src/graphics_object_pipeline.md`.
+
+338. Reported: "The random-motion section wording is a little different than
+     the snippet I had in mind, so I've got the exact paragraph now and will
+     insert the `0x4e` note there."
+
+     Action/result: Added the `0x4e` random-motion stop note to
+     `docs/src/graphics_object_pipeline.md`.
+
+339. Reported: "The movement chapter now records the `0x4e` stop behavior. I'm
+     adding the replay command to the compatibility chapter beside the existing
+     single-case movement batches."
+
+     Action/result: Located the single-case movement-batch section in
+     `docs/src/compatibility_testing.md`.
+
+340. Reported: "The compatibility chapter has a good slot right after the
+     `0x44` single-case movement batch. I'm adding the `0x4e` replay command
+     there."
+
+     Action/result: Added the `0x4e` movement replay command and match summary
+     to `docs/src/compatibility_testing.md`.
+
+341. Reported: "The replay command is documented. I'm adding the chronological
+     clean-room section for the new helper, harness case, QEMU run, and evidence
+     promotion."
+
+     Action/result: Added the `0x4e` clean-room evidence section to
+     `docs/src/clean_room_executable_notes.md`.
+
+342. Reported: "The dated evidence note is in. I'm updating the status page
+     with the new confirmed motion-control behavior."
+
+     Action/result: Added the `0x4e` finding to `docs/src/current_status.md`.
+
+343. Reported: "The status page is current. I'm catching the progress log up
+     for this continuation, including the QEMU result and evidence promotion,
+     then I'll run the full validation suite."
+
+     Action/result: Began appending the progress-log entries for this
+     continuation.
+
+344. Reported: "The progress log is up to date through the `0x4e` work. I'm
+     running the full test suite, evidence check, mdBook build, and whitespace
+     check now."
+
+     Action/result: `python3 -B -m unittest discover -s tests` passed 93 tests;
+     `python3 -B tools/logic_opcode_evidence.py --check`, `mdbook build docs`,
+     and `git diff --check` also passed.
+
+345. Reported: "All four checks passed. I'm adding that validation note to the
+     progress log, then I'll do the quick mdBook/whitespace rerun because the
+     log itself changed."
+
+     Action/result: Recorded the validation result for the `0x4e` motion-mode
+     clearing pass.
+
+346. Reported: "Got it: I'll keep going through the whole sequence and leave
+     the commit for you."
+
+     Action/result: Continued the movement/object-bit reverse-engineering pass
+     without committing.
+
+347. Reported: "The existing renderer gives us a direct way to make control
+     classes visible. I'm going to target `0x58`/`0x59` first because the
+     disassembly suggests they gate special control acceptance, then use QEMU
+     only to confirm the visible result."
+
+     Action/result: Chose synthetic control-screen movement probes for the
+     object-bit handlers.
+
+348. Reported: "I'm going to add explicit fixture helpers for the object-bit
+     opcodes instead of hand-assembling bytes in the probe cases."
+
+     Action/result: Added reusable logic-action helpers for `0x58`, `0x59`,
+     `0x40`, `0x41`, `0x42`, and rectangle bounds `0x5a`.
+
+349. Reported: "The `0x58`/`0x59` byte helpers are in, and I'm wiring the first
+     movement cases around a synthetic control-screen fill."
+
+     Action/result: Added initial object-movement probe cases for control-class
+     acceptance.
+
+350. Reported: "The movement cases are wired; I'm adding focused tests so the
+     generated fixture bytes and case registry stay pinned down."
+
+     Action/result: Added unit-test coverage for the new movement cases.
+
+351. Reported: "Imports are updated. I'm adding assertions for the exact helper
+     encodings before running the focused tests."
+
+     Action/result: Added fixture-helper byte-encoding assertions.
+
+352. Reported: "The tests now cover the helper bytes and the new case ids. I'm
+     running those focused tests before touching QEMU."
+
+     Action/result: Ran the focused helper/probe tests successfully.
+
+353. Reported: "Focused tests pass. I'm running the three control-1 acceptance
+     cases through QEMU now."
+
+     Action/result: Began a targeted QEMU batch for the first control-class
+     movement cases.
+
+354. Reported: "The QEMU mismatch shows the full-screen control-1 fill is not
+     the right oracle: the engine accepts the move when our expectation said it
+     should block. I'm switching to the rectangle-boundary path the disassembly
+     also points at for `0x58`/`0x59`."
+
+     Action/result: Reclassified the initial result as a bad probe design and
+     added rectangle-boundary cases.
+
+355. Reported: "I added a helper for `0x5a` rectangle bounds and am replacing
+     the weak control-fill assertions with boundary-crossing movement cases."
+
+     Action/result: Added `0x5a` fixture support and rectangle-boundary
+     movement fixtures.
+
+356. Reported: "The movement harness now has both the corrected control-1
+     observations and the rectangle-boundary cases. I'm pinning those names in
+     tests."
+
+     Action/result: Updated movement-probe tests for the revised case set.
+
+357. Reported: "Tests are patched. I'm rerunning the focused unit tests before
+     launching the corrected QEMU batch."
+
+     Action/result: Re-ran the focused unit tests successfully.
+
+358. Reported: "Focused tests pass. I'm rerunning QEMU with the corrected
+     control-1 observations and the new rectangle-boundary cases."
+
+     Action/result: Ran the revised QEMU batch.
+
+359. Reported: "The corrected control-1 cases all matched, but the rectangle
+     case still reached the target. I'm going back to static inspection of the
+     boundary branch before trying another fixture tweak."
+
+     Action/result: Paused the failed rectangle hypothesis and inspected the
+     movement/boundary code path.
+
+360. Reported: "Interesting: rectangle-boundary also reached the target, which
+     means the bit probably gates a specific movement mode or countdown path
+     rather than all object motion. I'm dumping the surrounding branch now."
+
+     Action/result: Disassembled the surrounding movement branch.
+
+361. Reported: "The static dump shows the boundary check is behind the
+     pre-movement mode dispatcher and only for objects with direction active,
+     active/update bits, and clear `0x0002`. I'll adapt the probe to that path."
+
+     Action/result: Identified the gating conditions for the rectangle-boundary
+     helper.
+
+362. Reported: "Before moving on, I'm inspecting the actual branch target so the
+     next fixture is based on code shape instead of another guess."
+
+     Action/result: Continued static inspection of the rectangle-boundary
+     target and object-field tests.
+
+363. Reported: "Aha, the bit `0x0002` branch lives in the pre-movement mode
+     dispatcher. I'm changing the rectangle-boundary cases to use the
+     countdown-gated autonomous path that reaches that branch."
+
+     Action/result: Reworked rectangle-boundary probes to drive the relevant
+     update path.
+
+364. Reported: "For the rectangle cases I'll reuse the existing one-shot
+     autonomous mode machinery, because that already gives the object an active
+     direction across cycles."
+
+     Action/result: Connected the rectangle-boundary cases to the autonomous
+     movement machinery.
+
+365. Reported: "The rectangle cases now use countdown-gated motion and compare
+     the final object position. I'm running the focused tests again."
+
+     Action/result: Re-ran focused unit tests after the rectangle-case rewrite.
+
+366. Reported: "Focused tests pass. I'm running the three rectangle-boundary
+     cases through QEMU."
+
+     Action/result: Ran the corrected rectangle-boundary QEMU batch.
+
+367. Reported: "That worked: all three rectangle-boundary cases matched. I'm
+     recording that as the positive evidence for `0x58`/`0x59`, then moving to
+     the control-class bits `0x40`/`0x41`/`0x42`."
+
+     Action/result: Promoted the rectangle-boundary result as QEMU evidence for
+     `0x58`/`0x59`.
+
+368. Reported: "The acceptance helper is clear enough now: control class 2
+     checks bit `0x0100`, class 3 checks bit `0x0800`, and `0x42` clears both.
+     I'm adding QEMU cases that follow that exact branch."
+
+     Action/result: Added class-2/class-3 object-control cases for `0x40`,
+     `0x41`, and `0x42`.
+
+369. Reported: "The `0x40`/`0x41`/`0x42` helpers are in. I'm adding case
+     coverage for control classes 2 and 3 with priority 14 so the scan actually
+     runs."
+
+     Action/result: Added fixture helpers and movement-probe cases for the
+     control-class bits.
+
+370. Reported: "The control-class cases are added; I'm expanding the tests to
+     pin the helper encodings and case ids."
+
+     Action/result: Updated unit tests for the control-class probes.
+
+371. Reported: "Tests now include the new control-class cases. I'm running the
+     focused suite before QEMU."
+
+     Action/result: Ran the focused unit tests.
+
+372. Reported: "Focused tests pass. I'm running the four control-class QEMU
+     cases for `0x40`/`0x41`/`0x42`."
+
+     Action/result: Started the control-class QEMU batch.
+
+373. Reported: "The first `0x0100` case did not block, so I'm inspecting the
+     acceptance path again instead of forcing the expected output."
+
+     Action/result: Returned to static inspection after the QEMU mismatch.
+
+374. Reported: "Found the missing piece: I used priority 15, and the code skips
+     the control scan at that priority. I'm lowering these probes to priority
+     14 and expecting rejection to leave the object visible but stationary."
+
+     Action/result: Corrected the control-class probes to avoid the priority-15
+     bypass.
+
+375. Reported: "The control-class expectations are now tied to the priority-14
+     scan path. I'm rerunning the focused tests before another QEMU pass."
+
+     Action/result: Re-ran the focused unit tests.
+
+376. Reported: "Focused tests pass again. I'm running the combined
+     control/rectangle QEMU batch."
+
+     Action/result: Ran a larger QEMU batch for control and rectangle behavior.
+
+377. Reported: "The control-1 rejection now matches, but setting bit `0x0002`
+     did not make the object visible or moving there. I'm going to document
+     `0x58` via the rectangle-boundary evidence and keep the control-1 branch as
+     a separate observed behavior."
+
+     Action/result: Split the `0x58` positive evidence from the class-1
+     control-screen observations.
+
+378. Reported: "The `0x58` case also has no visible object under full
+     control-1 fill, so I'm renaming those cases to describe what they actually
+     prove rather than what I hoped they would prove."
+
+     Action/result: Renamed the control-1 cases to reflect observed hidden/no
+     movement behavior.
+
+379. Reported: "Names and expectations now reflect the real class-1
+     observation. I'm running a clean batch with the renamed cases and the
+     control-class bits."
+
+     Action/result: Prepared the corrected acceptance batch.
+
+380. Reported: "The corrected acceptance batch is running. If it matches, I'll
+     promote the class-2/class-3 results as evidence for `0x40`/`0x41`/`0x42`."
+
+     Action/result: Ran the corrected control acceptance batch.
+
+381. Reported: "Great: control-1 and rectangle matched; `0x0100` differs only
+     because I expected a plain picture while the rejected object remains
+     visible at the start point. I'm updating the oracle to the actual static
+     branch result."
+
+     Action/result: Corrected the class-2/class-3 rejection oracle to visible,
+     stationary objects.
+
+382. Reported: "For control class 2, `0x0100` blocks movement but leaves the
+     object visible at its starting location. I'm mirroring that expectation for
+     class 3 and rerunning the four-bit batch."
+
+     Action/result: Updated both class-2 and class-3 blocked expectations.
+
+383. Reported: "The class-2 and class-3 rejection cases now expect a stationary
+     visible object. Focused tests pass, and I'm rerunning just those four QEMU
+     cases."
+
+     Action/result: Re-ran the focused unit tests and the four-case QEMU batch.
+
+384. Reported: "The `0x40`/`0x41`/`0x42` batch matched exactly. I'm running the
+     clean control-1 batch too so that observation has its own compact report."
+
+     Action/result: Captured matching QEMU evidence for the class-2/class-3
+     control-bit behavior.
+
+385. Reported: "The control-class-1 clean report matched too. I'm promoting the
+     QEMU evidence metadata for `0x40`, `0x41`, `0x42`, `0x58`, and `0x59` now."
+
+     Action/result: Promoted the matching movement-probe batches in
+     `tools/logic_opcode_evidence.py`.
+
+386. Reported: "The opcode table is regenerated with those five opcodes marked
+     as QEMU-backed. I'm patching the prose docs with the static branch and the
+     matching batch names."
+
+     Action/result: Regenerated `docs/src/logic_opcode_evidence.md` and began
+     prose documentation updates.
+
+387. Reported: "I'm going to document the control-screen acceptance helper,
+     rectangle-boundary branch, and corrected probe results together so the
+     earlier false starts are preserved as corrections."
+
+     Action/result: Updated the opcode, movement pipeline, compatibility, and
+     clean-room notes with the corrected evidence.
+
+388. Reported: "I found exact doc locations. I'm applying the labels first, then
+     the prose can refer to stable names rather than raw addresses."
+
+     Action/result: Added symbolic labels for the control-acceptance and
+     rectangle-boundary routines.
+
+389. Reported: "Symbolic labels are updated. I'm patching the opcode chapter
+     next with the verified summaries and evidence names."
+
+     Action/result: Updated the logic-bytecode chapter rows for `0x40`,
+     `0x41`, `0x42`, `0x58`, and `0x59`.
+
+390. Reported: "The opcode rows now include the bit semantics and matching QEMU
+     evidence. I'm updating the object pipeline chapter with the actual
+     branch-level explanation."
+
+     Action/result: Added the branch-level explanation to
+     `docs/src/graphics_object_pipeline.md`.
+
+391. Reported: "The object pipeline now describes priority-15 bypass,
+     control-class bits, and rectangle-boundary gating. I'm adding replay
+     commands to the compatibility chapter."
+
+     Action/result: Added replay commands for the matched QEMU batches.
+
+392. Reported: "Compatibility docs now have the three replay batches. I'm
+     adding the chronological clean-room note with the false starts and
+     corrections."
+
+     Action/result: Added the detailed chronology to
+     `docs/src/clean_room_executable_notes.md`.
+
+393. Reported: "The clean-room notes now preserve the failed assumptions, the
+     corrected static reading, and the matching batches. I'm updating the status
+     page, then I'll continue to the remaining object animation/update opcodes."
+
+     Action/result: Updated `docs/src/current_status.md` with the new
+     control/priority finding.
+
+394. Reported: "That batch is documented. I'm moving on to `0x46`-`0x4c`,
+     starting from the handler offsets and the update loop before making any
+     new QEMU cases."
+
+     Action/result: Began static inspection of the object animation/update
+     handlers.
+
+395. Reported: "The handler offset mismatch is a useful warning: the table is
+     image-relative, while the file has an MZ header. I'm normalizing that
+     before trusting any handler disassembly."
+
+     Action/result: Started checking the executable image/file-offset mapping.
+
+396. Reported: "I found a compact visible probe for `0x46`/`0x47`/`0x49`/`0x4c`,
+     but before running it I'm checking the code path that decrements frame
+     counters and chooses the next cel."
+
+     Action/result: Added draft animation probe cases but deferred QEMU pending
+     static confirmation.
+
+397. Reported: "You're right. The QEMU probes are valuable, but I let them
+     become the search strategy instead of the cross-check. I'll course-correct:
+     first inspect and label the disassembled routines, derive the behavior from
+     those code paths, and use QEMU only for small validation probes after the
+     static story is clear."
+
+     Action/result: Changed the active methodology back to disassembly-first
+     analysis at the user's direction.
+
+398. Reported: "First I'm sorting out the offset convention so every handler
+     label lands on the right bytes. Then I'll walk the `0x46`-`0x4c` handlers
+     and the per-cycle update callback directly from the executable."
+
+     Action/result: Began verifying MZ header/image-offset conventions before
+     continuing handler disassembly.
+
+399. Reported: "The progress log is caught up through the correction. I'm now
+     normalizing the executable offsets: the opcode table gives loaded-image
+     offsets, while `ndisasm -e` needs the MZ header included in the file
+     offset."
+
+     Action/result: Confirmed that handler table addresses are image-relative
+     and map to file offsets by adding the MZ header size.
+
+400. Reported: "The offset mapping checks out: handlers from `AGIDATA.OVL` are
+     loaded-image addresses, and in the MZ file the bytes are at `image_offset +
+     0x200`. I've confirmed that on the `0x5a`, `0x58`, and animation-control
+     handlers."
+
+     Action/result: Used focused `ndisasm` slices to verify the image/file
+     mapping and handler starts.
+
+401. Reported: "The static path is now much clearer. The per-cycle object
+     updater at image `0x0563` scans active objects, decrements byte `+0x20`
+     when bit `0x0020` is set, calls the frame-mode helper at `0x48b3` when
+     that countdown reaches zero, then reloads `+0x20` from `+0x1f`."
+
+     Action/result: Identified the frame-timer scan and its reload behavior
+     from disassembly.
+
+402. Reported: "The frame-mode helper at image `0x48b3` is the missing
+     high-level piece: mode 0 loops frames forward, mode 1 advances forward and
+     stops/sets a flag at the last frame, mode 2 steps backward and stops/sets
+     a flag, and mode 3 loops backward. This gives us a spec-level model for
+     `0x46`-`0x4c` before any emulator check."
+
+     Action/result: Derived the frame-mode state machine from static
+     disassembly.
+
+403. Reported: "One important detail from the static path: actions `0x49` and
+     `0x4b` set bit `0x1000`, and `code.object.advance_frame_by_mode` consumes
+     that bit by clearing it and returning before the first frame change. So
+     those modes have a one-callback startup delay; the docs need to say that
+     explicitly."
+
+     Action/result: Added the bit-`0x1000` startup-delay behavior to the static
+     model.
+
+404. Reported: "I've added stable labels for the frame timer scan and
+     frame-mode dispatcher, so the rest of the prose can now talk about those
+     routines symbolically rather than as loose addresses."
+
+     Action/result: Added `code.object.frame_timer_update` and
+     `code.object.advance_frame_by_mode` to `docs/src/symbolic_labels.md`.
+
+405. Reported: "The opcode chapter now corrects `0x4c`: it does not clear
+     `+0x20`; it copies the variable value into both `+0x1f` and `+0x20`. That
+     was exactly the kind of thing the disassembly-first pass was meant to
+     catch."
+
+     Action/result: Corrected the `0x4c` opcode documentation and expanded the
+     frame-timer explanation.
+
+406. Reported: "I'm adding the static evidence trail now: table offsets, MZ
+     offset convention, focused disassembly slices, and the corrected `0x4c`
+     interpretation. Then I'll let the small QEMU probes validate the derived
+     model rather than discover it."
+
+     Action/result: Added the static frame-timer/frame-mode analysis section to
+     `docs/src/clean_room_executable_notes.md`.
+
+407. Reported: "The clean-room notes now include the course correction and the
+     exact static evidence. I'm tightening the fixture tests for the new helper
+     bytes before running the targeted animation validations."
+
+     Action/result: Added helper-byte assertions for actions `0x46`, `0x47`,
+     `0x49`, and `0x4c`.
+
+408. Reported: "The helper-byte tests now cover `0x46`, `0x47`, `0x49`, and
+     `0x4c`. I'm running the focused Python tests before I ask QEMU to validate
+     the visible frame behavior."
+
+     Action/result: Ran focused unit tests and the opcode evidence check; both
+     passed.
+
+409. Reported: "Focused tests passed. Now I'm running only the three
+     frame-timer QEMU cases that follow from the static model: normal mode-1
+     advance, `0x46` disabling the timer, and `0x47` restoring it."
+
+     Action/result: Started the `frame_timer_001` QEMU validation batch.
+
+410. Reported: "As expected, the sandbox blocked QEMU's local VNC bind. I'm
+     rerunning the same narrow validation outside the sandbox so the emulator
+     can open its monitor/display sockets."
+
+     Action/result: Reran the same QEMU command with approved elevated
+     permission for the object-movement probe.
+
+411. Reported: "QEMU is running the snapshot batch now. While it works, I'm not
+     adding more guesses; the next edits depend on whether those three cases
+     match the disassembly-derived expectations."
+
+     Action/result: Waited for the QEMU snapshot batch to complete.
+
+412. Reported: "The frame-timer QEMU batch matched all three cases. That
+     validates the static model's visible pieces: `0x4c` seeds the countdown,
+     `0x46` suppresses the advance by clearing bit `0x0020`, and `0x47`
+     restores it."
+
+     Action/result: Recorded `frame_timer_001` as a matched QEMU batch.
+
+413. Reported: "I'm promoting only the opcodes directly covered by that batch:
+     `0x46`, `0x47`, and `0x4c`. `0x49` already had QEMU flag-clearing
+     evidence, and this batch will be cited as additional frame-mode evidence in
+     prose rather than overloading the metadata."
+
+     Action/result: Updated `tools/logic_opcode_evidence.py` to promote
+     `0x46`, `0x47`, and `0x4c` to QEMU behavior evidence.
+
+414. Reported: "The evidence metadata now marks `0x46`, `0x47`, and `0x4c` as
+     behavior-validated by `frame_timer_001` instead of dispatch-smoke. I'm
+     regenerating the evidence chapter and then I'll document the QEMU result in
+     prose."
+
+     Action/result: Regenerated `docs/src/logic_opcode_evidence.md`.
+
+415. Reported: "The generated evidence chapter is refreshed. I'm adding the
+     replay command and result summary to the compatibility and clean-room docs
+     so the validation trail is reproducible."
+
+     Action/result: Began documenting the frame-timer QEMU batch in prose docs.
+
+416. Reported: "I found the compatibility section next to the movement batches.
+     I'm placing `frame_timer_001` there and linking it to the exact opcodes it
+     validates."
+
+     Action/result: Added the `frame_timer_001` replay command to
+     `docs/src/compatibility_testing.md`.
+
+417. Reported: "The opcode and graphics chapters now include the QEMU-backed
+     frame-timer result. I'm appending the exact batch command/result to the
+     clean-room chronology next."
+
+     Action/result: Added the `frame_timer_001` result to the logic-bytecode,
+     graphics-object-pipeline, and clean-room notes.
+
+418. Reported: "The clean-room chronology has the frame-timer validation and the
+     sandbox failure/rerun recorded. I'm updating the current status so the
+     'next step' no longer says this is unvalidated."
+
+     Action/result: Updated `docs/src/current_status.md` to mark the frame timer
+     model as QEMU-validated for visible mode-1 behavior.
+
+419. Reported: "Current status is updated. I'm catching the progress log up
+     through the static analysis, the QEMU validation, and the evidence
+     promotion before running the full validation suite."
+
+     Action/result: Appended progress-log entries for the frame-timer analysis
+     and validation pass.
+
+420. Reported: "The progress log is current. I'm running the full local
+     compatibility suite, evidence check, mdBook build, and whitespace check
+     now."
+
+     Action/result: `python3 -B -m unittest discover -s tests` passed 97 tests;
+     `python3 -B tools/logic_opcode_evidence.py --check`, `mdbook build docs`,
+     and `git diff --check` also passed.
+
+421. Reported: "All four checks passed: 97 Python tests, evidence check, mdBook
+     build, and `git diff --check`. I'm adding that validation note to the
+     progress log, then I'll do the tiny final mdBook/whitespace rerun because
+     the log changed."
+
+     Action/result: Recorded the successful validation suite result.

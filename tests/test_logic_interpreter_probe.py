@@ -66,8 +66,17 @@ class LogicInterpreterProbeTests(unittest.TestCase):
         self.assertIn("set_object_pos_dirty_var_getter_observes_values", case_ids)
         self.assertIn("deactivate_object_removes_persistent_draw", case_ids)
         self.assertIn("clear_all_object_bits_keeps_current_draw_entry", case_ids)
+        self.assertIn("load_view_var_allows_following_draw", case_ids)
+        self.assertIn("object_field_23_mode0_dispatch_smoke", case_ids)
+        self.assertIn("object_field_23_mode1_clears_flag", case_ids)
+        self.assertIn("object_field_23_mode3_dispatch_smoke", case_ids)
+        self.assertIn("object_field_23_mode2_clears_flag", case_ids)
+        self.assertIn("horizon_clamps_object_when_bit_clear", case_ids)
+        self.assertIn("horizon_exempt_bit_keeps_object_above_horizon", case_ids)
+        self.assertIn("horizon_clear_exempt_bit_restores_clamp", case_ids)
+        self.assertIn("clear_fixed_priority_bit_uses_derived_priority", case_ids)
         self.assertEqual(len(case_ids), len(base_cases()))
-        self.assertGreaterEqual(len(case_ids), 61)
+        self.assertGreaterEqual(len(case_ids), 70)
 
     def test_json_case_loading(self) -> None:
         case = base_cases()[0]

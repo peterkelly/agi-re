@@ -17,8 +17,20 @@ from qemu_fixture import (
     assignn_action,
     approach_first_object_until_near_action,
     build_synthetic_picture_persistent_object_fixture,
+    clear_object_field_22_and_global_action,
+    clear_object_bits_0900_action,
+    clear_object_bit_0002_action,
+    clear_object_bit_0020_action,
+    clear_object_bit_0200_action,
     move_object_to_action,
+    set_object_field_1f_from_var_action,
+    set_object_field_23_mode1_action,
+    set_object_bit_0002_action,
+    set_object_bit_0100_action,
+    set_object_bit_0020_action,
     set_object_bit_0200_action,
+    set_object_bit_0800_action,
+    set_rect_bounds_action,
     set_object_step_from_var_action,
     set_object_tick_from_var_action,
     setup_persistent_object_actions,
@@ -60,6 +72,16 @@ class ObjectMovementCase:
     comparison_kind: str = "exact"
     approach_threshold: int = 0
     moving_skip_collision: bool = False
+    moving_clear_skip_collision: bool = False
+    moving_set_bit_0002: bool = False
+    moving_clear_bit_0002: bool = False
+    moving_set_bit_0100: bool = False
+    moving_set_bit_0800: bool = False
+    moving_clear_bits_0900: bool = False
+    rect_left: int | None = None
+    rect_top: int | None = None
+    rect_right: int | None = None
+    rect_bottom: int | None = None
     obstacle_x: int | None = None
     obstacle_baseline_y: int | None = None
     obstacle_view_no: int = 11
@@ -67,6 +89,12 @@ class ObjectMovementCase:
     obstacle_frame_no: int = 0
     obstacle_priority: int = 15
     obstacle_object_no: int = 1
+    expected_group_no: int | None = None
+    expected_frame_no: int | None = None
+    animation_interval: int = 0
+    animation_flag: int = 0
+    animation_clear_bit_0020: bool = False
+    animation_set_bit_0020: bool = False
 
     @property
     def picture_payload(self) -> bytes:
@@ -187,6 +215,285 @@ def base_cases() -> list[ObjectMovementCase]:
             204,
             50,
             80,
+        ),
+        ObjectMovementCase(
+            "move_control_1_without_bit_0002_blocks",
+            "Control class 1 rejects movement when bit 0x0002 is clear and object priority is not the scan-bypass value 15.",
+            bytes([0xF2, 0x01, 0xF8, 0, 0, 0xFF]).hex(),
+            0,
+            11,
+            0,
+            0,
+            20,
+            80,
+            14,
+            50,
+            80,
+            5,
+            219,
+            20,
+            80,
+            comparison_kind="picture_only",
+        ),
+        ObjectMovementCase(
+            "move_control_1_set_bit_0002_still_hidden",
+            "Action 0x58 sets bit 0x0002, but a priority-14 object on full control class 1 still remains hidden in this fixture.",
+            bytes([0xF2, 0x01, 0xF8, 0, 0, 0xFF]).hex(),
+            0,
+            11,
+            0,
+            0,
+            20,
+            80,
+            14,
+            50,
+            80,
+            5,
+            220,
+            20,
+            80,
+            comparison_kind="picture_only",
+            moving_set_bit_0002=True,
+        ),
+        ObjectMovementCase(
+            "move_control_1_clear_bit_0002_still_hidden",
+            "Action 0x59 clears bit 0x0002 after 0x58; a priority-14 object on full control class 1 remains hidden.",
+            bytes([0xF2, 0x01, 0xF8, 0, 0, 0xFF]).hex(),
+            0,
+            11,
+            0,
+            0,
+            20,
+            80,
+            14,
+            50,
+            80,
+            5,
+            221,
+            20,
+            80,
+            comparison_kind="picture_only",
+            moving_set_bit_0002=True,
+            moving_clear_bit_0002=True,
+        ),
+        ObjectMovementCase(
+            "move_rect_boundary_without_bit_0002_stops_at_edge",
+            "Rectangle-boundary crossing stops movement when bit 0x0002 is clear.",
+            b"\xff".hex(),
+            0,
+            11,
+            0,
+            0,
+            20,
+            80,
+            15,
+            50,
+            80,
+            5,
+            222,
+            30,
+            80,
+            motion_kind="move_to_once_autonomous",
+            rect_left=30,
+            rect_top=70,
+            rect_right=60,
+            rect_bottom=90,
+        ),
+        ObjectMovementCase(
+            "move_rect_boundary_set_bit_0002_reaches_target",
+            "Action 0x58 sets bit 0x0002, bypassing rectangle-boundary crossing stops.",
+            b"\xff".hex(),
+            0,
+            11,
+            0,
+            0,
+            20,
+            80,
+            15,
+            50,
+            80,
+            5,
+            223,
+            50,
+            80,
+            motion_kind="move_to_once_autonomous",
+            moving_set_bit_0002=True,
+            rect_left=30,
+            rect_top=70,
+            rect_right=60,
+            rect_bottom=90,
+        ),
+        ObjectMovementCase(
+            "move_rect_boundary_clear_bit_0002_stops_again",
+            "Action 0x59 clears bit 0x0002 after 0x58, restoring rectangle-boundary crossing stops.",
+            b"\xff".hex(),
+            0,
+            11,
+            0,
+            0,
+            20,
+            80,
+            15,
+            50,
+            80,
+            5,
+            224,
+            30,
+            80,
+            motion_kind="move_to_once_autonomous",
+            moving_set_bit_0002=True,
+            moving_clear_bit_0002=True,
+            rect_left=30,
+            rect_top=70,
+            rect_right=60,
+            rect_bottom=90,
+        ),
+        ObjectMovementCase(
+            "move_control_2_set_bit_0100_blocks",
+            "Action 0x40 sets bit 0x0100, causing control class 2 movement acceptance to reject.",
+            bytes([0xF2, 0x02, 0xF8, 0, 0, 0xFF]).hex(),
+            0,
+            11,
+            0,
+            0,
+            20,
+            80,
+            14,
+            50,
+            80,
+            5,
+            225,
+            20,
+            80,
+            moving_set_bit_0100=True,
+        ),
+        ObjectMovementCase(
+            "move_control_2_clear_bits_0900_reaches_target",
+            "Action 0x42 clears bit 0x0100 after 0x40, allowing control class 2 movement again.",
+            bytes([0xF2, 0x02, 0xF8, 0, 0, 0xFF]).hex(),
+            0,
+            11,
+            0,
+            0,
+            20,
+            80,
+            14,
+            50,
+            80,
+            5,
+            226,
+            50,
+            80,
+            moving_set_bit_0100=True,
+            moving_clear_bits_0900=True,
+        ),
+        ObjectMovementCase(
+            "move_control_3_set_bit_0800_blocks",
+            "Action 0x41 sets bit 0x0800, causing all-control-class-3 movement acceptance to reject.",
+            bytes([0xF2, 0x03, 0xF8, 0, 0, 0xFF]).hex(),
+            0,
+            11,
+            0,
+            0,
+            20,
+            80,
+            14,
+            50,
+            80,
+            5,
+            227,
+            20,
+            80,
+            moving_set_bit_0800=True,
+        ),
+        ObjectMovementCase(
+            "move_control_3_clear_bits_0900_reaches_target",
+            "Action 0x42 clears bit 0x0800 after 0x41, allowing all-control-class-3 movement again.",
+            bytes([0xF2, 0x03, 0xF8, 0, 0, 0xFF]).hex(),
+            0,
+            11,
+            0,
+            0,
+            20,
+            80,
+            14,
+            50,
+            80,
+            5,
+            228,
+            50,
+            80,
+            moving_set_bit_0800=True,
+            moving_clear_bits_0900=True,
+        ),
+        ObjectMovementCase(
+            "animation_interval_mode1_reaches_frame1",
+            "Action 0x4c seeds the callback interval; mode-1 object animation reaches view 11 frame 1.",
+            b"\xff".hex(),
+            0,
+            11,
+            0,
+            0,
+            50,
+            80,
+            15,
+            0,
+            0,
+            0,
+            229,
+            50,
+            80,
+            motion_kind="animation_only",
+            expected_frame_no=1,
+            animation_interval=1,
+            animation_flag=229,
+        ),
+        ObjectMovementCase(
+            "animation_clear_bit_0020_prevents_frame_advance",
+            "Action 0x46 clears bit 0x0020 after mode-1 setup, preventing the frame-advance callback.",
+            b"\xff".hex(),
+            0,
+            11,
+            0,
+            0,
+            50,
+            80,
+            15,
+            0,
+            0,
+            0,
+            230,
+            50,
+            80,
+            motion_kind="animation_only",
+            expected_frame_no=0,
+            animation_interval=1,
+            animation_flag=230,
+            animation_clear_bit_0020=True,
+        ),
+        ObjectMovementCase(
+            "animation_set_bit_0020_restores_frame_advance",
+            "Action 0x47 sets bit 0x0020 after 0x46, restoring the frame-advance callback.",
+            b"\xff".hex(),
+            0,
+            11,
+            0,
+            0,
+            50,
+            80,
+            15,
+            0,
+            0,
+            0,
+            231,
+            50,
+            80,
+            motion_kind="animation_only",
+            expected_frame_no=1,
+            animation_interval=1,
+            animation_flag=231,
+            animation_clear_bit_0020=True,
+            animation_set_bit_0020=True,
         ),
         ObjectMovementCase(
             "move_left_to_target",
@@ -356,6 +663,28 @@ def base_cases() -> list[ObjectMovementCase]:
             obstacle_baseline_y=80,
         ),
         ObjectMovementCase(
+            "move_collision_clear_skip_bit_blocks_again",
+            "Clearing object bit 0x0200 after setting it restores object-object collision testing.",
+            b"\xff".hex(),
+            0,
+            11,
+            0,
+            0,
+            20,
+            80,
+            15,
+            80,
+            80,
+            5,
+            217,
+            25,
+            80,
+            moving_skip_collision=True,
+            moving_clear_skip_collision=True,
+            obstacle_x=50,
+            obstacle_baseline_y=80,
+        ),
+        ObjectMovementCase(
             "approach_first_object_until_near_band",
             "Object 1 autonomously approaches object 0 and stops once their centers are within the configured near threshold.",
             b"\xff".hex(),
@@ -418,14 +747,41 @@ def base_cases() -> list[ObjectMovementCase]:
             motion_kind="random_motion",
             comparison_kind="any_position",
         ),
+        ObjectMovementCase(
+            "clear_field_22_after_random_motion_stops_motion",
+            "Action 0x4e clears object byte +0x22 after random motion setup, so the object does not continue moving.",
+            b"\xff".hex(),
+            0,
+            11,
+            0,
+            0,
+            60,
+            80,
+            15,
+            0,
+            0,
+            5,
+            218,
+            60,
+            80,
+            motion_kind="random_motion_then_clear_4e",
+        ),
     ]
 
 
-def load_cases(path: Path | None) -> list[ObjectMovementCase]:
+def load_cases(path: Path | None, selected_ids: list[str] | None = None) -> list[ObjectMovementCase]:
     if path is None:
-        return base_cases()
-    data = json.loads(path.read_text(encoding="ascii"))
-    return [ObjectMovementCase(**item) for item in data]
+        cases = base_cases()
+    else:
+        data = json.loads(path.read_text(encoding="ascii"))
+        cases = [ObjectMovementCase(**item) for item in data]
+    if selected_ids:
+        selected = set(selected_ids)
+        cases = [case for case in cases if case.case_id in selected]
+        missing = selected - {case.case_id for case in cases}
+        if missing:
+            raise ValueError(f"unknown case id(s): {', '.join(sorted(missing))}")
+    return cases
 
 
 def qemu_batch_dos_dir(prefix: str, index: int) -> str:
@@ -437,14 +793,19 @@ def compare_capture(case: ObjectMovementCase, capture: Path) -> MovementComparis
     try:
         captured = downsample_qemu_picture_nibbles(read_ppm(capture))
         picture = PictureRenderer(case.picture_payload).render(case.picture_no)
-        frame = render_view_frame(case.view_no, case.group_no, case.frame_no)
-        expected = compose_frame_on_picture(
-            picture,
-            frame,
-            case.expected_x,
-            case.expected_baseline_y,
-            case.priority,
-        )
+        expected_group_no = case.group_no if case.expected_group_no is None else case.expected_group_no
+        expected_frame_no = case.frame_no if case.expected_frame_no is None else case.expected_frame_no
+        frame = render_view_frame(case.view_no, expected_group_no, expected_frame_no)
+        if case.comparison_kind == "picture_only":
+            expected = picture
+        else:
+            expected = compose_frame_on_picture(
+                picture,
+                frame,
+                case.expected_x,
+                case.expected_baseline_y,
+                case.priority,
+            )
         if case.obstacle_x is not None and case.obstacle_baseline_y is not None:
             obstacle_frame = render_view_frame(case.obstacle_view_no, case.obstacle_group_no, case.obstacle_frame_no)
             expected = compose_frame_on_picture(
@@ -587,8 +948,32 @@ def run_snapshot_batch(
 
 def post_activate_actions(case: ObjectMovementCase) -> bytes:
     actions = b""
+    if case.rect_left is not None:
+        if case.rect_top is None or case.rect_right is None or case.rect_bottom is None:
+            raise ValueError(f"{case.case_id}: all rectangle bounds must be set together")
+        actions += set_rect_bounds_action(case.rect_left, case.rect_top, case.rect_right, case.rect_bottom)
+    if case.moving_set_bit_0002:
+        actions += set_object_bit_0002_action(case.object_no)
+    if case.moving_clear_bit_0002:
+        actions += clear_object_bit_0002_action(case.object_no)
+    if case.moving_set_bit_0100:
+        actions += set_object_bit_0100_action(case.object_no)
+    if case.moving_set_bit_0800:
+        actions += set_object_bit_0800_action(case.object_no)
+    if case.moving_clear_bits_0900:
+        actions += clear_object_bits_0900_action(case.object_no)
+    if case.animation_interval:
+        actions += assignn_action(MOTION_VALUE_VAR, case.animation_interval)
+        actions += set_object_field_1f_from_var_action(case.object_no, MOTION_VALUE_VAR)
+        actions += set_object_field_23_mode1_action(case.object_no, case.animation_flag)
+        if case.animation_clear_bit_0020:
+            actions += clear_object_bit_0020_action(case.object_no)
+        if case.animation_set_bit_0020:
+            actions += set_object_bit_0020_action(case.object_no)
     if case.moving_skip_collision:
         actions += set_object_bit_0200_action(case.object_no)
+    if case.moving_clear_skip_collision:
+        actions += clear_object_bit_0200_action(case.object_no)
     if case.obstacle_x is not None and case.obstacle_baseline_y is not None:
         actions += setup_persistent_object_actions(
             case.obstacle_view_no,
@@ -619,12 +1004,14 @@ def post_activate_actions(case: ObjectMovementCase) -> bytes:
             case.step_size,
             case.completion_flag,
         )
-    if case.motion_kind == "random_motion":
+    if case.motion_kind in {"random_motion", "random_motion_then_clear_4e"}:
         actions += assignn_action(MOTION_VALUE_VAR, case.step_size)
         actions += set_object_step_from_var_action(case.object_no, MOTION_VALUE_VAR)
         actions += assignn_action(MOTION_TICK_VAR, 1)
         actions += set_object_tick_from_var_action(case.object_no, MOTION_TICK_VAR)
         actions += start_random_motion_action(case.object_no)
+        if case.motion_kind == "random_motion_then_clear_4e":
+            actions += clear_object_field_22_and_global_action(case.object_no)
     return actions
 
 
@@ -637,7 +1024,13 @@ def per_cycle_actions(case: ObjectMovementCase) -> bytes:
             case.step_size,
             case.completion_flag,
         )
-    if case.motion_kind in {"approach_first", "move_to_once_autonomous", "random_motion"}:
+    if case.motion_kind in {
+        "approach_first",
+        "move_to_once_autonomous",
+        "random_motion",
+        "random_motion_then_clear_4e",
+        "animation_only",
+    }:
         return b""
     raise ValueError(f"unsupported motion kind: {case.motion_kind}")
 
@@ -666,6 +1059,7 @@ def write_report(results: list[MovementBatchResult], output: Path) -> dict[str, 
 def main() -> None:
     parser = argparse.ArgumentParser()
     parser.add_argument("--cases", type=Path)
+    parser.add_argument("--case", dest="case_ids", action="append", default=[])
     parser.add_argument("--fixture-root", type=Path, default=DEFAULT_FIXTURES)
     parser.add_argument("--output", type=Path, default=DEFAULT_RESULTS / "object_movement_base.json")
     parser.add_argument("--dos-prefix", default="MV")
@@ -677,7 +1071,7 @@ def main() -> None:
     args = parser.parse_args()
 
     results = run_snapshot_batch(
-        load_cases(args.cases),
+        load_cases(args.cases, args.case_ids),
         args.fixture_root,
         args.boot_wait,
         args.draw_wait,

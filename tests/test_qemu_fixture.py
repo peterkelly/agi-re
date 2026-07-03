@@ -22,6 +22,10 @@ from qemu_fixture import (  # noqa: E402
     build_synthetic_picture_fixture,
     if_then,
     logic_resource,
+    clear_object_bit_0020_action,
+    clear_object_field_22_and_global_action,
+    clear_object_bits_0900_action,
+    clear_object_bit_0002_action,
     move_object_to_action,
     not_flag_set_condition,
     patch_dir_entry,
@@ -33,7 +37,15 @@ from qemu_fixture import (  # noqa: E402
     rebuild_priority_table_action,
     run_once_logic,
     set_flag_action,
+    set_object_bit_0020_action,
+    set_object_bit_0002_action,
+    set_object_bit_0100_action,
     set_object_bit_0200_action,
+    set_object_bit_0800_action,
+    set_object_field_1f_from_var_action,
+    set_object_field_23_mode1_action,
+    set_rect_bounds_action,
+    clear_object_bit_0200_action,
     set_object_step_from_var_action,
     set_object_tick_from_var_action,
     setup_transient_object_action,
@@ -211,8 +223,10 @@ class QemuFixtureTests(unittest.TestCase):
 
     def test_autonomous_motion_actions_encode_fixed_operands(self) -> None:
         self.assertEqual(approach_first_object_until_near_action(1, 25, 214), bytes([0x53, 1, 25, 214]))
+        self.assertEqual(clear_object_field_22_and_global_action(2), bytes([0x4E, 2]))
         self.assertEqual(start_random_motion_action(2), bytes([0x54, 2]))
         self.assertEqual(stop_motion_mode_action(2), bytes([0x55, 2]))
+        self.assertEqual(set_rect_bounds_action(30, 70, 60, 90), bytes([0x5A, 30, 70, 60, 90]))
         self.assertEqual(set_object_step_from_var_action(1, 249), bytes([0x4F, 1, 249]))
         self.assertEqual(set_object_tick_from_var_action(1, 248), bytes([0x50, 1, 248]))
 
@@ -222,6 +236,24 @@ class QemuFixtureTests(unittest.TestCase):
 
     def test_set_object_bit_0200_action_encodes_fixed_operand(self) -> None:
         self.assertEqual(set_object_bit_0200_action(3), bytes([0x43, 3]))
+
+    def test_clear_object_bit_0200_action_encodes_fixed_operand(self) -> None:
+        self.assertEqual(clear_object_bit_0200_action(3), bytes([0x44, 3]))
+
+    def test_object_bit_0002_actions_encode_fixed_operand(self) -> None:
+        self.assertEqual(set_object_bit_0002_action(3), bytes([0x58, 3]))
+        self.assertEqual(clear_object_bit_0002_action(3), bytes([0x59, 3]))
+
+    def test_object_bits_0900_actions_encode_fixed_operand(self) -> None:
+        self.assertEqual(set_object_bit_0100_action(3), bytes([0x40, 3]))
+        self.assertEqual(set_object_bit_0800_action(3), bytes([0x41, 3]))
+        self.assertEqual(clear_object_bits_0900_action(3), bytes([0x42, 3]))
+
+    def test_frame_timer_actions_encode_fixed_operands(self) -> None:
+        self.assertEqual(set_object_field_1f_from_var_action(3, 249), bytes([0x4C, 3, 249]))
+        self.assertEqual(set_object_field_23_mode1_action(3, 77), bytes([0x49, 3, 77]))
+        self.assertEqual(clear_object_bit_0020_action(3), bytes([0x46, 3]))
+        self.assertEqual(set_object_bit_0020_action(3), bytes([0x47, 3]))
 
     def test_logdir_patch_points_logic_zero_at_volume_three_offset_zero(self) -> None:
         original = bytes([0x10, 0x6D, 0x1B, 0xFF, 0xFF, 0xFF])

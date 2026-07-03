@@ -286,6 +286,36 @@ The corrected fixture matched QEMU with 0 mismatches. These probes add
 QEMU-backed evidence for `0x22`, `0x24`, `0x28`, `0x7f`, `0x82`, `0x93`,
 `0x94`, `0x9b`, and `0xaf`.
 
+Run the variable view-load and object field `+0x23` follow-up batch:
+
+```bash
+python3 -B tools/logic_interpreter_probe.py --dos-prefix LH --output build/logic-interpreter-probes/batches/load_view_field23_001.json --boot-wait 5 --draw-wait 8 --stop-on-failure --case load_view_var_allows_following_draw --case object_field_23_mode0_dispatch_smoke --case object_field_23_mode1_clears_flag --case object_field_23_mode3_dispatch_smoke --case object_field_23_mode2_clears_flag
+```
+
+This five-case batch matched QEMU with 0 mismatches. It validates `0x1f`
+loading a variable-selected view before a draw, validates the observable flag
+clearing side effect of `0x49` and `0x4b`, and adds dispatch-smoke evidence for
+`0x48` and `0x4a`.
+
+Run the horizon-bit placement batch:
+
+```bash
+python3 -B tools/logic_interpreter_probe.py --dos-prefix LZ --output build/logic-interpreter-probes/batches/horizon_bits_001.json --boot-wait 5 --draw-wait 8 --stop-on-failure --case horizon_clamps_object_when_bit_clear --case horizon_exempt_bit_keeps_object_above_horizon --case horizon_clear_exempt_bit_restores_clamp
+```
+
+This three-case batch matched QEMU with 0 mismatches. It validates `0x3f`
+setting the horizon-like global, `0x3d` exempting an object from the horizon
+clamp, and `0x3e` restoring the clamp after the exemption bit was set.
+
+Run the fixed-priority clear-bit placement batch:
+
+```bash
+python3 -B tools/logic_interpreter_probe.py --dos-prefix LP --output build/logic-interpreter-probes/batches/fixed_priority_bit_001.json --boot-wait 5 --draw-wait 8 --stop-on-failure --case clear_fixed_priority_bit_uses_derived_priority
+```
+
+This one-case batch matched QEMU with 0 mismatches. It validates that `0x38`
+clears the fixed-priority bit and returns placement to Y-derived priority.
+
 Regenerate the opcode evidence matrix after updating opcode labels or probe
 annotations:
 
@@ -390,6 +420,49 @@ python3 -B tools/picture_fuzz.py compare-capture base_004_clamped_absolute build
   property-style random-motion case where `0x54` renders the object exactly at
   some valid final position. In the recorded run that random final position was
   `(140,112)`.
+- A targeted single-case movement batch validates `0x44`
+  (`clear_object_bit_0200`) by setting the collision-skip bit, clearing it, and
+  observing that object-object collision blocking returns:
+
+  ```bash
+  python3 -B tools/object_movement_probe.py --dos-prefix MD --output build/object-movement-probes/batches/clear_skip_bit_001.json --boot-wait 5 --draw-wait 8 --stop-on-failure --case move_collision_clear_skip_bit_blocks_again
+  ```
+
+  The batch matched QEMU with 0 mismatches.
+- A targeted single-case movement batch validates the visible mode-byte effect
+  of `0x4e` (`clear_object_field_22_and_global`) by starting random motion,
+  immediately clearing object byte `+0x22`, and observing that the object
+  remains at its starting position:
+
+  ```bash
+  python3 -B tools/object_movement_probe.py --dos-prefix ME --output build/object-movement-probes/batches/clear_field_22_001.json --boot-wait 5 --draw-wait 8 --stop-on-failure --case clear_field_22_after_random_motion_stops_motion
+  ```
+
+  The batch matched QEMU with 0 mismatches.
+- Targeted frame-timer probes validate visible effects of actions `0x46`,
+  `0x47`, and `0x4c`:
+
+  ```bash
+  python3 -B tools/object_movement_probe.py --dos-prefix MA --output build/object-movement-probes/batches/frame_timer_001.json --boot-wait 5 --draw-wait 8 --stop-on-failure --case animation_interval_mode1_reaches_frame1 --case animation_clear_bit_0020_prevents_frame_advance --case animation_set_bit_0020_restores_frame_advance
+  ```
+
+  The batch matched QEMU with 3 matches, 0 mismatches, and 0 errors. It
+  validates that `0x4c` seeds the frame timer, `0x46` disables the timer-driven
+  frame advance by clearing bit `0x0020`, and `0x47` restores that advance.
+- Targeted movement batches validate additional object control/priority bits:
+
+  ```bash
+  python3 -B tools/object_movement_probe.py --dos-prefix M1 --output build/object-movement-probes/batches/control_class_1_hidden_001.json --boot-wait 5 --draw-wait 8 --stop-on-failure --case move_control_1_without_bit_0002_blocks --case move_control_1_set_bit_0002_still_hidden --case move_control_1_clear_bit_0002_still_hidden
+  python3 -B tools/object_movement_probe.py --dos-prefix MB --output build/object-movement-probes/batches/rect_bit_0002_001.json --boot-wait 5 --draw-wait 8 --stop-on-failure --case move_rect_boundary_without_bit_0002_stops_at_edge --case move_rect_boundary_set_bit_0002_reaches_target --case move_rect_boundary_clear_bit_0002_stops_again
+  python3 -B tools/object_movement_probe.py --dos-prefix M9 --output build/object-movement-probes/batches/control_bits_0900_002.json --boot-wait 5 --draw-wait 8 --stop-on-failure --case move_control_2_set_bit_0100_blocks --case move_control_2_clear_bits_0900_reaches_target --case move_control_3_set_bit_0800_blocks --case move_control_3_clear_bits_0900_reaches_target
+  ```
+
+  These batches matched QEMU with 0 mismatches. They validate `0x58`/`0x59`
+  through rectangle-boundary crossing behavior, `0x40`/`0x41` through
+  control-class movement rejection, and `0x42` restoring movement after either
+  rejection bit is set. The control-class-1 batch also records that a
+  priority-14 object on a full control-class-1 picture remains hidden even when
+  bit `0x0002` is set.
 - `tests/test_picture_fuzz.py` covers deterministic fuzz generation, manifest
   writing, Python render-result recording, scaled synthetic capture comparison
   without booting QEMU, QEMU unsafe-case rejection, and mocked batch reporting.

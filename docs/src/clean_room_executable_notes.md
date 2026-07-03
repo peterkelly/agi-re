@@ -3326,3 +3326,271 @@ Documented result:
 - Regenerated `docs/src/logic_opcode_evidence.md`; actions `0x22`, `0x24`,
   `0x28`, `0x7f`, `0x82`, `0x93`, `0x94`, `0x9b`, and `0xaf` are now recorded
   with QEMU-backed evidence.
+
+## 2026-07-03: variable view load and object field +0x23 probes
+
+Commands run from `/Users/peter/ai/agi/reverse`:
+
+- `python3 -B -m unittest tests.test_logic_interpreter_probe`
+- `python3 -B tools/logic_interpreter_probe.py --dos-prefix LH --output build/logic-interpreter-probes/batches/load_view_field23_001.json --boot-wait 5 --draw-wait 8 --stop-on-failure --case load_view_var_allows_following_draw --case object_field_23_mode0_dispatch_smoke --case object_field_23_mode1_clears_flag --case object_field_23_mode3_dispatch_smoke --case object_field_23_mode2_clears_flag`
+- `python3 -B tools/logic_opcode_evidence.py`
+- `python3 -B tools/logic_opcode_evidence.py --check`
+
+Documented result:
+
+- Added a `preload_view_no` option to `tools/logic_interpreter_probe.py` so
+  individual cases can start without the default `load_view 11` prelude. This
+  was necessary for the `0x1f` probe: if view 11 were preloaded, a following
+  draw would not prove that `load_view_var` did the loading.
+- The five-case QEMU batch
+  `build/logic-interpreter-probes/batches/load_view_field23_001.json` matched
+  with 5 matches, 0 mismatches, and 0 errors.
+- `0x1f` (`load_view_var`) is now QEMU-validated: a fixture assigns variable 1
+  to view 11, executes `0x1f`, and then draws view 11 successfully without any
+  earlier view preload.
+- `0x49` (`set_object_field_23_mode1`) and `0x4b`
+  (`set_object_field_23_mode2`) are QEMU-validated for the observable part of
+  their setup contract: each clears its flag operand, and the generated logic
+  draws only if that flag is observed clear.
+- `0x48` (`set_object_field_23_mode0`) and `0x4a`
+  (`set_object_field_23_mode3`) are recorded as QEMU dispatch-smoke evidence:
+  the fixtures prove each opcode executes and returns to following draw
+  bytecode, but they do not directly expose object byte `+0x23`.
+
+## 2026-07-03: collision-skip clear-bit movement probe
+
+Commands run from `/Users/peter/ai/agi/reverse`:
+
+- `python3 -B -m unittest tests.test_qemu_fixture tests.test_object_movement_probe`
+- `python3 -B tools/object_movement_probe.py --dos-prefix MD --output build/object-movement-probes/batches/clear_skip_bit_001.json --boot-wait 5 --draw-wait 8 --stop-on-failure --case move_collision_clear_skip_bit_blocks_again`
+- `python3 -B tools/logic_opcode_evidence.py`
+- `python3 -B tools/logic_opcode_evidence.py --check`
+
+Documented result:
+
+- Added `clear_object_bit_0200_action()` to `tools/qemu_fixture.py`, encoding
+  action `0x44` with one fixed object operand.
+- Added filtered `--case` support to `tools/object_movement_probe.py` so a
+  single movement case can be rerun without rebuilding the whole movement
+  corpus.
+- Added movement case `move_collision_clear_skip_bit_blocks_again`: object 0
+  first sets collision-skip bit `0x0200` with `0x43`, then clears it with
+  `0x44`, then moves toward object 1. QEMU matched the expected blocked result
+  at `(25,80)`, proving that `0x44` restores normal object-object collision
+  testing after the bit was set.
+- Regenerated `docs/src/logic_opcode_evidence.md`; action `0x44` is now
+  recorded as QEMU-validated instead of dispatch-smoke.
+
+## 2026-07-03: horizon-bit placement probes
+
+Commands run from `/Users/peter/ai/agi/reverse`:
+
+- `python3 -B -m unittest tests.test_logic_interpreter_probe`
+- `python3 -B tools/logic_interpreter_probe.py --dos-prefix LZ --output build/logic-interpreter-probes/batches/horizon_bits_001.json --boot-wait 5 --draw-wait 8 --stop-on-failure --case horizon_clamps_object_when_bit_clear --case horizon_exempt_bit_keeps_object_above_horizon --case horizon_clear_exempt_bit_restores_clamp`
+- `python3 -B tools/logic_opcode_evidence.py`
+- `python3 -B tools/logic_opcode_evidence.py --check`
+
+Documented result:
+
+- Added three logic-interpreter QEMU cases around the horizon-like placement
+  clamp:
+  - `horizon_clamps_object_when_bit_clear`: `0x3f` sets `[0x012d] = 100`; a
+    reset object placed at baseline `80` clamps to baseline `101`;
+  - `horizon_exempt_bit_keeps_object_above_horizon`: after `0x3d` sets object
+    bit `0x0008`, the same placement remains at baseline `80`;
+  - `horizon_clear_exempt_bit_restores_clamp`: after `0x3d` sets and `0x3e`
+    clears bit `0x0008`, the placement clamps to baseline `101` again.
+- The QEMU batch `build/logic-interpreter-probes/batches/horizon_bits_001.json`
+  matched with 3 matches, 0 mismatches, and 0 errors.
+- Regenerated `docs/src/logic_opcode_evidence.md`; actions `0x3d`, `0x3e`, and
+  `0x3f` are now QEMU-validated instead of source-backed or dispatch-smoke.
+
+## 2026-07-03: fixed-priority clear-bit probe
+
+Commands run from `/Users/peter/ai/agi/reverse`:
+
+- `python3 -B tools/logic_interpreter_probe.py --dos-prefix LP --output build/logic-interpreter-probes/batches/fixed_priority_bit_001.json --boot-wait 5 --draw-wait 8 --stop-on-failure --case clear_fixed_priority_bit_uses_derived_priority`
+- The first attempt failed under the restricted sandbox because QEMU could not
+  bind `127.0.0.1:5` for VNC. The same command was rerun with elevated QEMU
+  permission.
+- `python3 -B tools/logic_opcode_evidence.py`
+
+Documented result:
+
+- Added logic-interpreter QEMU case
+  `clear_fixed_priority_bit_uses_derived_priority`.
+- The fixture draws a synthetic control-6 picture, sets object 10 to fixed
+  priority/control byte `5` with action `0x36`, then clears object bit `0x0004`
+  with action `0x38` before drawing.
+- QEMU matched the expected visible output: at baseline `80`, placement derived
+  priority `7` from Y and drew over the control-6 background. This validates
+  the observable effect of `0x38`, not just its dispatch.
+- Regenerated `docs/src/logic_opcode_evidence.md`; action `0x38` is now
+  recorded as QEMU-validated instead of dispatch-smoke.
+
+## 2026-07-03: clear motion mode with action 0x4e
+
+Commands run from `/Users/peter/ai/agi/reverse`:
+
+- `python3 -B -m unittest tests.test_object_movement_probe tests.test_qemu_fixture`
+- `python3 -B -m unittest tests.test_logic_interpreter_probe`
+- `python3 -B tools/object_movement_probe.py --dos-prefix ME --output build/object-movement-probes/batches/clear_field_22_001.json --boot-wait 5 --draw-wait 8 --stop-on-failure --case clear_field_22_after_random_motion_stops_motion`
+- `python3 -B tools/logic_opcode_evidence.py`
+
+Documented result:
+
+- Added `clear_object_field_22_and_global_action()` to `tools/qemu_fixture.py`,
+  encoding action `0x4e` with one fixed object operand.
+- Added movement case `clear_field_22_after_random_motion_stops_motion`: object
+  0 is initialized at `(60,80)`, random motion is started with action `0x54`,
+  and action `0x4e` is executed immediately afterward.
+- QEMU matched the expected stationary result at `(60,80)`. This validates the
+  visible object byte `+0x22` clearing effect of `0x4e`; the static side effect
+  on global `[0x0139]` remains documented from disassembly rather than this
+  capture.
+- Regenerated `docs/src/logic_opcode_evidence.md`; action `0x4e` is now
+  recorded as QEMU-validated instead of dispatch-smoke.
+
+## 2026-07-03: control and rectangle object-bit probes
+
+Commands run from `/Users/peter/ai/agi/reverse`:
+
+- `python3 -B -m unittest tests.test_object_movement_probe tests.test_qemu_fixture`
+- Exploratory batch:
+  `python3 -B tools/object_movement_probe.py --dos-prefix MC --output build/object-movement-probes/batches/control_bit_0002_001.json --boot-wait 5 --draw-wait 8 --stop-on-failure --case move_control_1_without_bit_0002_blocks --case move_control_1_set_bit_0002_reaches_target --case move_control_1_clear_bit_0002_blocks_again`
+- Exploratory batch:
+  `python3 -B tools/object_movement_probe.py --dos-prefix MR --output build/object-movement-probes/batches/control_bit_0002_002.json --boot-wait 5 --draw-wait 8 --stop-on-failure --case move_control_1_without_bit_0002_reaches_target --case move_control_1_set_bit_0002_reaches_target --case move_control_1_clear_bit_0002_still_reaches_target --case move_rect_boundary_without_bit_0002_stops_at_edge --case move_rect_boundary_set_bit_0002_reaches_target --case move_rect_boundary_clear_bit_0002_stops_again`
+- Matched rectangle-boundary batch:
+  `python3 -B tools/object_movement_probe.py --dos-prefix MB --output build/object-movement-probes/batches/rect_bit_0002_001.json --boot-wait 5 --draw-wait 8 --stop-on-failure --case move_rect_boundary_without_bit_0002_stops_at_edge --case move_rect_boundary_set_bit_0002_reaches_target --case move_rect_boundary_clear_bit_0002_stops_again`
+- Exploratory full acceptance batch:
+  `python3 -B tools/object_movement_probe.py --dos-prefix MX --output build/object-movement-probes/batches/control_bits_acceptance_002.json --boot-wait 5 --draw-wait 8 --stop-on-failure --case move_control_1_without_bit_0002_blocks --case move_control_1_set_bit_0002_reaches_target --case move_control_1_clear_bit_0002_blocks_again --case move_rect_boundary_without_bit_0002_stops_at_edge --case move_rect_boundary_set_bit_0002_reaches_target --case move_rect_boundary_clear_bit_0002_stops_again --case move_control_2_set_bit_0100_blocks --case move_control_2_clear_bits_0900_reaches_target --case move_control_3_set_bit_0800_blocks --case move_control_3_clear_bits_0900_reaches_target`
+- Matched control-class-1 hidden batch:
+  `python3 -B tools/object_movement_probe.py --dos-prefix M1 --output build/object-movement-probes/batches/control_class_1_hidden_001.json --boot-wait 5 --draw-wait 8 --stop-on-failure --case move_control_1_without_bit_0002_blocks --case move_control_1_set_bit_0002_still_hidden --case move_control_1_clear_bit_0002_still_hidden`
+- Matched control-class-2/3 rejection batch:
+  `python3 -B tools/object_movement_probe.py --dos-prefix M9 --output build/object-movement-probes/batches/control_bits_0900_002.json --boot-wait 5 --draw-wait 8 --stop-on-failure --case move_control_2_set_bit_0100_blocks --case move_control_2_clear_bits_0900_reaches_target --case move_control_3_set_bit_0800_blocks --case move_control_3_clear_bits_0900_reaches_target`
+- `python3 -B tools/logic_opcode_evidence.py`
+
+Documented result:
+
+- Added fixture helpers for actions `0x40`, `0x41`, `0x42`, `0x58`, `0x59`,
+  and `0x5a`.
+- Added `picture_only` comparison support to `tools/object_movement_probe.py`
+  for cases where the original engine leaves no visible object and the capture
+  should equal the rendered picture alone.
+- The first control-class-1 probes used fixed priority/control `15` and reached
+  the target, exposing that `code.object.control_acceptance` skips the scan when
+  object byte `+0x24 == 0x0f`.
+- Repeating control-class-1 probes at fixed priority/control `14` produced
+  plain-picture captures whether bit `0x0002` was clear, set by `0x58`, or set
+  then cleared by `0x59`. This is recorded as control-class/visibility evidence,
+  not as the positive `0x58` movement oracle.
+- The positive `0x58`/`0x59` oracle is rectangle-boundary behavior in
+  `code.motion.pre_mode_and_boundary_update`: with rectangle bounds
+  `(30,70)..(60,90)`, countdown-gated movement from `(20,80)` toward `(50,80)`
+  stops at `(30,80)` when bit `0x0002` is clear, reaches `(50,80)` after
+  `0x58`, and stops at `(30,80)` again after `0x59`.
+- QEMU validates `0x40`: setting bit `0x0100` leaves a priority-14 object
+  visible at `(20,80)` on a full control-class-2 picture and prevents movement
+  to `(50,80)`.
+- QEMU validates `0x41`: setting bit `0x0800` leaves a priority-14 object
+  visible at `(20,80)` on a full control-class-3 picture and prevents movement
+  to `(50,80)`.
+- QEMU validates `0x42`: clearing bits `0x0100`/`0x0800` after `0x40` or
+  `0x41` restores movement to `(50,80)`.
+- Added symbolic labels `code.object.control_acceptance`,
+  `code.motion.pre_mode_and_boundary_update`, and
+  `code.motion.rectangle_boundary_check`.
+- Regenerated `docs/src/logic_opcode_evidence.md`; actions `0x40`, `0x41`,
+  `0x42`, `0x58`, and `0x59` are now QEMU-validated instead of
+  dispatch-smoke.
+
+## 2026-07-03: static frame-timer and frame-mode analysis
+
+Commands run from `/Users/peter/ai/agi/reverse`:
+
+- `python3 -B -c "import struct; data=open('build/cleanroom/AGI.decrypted.exe','rb').read(64); print(struct.unpack_from('<14H', data, 0))"`
+- `python3 -B -c "import sys; sys.path.insert(0,'tools'); from disassemble_logic import AGIDATA, load_table; data=AGIDATA.read_bytes(); table=load_table(data,0x061d,0xb0); [print(f'{op:02x} handler={table[op].handler:04x} argc={table[op].argc} meta={table[op].meta:02x}') for op in [0x3a,0x3b,0x3c,0x46,0x47,0x48,0x49,0x4a,0x4b,0x4c,0x58,0x59,0x5a]]"`
+- `ndisasm -b 16 -o 0 build/cleanroom/AGI.decrypted.exe > build/cleanroom/AGI.decrypted.ndisasm`
+- `dd if=build/cleanroom/AGI.decrypted.exe of=build/cleanroom/slice_6ac8.bin bs=1 skip=27848 count=570`
+- `dd if=build/cleanroom/AGI.decrypted.exe of=build/cleanroom/slice_0400.bin bs=1 skip=1536 count=1700`
+- `dd if=build/cleanroom/AGI.decrypted.exe of=build/cleanroom/slice_4800.bin bs=1 skip=18944 count=1200`
+- `ndisasm -b 16 -o 0x6ac8 build/cleanroom/slice_6ac8.bin`
+- `ndisasm -b 16 -o 0x0400 build/cleanroom/slice_0400.bin`
+- `ndisasm -b 16 -o 0x4800 build/cleanroom/slice_4800.bin`
+- `rg -n "call 0x48|call 0x4[0-9a-f]{3}|\\[di\\+0x20\\]|\\[di\\+0x23\\]|\\[di\\+0x1f\\]" build/cleanroom/AGI.decrypted.ndisasm`
+
+Documented result:
+
+- Re-centered this pass on static disassembly after the user pointed out that
+  the work had drifted too far toward trial-and-error QEMU probing. QEMU remains
+  useful as a validation tool, but the behavior model in this section comes
+  from the executable.
+- Confirmed the MZ/header address convention for handler disassembly. The
+  action dispatch table in `SQ2/AGIDATA.OVL` stores loaded-image offsets; the
+  decrypted executable file stores the corresponding bytes at image offset
+  `+0x0200`, because the executable header is 32 paragraphs. For example action
+  `0x5a` is table/image `0x7b4e` and its bytes are at file offset `0x7d4e`.
+- Confirmed action table entries:
+  - `0x46` handler `0x6c97`, one operand: clears object flag bit `0x0020`.
+  - `0x47` handler `0x6cbc`, one operand: sets object flag bit `0x0020`.
+  - `0x48` handler `0x6b82`, one operand: sets byte `+0x23 = 0` and bit
+    `0x0020`.
+  - `0x49` handler `0x6bae`, two operands: sets byte `+0x23 = 1`, sets bits
+    `0x1030`, stores operand 1 in byte `+0x27`, and clears that flag.
+  - `0x4a` handler `0x6beb`, one operand: sets byte `+0x23 = 3` and bit
+    `0x0020`.
+  - `0x4b` handler `0x6c17`, two operands: sets byte `+0x23 = 2`, sets bits
+    `0x1030`, stores operand 1 in byte `+0x27`, and clears that flag.
+  - `0x4c` handler `0x6c54`, two operands: reads `var[arg1]` and copies the
+    byte into both object bytes `+0x1f` and `+0x20`. This corrects the earlier
+    wording that said `+0x20` was cleared.
+- Labeled `code.object.frame_timer_update` at image `0x0563`. It scans object
+  records from `[0x096b]` to `[0x096d]`, selecting records whose flag word
+  satisfies `(flags & 0x0051) == 0x0051`. If bit `0x0020` is set and byte
+  `+0x20` is nonzero, it decrements `+0x20`; when the decrement reaches zero,
+  it calls `code.object.advance_frame_by_mode` and reloads `+0x20` from
+  `+0x1f`.
+- Labeled `code.object.advance_frame_by_mode` at image `0x48b3`. If bit
+  `0x1000` is set, the helper clears that bit and returns without changing the
+  selected frame. Otherwise byte `+0x23` selects one of four frame behaviors:
+  mode 0 increments and wraps; mode 1 increments toward the last frame and
+  completes there; mode 2 decrements once and completes, or completes
+  immediately at frame 0; mode 3 decrements and wraps from frame 0 to the last
+  frame.
+- Completion in frame modes 1 and 2 sets flag byte `+0x27`, clears object bit
+  `0x0020`, clears direction byte `+0x21`, and resets byte `+0x23` to zero.
+- Updated `docs/src/symbolic_labels.md`, `docs/src/logic_bytecode.md`,
+  `docs/src/graphics_object_pipeline.md`, and `docs/src/current_status.md` with
+  this static model.
+
+## 2026-07-03: QEMU validation of frame-timer actions
+
+Commands run from `/Users/peter/ai/agi/reverse`:
+
+- `python3 -B -m unittest tests.test_qemu_fixture tests.test_object_movement_probe`
+- `python3 -B tools/logic_opcode_evidence.py --check`
+- `python3 -B tools/object_movement_probe.py --dos-prefix MA --output build/object-movement-probes/batches/frame_timer_001.json --boot-wait 5 --draw-wait 8 --stop-on-failure --case animation_interval_mode1_reaches_frame1 --case animation_clear_bit_0020_prevents_frame_advance --case animation_set_bit_0020_restores_frame_advance`
+- The first QEMU attempt failed under the restricted sandbox because QEMU could
+  not bind `127.0.0.1:5` for VNC. The same command was rerun with approved
+  elevated permission for `python3 -B tools/object_movement_probe.py`.
+- `python3 -B tools/logic_opcode_evidence.py`
+
+Documented result:
+
+- Focused tests `tests.test_qemu_fixture` and `tests.test_object_movement_probe`
+  passed, covering the newly added helper encodings and movement case registry.
+- QEMU batch `build/object-movement-probes/batches/frame_timer_001.json`
+  matched with 3 matches, 0 mismatches, and 0 errors:
+  - `animation_interval_mode1_reaches_frame1`: action `0x4c` seeds the frame
+    timer and action `0x49` starts mode 1; view 11/group 0 advances from frame
+    0 to frame 1.
+  - `animation_clear_bit_0020_prevents_frame_advance`: action `0x46` clears
+    bit `0x0020` after setup, so the frame remains 0.
+  - `animation_set_bit_0020_restores_frame_advance`: action `0x47` sets bit
+    `0x0020` after `0x46`, restoring the frame advance to frame 1.
+- Promoted actions `0x46`, `0x47`, and `0x4c` in
+  `tools/logic_opcode_evidence.py` from QEMU dispatch-smoke to QEMU behavior
+  evidence backed by `object_movement_probe: frame_timer_001`, then regenerated
+  `docs/src/logic_opcode_evidence.md`.
+- Updated `docs/src/logic_bytecode.md`, `docs/src/graphics_object_pipeline.md`,
+  and `docs/src/compatibility_testing.md` with the replay command and result.

@@ -31,15 +31,34 @@ through visible output.
 - `0x54` (`start_random_motion`) has a property-style QEMU probe: the object
   must render exactly at some valid final position. The recorded run ended at
   `(140,112)`.
+- `0x4e` (`clear_object_field_22_and_global`) has a focused QEMU probe for its
+  visible mode-byte effect: after `0x54` starts random motion, `0x4e` clears
+  object byte `+0x22`, and the object remains at `(60,80)`.
 - Object-object collision helper `0x4719` is documented: moving-object bit
   `0x0200` skips the test, candidates need active/update flags, equal grouping
   byte `+0x02` is skipped, then horizontal overlap and Y equality/crossing are
-  tested.
+  tested. A follow-up QEMU probe validates that action `0x44` clears this skip
+  bit and restores the default collision stop.
+- Horizon-like placement is QEMU-validated for `[0x012d] = 100`: with bit
+  `0x0008` clear, an object placed at baseline `80` clamps to `101`; action
+  `0x3d` exempts the object and action `0x3e` restores the clamp.
+- Fixed-priority clearing is QEMU-validated: after `0x36` fixes an object's
+  priority/control byte to `5`, action `0x38` clears bit `0x0004`; at baseline
+  `80`, the object derives priority `7` and draws over a control-6 background.
+- Control/priority acceptance bits now have focused QEMU probes. `0x58` and
+  `0x59` set/clear bit `0x0002`, bypassing or restoring a rectangle-boundary
+  crossing stop. `0x40` and `0x41` set bits `0x0100` and `0x0800`, blocking
+  movement over full control-class-2 or control-class-3 pictures for a
+  priority-14 object; `0x42` clears those bits and restores movement.
 - Approach stuck recovery in `0x0b36` is source-backed: when bit `0x4000`
   reports no movement, the helper chooses a random nonzero direction and stores
   a retry delay in `+0x29`.
-- The setup side of object byte `+0x23` is documented from actions `0x48..0x4b`,
-  but automatic frame-cycling runtime behavior is not yet modeled.
+- Object frame-cycling is now modeled from static disassembly: `0x4c` seeds
+  timer bytes `+0x1f`/`+0x20`, bit `0x0020` enables the countdown, and
+  `code.object.advance_frame_by_mode` interprets modes `0..3` as forward loop,
+  forward-to-last completion, backward completion, and backward loop. QEMU
+  batch `frame_timer_001` validates visible mode-1 advancement and the
+  `0x46`/`0x47` bit gate.
 
 ## Confirmed Graphics and View Findings
 
@@ -89,7 +108,10 @@ Return to the logic interpreter:
    several bitfield/helper actions. The subsequent object-state/misc batch adds
    QEMU-backed evidence for `0x22`, `0x24`, `0x28`, `0x7f`, `0x82`, `0x93`,
    `0x94`, `0x9b`, and `0xaf`; notably, `0x22` clears bits but does not
-   immediately unlink an already activated current-cycle draw entry.
+   immediately unlink an already activated current-cycle draw entry. The latest
+   small batch adds QEMU evidence for variable-selected view loading (`0x1f`),
+   flag-clearing side effects of object field `+0x23` mode actions `0x49` and
+   `0x4b`, and dispatch-smoke coverage for `0x48` and `0x4a`.
 2. Prefer QEMU fixture evidence for additional opcodes whose behavior can be made visible;
    keep source-only wording for UI, save/restore, sound, and diagnostics until a
    narrow probe is practical.

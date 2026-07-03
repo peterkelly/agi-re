@@ -338,11 +338,11 @@ The current observed field map is:
 | `+0x1a` | Width word from selected subresource; action `0x85` (`display_object_diagnostics_var`) prints it as `xsize`. |
 | `+0x1c` | Height word from selected subresource; action `0x85` (`display_object_diagnostics_var`) prints it as `ysize`. |
 | `+0x1e` | Step-size byte used by multiple motion actions; action `0x85` (`display_object_diagnostics_var`) prints it as `stepsize`. |
-| `+0x1f` | Byte set by action `0x4c` (`set_object_field_1f_var`). |
-| `+0x20` | Byte cleared with `+0x1f` changes. |
+| `+0x1f` | Frame-timer reload byte set by action `0x4c` (`set_object_field_1f_var`). |
+| `+0x20` | Current frame-timer countdown byte. Action `0x4c` copies `var[arg1]` here and to `+0x1f`; `code.object.frame_timer_update` decrements it before calling `code.object.advance_frame_by_mode`. |
 | `+0x21` | Direction-like byte used by the per-cycle movement pass and actions `0x56` (`set_object_field_21_var`)/`0x57` (`get_object_field_21`). |
 | `+0x22` | Motion/control mode byte used by actions `0x4d..0x55` (`clear_object_fields_21_22` through `stop_motion_mode`); value 1 is random autonomous motion, value 2 approaches the first object entry until near, and value 3 is targeted movement started by `0x51` (`move_object_to`) or `0x52` (`move_object_to_var`). |
-| `+0x23` | Motion/control mode byte used by actions `0x48..0x4b` (`set_object_field_23_mode0` through `set_object_field_23_mode2`). |
+| `+0x23` | Frame-cycling mode byte used by actions `0x48..0x4b` (`set_object_field_23_mode0` through `set_object_field_23_mode2`). |
 | `+0x24` | Priority/control byte; can be fixed by actions `0x36` (`set_object_field_24`)/`0x37` (`set_object_field_24_var`) or derived from Y. Action `0x85` (`display_object_diagnostics_var`) prints this byte as `pri`. |
 | `+0x25` | Word-sized flag field. |
 | `+0x27..0x2a` | Motion/control parameters. For targeted movement, `+0x27`/`+0x28` are target X/Y, `+0x29` is the saved step size, and `+0x2a` is the completion flag. For random mode, `+0x27` is a reseeded countdown. For approach-first-object mode, `+0x27` is the near threshold, `+0x28` is the completion flag, and `+0x29` is a delay/sentinel byte used after stuck recovery. |
@@ -355,11 +355,47 @@ Observed flag bits in object word `+0x25` include:
 | `0x0004` | Use object byte `+0x24` as a fixed priority/control value instead of deriving one from Y. |
 | `0x0008` | Exempts the object from the horizon-like clamp against `[0x012d]`. |
 | `0x0010` | Partitions active objects between the two update-list roots. |
+| `0x0020` | Enables `code.object.frame_timer_update` to decrement object byte `+0x20` and run `code.object.advance_frame_by_mode` when it reaches zero. |
 | `0x0040` | Required by both update-list callbacks and by the movement pass. |
 | `0x0080` | Set when the next step would cross a script-configured rectangle boundary. |
 | `0x0200` | Excludes an object from object-object collision/crossing tests. |
 | `0x0400` | Marks an object as just positioned or otherwise dirty; the movement pass skips applying direction deltas for that cycle and then clears the bit. |
+| `0x1000` | One-callback startup delay for frame modes set by actions `0x49` and `0x4b`; `code.object.advance_frame_by_mode` clears this bit and returns without changing frames. |
 | `0x4000` | Set by `0x0488` when an object remains at its saved position on an update cadence; later autonomous-direction helpers use it as a stationary/stuck marker. |
+
+A QEMU logic-interpreter probe validates the visible effect of clearing bit
+`0x0004`: after action `0x36` fixes an object's priority/control byte to `5`,
+action `0x38` makes placement derive the priority from baseline Y again. At
+baseline `80`, the derived priority is `7`, and the object draws over a
+synthetic control-6 background.
+
+`code.object.frame_timer_update` (`0x0563`) is a separate per-cycle scan over
+active object records. It considers objects whose flag word has `(flags &
+0x0051) == 0x0051`. If bit `0x0020` is set and byte `+0x20` is nonzero, it
+decrements `+0x20`; when the decrement reaches zero it calls
+`code.object.advance_frame_by_mode` (`0x48b3`) and reloads `+0x20` from
+`+0x1f`.
+
+`code.object.advance_frame_by_mode` interprets byte `+0x23` as a frame-cycling
+mode. Before dispatch, it checks bit `0x1000`; if set, the helper clears that
+bit and returns without changing the selected frame. Otherwise it starts from
+object byte `+0x0e` and the last valid frame index `+0x0f - 1`:
+
+| Mode | Setup action | Static behavior |
+| ---: | --- | --- |
+| `0` | `0x48` | Increment frame and wrap from the last frame to frame 0. |
+| `1` | `0x49` | Increment toward the last frame. On the callback that reaches the last frame, set flag `+0x27`, clear bit `0x0020`, clear direction byte `+0x21`, and reset mode `+0x23` to 0. |
+| `2` | `0x4b` | Decrement once if not already at frame 0, then set flag `+0x27`, clear bit `0x0020`, clear direction byte `+0x21`, and reset mode `+0x23` to 0. If already at frame 0, complete without changing frame. |
+| `3` | `0x4a` | Decrement frame and wrap from frame 0 to the last frame. |
+
+After choosing the frame, the helper calls `code.object.select_frame` to update
+the object record's selected frame pointer and dimensions.
+
+QEMU movement batch `frame_timer_001` validates this model for the visible
+mode-1 path: action `0x4c` seeds the countdown, action `0x49` starts forward
+completion mode, and view 11/group 0 advances from frame 0 to frame 1. The same
+batch confirms that action `0x46` suppresses the frame advance by clearing bit
+`0x0020`, while action `0x47` restores it.
 
 In addition to absolute positioning through actions `0x25` (`set_object_pos`),
 `0x26` (`set_object_pos_var`), `0x93` (`set_object_pos_dirty`), and
@@ -607,6 +643,11 @@ first bumps the Y-like field to `[0x012d] + 1`. When the starting position is
 not acceptable, the helper tries neighboring positions in a widening
 left/right/up/down pattern until the bounds and additional tests pass.
 
+QEMU horizon probes validate this path with `[0x012d] = 100`. With bit
+`0x0008` clear, placing view 11 at baseline `80` clamps it to baseline `101`.
+After action `0x3d` sets bit `0x0008`, the same placement stays at baseline
+`80`. After action `0x3e` clears the bit again, the baseline clamps to `101`.
+
 Actions `0x5a` (`set_rect_bounds_0131`) and `0x5b` (`clear_rect_bounds_0131`) configure a separate rectangle filter used by motion
 helper `0x06d9`. Action `0x5a` (`set_rect_bounds_0131`) stores four bounds in globals:
 
@@ -703,7 +744,10 @@ right from `(20,80)` toward `(80,80)` and object 1 parked at `(50,80)`, object
 0 stops at left `25`: its next proposed step would make its right edge touch
 object 1's left edge, and `0x4719` rejects the move. Setting bit `0x0200` on
 object 0 with action `0x43` lets the same fixture reach `(80,80)`, confirming
-that the moving-object skip bit bypasses this collision test.
+that the moving-object skip bit bypasses this collision test. A follow-up QEMU
+probe sets the same bit with `0x43`, immediately clears it with `0x44`, and
+observes the original collision stop at `(25,80)` again; this validates that
+`0x44` restores normal object-object collision testing.
 
 Helper `0x56b8(object)` is a control/priority-buffer acceptance test. If object
 bit `0x0004` is clear, it derives object byte `+0x24` from table `0x127a` using
@@ -724,14 +768,25 @@ global flags 3 and 0 through `0x74ee`/`0x74f4` based on the scan result. The
 exact meaning of the nibble classes is still open, but the caller contract is
 clear: nonzero permits the proposed move, zero rejects it.
 
-A QEMU movement probe adds one caution to this static reading. A synthetic
-picture payload that fills the control channel with zero
-(`f2 00 f8 00 00 ff`) still allowed view 11/group 0/frame 0 to move from
-`(20,80)` to `(50,80)` when `0x51` was reissued each cycle. This means a
-control-zero picture fill should not yet be modeled as a blanket movement
-rejection. The exact relationship between decoded picture control nibbles,
-object footprint/control writes, and the `0x56b8` scan still needs narrower
-probes.
+QEMU movement probes refine this static reading:
+
+- Priority/control byte `+0x24 == 0x0f` bypasses the `0x56b8` scan. Synthetic
+  full-screen control classes `0`, `1`, `2`, and `3` should not be modeled as
+  blanket movement rejection for fixed-priority-15 objects.
+- With fixed priority/control `14`, a full control-class-1 picture leaves no
+  visible object in the capture, even after `0x58` sets bit `0x0002`. This
+  fixture validates the hidden/control-class behavior but is not the positive
+  `0x58` movement oracle.
+- The positive `0x58`/`0x59` oracle is the rectangle-boundary helper. With
+  bounds `(30,70)..(60,90)` and countdown-gated movement from `(20,80)` to
+  `(50,80)`, bit `0x0002` clear stops the object at `(30,80)`, `0x58` lets it
+  reach `(50,80)`, and `0x59` restores the stop at `(30,80)`.
+- With fixed priority/control `14`, `0x40` setting bit `0x0100` leaves the
+  object visible at `(20,80)` on a full control-class-2 picture and prevents
+  movement to `(50,80)`. `0x42` clears the bit and restores movement.
+- With fixed priority/control `14`, `0x41` setting bit `0x0800` leaves the
+  object visible at `(20,80)` on a full control-class-3 picture and prevents
+  movement to `(50,80)`. `0x42` clears the bit and restores movement.
 
 Targeted-motion helpers immediately after the movement pass add one more piece.
 Actions `0x51` (`move_object_to`) and `0x52` (`move_object_to_var`) set
@@ -785,6 +840,12 @@ position assertion. A generated fixture sets step `5`, sets countdown byte
 `+0x01` to `1`, starts random mode, and accepts any capture that exactly
 matches the object at a valid final position. The recorded run ended at
 `(140,112)`.
+
+A focused QEMU probe validates the visible effect of action `0x4e` on this
+motion byte. The fixture starts random motion on object 0 with `0x54`, then
+immediately executes `0x4e`. During the subsequent update cycles, the object
+remains at its starting position `(60,80)`, confirming that clearing `+0x22`
+prevents the autonomous random-motion dispatcher from continuing.
 
 The expanded movement probe set also confirms leftward and upward movement,
 diagonal movement, already-at-target completion, and within-step completion. A
