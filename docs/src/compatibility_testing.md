@@ -450,6 +450,25 @@ handlers `0x9c..0xa1` and sound handlers `0x62`/`0x64` execute and return to
 following bytecode, but it is dispatch-smoke evidence rather than full
 interactive menu or audio semantics.
 
+Run the focused menu, view-resource, system/dialog, file/log, and sound
+follow-up batches:
+
+```bash
+python3 -B tools/logic_interpreter_probe.py --dos-prefix MN --output build/logic-interpreter-probes/batches/menu_interaction_001.json --boot-wait 5 --draw-wait 8 --stop-on-failure --case menu_interactive_enter_sets_status_byte
+python3 -B tools/logic_interpreter_probe.py --dos-prefix VW --output build/logic-interpreter-probes/batches/view_resource_display_001.json --boot-wait 5 --draw-wait 8 --stop-on-failure --case view_resource_display_immediate_returns --case view_resource_display_var_returns
+python3 -B tools/logic_interpreter_probe.py --dos-prefix SY --output build/logic-interpreter-probes/batches/system_dialog_001.json --boot-wait 5 --draw-wait 8 --stop-on-failure --case signature_check_matching_message_returns --case restart_confirm_escape_continues_to_draw --case confirm_restart_like_escape_continues_to_draw --case joystick_calibration_no_joystick_returns --case display_mode_toggle_guarded_noop_continues --case trace_window_config_enable_dispatch_smoke
+python3 -B tools/logic_interpreter_probe.py --dos-prefix FL --output build/logic-interpreter-probes/batches/file_log_001.json --boot-wait 5 --draw-wait 8 --stop-on-failure --case log_file_append_dispatch_smoke --case save_game_escape_continues_to_draw --case restore_game_escape_continues_to_draw
+python3 -B tools/logic_interpreter_probe.py --dos-prefix SN --output build/logic-interpreter-probes/batches/sound_completion_001.json --boot-wait 5 --draw-wait 8 --stop-on-failure --case sound_start_stop_dispatch_smoke
+```
+
+All five batches matched QEMU with 0 mismatches after the trace and sound cases
+were narrowed to stable visual assertions. They add evidence for one-item menu
+Enter selection through status byte 7, immediate and variable view-resource
+display, signature acceptance, restart/confirmation Escape cancellation,
+no-joystick calibration return, guarded display-mode no-op, gated trace-window
+configuration dispatch, save/restore Escape cancellation, log append dispatch,
+and sound load/start/stop dispatch.
+
 Regenerate the opcode evidence matrix after updating opcode labels or probe
 annotations:
 

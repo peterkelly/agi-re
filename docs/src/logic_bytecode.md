@@ -639,9 +639,12 @@ paths with synthetic resources:
   successfully drawing that view.
 
 QEMU fixture `menu_sound_001` dispatch-smokes `0x62` (`load_sound`) followed by
-`0x64` (`stop_sound_or_clear_sound_state`) with sound resource 1. This proves
-the load/clear handlers execute and return to following bytecode; it does not
-model sound playback or completion-flag timing for `0x63`.
+`0x64` (`stop_sound_or_clear_sound_state`) with sound resource 1. QEMU fixture
+`sound_completion_001` adds `0x63` coverage by first loading sound 1 with
+`0x62`, starting it with completion flag operand 77 through `0x63`, then
+clearing sound state with `0x64`. These prove the load/start/clear handlers
+execute and return to following bytecode; they do not yet model audio output or
+the exact completion-flag lifetime after asynchronous playback.
 
 Room/state switch helper `0x1792`, reached by actions `0x12` (`switch_room_like`) and
 `0x13` (`switch_room_like_var`),
@@ -908,8 +911,15 @@ with per-heading circular sublists of selectable items.
 QEMU fixture `menu_sound_001` dispatch-smokes `0x9c..0xa0` by creating a
 heading, adding one item, finalizing the structure, disabling and re-enabling
 that item id, and then drawing a known view. A separate case sets flag `0x0e`,
-runs `0xa1`, and draws. These probes prove handler execution and bytecode
-return only; they do not yet validate interactive menu selection semantics.
+runs `0xa1`, and draws.
+
+QEMU fixture `menu_interaction_001` validates the one-item interactive Enter
+path. The fixture builds a menu heading and enabled item id 7, finalizes the
+structure, sets flag `0x0e`, and runs `0xa1`. The following input cycle enters
+`code.menu.interact` (`0x93d1`); pressing Enter on the enabled item calls
+`0x44a9(3, 7)`. The generated logic then draws only when condition `0x0c 7`
+observes the resulting status byte. The comparison refreshes the picture before
+the validation draw because the menu leaves a top text strip visible.
 
 Text-window and input-line actions:
 
@@ -1010,6 +1020,10 @@ Resource/table actions outside the main object table:
 | `0xa2` | `display_view_resource_text_like_var` | `0x5e9b` | Same as `0x81`, but the resource number is read from `var[arg0]`. The action table metadata byte is `0x01`, but the handler itself clearly performs the variable lookup. |
 | `0x99` | `discard_view_var` | `0x3ee9` | Same helper path as `0x20` (`discard_view`), but the view-like resource number is read from `var[arg0]`. |
 
+QEMU fixture `view_resource_display_001` validates that `0x81` and `0xa2`
+display/preview view resource 11, accept Enter, return to following bytecode,
+and allow a subsequent picture refresh plus validation draw.
+
 Interpreter/session control actions:
 
 | Opcode | Label | Handler | Observed action |
@@ -1029,6 +1043,22 @@ Interpreter/session control actions:
 | `0x92` | `restore_logic_entry_ip` | `0x134a` | Restores word `[current_logic+0x06]` from `[current_logic+0x04]`. |
 | `0x95` | `enable_action_trace_window` | `0x8c91` | If word `[0x1d10]` is nonzero, returns `SI + 1`, consuming one byte beyond the opcode. Otherwise it calls helper `0x8cae`, which starts an action-trace display only when flag 10 is set: it sets `[0x1d10] = 1`, computes a text-window rectangle from input-line row `[0x05dd]`, trace offset `[0x1d08]`, and trace height `[0x1d0a]`, stores the derived bounds in `[0x1d14]`, `[0x1d16]`, `[0x1d18]`, `[0x1d1a]`, `[0x1d1c]`, and `[0x1d1e]`, then draws a boxed area through helper `0x5590`. |
 | `0x96` | `configure_action_trace_window` | `0x8d3d` | Reads three immediates into `[0x1d12]`, `[0x1d08]`, and `[0x1d0a]`, clamping `[0x1d0a]` upward to at least 2. The first value names an optional logic resource used by the action-trace formatter around `0x8e0b`; the second and third values control the trace window's row offset and height. Restart and room-switch paths also reload logic `[0x1d12]` when it is nonzero, so this configuration participates in both trace display and session reset. |
+
+QEMU fixture `system_dialog_001` validates several control paths in this
+cluster. `0x8f` returns when the resolved message begins with the expected SQ2
+signature. `0x80` and `0x86(0)` display confirmation prompts and return to
+following bytecode when Escape cancels. `0x8b` follows the no-joystick path
+under the current QEMU environment and returns. `0x8c` returns without toggling
+when byte variable 0 is zero. `0x96` followed by `0x95` dispatch-smokes the
+trace-window configuration path with flag 10 clear; a separate enabled attempt
+showed the expected trace box on screen, so enabled trace drawing remains
+source-backed rather than part of the visual comparison suite.
+
+QEMU fixture `file_log_001` validates that `0x7d` and `0x7e` open their
+save/restore selector paths and return after Escape cancellation. It also
+dispatch-smokes `0x90` by appending a formatted record to the DOS `logfile` and
+returning to following bytecode; the current comparison does not inspect the
+file contents.
 
 Miscellaneous actions:
 

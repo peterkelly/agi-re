@@ -4129,3 +4129,86 @@ Documented result:
   menu path. The observed source path enqueues type-3 events with selected menu
   item ids for enabled items, but deterministic menu interaction probes are
   still pending.
+
+## 2026-07-03: menu, view-resource, system, file/log, and sound follow-up probes
+
+Commands run from `/Users/peter/ai/agi/reverse`:
+
+- `dd if=build/cleanroom/AGI.decrypted.exe of=build/cleanroom/slice_93d0_9900.bin bs=1 skip=38352 count=1328`
+- `dd if=build/cleanroom/AGI.decrypted.exe of=build/cleanroom/slice_5e80_60e0.bin bs=1 skip=24704 count=608`
+- `dd if=build/cleanroom/AGI.decrypted.exe of=build/cleanroom/slice_2470_28f0.bin bs=1 skip=9840 count=1152`
+- `dd if=build/cleanroom/AGI.decrypted.exe of=build/cleanroom/slice_8280_8400.bin bs=1 skip=33920 count=384`
+- `dd if=build/cleanroom/AGI.decrypted.exe of=build/cleanroom/slice_51d0_5280.bin bs=1 skip=21456 count=176`
+- `dd if=build/cleanroom/AGI.decrypted.exe of=build/cleanroom/slice_8c80_8df0.bin bs=1 skip=36480 count=368`
+- `dd if=build/cleanroom/AGI.decrypted.exe of=build/cleanroom/slice_0e70_0ed0.bin bs=1 skip=4208 count=96`
+- `dd if=build/cleanroom/AGI.decrypted.exe of=build/cleanroom/slice_6130_61d0.bin bs=1 skip=25392 count=160`
+- `ndisasm -b 16 -o 0x93d0 build/cleanroom/slice_93d0_9900.bin`
+- `ndisasm -b 16 -o 0x5e80 build/cleanroom/slice_5e80_60e0.bin`
+- `ndisasm -b 16 -o 0x2470 build/cleanroom/slice_2470_28f0.bin`
+- `ndisasm -b 16 -o 0x8280 build/cleanroom/slice_8280_8400.bin`
+- `ndisasm -b 16 -o 0x51d0 build/cleanroom/slice_51d0_5280.bin`
+- `ndisasm -b 16 -o 0x8c80 build/cleanroom/slice_8c80_8df0.bin`
+- `ndisasm -b 16 -o 0x0e70 build/cleanroom/slice_0e70_0ed0.bin`
+- `ndisasm -b 16 -o 0x6130 build/cleanroom/slice_6130_61d0.bin`
+- `rizin -q -c "/x 0x221d" -c q build/cleanroom/AGI.decrypted.exe`
+- `rizin -q -c "/x 0x833e221d" -c q build/cleanroom/AGI.decrypted.exe`
+- `python3 -B -m unittest tests.test_logic_interpreter_probe tests.test_qemu_snapshot`
+- Initial menu run: `python3 -B tools/logic_interpreter_probe.py --dos-prefix MN --output build/logic-interpreter-probes/batches/menu_interaction_001.json --boot-wait 5 --draw-wait 8 --stop-on-failure --case menu_interactive_enter_sets_status_byte`
+- Final menu run: same command after adding a picture refresh before the validation draw.
+- `python3 -B tools/logic_interpreter_probe.py --dos-prefix VW --output build/logic-interpreter-probes/batches/view_resource_display_001.json --boot-wait 5 --draw-wait 8 --stop-on-failure --case view_resource_display_immediate_returns --case view_resource_display_var_returns`
+- Initial system run: `python3 -B tools/logic_interpreter_probe.py --dos-prefix SY --output build/logic-interpreter-probes/batches/system_dialog_001.json --boot-wait 5 --draw-wait 8 --stop-on-failure --case signature_check_matching_message_returns --case restart_confirm_escape_continues_to_draw --case confirm_restart_like_escape_continues_to_draw --case joystick_calibration_no_joystick_returns --case display_mode_toggle_guarded_noop_continues --case trace_window_config_enable_dispatch_smoke`
+- Final system run: same command after narrowing the trace case to the flag-clear gated path.
+- `python3 -B tools/logic_interpreter_probe.py --dos-prefix FL --output build/logic-interpreter-probes/batches/file_log_001.json --boot-wait 5 --draw-wait 8 --stop-on-failure --case log_file_append_dispatch_smoke --case save_game_escape_continues_to_draw --case restore_game_escape_continues_to_draw`
+- Initial sound runs for `sound_start_clears_completion_flag` and then
+  `sound_start_stop_dispatch_smoke`, both without a preceding `0x62` load.
+- Final sound run: `python3 -B tools/logic_interpreter_probe.py --dos-prefix SN --output build/logic-interpreter-probes/batches/sound_completion_001.json --boot-wait 5 --draw-wait 8 --stop-on-failure --case sound_start_stop_dispatch_smoke`
+- `python3 -B tools/logic_opcode_evidence.py`
+
+Documented result:
+
+- Corrected the slice workflow reminder: focused slices use the documented image
+  offset plus the executable file-header adjustment (`+0x200`) when reading
+  bytes from `build/cleanroom/AGI.decrypted.exe`.
+- `code.menu.interact` (`0x93d1`) draws the menu, waits through
+  `code.input.wait_event`, normalizes the event, and calls `0x46e8`. For a
+  type-1 Enter event on an enabled item, it calls `0x44a9(3, item_id)`, cleans
+  up the menu display, clears word `[0x1d22]`, and returns.
+- The only observed direct references to menu request word `[0x1d22]` are the
+  setter in `0xa1`, the input/event caller check around image `0x338b`, and the
+  cleanup clear inside `code.menu.interact`.
+- Added `menu_interactive_enter_sets_status_byte`: it creates a one-item menu
+  with item id 7, sets flag `0x0e`, runs `0xa1`, sends Enter, and draws only
+  when condition `0x0c 7` observes the enqueued type-3 menu event. The first run
+  mismatched only because the menu text strip remained visible; adding `0x1a`
+  before the validation draw produced a 1/1 QEMU match.
+- Re-read the shared view-resource display helper `0x5edb`. It loads the view
+  resource with temporary `[0x0f18] = 1`, builds a temporary object-like record,
+  optionally renders/caches a preview if memory allows, displays text derived
+  from the view resource, restores any preview rectangle, and discards the
+  resource when it was not already cached.
+- Added `view_resource_display_immediate_returns` and
+  `view_resource_display_var_returns`; QEMU batch `view_resource_display_001`
+  matched 2/2.
+- Added system/dialog cases for signature acceptance (`0x8f`), restart
+  confirmation Escape cancellation (`0x80`), `0x86(0)` confirmation Escape
+  cancellation, no-joystick calibration return (`0x8b`), display-mode guarded
+  no-op (`0x8c` with variable 0 clear), and trace configuration/flag-clear
+  gated `0x95`. QEMU batch `system_dialog_001` matched 6/6 after narrowing the
+  trace case.
+- The initial enabled trace case drew a visible trace box and mismatched the
+  normal graphics comparison. This confirms the source-backed enabled drawing
+  path but is not a stable sprite-comparison fixture.
+- Re-read `0x90` and helper `0x833f`: the handler opens or creates `logfile`,
+  seeks to the end, appends the room/input/message text, closes the handle, and
+  returns. QEMU batch `file_log_001` matched `log_file_append_dispatch_smoke`,
+  `save_game_escape_continues_to_draw`, and
+  `restore_game_escape_continues_to_draw`.
+- Re-read `0x63`: it stops prior sound, stores completion flag word `[0x126a]`,
+  clears that flag, locates the sound resource, then starts playback. Probes
+  that ran `0x63` without first loading sound 1 did not reach the validation
+  draw. Adding `0x62(1)` before `0x63(1,77)` and then `0x64` produced a 1/1
+  match in `sound_completion_001`.
+- Promoted the newly matched opcodes in `tools/logic_opcode_evidence.py` and
+  regenerated `docs/src/logic_opcode_evidence.md`. Trace/log/sound are marked
+  according to their current evidence scope rather than overclaiming deeper
+  side effects.

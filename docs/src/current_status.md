@@ -175,18 +175,18 @@ cluster into families that need specialized probes:
 - **Menus and inventory UI:** `0x7c` now has QEMU behavior evidence for
   interactive Enter, interactive Escape, and noninteractive acknowledgement.
   The selection result is absolute byte `DS:0x0022`, exposed as script variable
-  `0x19`. `0x9c..0xa1` have dispatch-smoke evidence, but full interactive menu
-  selection still needs deterministic input/event probes; `0xa2` remains tied
-  to the view-resource text display path.
+  `0x19`. `0x9c..0xa1` have setup/dispatch evidence, and the one-item Enter
+  path through `0xa1` now has behavior evidence via condition `0x0c 7`. Further
+  menu work should cover disabled items, heading movement, Escape, and arrow-key
+  navigation. `0xa2` now has view-resource display coverage.
 - **Save/restore/restart/system:** `0x7d`, `0x7e`, `0x80`, `0x86`, `0x8b`,
-  `0x8c`, `0x8f`, `0x90`, `0x95`, and `0x96`. Keep source-backed until
-  file-system, display-mode, logging, and confirmation-dialog probes are
-  isolated. `0x87`, `0x88`, `0x8d`, and `0xaa..0xad` now have message or
-  dispatch-smoke coverage.
-- **Sound:** `0x62` and `0x64` now have dispatch-smoke evidence. `0x63`
-  remains source-backed; visible confirmation may need flag-side-effect probes
-  for completion rather than audio output.
+  `0x8c`, `0x8f`, `0x95`, and `0x96` now have focused QEMU coverage for
+  cancel/no-op/signature/gated-trace paths. `0x90` has dispatch-smoke evidence
+  for append-and-return, but file-content assertions remain future work.
+- **Sound:** `0x62`, `0x63`, and `0x64` now have dispatch-smoke evidence using
+  load/start/stop on sound resource 1. Exact audio output and asynchronous
+  completion-flag lifetime remain source-backed.
 - **Diagnostics/global toggles:** `0x83`, `0x84`, `0x87`, `0x88`, `0x8d`,
   `0x8e`, `0xa3`, `0xa4`, and `0xaa..0xad` now have QEMU message or
-  dispatch-smoke evidence. `0x81`, `0x85`, `0x95`, and `0x96` remain
-  source-backed and should be grouped by shared helper paths before probing.
+  dispatch-smoke evidence. `0x81` is covered together with `0xa2`; `0x85`
+  remains source-backed.

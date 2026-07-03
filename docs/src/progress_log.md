@@ -5282,3 +5282,346 @@ Progress updates and outcomes:
      into the answer."
 
      Action/result: Verified final status and diff summary.
+
+692. Reported: "I’ll work through the five families in order, source-first:
+     menu interaction, view-resource display, system/dialogs, file-backed
+     save/log behavior, then sound completion. I’ll keep QEMU probes narrow and
+     only use them where the disassembly gives us a concrete side effect to
+     validate."
+
+     Action/result: Started the five-family follow-up pass.
+
+693. Reported: "I’ve got the current open list. I’m going into the disassembly
+     around the menu interaction, view-resource display, trace/system, file/log,
+     and sound handlers before touching probes; there are a few places where an
+     opcode’s visible result is indirect, so source context matters."
+
+     Action/result: Created initial source slices.
+
+694. Reported: "The slices are ready. I’m disassembling the target ranges now
+     and looking for direct byte/flag side effects that can be observed by logic
+     conditions, because those make much better compatibility tests than broad
+     'screen changed' assertions."
+
+     Action/result: Found the initial slices were misaligned for some targets.
+
+695. Reported: "One correction from the tooling pass: these image offsets need
+     the executable-file header adjustment when slicing (`file offset = image
+     offset + 0x200`). I caught that because the first `0x5ebf` slice landed in
+     DOS file wrappers instead of the documented view-display handler, so I’m
+     regenerating the slices with the correct file offsets."
+
+     Action/result: Regenerated aligned slices using image offset plus
+     `0x200`.
+
+696. Reported: "Now the slices are aligned to the image addresses used in the
+     docs. I’m re-disassembling the corrected ranges and pulling out the
+     control-flow facts we can turn into fixtures."
+
+     Action/result: Re-disassembled menu, view-resource, save/restore, log,
+     sound, trace, signature, and joystick ranges.
+
+697. Reported: "The source pass is giving us several good anchors: menu Enter
+     enqueues a type-3 event with the item id via `0x44a9`, `0x81/0xa2` share
+     `0x5edb`, `0x90` appends to `logfile`, `0x95/0x96` are observable through
+     trace-window globals, and `0x63` clears its completion flag before starting
+     sound. I’m checking how those internal events surface back to logic
+     bytecode so the probes can assert state instead of just 'the program
+     didn’t hang.'"
+
+     Action/result: Located event/status and helper paths for the planned
+     probes.
+
+698. Reported: "The menu source shows the interaction routine itself cleanly,
+     but I still need the caller path: `0xa1` only sets `[0x1d22]`, and some
+     top-level code must notice that and call `code.menu.interact`. I’m locating
+     those references before writing the menu fixture."
+
+     Action/result: Searched references to `[0x1d22]`.
+
+699. Reported: "The caller reference is around file offset `0x358d`, which maps
+     to image `0x338d`. I’m reading that neighborhood; it should tell us how to
+     trigger the menu loop from script-level bytecode."
+
+     Action/result: Confirmed the menu request word participates in the
+     input/event path.
+
+700. Reported: "I have enough source detail to add focused cases now. The
+     probes I’m adding are intentionally small: menu Enter should surface as
+     condition `0x0c` on the item id; view display and dialogs should return
+     after acknowledgement/cancel; `0x90` should at least execute the DOS append
+     path and return; and `0x63` should clear its completion flag operand as the
+     source shows."
+
+     Action/result: Added initial QEMU probe cases for menu, view-resource,
+     system/dialog, file/log, and sound.
+
+701. Reported: "The new cases are in the harness. I’m adding them to the
+     registry test next so future edits don’t silently drop any of these
+     coverage points."
+
+     Action/result: Updated `tests/test_logic_interpreter_probe.py`.
+
+702. Reported: "The registry test has the new cases. I’m running the focused
+     Python tests before QEMU, because it’s much cheaper to catch bad bytecode
+     construction here than after a DOS boot."
+
+     Action/result: Focused tests passed.
+
+703. Reported: "Focused tests pass. I’m running the probes in smaller QEMU
+     batches by family, so if something mismatches we can tie it back to one
+     source path instead of sorting through a mixed bag."
+
+     Action/result: Started `menu_interaction_001`.
+
+704. Reported: "The first menu attempt mismatched, which likely means either my
+     trigger path is incomplete or Enter is arriving before the menu loop is
+     actually waiting. I’m inspecting the capture/report before changing the
+     fixture."
+
+     Action/result: The menu validation sprite was present, but menu/status
+     text polluted the comparison.
+
+705. Reported: "This mismatch is just the menu/status text strip still visible
+     at the top, not a missing validation sprite. That means the Enter path
+     worked and set the item status byte; the fixture needs a picture refresh
+     before the validation draw, just like the text-window probes."
+
+     Action/result: Added `0x1a` before the menu validation draw.
+
+706. Reported: "I updated the menu validation draw to refresh the picture
+     first. The underlying behavior was already present; this just prevents the
+     top text strip from polluting the graphics comparison."
+
+     Action/result: Reran `menu_interaction_001`.
+
+707. Reported: "Menu Enter is now QEMU-validated: opening through `0xa1`,
+     pressing Enter, and observing condition `0x0c 7` all match. I’m running the
+     view-resource pair next."
+
+     Action/result: `menu_interaction_001` matched 1/1 and
+     `view_resource_display_001` started.
+
+708. Reported: "The view-resource batch is running. These cases are slightly
+     heavier because `0x81/0xa2` load and temporarily render view resources
+     before displaying their text-like payload."
+
+     Action/result: `view_resource_display_001` matched 2/2.
+
+709. Reported: "The immediate and variable view-resource display paths both
+     match. I’m moving to the system/dialog group now: signature check,
+     restart/confirmation cancel, joystick no-device, guarded display toggle,
+     and trace-window configuration."
+
+     Action/result: Started `system_dialog_001`.
+
+710. Reported: "The system/dialog batch is underway. The risky ones here are
+     the two confirmation prompts; if Escape timing is off, I’ll adjust those
+     from the capture/report rather than changing the source interpretation."
+
+     Action/result: Awaited system/dialog batch.
+
+711. Reported: "Still running; this batch has six snapshot restores plus a
+     couple of blocking prompts. I’m waiting for the result rather than starting
+     anything else that could contend for the QEMU/VNC slot."
+
+     Action/result: Continued waiting for QEMU.
+
+712. Reported: "By 'QEMU-validated' I mean: we ran a generated mini-game/fixture
+     inside the original SQ2 interpreter under DOS in QEMU, drove the needed
+     input, captured the original engine’s screen, and compared that capture
+     against the expected result from our local model."
+
+     Action/result: Clarified evidence terminology for the user.
+
+713. Reported: "The trace-window mismatch is similar in shape: the action
+     deliberately draws a trace window, so the screen no longer matches the
+     plain sprite expectation. I’m making that fixture source-observable
+     instead: enable the trace window, then run `0x95` a second time, which
+     should consume one extra byte when `[0x1d10]` is nonzero."
+
+     Action/result: First system batch matched 5/6; trace drawing polluted the
+     comparison.
+
+714. Reported: "The screenshot confirms the trace action is doing exactly what
+     the source says: it draws a boxed trace area. I’m changing the probe to
+     validate the more interesting source detail, the second-call
+     byte-consumption behavior, and then refresh the picture before the
+     comparison."
+
+     Action/result: Adjusted trace case, then found text-plane pixels still
+     persisted.
+
+715. Reported: "Continuing. I’ve converted the trace test from 'screen must stay
+     plain' to 'exercise the second-call skip behavior, then clear the trace
+     drawing before comparing,' which better matches the disassembly."
+
+     Action/result: Reran focused tests and the system batch.
+
+716. Reported: "Harness tests are clean. I’m rerunning just the system/dialog
+     batch with the corrected trace case."
+
+     Action/result: Started the corrected system run.
+
+717. Reported: "The corrected six-case system batch is running. If the trace
+     case still mismatches, it will tell us that `0x1a` doesn’t fully clear
+     text-plane trace output, and I’ll move that case to a source-backed note
+     instead of forcing a visual assertion."
+
+     Action/result: Trace still mismatched after enabled drawing.
+
+718. Reported: "The trace case still leaves text-plane pixels after the
+     graphics refresh, so I’m splitting it out: the source notes will document
+     its drawn-window and skip-byte behavior, while the QEMU-validated system
+     batch will cover the five cases that compare cleanly. Next I’m running the
+     file/log and sound cases."
+
+     Action/result: Started `file_log_001`.
+
+719. Reported: "The file/log batch is running. I expect the log append case to
+     be clean; save/restore selector Escape is the part that may need key timing
+     adjustment."
+
+     Action/result: `file_log_001` matched 3/3.
+
+720. Reported: "File/log paths matched: append returned after touching DOS file
+     I/O, and save/restore selectors both cancel cleanly with Escape. I’m
+     running the sound-completion flag case now."
+
+     Action/result: Initial sound flag case mismatched.
+
+721. Reported: "The sound flag case mismatched, so I’m inspecting whether the
+     sound start failed before clearing the flag, whether the flag is later
+     reset on immediate completion, or whether the captured screen simply
+     includes audio-related text/state."
+
+     Action/result: Capture showed no validation sprite.
+
+722. Reported: "The sound case didn’t draw the validation sprite, so the
+     condition was false. Looking back at the source, `0x63` clears the flag
+     before starting, but the sound subsystem can quickly set it again if the
+     selected sound completes or fails immediately. I’m adjusting this to a
+     simpler source-backed dispatch validation for `0x63` rather than
+     overclaiming stable completion-flag timing."
+
+     Action/result: Replaced flag assertion with sound start/stop dispatch.
+
+723. Reported: "I’m replacing the sound flag probe with a start-and-stop
+     dispatch case. That still gives `0x63` QEMU coverage, while the exact
+     completion flag lifetime stays documented from source until we can
+     instrument a less racy sound resource."
+
+     Action/result: Added `sound_start_stop_dispatch_smoke`.
+
+724. Reported: "The sound case is now a start/stop dispatch-smoke. I’m updating
+     the test registry and running that single QEMU batch again."
+
+     Action/result: Sound start/stop still mismatched without a prior load.
+
+725. Reported: "Even the start/stop sound dispatch case didn’t reach the
+     validation draw, so this is not just flag timing. I’m inspecting the
+     report/capture and then I’ll decide whether `0x63` needs a synthetic sound
+     fixture instead of using SQ2 sound 1."
+
+     Action/result: Determined `0x63` needs the sound resource loaded first.
+
+726. Reported: "The capture shows the validation draw never happened, and the
+     source explains why: `0x63` asks for an already available sound resource
+     record and can route into the interpreter error path if it is not loaded.
+     I’m adding the preceding `0x62` load before `0x63`, then stopping with
+     `0x64`."
+
+     Action/result: Added `0x62(1)` before `0x63(1,77)`.
+
+727. Reported: "The sound start case now mirrors the resource lifecycle: load
+     sound, start it with a completion flag, stop/clear state, then draw. I’m
+     rerunning the focused test and sound batch."
+
+     Action/result: Focused tests passed and `sound_completion_001` matched 1/1.
+
+728. Reported: "The loaded-start sound case now matches. Before updating
+     evidence/docs, I’m also tightening the trace fixture: the enabled trace
+     window intentionally leaves text pixels, so the reusable QEMU case should
+     be the no-flag gated path for `0x95/0x96`; the enabled-window behavior
+     stays source-documented with the screenshot observation."
+
+     Action/result: Narrowed trace case to the flag-clear gated path.
+
+729. Reported: "Trace is now a gated no-op QEMU case, which is a clean dispatch
+     check for `0x95/0x96`; the enabled drawing path will be described from
+     source and the observed mismatch capture. I’m rerunning the system batch to
+     get a clean report."
+
+     Action/result: Started final `system_dialog_001` run.
+
+730. Reported: "The corrected system batch is running again. After this I’ll
+     update the evidence table and docs in one pass."
+
+     Action/result: Awaited final system batch.
+
+731. Reported: "The corrected system batch is running again. After this I’ll
+     update the evidence table and docs in one pass."
+
+     Action/result: Duplicate status update while waiting for QEMU.
+
+732. Reported: "Great, the system/dialog report is clean now. I’m updating the
+     opcode evidence generator to promote the newly matched cases, then I’ll
+     regenerate the evidence chapter."
+
+     Action/result: `system_dialog_001` matched 6/6; updated
+     `tools/logic_opcode_evidence.py`.
+
+733. Reported: "I’m promoting the cases according to what they actually prove:
+     cancellation and menu/view behavior go into QEMU-validated evidence; trace,
+     log append, and sound start are dispatch-smoke because their deeper side
+     effects need a different assertion path."
+
+     Action/result: Promoted QEMU evidence scopes accurately.
+
+734. Reported: "The evidence mapping is updated. I’m regenerating the mdBook
+     evidence chapter from it."
+
+     Action/result: Regenerated `docs/src/logic_opcode_evidence.md`.
+
+735. Reported: "Evidence chapter regenerated. I’m updating the prose docs now
+     with the exact scope of each batch, including the trace-window and sound
+     caveats so the spec doesn’t overclaim."
+
+     Action/result: Updated `docs/src/logic_bytecode.md`,
+     `docs/src/current_status.md`, and `docs/src/compatibility_testing.md`.
+
+736. Reported: "Compatibility docs now have the replay commands. I’m adding a
+     few symbolic labels for the new anchors: menu trigger/status, trace
+     globals, log file handle/name, and sound state."
+
+     Action/result: Updated `docs/src/symbolic_labels.md`.
+
+737. Reported: "Symbolic labels are updated for the new stable anchors. I’m
+     appending the clean-room evidence notes with the source slices, failed
+     intermediate probes, and final successful QEMU batches."
+
+     Action/result: Appended the follow-up probe evidence to
+     `docs/src/clean_room_executable_notes.md`.
+
+738. Reported: "I’m going to pick this back up at the verification stage:
+     first make sure the generated opcode evidence, unit suite, mdBook, and
+     whitespace checks all agree with the new source-backed/QEMU-backed notes.
+     After that I’ll inspect the diff so the final summary is concrete."
+
+     Action/result: Ran the full unit suite, opcode evidence check, mdBook
+     build, and whitespace check; all passed.
+
+739. Reported: "The validation pass is clean: 99 tests, opcode evidence check,
+     mdBook build, and diff whitespace all passed. I’m doing one quick
+     diff/status pass now so I can give you a useful handoff rather than a
+     vague 'it worked.'"
+
+     Action/result: Checked `git status --short`, `git diff --stat`, and the
+     progress log diff.
+
+740. Reported: "There are two new progress updates from this resumed bit, so
+     I’m adding those to the historical log before I wrap. Tiny bookkeeping,
+     but it keeps the clean-room audit trail intact."
+
+     Action/result: Added the resumed verification updates to this progress
+     log.
