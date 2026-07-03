@@ -72,6 +72,15 @@ Address columns use these meanings:
 | `code.dos.write_file` | image `0x5db2` | DOS write wrapper. |
 | `code.dos.read_file` | image `0x5e01` | DOS read wrapper. |
 | `code.dos.seek_file` | image `0x5e3e` | DOS seek wrapper. |
+| `code.event.disable_recording` | image `0x705e` | Clears `data.event.recording_enabled`; restore replay and temporary view-resource display use this so replay/internal loads do not append new resource-event pairs. |
+| `code.event.enable_recording` | image `0x706d` | Sets `data.event.recording_enabled`; room switch enables recording after resetting the pair buffer, and temporary view-resource display re-enables it before returning. |
+| `code.event.reset_pair_buffer` | image `0x707c` | Allocates the pair buffer when `data.event.pair_capacity > 0` and no buffer exists, then resets write pointer and active pair count. |
+| `code.event.record_pair` | image `0x70b1` | Appends a two-byte `(kind, value)` pair when flag 7 is clear and recording is enabled; enforces `data.event.pair_capacity` and updates `data.event.pair_high_water`. |
+| `code.event.prepare_replay_cursor` | image `0x712f` | Sets replay read cursor to `data.event.pair_buffer_base` and recomputes the write/end cursor from `data.event.pair_count`. |
+| `code.event.next_replay_pair` | image `0x714c` | Returns the current replay pair pointer and advances by two bytes, or returns zero at end. |
+| `code.event.set_pair_capacity_action` | image `0x716a` | Action handler for `0x8e`; writes `data.event.pair_capacity` and calls `code.event.reset_pair_buffer` inside update-list flush/rebuild calls. |
+| `code.event.save_pair_count_action` | image `0x718b` | Action handler for `0xab`; copies `data.event.pair_count` to `data.event.saved_pair_count`. |
+| `code.event.restore_pair_count_action` | image `0x719d` | Action handler for `0xac`; restores `data.event.pair_count` and recomputes `data.event.pair_buffer_write`. |
 
 ## Pictures and Display
 
@@ -115,6 +124,7 @@ Address columns use these meanings:
 | `code.object.select_group` | image `0x3bb7` | Selects a top-level view subresource/group. |
 | `code.object.select_group_table` | image `0x3c1b` | Computes a group table pointer from the view payload. |
 | `code.object.select_frame` | image `0x3ccb` | Selects a derived frame/entry and updates object size/pointers. |
+| `code.object.setup_transient_display_object` | image `0x2d52` | Builds/draws the temporary object-like record rooted at `0x0eb4` from staged bytes `0x0eae..0x0eb3`; records event kind 5 plus three parameter pairs for restore replay. |
 | `code.object.place` | image `0x593a` | Places an object and performs priority/control collision adjustment. |
 | `code.object.control_acceptance` | image `0x56b8` | Tests an object's proposed footprint against high-nibble control/priority classes in `data.display.logical_buffer_segment`; QEMU probes validate selected `0x0002`, `0x0100`, and `0x0800` flag effects. |
 | `code.object.frame_timer_update` | image `0x0563` | Per-cycle active-object scan that decrements frame timer byte `+0x20`, calls `code.object.advance_frame_by_mode` at zero, and reloads `+0x20` from `+0x1f`. |
@@ -174,13 +184,14 @@ Address columns use these meanings:
 | `code.input.redraw_input_line` | image `0x38d7` | Redraws the configured input-line area when enabled, including the prompt marker, fixed string slot 0, and the visible input buffer. |
 | `code.input.set_line_config` | image `0x78f0` | Action handler for `0x6f`; stores input/status row globals and computes display offset global `[0x1379]` from the first operand. |
 | `code.input.map_key_event` | image `0x4c3d` | Action handler for `0x79`; appends a key/event mapping word and mapped value to the first free four-byte slot rooted at `data.input.key_event_map`. |
+| `code.view.display_resource_text` | image `0x5edb` | Shared helper for actions `0x81` and `0xa2`; disables resource-event recording while it loads, displays, and optionally discards a temporary view resource. |
 | `data.input.edit_key_table` | image/data `0x0e64` | Key dispatch table used by `code.input.edit_string`. The observed SQ2 bytes map `0x03` and `0x18` to clear-current-input, `0x08` to backspace, `0x0d` to accept/copy, and `0x1b` to cancel/return. Evidence: `xxd -g 1 -s 0x1060 -l 0x20 build/cleanroom/AGI.decrypted.exe`. |
 | `code.save.restore_game_state` | image `0x2512` | Restore-game action handler. |
 | `code.save.save_game_state` | image `0x2753` | Save-game action handler. |
 | `code.save.read_length_prefixed_block` | image `0x26b0` | Reads a length-prefixed memory block from a save file. |
 | `code.save.write_length_prefixed_block` | image `0x28c6` | Writes a length-prefixed memory block to a save file. |
 | `code.save.select_slot_or_path` | image `0x85e5` | Shared save/restore slot/path selection helper. |
-| `code.restore.replay_resource_events` | image `0x681c` | Restore-time state rebuild. Stops sound, clears resource caches, disables resource-event recording, replays saved resource/event pairs, rebinds active object views, refreshes display/input/status state, and re-enables normal runtime state. |
+| `code.restore.replay_resource_events` | image `0x681c` | Restore/display-mode state rebuild. Stops sound, clears resource caches, disables resource-event recording, replays saved resource/event pairs, rebinds active object views, and refreshes display/input/status state. No matching `code.event.enable_recording` call has been observed in this routine or its restore/display-mode callers. |
 
 ## Inventory and Menus
 
@@ -277,7 +288,12 @@ Address columns use these meanings:
 | `data.text.input_line_enabled` | data `0x05d3` | Word flag controlled by actions `0x77` and `0x78`; input-line redraw/erase helpers test it before updating the visible input area. |
 | `data.text.attr_mode_enabled` | data `0x1757` | Byte flag set by action `0x6a` and cleared by `code.text.leave_attr_mode`; text attribute derivation helpers branch on it. |
 | `data.text.attribute_stack` | data `0x1759` | Five-entry stack of triples saved/restored by helpers `0x7989` and `0x79c3`; count lives at `[0x1777]`. |
-| `data.event.pair_buffer_base` | global `[0x1707]` | Base pointer for resource/event pair buffer. |
-| `data.event.pair_buffer_write` | global `[0x1709]` | Current write pointer for resource/event pair buffer. |
+| `data.event.pair_capacity` | global `[0x0141]` | Maximum number of two-byte resource/event pairs. Action `0x8e` writes this value before resetting the pair buffer. |
 | `data.event.pair_count` | global `[0x0143]` | Active count of event/resource pairs. |
+| `data.event.saved_pair_count` | global `[0x05e1]` | Saved pair count slot used by actions `0xab` and `0xac`. |
+| `data.event.pair_buffer_base` | global `[0x1707]` | Base pointer for resource/event pair buffer. |
+| `data.event.pair_buffer_write` | global `[0x1709]` | Current write pointer for appends and replay end pointer. |
+| `data.event.pair_buffer_read` | global `[0x170b]` | Replay read cursor used by `code.event.next_replay_pair`. |
+| `data.event.recording_enabled` | global `[0x170d]` | Word gate checked by `code.event.record_pair` after flag 7. |
+| `data.event.pair_high_water` | global `[0x170f]` | Maximum observed pair count; heap/status display uses it and overflow error reporting passes it as context. |
 | `data.motion.direction_table` | data `0x0a85` | Nine-word direction lookup used by `code.motion.compute_direction`. |

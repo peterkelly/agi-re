@@ -27,9 +27,14 @@ switch is also QEMU-validated as absent from the destination-room render. A
 follow-up source pass corrected the exact room-switch reset model: object bytes
 `+0x1e`, `+0x1f`, and `+0x20` are seeded to `1` rather than cleared, and the
 room cache reset preserves the first logic cache record while clearing
-view/picture/sound cache roots. Menu arrow navigation consumes type-2 movement
-events, save/restore selection is separated from block I/O, restore replays
-saved resource events, and sound completion flags are only set by the stop
+view/picture/sound cache roots. The resource-event replay log is now
+source-mapped as a two-byte `(kind, value)` pair buffer with capacity/count,
+read/write cursors, recording gates, event kinds `0..8`, and a special
+four-pair transient-display-object packet for kind `5`. Menu arrow navigation
+consumes type-2 movement events, save/restore selection is separated from
+block I/O, restore replays saved resource events with recording disabled, and
+no matching event-recording re-enable has been observed on the restore or
+display-mode replay callers. Sound completion flags are only set by the stop
 helper when active sound state is nonzero.
 
 ## Confirmed Motion and Object Findings
@@ -168,8 +173,9 @@ Return to the logic interpreter:
    selection UI, save/restore/restart, deeper room/system transition side
    effects, and full interactive menu/audio paths.
 3. Extend the room-switch probes from the now-matched re-entry fixture. Useful
-   follow-ups are resource/event replay and object/resource reset details after
-   the destination room logic performs its own entry setup.
+   follow-ups are QEMU validation of restore replay for selected event-log
+   packets and object/resource reset details after the destination room logic
+   performs its own entry setup.
 4. For menu navigation, target type-2 movement event injection rather than
    relying on QEMU monitor `sendkey down` to behave like the interpreter's
    expected BIOS scan-word path.
@@ -205,9 +211,13 @@ cluster into families that need specialized probes:
   clears pointer fields `+0x08`/`+0x10`/`+0x14`, and stores `1` into
   `+0x00`/`+0x01`/`+0x1e`/`+0x1f`/`+0x20`; room cache reset preserves the first
   logic cache record and clears view, sound, and picture cache roots.
-  Destination logic load and resource/event recording are mapped but still
-  mostly source-backed. `0x15`, `0x1b`, `0x1c`, `0x20`, and `0x99` also have
-  targeted QEMU-backed lifecycle fixtures.
+  Destination logic load is source-mapped. Resource/event recording is also
+  source-mapped: `0x14`/`0x15`, `0x1e`/`0x1f`, `0x18`, `0x62`, picture
+  prepare/overlay/discard, view discard, and transient-display-object setup
+  feed restore replay through `code.event.record_pair`; actions `0x81`/`0xa2`
+  explicitly disable recording for temporary preview work. `0x15`, `0x1b`,
+  `0x1c`, `0x20`, and `0x99` also have targeted QEMU-backed lifecycle
+  fixtures.
 - **Text/window/input:** `0x65`, `0x66`, `0x67`, `0x68`, `0x6a`, `0x6b`,
   `0x6c`, `0x6d`, `0x6e`, `0x6f`, `0x70`, `0x71`, `0x73`, `0x76`, `0x77`,
   `0x78`, `0x79`, `0x89`, `0x8a`, `0x97`, `0x98`, `0x9a`, and `0xa9` now have

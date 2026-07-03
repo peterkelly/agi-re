@@ -627,16 +627,16 @@ Resource and interpreter-control actions observed so far:
 | `0x15` | `load_logic_var` | `0x1159` | Same as `0x14`, but logic number is `var[arg0]`. |
 | `0x16` | `call_logic` | `0x125a` | Reads immediate `arg0`, calls `0x12ae`, and returns zero to the action dispatcher if `0x12ae` returns zero. Helper `0x12ae` preserves the previous current logic pointer at `[0x0981]`, finds or loads the target logic, calls main interpreter `0x293c`, and frees the target record afterward only if it had to be loaded transiently for this call. |
 | `0x17` | `call_logic_var` | `0x1280` | Same as `0x16`, but logic number is `var[arg0]`. |
-| `0x18` | `load_picture_var` | `0x4a16` | Reads a picture-like resource number from `var[arg0]` and calls loader helper `0x4a3b`. The helper uses directory accessor `0x43d9` and the generic volume reader `0x2e32`, then stores the loaded payload pointer in a linked cache entry rooted at `0x120e`. |
-| `0x19` | `prepare_picture_var` | `0x4aaa` | Reads a picture-like resource number from `var[arg0]`, ensures a cached entry exists through `0x4acf`, stores the resource payload pointer at global `0x1377`, and calls helpers `0x6a54`, `0x6445`, and `0x6a8e`. |
+| `0x18` | `load_picture_var` | `0x4a16` | Reads a picture-like resource number from `var[arg0]` and calls loader helper `0x4a3b`. When the resource is not already cached, the helper records event pair `(2, resource)`, uses directory accessor `0x43d9` and the generic volume reader `0x2e32`, then stores the loaded payload pointer in a linked cache entry rooted at `0x120e`. |
+| `0x19` | `prepare_picture_var` | `0x4aaa` | Reads a picture-like resource number from `var[arg0]`, requires an existing cached entry through `0x4acf`, records event pair `(4, resource)`, stores the resource payload pointer at global `0x1377`, and calls helpers `0x6a54`, `0x6445`, and `0x6a8e`. |
 | `0x1a` | `show_picture_like` | `0x4b82` | Clears flag 15 through wrapper `0x74d0`, calls helper `0x1f2b` with argument 0, calls `0x5546`, and sets global word `[0x1216] = 1`. This appears to be a picture/display finalization action. |
-| `0x1b` | `discard_picture_var` | `0x4baa` | Reads a picture-like resource number from `var[arg0]` and calls helper `0x4bce`, which unlinks or releases the matching cached entry and calls helpers `0x143c`, `0x6a8e`, and `0x14a0`. |
-| `0x1c` | `overlay_picture_var` | `0x4b17` | Reads a picture-like resource number from `var[arg0]`, ensures a cached entry exists through helper `0x4b3b`, stores that resource's payload pointer at global `[0x1377]`, calls helpers `0x6a54`, `0x6440`, `0x6a8e`, and `0x6aab`, and clears word `[0x1216]`. Unlike `0x19` (`prepare_picture_var`), this path enters the picture decoder at `0x6440` rather than `0x6445`, so it skips the extra buffer-fill setup performed by `0x6445`. |
+| `0x1b` | `discard_picture_var` | `0x4baa` | Reads a picture-like resource number from `var[arg0]` and calls helper `0x4bce`, which records event pair `(6, resource)`, unlinks or releases the matching cached entry, and calls helpers `0x143c`, `0x6a8e`, and `0x14a0`. |
+| `0x1c` | `overlay_picture_var` | `0x4b17` | Reads a picture-like resource number from `var[arg0]`, requires an existing cached entry through helper `0x4b3b`, records event pair `(8, resource)`, stores that resource's payload pointer at global `[0x1377]`, calls helpers `0x6a54`, `0x6440`, `0x6a8e`, and `0x6aab`, and clears word `[0x1216]`. Unlike `0x19` (`prepare_picture_var`), this path enters the picture decoder at `0x6440` rather than `0x6445`, so it skips the extra buffer-fill setup performed by `0x6445`. |
 | `0x1d` | `show_priority_screen` | `0x731b` | Sets word `[0x1755] = 1`, calls full-screen refresh helper `0x5546`, waits for an event through `0x4618`, calls `0x5546` again, then clears `[0x1755]`. Helper `0x5546` swaps the high and low nibbles of every byte in the logical graphics buffer while `[0x1755] & 1` is set before copying the full screen to the display. The only observed local input phrase reaching this action is `show pri`, where WORDS.TOK word id `0x0028` maps to "show" and word id `0x003f` maps to "pri". |
-| `0x1e` | `load_view` | `0x39b1` | Loads or refreshes a view-like resource through helper `0x39f7` using immediate `arg0`. |
+| `0x1e` | `load_view` | `0x39b1` | Loads or refreshes a view-like resource through helper `0x39f7` using immediate `arg0`. When no cached view entry exists, the helper records event pair `(1, resource)` before allocating and reading the resource. |
 | `0x1f` | `load_view_var` | `0x39d0` | Same as `0x1e`, but resource number is `var[arg0]`. |
 | `0x20` | `discard_view` | `0x3ecd` | Reads immediate view-like resource number `arg0` and calls helper `0x3f0d`. That helper requires a matching cached view record through `0x3979`, records pair `(7, resource)` through `0x70b1`, clears word `*([0x1000])`, flushes update lists with `0x6a54`, rewinds/frees the resource record with `0x143c`, rebuilds update lists with `0x6a8e`, and calls `0x14a0`. |
-| `0x62` | `load_sound` | `0x510a` | Loads a sound-like resource through helper `0x5126` using immediate `arg0`; the helper uses sound directory accessor `0x440d` and builds four internal pointers from the loaded payload. |
+| `0x62` | `load_sound` | `0x510a` | Loads a sound-like resource through helper `0x5126` using immediate `arg0`. When no cached sound entry exists, the helper records event pair `(3, resource)`, uses sound directory accessor `0x440d`, and builds four internal pointers from the loaded payload. |
 | `0x63` | `start_sound_with_flag` | `0x51d3` | Stops any active sound-like state through `0x5234`, reads immediate sound number `arg0` and immediate flag number `arg1`, stores `arg1` in word `[0x126a]`, clears flag `arg1`, locates or loads sound `arg0` through helper `0x50d8`, and starts it through helper `0x7f96`. If the sound cannot be loaded, it reports error code 9 with the sound number. |
 | `0x64` | `stop_sound_or_clear_sound_state` | `0x5225` | Calls helper `0x5234`, which clears a pending sound-like state at `[0x1258]`, sets flag `[0x126a]`, and calls `0x080af` when that state was active. |
 
@@ -680,6 +680,75 @@ an error if it cannot be found, and calls the hardware/driver start helper
 `code.sound.stop_or_clear_state`; that helper only sets the configured
 completion flag when active-state word `[0x1258]` is nonzero, then clears the
 active-state word and calls the hardware/driver stop helper `0x80af`.
+
+### Resource Event Log
+
+The engine keeps a compact replay log for resource and transient-display work
+that must be reconstructed after a restore or display-mode rebuild. The log is
+not a general trace. It records the operations needed to rebuild persistent
+room state from a reset cache, and some helper paths intentionally disable
+recording while doing temporary work.
+
+Each entry is a two-byte pair:
+
+```text
+u8 kind
+u8 value
+```
+
+`data.event.pair_capacity` (`[0x0141]`) is the maximum number of pairs.
+`code.event.reset_pair_buffer` allocates `capacity * 2` bytes if the base
+pointer is zero, stores the base at `[0x1707]`, resets the write pointer
+`[0x1709]` to the base, and clears `data.event.pair_count` (`[0x0143]`).
+
+`code.event.record_pair` appends only when both gates allow it:
+
+- flag 7 must be clear;
+- `data.event.recording_enabled` (`[0x170d]`) must be nonzero.
+
+When appending, it checks the write pointer against
+`base + capacity * 2`, reports error code `0x0b` on overflow, writes the low
+bytes of `(kind, value)`, advances the write pointer by two, and increments the
+pair count. It also maintains `data.event.pair_high_water` (`[0x170f]`) from
+the current write distance; the heap/status diagnostic displays this value.
+
+Known event kinds:
+
+| Kind | Recorded by | Restore replay effect |
+| ---: | --- | --- |
+| `0` | `load_logic` / `load_logic_var` through `code.logic.load_cached` | Load the logic resource through `code.logic.load_resource`, then restore saved logic resume metadata with `0x13a5`. |
+| `1` | `load_view` / `load_view_var` when a view cache entry is created | Load or refresh the view resource through `code.view.load_resource` with the force/refresh argument set. |
+| `2` | `load_picture_var` when a picture cache entry is created | Load the picture resource through `code.picture.load_resource`. |
+| `3` | `load_sound` when a sound cache entry is created | Load the sound resource through `code.sound.load_resource`. |
+| `4` | `prepare_picture_var` | Prepare/decode the already-loaded picture through `code.picture.prepare`. |
+| `5` | `setup_transient_object` / `setup_transient_object_var` | Read the next three pairs into staged bytes `0x0eae..0x0eb3`, then call `code.object.setup_transient_display_object`. |
+| `6` | `discard_picture_var` | Discard the picture resource through `code.picture.discard`. |
+| `7` | `discard_view` / `discard_view_var` | Discard the view resource through `0x3f0d`. |
+| `8` | `overlay_picture_var` | Overlay/decode the already-loaded picture through `code.picture.overlay_prepare`. |
+
+Kind `5` is a four-pair packet rather than a single resource event. Helper
+`0x2d52` first records `(5, 0)`, then records
+`([0x0eae], [0x0eaf])`, `([0x0eb0], [0x0eb1])`, and
+`([0x0eb2], [0x0eb3])`. Restore replay consumes those three following pairs
+and writes them back to the same staged globals before calling `0x2d52`.
+
+Restore-time replay at `code.restore.replay_resource_events` stops sound,
+resets room caches, disables event recording, prepares the replay cursor, then
+walks pairs with `code.event.next_replay_pair`. Disabling recording is what
+prevents the replayed loads/discards from appending duplicates to the log.
+After replay it rebinds any object view resources that are present again,
+restores object flags saved around the cache reset, refreshes the display, and
+redraws text/input state. A follow-up caller scan found no matching
+`code.event.enable_recording` call in this routine, in the restore action after
+it returns, or in the display-mode toggle path that also calls it. The only
+observed re-enable calls are in room switching and the temporary view-resource
+display helper, so the post-replay recording lifecycle remains a source-backed
+open question rather than an assumed automatic re-enable.
+
+The temporary view-resource display actions `0x81` and `0xa2` also call
+`code.event.disable_recording` before their internal load/display/discard
+sequence, then call `code.event.enable_recording` before returning. This keeps
+view preview/text display from becoming part of the room restore model.
 
 Room/state switch helper `0x1792`, reached by actions `0x12` (`switch_room_like`) and
 `0x13` (`switch_room_like_var`),
@@ -1162,8 +1231,8 @@ Resource/table actions outside the main object table:
 | `0x61` | `get_entry_0971_marker_to_var` | `0x75e2` | Resolves a table entry using index `var[arg0]`, then stores byte `[entry+0x02]` into `var[arg1]`. |
 | `0x7c` | `show_inventory_selection` | `0x31d8` | Builds a temporary 8-byte-per-row list from the 3-byte table rooted at `[0x0971]`, including only entries whose marker byte `[entry+0x02]` is `0xff`. For each included entry it stores the original table index, an item-name pointer computed as `[0x0971] + word[entry+0x00]`, and a two-column row/column position. It displays the header string at `0x0f26` ("You are carrying:"), a fallback string at `0x0f1e` ("nothing") when no rows exist, and either a selection prompt at `0x0f38` or a noninteractive return prompt at `0x0f5d` depending on flag 13. In interactive mode Enter writes the selected table index to absolute byte `DS:0x0022`; Escape writes `0xff` there. Because script byte variables begin at `DS:0x0009`, this is exposed to logic bytecode as variable `0x19`. QEMU batch `inventory_selection_001` validates Enter storing selected carried-entry index `0`, Escape storing `0xff`, and the noninteractive acknowledgement path returning to following bytecode. |
 | `0x79` | `map_key_event` | `0x4c3d` | Combines `arg0` and `arg1` into a little-endian key/event word, scans up to 39 four-byte slots rooted at `0x0145` for an empty first word, and stores the combined word at slot offset `+0` and `arg2` at slot offset `+2`. Helper `0x4566` later uses this table to convert matching type-1 event records into type-3 records carrying the mapped value. |
-| `0x81` | `display_view_resource_text_like` | `0x5ebf` | Displays or previews a view-like resource selected by immediate `arg0`. Helper `0x5edb` ensures the resource is loaded, temporarily sets `[0x0f18] = 1` around `0x39f7`, builds a temporary object-like record through `0x3ae7`, may render/cache it through helpers `0x9097`, `0x9db0`, `0x9db6`, and `0x5762` if enough memory is available, displays a string pointer derived from the loaded resource through `0x1ce8`, then cleans up any temporary allocation. |
-| `0xa2` | `display_view_resource_text_like_var` | `0x5e9b` | Same as `0x81`, but the resource number is read from `var[arg0]`. The action table metadata byte is `0x01`, but the handler itself clearly performs the variable lookup. |
+| `0x81` | `display_view_resource_text_like` | `0x5ebf` | Displays or previews a view-like resource selected by immediate `arg0`. Helper `0x5edb` disables resource-event recording, ensures the resource is loaded, temporarily sets `[0x0f18] = 1` around `0x39f7`, builds a temporary object-like record through `0x3ae7`, may render/cache it through helpers `0x9097`, `0x9db0`, `0x9db6`, and `0x5762` if enough memory is available, displays a string pointer derived from the loaded resource through `0x1ce8`, optionally discards a view it loaded only for this display, then re-enables recording. |
+| `0xa2` | `display_view_resource_text_like_var` | `0x5e9b` | Same as `0x81`, but the resource number is read from `var[arg0]`. The action table metadata byte is `0x01`, but the handler itself clearly performs the variable lookup. Its helper also disables resource-event recording around the temporary load/display/discard sequence. |
 | `0x99` | `discard_view_var` | `0x3ee9` | Same helper path as `0x20` (`discard_view`), but the view-like resource number is read from `var[arg0]`. |
 
 QEMU fixture `view_resource_display_001` validates that `0x81` and `0xa2`
@@ -1181,7 +1250,7 @@ Interpreter/session control actions:
 | `0x80` | `confirm_restart_game` | `0x2472` | Stops active sound state, clears the prompt/input line, and either proceeds immediately if flag 16 is set or displays the confirmation text at `0x0adb` ("Press ENTER to restart the game... Press ESC to continue this game."). On confirmation it calls input/display cleanup helper `0x3726`, preserves flag 9, resets heap/update-list state through `0x1485`, calls helpers `0x0fa5` and `0x30d6`, sets flag 6, restores flag 9 if it had been set, clears timer/event words `[0x0129]` and `[0x012b]`, reloads logic `[0x1d12]` if configured, and calls menu/list refresh helper `0x930e`. It then redraws the input prompt through `0x37f7`. When restart is accepted it returns zero to the dispatcher. |
 | `0x7d` | `save_game_state` | `0x2753` | Save-game-state path. It marks modal state `[0x0615] = 1`, temporarily changes byte `[0x0d15]` to `0x40`, asks helper `code.save.select_slot_or_path(0x73)` for a selected save slot/path, optionally displays the confirmation text at `0x0db6`, creates file `0x1c8c` through DOS wrapper `0x5cad`, writes a 31-byte description/header from `0x1c6c`, then writes several length-prefixed memory blocks through helper `0x28c6`: the engine string/config area beginning just before `0x05e3`, the object record range `[0x096b..0x096f)`, the inventory/object metadata range `[0x0971..0x0975)`, the resource/event pair buffer length `[0x0141] * 2` from `[0x1707]`, and a logic/cache-related block beginning at `0x0985` whose size is returned by `0x1364`. On write failure it closes and deletes the file, displays the error text at `0x0e46`, restores text state, restores `[0x0d15]`, clears `[0x0615]`, and returns to the following bytecode. |
 | `0x7e` | `restore_game_state` | `0x2512` | Restore-game-state path. It marks modal state `[0x0615] = 1`, saves and temporarily changes byte `[0x0d15]`, asks helper `code.save.select_slot_or_path(0x72)` for a selected restore slot/path, optionally displays the confirmation text at `0x0d34`, opens file `0x1c8c` through DOS wrapper `0x5cce`, seeks past a 31-byte description/header, then reads the same length-prefixed block families through helper `0x26b0`. On read failure it displays the error text at `0x0d87` and calls `0x02ae`. On success it restores hardware/display byte variables from `[0x112e]` and `[0x1130]`, sets flag 11 according to hardware mode, calls `code.restore.replay_resource_events`, refreshes display/resource state through `0x4c23` and `0x30d6`, clears the caller return pointer so execution restarts through the restored state, calls menu/list refresh helper `0x930e`, restores text state, restores `[0x0d15]`, and clears `[0x0615]`. |
-| `0x8e` | `set_global_0141_and_refresh` | `0x716a` | Stores immediate `arg0` as word `[0x0141]`, then wraps refresh helper `0x707c` with calls to `0x6a54` and `0x6a8e`. |
+| `0x8e` | `set_global_0141_and_refresh` | `0x716a` | Stores immediate `arg0` as `data.event.pair_capacity`, then wraps `code.event.reset_pair_buffer` with update-list flush/rebuild calls `0x6a54` and `0x6a8e`. |
 | `0x8c` | `toggle_display_mode_bit` | `0x794c` | If word `[0x112e] == 0`, byte variable 0 is nonzero, and display mode word `[0x1130]` is neither 2 nor 3, calls helper `0x1364`, toggles bit 0 of word `[0x1130]`, and refreshes display state through helpers `0x2b28`, `0x5528`, `0x2b4f`, and `0x681c`. This appears to switch an available display mode or display attribute variant; the hardware-facing meaning of `[0x1130]` still needs dynamic confirmation. |
 | `0x8f` | `verify_game_signature` | `0x0e7e` | Reads immediate message number `arg0`, resolves that current-logic message through `0x21f0`, copies up to seven bytes into absolute buffer `0x0002` with `0x4de8`, then calls helper `0x5b49`. Helper `0x5b49` compares bytes at `0x0002` against an embedded `SQ2\0` string at code offset `0x5b6c`, calling helper `0x02ae` on the first mismatch. The one observed local use is in logic 140 immediately before action `0x6f` (`set_input_line_config`), consistent with a game-signature/configuration guard. |
 | `0x90` | `append_message_to_log_file` | `0x828f` | Reads immediate message number `arg0`. If global file handle `[0x1823]` is `0xffff`, helper `0x833f` opens or creates the file named at `0x1825` (`logfile`) and seeks it to the end. The handler then appends a formatted room/input-line record using template `0x1809` (`Room %d\nInput line: %s\n`) with byte variable 0 and string/input buffer `0x0fce`, resolves message `arg0` through `0x21f0`, formats it into the same stack buffer through `0x1f54`, appends it, and closes the file handle with `0x5d52`. If opening fails, it returns after consuming the operand. |
@@ -1233,8 +1302,8 @@ Miscellaneous actions:
 
 | Opcode | Label | Handler | Observed action |
 | ---: | --- | ---: | --- |
-| `0x7a` | `setup_transient_object` | `0x2c7a` | Copies seven immediate operands into globals `0x0eae..0x0eb3`, with operand 6 shifted into the high nibble of `0x0eb3`, then calls helper `0x2d52`. The staged values select view resource, group, frame, X, Y, and priority/control nibbles. Helper `0x2d52` initializes a transient object-like record at `0x0eb4` through `0x3ae7`, `0x3bb7`, and `0x3ccb`, places it with `0x593a`, draws/marks it through `0x57cf`, rebuilds update lists, and calls `0x5762`. |
-| `0x7b` | `setup_transient_object_var` | `0x2cca` | Same as `0x7a`, but all seven operands are read through variables before the seventh value is shifted into the high nibble of `0x0eb3`. |
+| `0x7a` | `setup_transient_object` | `0x2c7a` | Copies seven immediate operands into globals `0x0eae..0x0eb3`, with operand 6 shifted into the high nibble of `0x0eb3`, then calls helper `0x2d52`. The staged values select view resource, group, frame, X, Y, and priority/control nibbles. Helper `0x2d52` records event pair `(5, 0)` followed by the three staged byte pairs, initializes a transient object-like record at `0x0eb4` through `0x3ae7`, `0x3bb7`, and `0x3ccb`, places it with `0x593a`, draws/marks it through `0x57cf`, rebuilds update lists, and calls `0x5762`. |
+| `0x7b` | `setup_transient_object_var` | `0x2cca` | Same as `0x7a`, but all seven operands are read through variables before the seventh value is shifted into the high nibble of `0x0eb3`. The replay event sequence is the same four-pair packet emitted by helper `0x2d52`. |
 | `0x82` | `random_range_to_var` | `0x5009` | Reads low bound `arg0`, high bound `arg1`, and destination variable index `arg2`. Calls helper `0x71c0`, takes the returned value modulo `(high - low + 1)`, adds `low`, and stores the low byte in `var[arg2]`. Helper `0x71c0` seeds from BIOS timer interrupt `1a` when needed and advances a 16-bit state at `0x1711`. |
 | `0x8d` | `show_interpreter_version` | `0x733c` | Displays the static interpreter identification string at `0x0aab` through helper `0x1ce8`. In the sampled SQ2 overlay this string reads `Adventure Game Interpreter` followed by `Version 2.936`. |
 
@@ -1245,8 +1314,8 @@ Remaining table entries:
 | `0x7f` | `noop` | `0x5051` | Performs no state change and returns the current bytecode pointer unchanged. This opcode was present in the action table but not encountered in the local SQ2 logic scan. |
 | `0x9b` | `noop_2` | `0x4c15` | Consumes two operand bytes and performs no state change. The handler returns `SI + 2`. |
 | `0xaa` | `copy_save_description_to_string_slot` | `0x2726` | Reads immediate string-slot index `arg0`, computes destination string slot `0x020d + arg0 * 0x28`, and copies up to `0x1f` bytes from buffer `0x0e72` into that slot through helper `0x4de8`. Save/restore handlers test byte `[0x0e72]` after slot/path selection, so this action appears to expose that save-description buffer to logic string storage. |
-| `0xab` | `save_event_buffer_count` | `0x718b` | Copies word `[0x0143]` to word `[0x05e1]`. Helper `0x70b1` increments `[0x0143]` when appending `(kind, resource)` pairs to the event/resource pair buffer rooted at `[0x1707]`, so this preserves the active pair count. |
-| `0xac` | `restore_event_buffer_count` | `0x719d` | Restores word `[0x0143]` from `[0x05e1]`, then recomputes the pair-buffer write pointer `[0x1709] = [0x1707] + [0x0143] * 2`. |
+| `0xab` | `save_event_buffer_count` | `0x718b` | Copies `data.event.pair_count` to `data.event.saved_pair_count`. This marks a rollback point in the resource-event pair log. |
+| `0xac` | `restore_event_buffer_count` | `0x719d` | Restores `data.event.pair_count` from `data.event.saved_pair_count`, then recomputes `data.event.pair_buffer_write = data.event.pair_buffer_base + data.event.pair_count * 2`. |
 | `0xad` | `increment_global_1530` | `0x602f` | Increments byte `[0x1530]` and returns the current bytecode pointer. Nearby interrupt-hook code tests `[0x1530]` before calling display/input helper `0x44a9` on selected key release paths, but the exact user-facing purpose remains open. |
 | `0xae` | `rebuild_priority_table_from_y` | `0x4d10` | Reads immediate row/value `arg0`, clears word `[0x124a]`, and rebuilds the 168-byte priority/control table at `0x127a`. Entries below `arg0` are set to `4`; entries from `arg0` upward are assigned a rising value starting at `5`, using a scale derived from `(0xa8 - arg0) * 0xa8 / 10`, and capped at `0x0f`. Helper `0x4cbb` later maps priority/control values back through this table when `[0x124a] == 0`. |
 | `0xaf` | `noop_1_table_count` | `0x5051` | Uses the same no-op handler as action `0x7f`, returning the bytecode pointer it was given. The action table gives this opcode one fixed operand byte, so table-driven static scans skip one byte, but the handler itself does not read or advance past that operand. This opcode was not encountered in the local SQ2 logic scan. |

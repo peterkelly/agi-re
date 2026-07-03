@@ -7147,3 +7147,85 @@ Progress updates and outcomes:
      Action/result: Reran the wording scan, `mdbook build docs`, and
      `git diff --check`. The checks passed; the only remaining scan hit is the
      intentional correction sentence describing the old wording.
+
+945. Reported: "I’ll pick up the source-first thread: event/resource recording
+     and restore replay, then connect it back to the logic opcodes and docs.
+     I’ll keep QEMU on the shelf unless the disassembly leaves a behavior
+     ambiguous enough to merit a probe."
+
+     Action/result: Started a source-first pass over the resource-event
+     recorder and restore replay path, using existing docs and disassembly
+     rather than new QEMU probes.
+
+946. Reported: "The event recorder shape is already clearer from the
+     disassembly: it is a compact two-byte pair log, gated by both a
+     recording-enable word and flag 7. I’m now chasing every call site so the
+     docs tie the bytecode actions to the replayable resource events instead
+     of treating the event buffer as a side note."
+
+     Action/result: Disassembled `0x705e..0x714c` and the event call sites,
+     mapping the pair buffer base/write/read/count globals, capacity, high-water
+     word, recording gates, and all direct `code.event.record_pair` callers.
+
+947. Reported: "One useful connection dropped out: event kind `5` is not a
+     normal resource load at all. It records a four-pair packet for a
+     temporary/display object path at `0x2d52`, then restore consumes the next
+     three pairs as parameters before replaying that display operation."
+
+     Action/result: Mapped restore replay dispatch at `0x681c` and helper
+     `0x2d52`, identifying event kinds `0..8` and the special kind-5 transient
+     object/display packet format.
+
+948. Reported: "There is also a nice negative rule in the source: the
+     view-resource text/display helper disables event recording while it loads
+     and later discards a temporary view. So the replay log is intentionally
+     about persistent room state, not every internal resource touch."
+
+     Action/result: Disassembled `0x5edb`, confirming that actions `0x81` and
+     `0xa2` disable event recording around their temporary load/display/discard
+     sequence and re-enable recording before returning.
+
+949. Reported: "I’m going to update the docs now: symbolic labels first, then
+     the bytecode chapter’s higher-level resource-event model, then the
+     chronological evidence log and status handoff. The edits are
+     documentation-only; no generated artifacts should need to be committed."
+
+     Action/result: Added symbolic code/data labels for the event recorder,
+     replay cursors, action handlers, transient-display object helper, and
+     temporary view-resource display helper.
+
+950. Reported: "The bytecode chapter now has the high-level replay model in
+     spec language: pair format, capacity/gates, event-kind meanings, and the
+     special four-pair transient-object packet. I’m adding the clean-room
+     command trail next so the claim remains auditable."
+
+     Action/result: Updated `docs/src/logic_bytecode.md` with the replay-log
+     model and appended this source-pass evidence trail to
+     `docs/src/clean_room_executable_notes.md`.
+
+951. Reported: "A source detail worth tightening before verification: restore
+     replay disables event recording, and the replay routine itself does not
+     show a matching re-enable call in the slice I read. I’m checking the
+     caller path so the docs don’t overstate that lifecycle."
+
+     Action/result: Disassembled the restore action caller, the save action
+     for surrounding context, and all observed calls to `0x705e`, `0x706d`, and
+     `0x681c`.
+
+952. Reported: "The caller check confirms it: the only `0x706d` calls in the
+     executable are room switch and the temporary view-display helper. Restore
+     replay and display-mode rebuild call `0x681c`, which disables recording,
+     and I don’t see a re-enable on those paths. That’s odd enough to document
+     carefully rather than smooth over."
+
+     Action/result: Corrected the replay documentation and symbolic label so
+     they no longer imply automatic recording re-enable after restore replay.
+
+953. Reported: "I’ve corrected the docs so they don’t imply replay turns
+     recording back on. The current model is more honest: replay disables
+     recording, duplicate prevention is clear, but the later lifecycle needs a
+     targeted dynamic check or more source context."
+
+     Action/result: Added the no-observed-re-enable finding to
+     `docs/src/clean_room_executable_notes.md`, `docs/src/logic_bytecode.md`,
+     `docs/src/symbolic_labels.md`, and `docs/src/current_status.md`.

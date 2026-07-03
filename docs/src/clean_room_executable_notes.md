@@ -4729,3 +4729,94 @@ Documented result:
   `docs/src/current_status.md`, and `docs/src/symbolic_labels.md` so the
   high-level room-switch model distinguishes QEMU-validated visible behavior
   from source-backed exact memory-field effects.
+
+## 2026-07-03: resource-event recording and restore replay source pass
+
+Commands run from `/Users/peter/ai/agi/reverse`:
+
+- `sed -n '1,260p' docs/src/current_status.md`
+- `rg -n "0x70b1|0x707c|0x706d|0x681c|resource.event|resource-event|1707|1709|0141|0143|code.restore.replay_resource_events|data.resource" docs/src tools tests`
+- `git status --short`
+- `ndisasm -b 16 -o 0x7058 -e 0x7258 build/cleanroom/AGI.decrypted.exe | sed -n '1,130p'`
+- `ndisasm -b 16 -o 0x705e -e 0x725e build/cleanroom/AGI.decrypted.exe | sed -n '1,95p'`
+- `ndisasm -b 16 -o 0x681c -e 0x6a1c build/cleanroom/AGI.decrypted.exe | sed -n '1,190p'`
+- `ndisasm -b 16 -o 0x716a -e 0x736a build/cleanroom/AGI.decrypted.exe | sed -n '1,95p'`
+- `ndisasm -b 16 -o 0x0000 -e 0x0200 build/cleanroom/AGI.decrypted.exe | rg "call 0x70b1|call 0x7060|call 0x706d|call 0x707c|call 0x712f|call 0x714c|call 0x681c"`
+- `ndisasm -b 16 -o 0x113d -e 0x133d build/cleanroom/AGI.decrypted.exe | sed -n '1,75p'`
+- `ndisasm -b 16 -o 0x39b1 -e 0x3bb1 build/cleanroom/AGI.decrypted.exe | sed -n '1,95p'`
+- `ndisasm -b 16 -o 0x39f7 -e 0x3bf7 build/cleanroom/AGI.decrypted.exe | sed -n '1,180p'`
+- `ndisasm -b 16 -o 0x4a16 -e 0x4c16 build/cleanroom/AGI.decrypted.exe | sed -n '1,95p'`
+- `ndisasm -b 16 -o 0x4a3b -e 0x4c3b build/cleanroom/AGI.decrypted.exe | sed -n '1,230p'`
+- `ndisasm -b 16 -o 0x3f0d -e 0x410d build/cleanroom/AGI.decrypted.exe | sed -n '1,190p'`
+- `ndisasm -b 16 -o 0x5126 -e 0x5326 build/cleanroom/AGI.decrypted.exe | sed -n '1,180p'`
+- `ndisasm -b 16 -o 0x2d52 -e 0x2f52 build/cleanroom/AGI.decrypted.exe | sed -n '1,240p'`
+- `ndisasm -b 16 -o 0x5ebf -e 0x60bf build/cleanroom/AGI.decrypted.exe | sed -n '1,180p'`
+- `ndisasm -b 16 -o 0x1720 -e 0x1920 build/cleanroom/AGI.decrypted.exe | sed -n '1,160p'`
+- `ndisasm -b 16 -o 0x78f0 -e 0x7af0 build/cleanroom/AGI.decrypted.exe | sed -n '1,190p'`
+- `rg -n "0x8e|0xab|0xac|load_view|prepare_picture|overlay_picture|discard_view|load_sound|resource event|event buffer|code.event|data.event" docs/src/logic_bytecode.md docs/src/symbolic_labels.md docs/src/clean_room_executable_notes.md docs/src/current_status.md docs/src/progress_log.md`
+- Follow-up check for re-enable paths:
+  - `ndisasm -b 16 -o 0x2512 -e 0x2712 build/cleanroom/AGI.decrypted.exe | sed -n '1,230p'`
+  - `ndisasm -b 16 -o 0x2753 -e 0x2953 build/cleanroom/AGI.decrypted.exe | sed -n '1,230p'`
+  - `ndisasm -b 16 -o 0x0000 -e 0x0200 build/cleanroom/AGI.decrypted.exe | rg "call 0x705e|call 0x706d|call 0x681c"`
+
+Documented result:
+
+- Assigned stable labels for the resource-event helpers:
+  `code.event.disable_recording`, `code.event.enable_recording`,
+  `code.event.reset_pair_buffer`, `code.event.record_pair`,
+  `code.event.prepare_replay_cursor`, `code.event.next_replay_pair`, and the
+  action handlers for opcodes `0x8e`, `0xab`, and `0xac`.
+- Refined the data labels for the replay log: `data.event.pair_capacity`
+  (`[0x0141]`), `data.event.pair_count` (`[0x0143]`),
+  `data.event.saved_pair_count` (`[0x05e1]`),
+  `data.event.pair_buffer_base` (`[0x1707]`),
+  `data.event.pair_buffer_write` (`[0x1709]`),
+  `data.event.pair_buffer_read` (`[0x170b]`),
+  `data.event.recording_enabled` (`[0x170d]`), and
+  `data.event.pair_high_water` (`[0x170f]`).
+- The event log is a sequence of two-byte pairs `(kind, value)`. Capacity is
+  stored as a pair count, while the allocated byte size is `capacity * 2`.
+  `code.event.record_pair` appends only if flag 7 is clear and
+  `data.event.recording_enabled` is nonzero. It reports error code `0x0b`
+  when the write pointer reaches `base + capacity * 2`.
+- Room switching calls `code.event.reset_pair_buffer` and then
+  `code.event.enable_recording`, so each new room starts with a fresh event
+  log. Restore replay calls `code.event.disable_recording` before replaying
+  saved events so the replayed operations do not append duplicate pairs.
+- Mapped restore event kinds from the dispatch table at `0x6915`:
+  - `0`: load logic, then restore logic resume metadata through `0x13a5`;
+  - `1`: load/refresh view through `code.view.load_resource`;
+  - `2`: load picture through `code.picture.load_resource`;
+  - `3`: load sound through `code.sound.load_resource`;
+  - `4`: prepare/decode picture through `code.picture.prepare`;
+  - `5`: replay the transient-display-object packet;
+  - `6`: discard picture through `code.picture.discard`;
+  - `7`: discard view through `0x3f0d`;
+  - `8`: overlay picture through `code.picture.overlay_prepare`.
+- Kind `5` is a four-pair packet. Helper `0x2d52` records `(5, 0)`, then
+  records byte pairs from `0x0eae..0x0eb3`; replay reads those next three
+  pairs back into the same globals before calling `0x2d52`.
+- Mapped event-producing resource paths:
+  - `0x14`/`0x15` record kind `0` after loading logic through `0x117d`;
+  - `0x1e`/`0x1f` record kind `1` only when creating a new cached view entry;
+  - `0x18` records kind `2` only when creating a new cached picture entry;
+  - `0x62` records kind `3` only when creating a new cached sound entry;
+  - `0x19`, `0x1c`, `0x1b`, `0x20`, and `0x99` record kinds `4`, `8`, `6`,
+    and `7` through their shared helpers.
+- The temporary view-resource display helper `0x5edb`, used by actions
+  `0x81` and `0xa2`, disables recording before its internal load/display
+  sequence and re-enables recording before returning. If it loaded the view
+  only for the display, it discards that view while recording is still
+  disabled. This keeps temporary preview work out of the persistent restore
+  model.
+- The restore action at `0x2512` calls replay at `0x681c` and then continues
+  through display/menu refresh helpers, but the checked caller slice does not
+  call `code.event.enable_recording`. A full call-site scan found only two
+  `code.event.enable_recording` calls: room switching at `0x17a3` and the
+  temporary view-display cleanup at `0x6024`. Display-mode toggle action
+  `0x8c` also calls replay at `0x797f` without an observed re-enable in that
+  immediate path. Therefore the post-replay event-recording lifecycle remains
+  an explicit open question; the docs no longer assume automatic re-enable
+  after restore replay.
+- Updated `docs/src/logic_bytecode.md` with the higher-level event-log model,
+  and updated `docs/src/symbolic_labels.md` with the new code/data labels.
