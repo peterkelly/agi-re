@@ -281,14 +281,26 @@ Run the room-entry boundary selector batch:
 
 ```bash
 python3 -B tools/logic_interpreter_probe.py --case switch_room_boundary_1_sets_object0_bottom_y --case switch_room_boundary_2_sets_object0_left_x --case switch_room_boundary_3_sets_object0_top_y --case switch_room_boundary_4_sets_object0_right_x --dos-prefix RB --output build/logic-interpreter-probes/batches/room_boundary_002.json --boot-wait 5 --draw-wait 8 --stop-on-failure
+python3 -B tools/logic_interpreter_probe.py --case switch_room_v_boundary_1_sets_object0_bottom_y --case switch_room_v_boundary_2_sets_object0_left_x --case switch_room_v_boundary_3_sets_object0_top_y --case switch_room_v_boundary_4_sets_object0_right_x --dos-prefix VB --output build/logic-interpreter-probes/batches/room_boundary_var_001.json --boot-wait 5 --draw-wait 8 --stop-on-failure
 ```
 
-The four-case batch matched QEMU with 0 mismatches. These fixtures validate the
-`v2` entry-boundary selector side effect of `0x12`: selector `1` sets object 0 Y
-to `0xa7`, selector `2` sets object 0 X to `0`, selector `3` sets object 0 Y to
-`0x25`, selector `4` sets object 0 X to `0xa0 - object_width`, and each path
-clears `v2`. The fixture preloads view 11 before setting up object 0 so the
-right-edge case has a known width.
+Both four-case batches matched QEMU with 0 mismatches. These fixtures validate
+the `v2` entry-boundary selector side effect of `0x12` and `0x13`: selector `1`
+sets object 0 Y to `0xa7`, selector `2` sets object 0 X to `0`, selector `3`
+sets object 0 Y to `0x25`, selector `4` sets object 0 X to
+`0xa0 - object_width`, and each path clears `v2`. The fixture preloads view 11
+before setting up object 0 so the right-edge case has a known width.
+
+Run the room-switch persistent-object reset batch:
+
+```bash
+python3 -B tools/logic_interpreter_probe.py --case switch_room_removes_preexisting_persistent_object --case switch_room_v_removes_preexisting_persistent_object --dos-prefix RO --output build/logic-interpreter-probes/batches/room_object_reset_001.json --boot-wait 5 --draw-wait 8 --stop-on-failure
+```
+
+The two-case batch matched QEMU with 0 mismatches. These fixtures activate a
+persistent object before the room switch and validate that only the destination
+room's sprite appears afterward. They prove the pre-switch persistent object's
+visible draw state does not survive either `0x12` or `0x13`.
 
 Run the inventory selection follow-up batch:
 

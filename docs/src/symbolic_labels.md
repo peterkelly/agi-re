@@ -44,6 +44,7 @@ Address columns use these meanings:
 | `code.logic.resolve_message` | image `0x21f0` | Resolves a current-logic message number through the message pointer table. |
 | `code.logic.load_cached` | image `0x117d` | Loads a logic resource and keeps it linked in the logic cache. |
 | `code.logic.load_resource` | image `0x119a` | Reads, initializes, and message-decodes a logic resource. |
+| `code.logic.truncate_cache_to_head` | image `0x10f7` | If `data.logic.cache_root` is nonzero, stores zero in the first logic cache record's `+0x00` next-link field. Room-switch cache reset uses this to preserve the first logic record while unlinking later cached logic records. |
 | `code.logic.call_logic` | image `0x12ae` | Temporarily switches current logic, runs `code.logic.interpret_main`, and may unlink a transient record. |
 | `code.logic.save_resume_ip_action` | image `0x1335` | Action handler for `0x91`; stores the current bytecode pointer in the current logic record's resume pointer field `+0x06`. |
 | `code.logic.restore_entry_ip_action` | image `0x134a` | Action handler for `0x92`; copies the current logic record's entry pointer field `+0x04` back to resume pointer field `+0x06`. |
@@ -54,12 +55,16 @@ Address columns use these meanings:
 | Label | SQ2 address | Notes/evidence |
 | --- | --- | --- |
 | `code.resource.load_all_directories` | image `0x4305` | Loads `LOGDIR`, `VIEWDIR`, `PICDIR`, and `SNDDIR`. |
+| `code.resource.reset_room_caches` | image `0x10d0` | Room-switch cache reset helper. Calls `code.logic.truncate_cache_to_head`, clears the view cache root, clears the sound cache root, and clears the picture cache root. |
 | `code.resource.read_volume_payload_retry` | image `0x2e32` | Retries the generic volume reader until it returns data or reports failure. |
 | `code.resource.read_volume_payload_once` | image `0x2e56` | Reads one resource payload from a volume file using a directory entry. |
 | `code.resource.logic_dir_entry` | image `0x4371` | Resolves logic directory entries from `data.resource.logic_dir`. |
 | `code.resource.view_dir_entry` | image `0x43a5` | Resolves view-like directory entries from `data.resource.view_dir`. |
 | `code.resource.picture_dir_entry` | image `0x43d9` | Resolves picture-like directory entries from `data.resource.picture_dir`. |
 | `code.resource.sound_dir_entry` | image `0x440d` | Resolves sound-like directory entries from `data.resource.sound_dir`. |
+| `code.view.clear_cache_root` | image `0x396d` | Clears the view-like resource cache root at `[0x0ffa]`; called by room-switch cache reset. |
+| `code.picture.clear_cache_root` | image `0x49dc` | Clears the picture-like resource cache root at `[0x120e]`; called by room-switch cache reset. |
+| `code.sound.clear_cache_root` | image `0x50cc` | Clears the sound-like resource cache root at `[0x125a]`; called by room-switch cache reset. |
 | `code.dos.create_file` | image `0x5cad` | DOS file wrapper used by save/log paths. |
 | `code.dos.open_file` | image `0x5cce` | DOS open wrapper. |
 | `code.dos.close_file` | image `0x5d52` | DOS close wrapper. |
@@ -158,6 +163,7 @@ Address columns use these meanings:
 | `code.input.wait_event` | image `0x45d7` | Blocking event wait helper. Calls the event normalizer at `0x459e` until the returned word is neither `0x0000` nor `0xffff`. |
 | `code.input.enqueue_event` | image `0x44a9` | Enqueues an input/event record with a type word and value word in the circular queue rooted near `data.input.event_queue`. Menu selection uses this to enqueue type 3 item ids. |
 | `code.input.dequeue_event` | image `0x44f9` | Dequeues one 4-byte event record from `data.input.event_queue_base`, returning zero when read and write pointers match. |
+| `code.input.reset_event_state` | image `0x4482` | Resets input-related state around helper calls `0x466f` and `0x6326`, then resets event queue write/read pointers `[0x120a]` and `[0x120c]` to base `0x11ba`. Used by room switch and pause/calibration paths. |
 | `code.input.drain_bios_keys` | image `0x467f` | Repeatedly polls BIOS-key helper `0x5a89`, maps known movement keys through `code.input.map_raw_direction_key`, and enqueues type-2 movement events or type-1 raw key events. |
 | `code.input.map_raw_direction_key` | image `0x46b6` | Scans `data.input.menu_direction_event_map` for a raw key word and returns the movement value, or `0xffff` when unmapped. |
 | `code.input.remap_display_adapter_event` | image `0x46e8` | When display adapter word `[0x112e] == 2`, scans `data.input.display_adapter_event_map` and converts matching type-1 events to type-2 movement events. |
@@ -200,7 +206,7 @@ Address columns use these meanings:
 
 | Label | SQ2 address | Notes/evidence |
 | --- | --- | --- |
-| `code.room.switch_state` | image `0x1792` | Shared helper for actions `0x12` and `0x13`; resets object/resource state, updates room variables, loads destination logic, handles entry-boundary placement, and sets flag 5. Direct QEMU fixture attempts were not stable enough to promote beyond source-backed evidence. |
+| `code.room.switch_state` | image `0x1792` | Shared helper for actions `0x12` and `0x13`; stops sound, resets heap/update/input state, seeds selected object fields, resets room caches through `code.resource.reset_room_caches`, updates room variables, loads destination logic, handles entry-boundary placement, sets flag 5, redraws status/input state, and returns zero. QEMU now validates re-entry/current-room dispatch, current/previous/boundary variables, all four boundary placements, and visible absence of a pre-switch persistent object. Exact object/cache field effects are source-backed from disassembly. |
 | `code.display.show_priority_screen_action` | image `0x731b` | Action handler for `0x1d`; sets `data.display.priority_screen_mode`, refreshes the screen, waits for an event, refreshes again, then clears the mode. QEMU `priority_diag_sound_001` validates return after Enter. |
 | `data.display.priority_screen_mode` | data `0x1755` | Word tested by the full-screen refresh path to display priority/control nibbles instead of normal visual nibbles. |
 | `code.object.display_diagnostics_action` | image `0x72b5` | Action handler for `0x85`; formats object fields into the diagnostic template at data `0x1713` and displays the text. QEMU `priority_diag_sound_001` validates return after Enter. |
@@ -245,6 +251,9 @@ Address columns use these meanings:
 | `data.resource.view_dir` | pointer global `[0x11b4]` | Loaded view directory pointer. |
 | `data.resource.picture_dir` | pointer global `[0x11b6]` | Loaded picture directory pointer. |
 | `data.resource.sound_dir` | pointer global `[0x11b8]` | Loaded sound directory pointer. |
+| `data.resource.view_cache_root` | pointer global `[0x0ffa]` | Root of cached view-like resource records. Cleared by `code.view.clear_cache_root` during room-switch cache reset. |
+| `data.resource.picture_cache_root` | pointer/global record `[0x120e]` | Picture-like cache root/static first record used by picture loading. Cleared by `code.picture.clear_cache_root` during room-switch cache reset. |
+| `data.resource.sound_cache_root` | pointer/global record `[0x125a]` | Sound-like cache root/static first record used by sound loading. Cleared by `code.sound.clear_cache_root` during room-switch cache reset. |
 | `data.display.hardware_kind` | global `[0x112e]` | Display adapter/hardware selector used by setup and display branches. |
 | `data.display.mode` | global `[0x1130]` | Display mode selector affected by command-line flags and opcode `0x8c`. |
 | `data.control.priority_table` | data `0x127a` | Runtime 168-byte row-to-priority/control table. |

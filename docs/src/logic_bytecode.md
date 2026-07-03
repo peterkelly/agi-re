@@ -621,7 +621,7 @@ Resource and interpreter-control actions observed so far:
 
 | Opcode | Label | Handler | Observed action |
 | ---: | --- | ---: | --- |
-| `0x12` | `switch_room_like` | `0x175c` | Reads immediate `arg0` and calls helper `0x1792`. The helper stops active sound state, restores heap/update-list state through `0x1485`, calls cleanup helpers `0x4482`, `0x707c`, and `0x706d`, resets every object entry's active/resource/frame state, sets `[0x0139] = 1`, stores `0x24` in word `[0x012d]`, copies byte variable 0 from `DS:0x0009` to `DS:0x000a`, writes `arg0` to byte variable 0, clears bytes `DS:0x000d` and `DS:0x000e`, records object 0's current view/resource byte in `DS:0x0019`, calls `0x117d` to load logic `arg0`, optionally loads another logic from `[0x1d12]`, may reposition object 0 from boundary byte `[0x000b]`, sets flag 5, and calls redraw/reinitialization helpers. This is a broad room/state switch action; the final name is still provisional. |
+| `0x12` | `switch_room_like` | `0x175c` | Reads immediate `arg0` and calls helper `0x1792`. The helper stops active sound state, restores heap/update-list state through `0x1485`, calls cleanup helpers `0x4482`, `0x707c`, and `0x706d`, resets selected object fields, truncates/clears resource caches, sets `[0x0139] = 1`, stores `0x24` in word `[0x012d]`, copies byte variable 0 from `DS:0x0009` to `DS:0x000a`, writes `arg0` to byte variable 0, clears bytes `DS:0x000d` and `DS:0x000e`, records object 0's current view/resource byte in `DS:0x0019`, calls `0x117d` to load logic `arg0`, optionally loads another logic from `[0x1d12]`, may reposition object 0 from boundary byte `[0x000b]`, sets flag 5, and calls redraw/reinitialization helpers. This is a broad room/state switch action; the final name is still provisional. |
 | `0x13` | `switch_room_like_var` | `0x1773` | Same as `0x12`, but the target number is read from `var[arg0]`. |
 | `0x14` | `load_logic` | `0x113d` | Reads immediate `arg0`, calls `0x117d`. Helper `0x117d` loads logic resource `arg0` through `0x119a`, then records pair `(0, arg0)` through helper `0x70b1`. |
 | `0x15` | `load_logic_var` | `0x1159` | Same as `0x14`, but logic number is `var[arg0]`. |
@@ -688,10 +688,15 @@ first stops active sound state, resets heap/update-list state through
 resource/event pair buffer, and enables resource/event pair recording. It then
 resets all object records from `[0x096b]` to `[0x096d]`. For each 43-byte
 record it clears active/update bits `0x0001` and `0x0040`, sets bit `0x0010`,
-clears fields `+0x08`, `+0x10`, `+0x14`, `+0x1e`, `+0x1f`, and `+0x20`, and
-stores `1` in bytes `+0x00` and `+0x01`.
+clears pointer fields `+0x08`, `+0x10`, and `+0x14`, and stores `1` in bytes
+`+0x00`, `+0x01`, `+0x1e`, `+0x1f`, and `+0x20`. The last three are the
+step-size byte and the frame-timer reload/current bytes; they are seeded to
+one, not zero.
 
-After the object reset, the helper clears the logic cache root, sets the
+After the object reset, helper `0x10d0` resets the room resource caches. It
+preserves the first logic cache record by writing zero to that record's next
+link, then clears the view cache root `[0x0ffa]`, sound cache root `[0x125a]`,
+and picture cache root `[0x120e]`. The room-switch helper then sets the
 object-boundary flag word `[0x0139] = 1`, clears word `[0x013d]`, restores the
 horizon-like global `[0x012d]` to `0x24`, copies current room byte variable 0
 to previous-room byte variable 1, writes the destination room to byte variable
@@ -750,17 +755,26 @@ previous room, and byte variable 2 has been cleared. The matched immediate and
 variable-selected cases confirm that the switch helper copies old `v0` to `v1`,
 writes the destination room to `v0`, and clears `v2` on both operand paths.
 
-QEMU fixture `room_boundary_002` validates the four entry-boundary selector
-cases through normal bytecode-visible object state. The fixture initializes
+QEMU fixtures `room_boundary_002` and `room_boundary_var_001` validate the four
+entry-boundary selector cases through normal bytecode-visible object state for
+both immediate and variable-selected room switches. The fixture initializes
 object 0 with loaded view 11 frame 0 at `(44,80)` before switching rooms. The
 destination room logic then reads object 0 with action `0x27` and draws only if
 the expected position and cleared selector byte are observed. The matched cases
 confirm selector `1` writes Y `0xa7`, selector `2` writes X `0`, selector `3`
 writes Y `0x25`, selector `4` writes X `140` (`0xa0 - 20` for the selected
-cel width), and all four clear byte variable 2. An earlier attempt that bound
-object 0's view without first loading view 11 did not reach the switch; the
-right-edge selector is only meaningful when object width has already been
-derived.
+cel width), and all four clear byte variable 2 on both operand paths. An
+earlier attempt that bound object 0's view without first loading view 11 did
+not reach the switch; the right-edge selector is only meaningful when object
+width has already been derived.
+
+QEMU fixture `room_object_reset_001` validates one visible object-reset effect
+for both operand paths. Logic 0 loads view 11, sets up object 10, activates it
+as a persistent object, and then switches rooms. The destination room logic
+draws a single validation sprite. Both immediate and variable-selected cases
+match only when the pre-switch persistent object is absent from the destination
+room render, confirming that active object draw state does not survive the room
+switch.
 
 The broader internal reset effects are still source-backed from the
 disassembly: object/resource reset beyond the bytecode-visible fields checked

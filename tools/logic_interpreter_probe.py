@@ -330,6 +330,23 @@ def previous_room_logic0_code(
     )
 
 
+def room_pre_switch_logic0_code(
+    switch_action: bytes,
+    pre_switch_setup: bytes,
+    init_flag: int,
+) -> bytes:
+    return (
+        if_then(
+            not_flag_set_condition(init_flag),
+            pre_switch_setup
+            + set_flag_action(init_flag)
+            + switch_action,
+        )
+        + byte_action(0x17, 0)
+        + end_action()
+    )
+
+
 def previous_room_validation_logic(
     expected_previous_room: int,
     expected_draw_x: int,
@@ -424,6 +441,41 @@ def room_previous_state_case(
     )
 
 
+def room_pre_switch_object_reset_case(
+    case_id: str,
+    description: str,
+    switch_action: bytes,
+    expected_draw_x: int,
+    init_flag: int,
+) -> LogicInterpreterCase:
+    return LogicInterpreterCase(
+        case_id=case_id,
+        description=description,
+        code_hex=room_pre_switch_logic0_code(
+            switch_action,
+            pre_switch_setup=load_show_picture_actions(0)
+            + bytes([0x1E, 11])
+            + setup_object_for_view11(10, x=20, baseline_y=80)
+            + byte_action(0x23, 10),
+            init_flag=init_flag,
+        ).hex(),
+        picture_payload_hex=b"\xff".hex(),
+        picture_no=0,
+        expected_view_no=11,
+        expected_group_no=0,
+        expected_frame_no=0,
+        expected_x=expected_draw_x,
+        expected_baseline_y=80,
+        expected_priority=15,
+        extra_logics=[
+            logic_patch(
+                1,
+                validation_room_logic(expected_x=expected_draw_x),
+            )
+        ],
+    )
+
+
 def room_boundary_case(
     case_id: str,
     description: str,
@@ -432,12 +484,15 @@ def room_boundary_case(
     expected_object_y: int,
     expected_draw_x: int,
     init_flag: int,
+    switch_action: bytes | None = None,
 ) -> LogicInterpreterCase:
+    if switch_action is None:
+        switch_action = byte_action(0x12, 1)
     return LogicInterpreterCase(
         case_id=case_id,
         description=description,
         code_hex=room_boundary_logic0_code(
-            byte_action(0x12, 1),
+            switch_action,
             boundary_selector=boundary_selector,
             init_flag=init_flag,
             pre_switch_setup=bytes([0x1E, 11]) + setup_object_for_view11(0, x=44, baseline_y=80),
@@ -898,6 +953,20 @@ def base_cases() -> list[LogicInterpreterCase]:
             expected_draw_x=106,
             init_flag=127,
         ),
+        room_pre_switch_object_reset_case(
+            "switch_room_removes_preexisting_persistent_object",
+            "Action 0x12 clears a persistent object activated before the room switch so it is absent in the destination room.",
+            byte_action(0x12, 1),
+            expected_draw_x=52,
+            init_flag=132,
+        ),
+        room_pre_switch_object_reset_case(
+            "switch_room_v_removes_preexisting_persistent_object",
+            "Action 0x13 clears a persistent object activated before the room switch so it is absent in the destination room.",
+            assignn(10, 1) + byte_action(0x13, 10),
+            expected_draw_x=60,
+            init_flag=133,
+        ),
         room_boundary_case(
             "switch_room_boundary_1_sets_object0_bottom_y",
             "Boundary selector v2=1 sets object 0 Y to the bottom-entry value and clears v2.",
@@ -933,6 +1002,46 @@ def base_cases() -> list[LogicInterpreterCase]:
             expected_object_y=80,
             expected_draw_x=90,
             init_flag=125,
+        ),
+        room_boundary_case(
+            "switch_room_v_boundary_1_sets_object0_bottom_y",
+            "Variable-selected room switch with v2=1 sets object 0 Y to the bottom-entry value and clears v2.",
+            boundary_selector=1,
+            expected_object_x=44,
+            expected_object_y=0xA7,
+            expected_draw_x=108,
+            init_flag=128,
+            switch_action=assignn(10, 1) + byte_action(0x13, 10),
+        ),
+        room_boundary_case(
+            "switch_room_v_boundary_2_sets_object0_left_x",
+            "Variable-selected room switch with v2=2 sets object 0 X to the left-entry value and clears v2.",
+            boundary_selector=2,
+            expected_object_x=0,
+            expected_object_y=80,
+            expected_draw_x=116,
+            init_flag=129,
+            switch_action=assignn(10, 1) + byte_action(0x13, 10),
+        ),
+        room_boundary_case(
+            "switch_room_v_boundary_3_sets_object0_top_y",
+            "Variable-selected room switch with v2=3 sets object 0 Y to the top-entry value and clears v2.",
+            boundary_selector=3,
+            expected_object_x=44,
+            expected_object_y=0x25,
+            expected_draw_x=124,
+            init_flag=130,
+            switch_action=assignn(10, 1) + byte_action(0x13, 10),
+        ),
+        room_boundary_case(
+            "switch_room_v_boundary_4_sets_object0_right_x",
+            "Variable-selected room switch with v2=4 sets object 0 X to 0xa0 minus object width and clears v2.",
+            boundary_selector=4,
+            expected_object_x=140,
+            expected_object_y=80,
+            expected_draw_x=132,
+            init_flag=131,
+            switch_action=assignn(10, 1) + byte_action(0x13, 10),
         ),
         _draw_if_case(
             "save_restore_resume_actions_continue_to_draw",

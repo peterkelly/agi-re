@@ -2172,11 +2172,13 @@ Documented result:
 - Refined `code.room.switch_state` (`0x1792`) from disassembly. The helper
   stops sound, resets heap/update-list state, clears parser/input state,
   initializes and enables resource-event recording, resets all object records,
-  clears the logic cache root, sets object-boundary word `[0x0139]`, resets
-  horizon-like word `[0x012d]` to `0x24`, updates current/previous room byte
-  variables, loads the destination logic, reloads trace logic `[0x1d12]` when
-  configured, consumes byte variable 2 as the entry-boundary selector, sets
-  flag 5, refreshes display/status/input state, and returns zero.
+  resets room caches through `0x10d0`, sets object-boundary word `[0x0139]`,
+  resets horizon-like word `[0x012d]` to `0x24`, updates current/previous room
+  byte variables, loads the destination logic, reloads trace logic `[0x1d12]`
+  when configured, consumes byte variable 2 as the entry-boundary selector,
+  sets flag 5, refreshes display/status/input state, and returns zero. The
+  exact cache behavior was refined later: `0x10d0` preserves the first logic
+  cache record while clearing view, sound, and picture cache roots.
 - Re-read `code.engine.main_cycle` (`0x0150`) to explain the zero return. When
   `code.logic.call_logic(0)` returns zero, the main cycle clears temporary
   boundary bytes and calls logic 0 again immediately. This supports the model
@@ -4598,3 +4600,132 @@ Documented result:
 - Regenerated `docs/src/logic_opcode_evidence.md`; action rows `0x12` and
   `0x13` now cite the previous-room variable probes in addition to the existing
   room re-entry evidence.
+
+## 2026-07-03: variable-room entry-boundary selector QEMU validation
+
+Commands run from `/Users/peter/ai/agi/reverse`:
+
+- `sed -n '240,390p' tools/logic_interpreter_probe.py`
+- `sed -n '780,865p' tools/logic_interpreter_probe.py`
+- `python3 -B -m unittest tests.test_logic_interpreter_probe`
+- `python3 -B -m py_compile tools/logic_interpreter_probe.py`
+- QEMU validation:
+  `python3 -B tools/logic_interpreter_probe.py --case switch_room_v_boundary_1_sets_object0_bottom_y --case switch_room_v_boundary_2_sets_object0_left_x --case switch_room_v_boundary_3_sets_object0_top_y --case switch_room_v_boundary_4_sets_object0_right_x --dos-prefix VB --output build/logic-interpreter-probes/batches/room_boundary_var_001.json --boot-wait 5 --draw-wait 8 --stop-on-failure`
+- `python3 -B tools/logic_opcode_evidence.py`
+
+Documented result:
+
+- Parameterized `room_boundary_case` so it can use either the immediate
+  `0x12` action or a caller-supplied variable-selected `0x13` action.
+- Added four reusable logic-interpreter probe cases:
+  `switch_room_v_boundary_1_sets_object0_bottom_y`,
+  `switch_room_v_boundary_2_sets_object0_left_x`,
+  `switch_room_v_boundary_3_sets_object0_top_y`, and
+  `switch_room_v_boundary_4_sets_object0_right_x`.
+- The variable-selected fixtures set variable 10 to destination room 1, set
+  byte variable 2 to selector 1 through 4, then execute `0x13(v10)`. The
+  destination room logic reads object 0 with action `0x27` and validates the
+  expected position plus cleared byte variable 2 before drawing.
+- QEMU batch `room_boundary_var_001` matched 4/4 with 0 mismatches. This
+  confirms that the variable-selected room-switch action shares the same
+  bytecode-visible entry-boundary side effects as the immediate action:
+  selector 1 sets object 0 Y to `0xa7`, selector 2 sets object 0 X to `0`,
+  selector 3 sets object 0 Y to `0x25`, selector 4 sets object 0 X to
+  `0xa0 - object_width`, and all four clear `v2`.
+- Regenerated `docs/src/logic_opcode_evidence.md`; action row `0x13` now cites
+  the variable-room boundary selector cases.
+
+## 2026-07-03: room-switch persistent-object reset QEMU validation
+
+Commands run from `/Users/peter/ai/agi/reverse`:
+
+- `rg -n "expected_extra_sprites|setup_object_for_view11|activate|clear_all_object_bits|compose_frame_on_picture|extra_sprites|room_boundary_case|previous_room" tools/logic_interpreter_probe.py tests/test_logic_interpreter_probe.py docs/src/logic_bytecode.md`
+- `sed -n '390,470p' tools/logic_interpreter_probe.py`
+- `sed -n '1810,1828p' tools/logic_interpreter_probe.py`
+- `python3 -B -m unittest tests.test_logic_interpreter_probe`
+- `python3 -B -m py_compile tools/logic_interpreter_probe.py`
+- QEMU validation:
+  `python3 -B tools/logic_interpreter_probe.py --case switch_room_removes_preexisting_persistent_object --case switch_room_v_removes_preexisting_persistent_object --dos-prefix RO --output build/logic-interpreter-probes/batches/room_object_reset_001.json --boot-wait 5 --draw-wait 8 --stop-on-failure`
+- `python3 -B tools/logic_opcode_evidence.py`
+
+Documented result:
+
+- Added reusable helper `room_pre_switch_logic0_code` for room-switch probes
+  that need setup work before the switch action runs.
+- Added `room_pre_switch_object_reset_case`, which loads and shows picture 0,
+  loads view 11, binds object 10 to that view, places it at X 20 / baseline Y
+  80, activates it as a persistent object with action `0x23`, and then changes
+  rooms.
+- Added two QEMU-backed cases:
+  `switch_room_removes_preexisting_persistent_object` for immediate action
+  `0x12`, and `switch_room_v_removes_preexisting_persistent_object` for
+  variable-selected action `0x13`.
+- The destination room logic draws only a validation sprite. The local expected
+  renderer therefore fails if the object activated before the switch survives
+  into the destination room as an extra drawn sprite.
+- QEMU batch `room_object_reset_001` matched 2/2 with 0 mismatches. This
+  validates that pre-switch active persistent-object draw state is not visibly
+  carried into the destination room for either `0x12` or `0x13`.
+- This does not yet prove the contents of every object table field after the
+  switch. It is an observable rendering compatibility fact; broader field reset
+  details remain to be mapped from the disassembly or narrower bytecode probes.
+
+## 2026-07-03: room-switch object and cache reset source correction
+
+Commands run from `/Users/peter/ai/agi/reverse`:
+
+- `sed -n '1,240p' docs/src/current_status.md`
+- `sed -n '1,220p' docs/src/symbolic_labels.md`
+- `rg -n "000017[0-9A-Fa-f]|000014[0-9A-Fa-f]|1792|1485|code\\.room\\.switch_state|reset_dynamic_state|room switch|room-switch" build/cleanroom/AGI.decrypted.ndisasm docs/src/*.md tools/*.py`
+- Oversized exploratory disassembly reads, corrected by the focused reads
+  below:
+  - `ndisasm -b 16 -o 0x175c -e 0x195c build/cleanroom/AGI.decrypted.exe`
+  - `ndisasm -b 16 -o 0x1485 -e 0x1685 build/cleanroom/AGI.decrypted.exe`
+  - `ndisasm -b 16 -o 0x7060 -e 0x7260 build/cleanroom/AGI.decrypted.exe`
+- `ndisasm -b 16 -o 0x10d0 -e 0x12d0 build/cleanroom/AGI.decrypted.exe | sed -n '1,180p'`
+- `ndisasm -b 16 -o 0x30c0 -e 0x32c0 build/cleanroom/AGI.decrypted.exe | sed -n '1,160p'`
+- `ndisasm -b 16 -o 0x4470 -e 0x4670 build/cleanroom/AGI.decrypted.exe | sed -n '1,180p'`
+- `ndisasm -b 16 -o 0x4c00 -e 0x4e00 build/cleanroom/AGI.decrypted.exe | sed -n '1,180p'`
+- `ndisasm -b 16 -o 0x3920 -e 0x3b20 build/cleanroom/AGI.decrypted.exe | sed -n '1,180p'`
+- `ndisasm -b 16 -o 0x49c0 -e 0x4bc0 build/cleanroom/AGI.decrypted.exe | sed -n '1,190p'`
+- `ndisasm -b 16 -o 0x50a0 -e 0x52a0 build/cleanroom/AGI.decrypted.exe | sed -n '1,170p'`
+- `sed -n '300,380p' docs/src/graphics_object_pipeline.md`
+- `rg -n "\\+0x1e|\\+0x1f|\\+0x20|0x0010|0x0040|0x0001|0xffbe|0x17b6|17B6|room-switch object|object reset" docs/src tools tests`
+- Compact confirmation reads:
+  - `ndisasm -b 16 -o 0x175c -e 0x195c build/cleanroom/AGI.decrypted.exe | sed -n '1,90p'`
+  - `ndisasm -b 16 -o 0x10d0 -e 0x12d0 build/cleanroom/AGI.decrypted.exe | sed -n '1,55p'`
+  - `ndisasm -b 16 -o 0x3920 -e 0x3b20 build/cleanroom/AGI.decrypted.exe | sed -n '30,65p'`
+  - `ndisasm -b 16 -o 0x49c0 -e 0x4bc0 build/cleanroom/AGI.decrypted.exe | sed -n '1,35p'`
+  - `ndisasm -b 16 -o 0x50a0 -e 0x52a0 build/cleanroom/AGI.decrypted.exe | sed -n '15,42p'`
+  - `ndisasm -b 16 -o 0x4470 -e 0x4670 build/cleanroom/AGI.decrypted.exe | sed -n '8,28p'`
+
+Documented result:
+
+- Corrected the room-switch object reset description. At `0x17b6..0x17e5`,
+  `code.room.switch_state` iterates object records in `0x2b`-byte steps,
+  clears bits `0x0001` and `0x0040` with `AND 0xffbe`, sets bit `0x0010`,
+  clears pointer fields `+0x10`, `+0x08`, and `+0x14`, then stores byte `1`
+  into `+0x00`, `+0x01`, `+0x20`, `+0x1f`, and `+0x1e`.
+- The previous prose saying `+0x1e`, `+0x1f`, and `+0x20` are cleared was
+  wrong. The instruction stream keeps `AL = 1`; the repeated `sub ah,ah`
+  clears only the high byte and does not change `AL`. Those bytes are therefore
+  seeded to `1`. In the object field map they are step size, frame-timer
+  reload, and frame-timer current countdown.
+- Refined the room-switch cache reset model. Helper `0x10d0` calls
+  `0x10f7`, `0x396d`, `0x50cc`, and `0x49dc`. The logic helper `0x10f7` does
+  not clear the root word `[0x0977]`; if the root is nonzero, it writes zero to
+  the first logic cache record's `+0x00` next-link field. This preserves the
+  first logic cache record and unlinks later records.
+- The remaining cache helpers clear their roots directly: view-like cache root
+  `[0x0ffa] = 0` through `0x396d`, sound-like cache root `[0x125a] = 0`
+  through `0x50cc`, and picture-like cache root/static record word
+  `[0x120e] = 0` through `0x49dc`.
+- Added symbolic labels for `code.logic.truncate_cache_to_head`,
+  `code.resource.reset_room_caches`, `code.view.clear_cache_root`,
+  `code.picture.clear_cache_root`, `code.sound.clear_cache_root`, and
+  `code.input.reset_event_state`, plus data labels for the view/picture/sound
+  cache roots.
+- Updated `docs/src/logic_bytecode.md`, `docs/src/logic_resources.md`,
+  `docs/src/current_status.md`, and `docs/src/symbolic_labels.md` so the
+  high-level room-switch model distinguishes QEMU-validated visible behavior
+  from source-backed exact memory-field effects.

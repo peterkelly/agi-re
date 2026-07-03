@@ -68,6 +68,27 @@ The `payload` pointer returned by the volume reader begins after the 5-byte
 `VOL.*` record header. The first two bytes of a logic payload are not executed
 as bytecode; they are a little-endian length used to find the message metadata.
 
+## Room-switch cache reset
+
+Room switching does not simply clear every resource cache root. The helper at
+image `0x10d0` performs a cache reset tuned for room transition:
+
+```text
+reset_room_caches():                 # 0x10d0
+    truncate_logic_cache_to_head()    # 0x10f7
+    clear_view_cache_root()           # 0x396d -> [0x0ffa] = 0
+    clear_sound_cache_root()          # 0x50cc -> [0x125a] = 0
+    clear_picture_cache_root()        # 0x49dc -> [0x120e] = 0
+```
+
+The logic helper at image `0x10f7` is narrower than a root clear. If
+`[0x0977]` is nonzero, it treats that word as the first logic cache record and
+stores zero at record offset `+0x00`. This preserves the first linked logic
+record while unlinking later records. In SQ2's normal room-switch path that
+matches the observed control-flow model: logic 0 survives the switch and later
+dispatches the destination room, while old room-specific cached logic records
+are discarded.
+
 ## Payload layout
 
 The loader supports this layout:

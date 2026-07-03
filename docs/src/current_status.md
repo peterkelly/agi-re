@@ -21,10 +21,16 @@ QEMU coverage for room-switch re-entry: room switches intentionally return zero
 to force an immediate logic-0 re-entry, then logic 0 can dispatch the current
 room with `call_logic_var(v0)`. Follow-up QEMU probes now also validate current
 room `v0`, previous room `v1`, cleared boundary selector `v2`, and all four
-`v2` entry-boundary placements for object 0. Menu arrow navigation
-consumes type-2 movement events, save/restore selection is separated from block
-I/O, restore replays saved resource events, and sound completion flags are only
-set by the stop helper when active sound state is nonzero.
+`v2` entry-boundary placements for object 0 on both immediate and
+variable-selected room-switch paths. A persistent object activated before the
+switch is also QEMU-validated as absent from the destination-room render. A
+follow-up source pass corrected the exact room-switch reset model: object bytes
+`+0x1e`, `+0x1f`, and `+0x20` are seeded to `1` rather than cleared, and the
+room cache reset preserves the first logic cache record while clearing
+view/picture/sound cache roots. Menu arrow navigation consumes type-2 movement
+events, save/restore selection is separated from block I/O, restore replays
+saved resource events, and sound completion flags are only set by the stop
+helper when active sound state is nonzero.
 
 ## Confirmed Motion and Object Findings
 
@@ -162,9 +168,8 @@ Return to the logic interpreter:
    selection UI, save/restore/restart, deeper room/system transition side
    effects, and full interactive menu/audio paths.
 3. Extend the room-switch probes from the now-matched re-entry fixture. Useful
-   follow-ups are variable-room boundary behavior, resource/event replay, and
-   object/resource reset details after the destination room logic performs its
-   own entry setup.
+   follow-ups are resource/event replay and object/resource reset details after
+   the destination room logic performs its own entry setup.
 4. For menu navigation, target type-2 movement event injection rather than
    relying on QEMU monitor `sendkey down` to behave like the interpreter's
    expected BIOS scan-word path.
@@ -189,13 +194,20 @@ cluster into families that need specialized probes:
   immediate and variable-selected room actions. A newer two-case batch
   validates the current/previous/boundary variable update: both `0x12` and
   `0x13` copy old `v0` to `v1`, write destination room 1 into `v0`, and clear
-  `v2`. A four-case batch validates immediate-room `v2` entry-boundary
-  placement: selector `1` sets object 0 Y to `0xa7`, selector `2` sets X to
-  `0`, selector `3` sets Y to `0x25`, selector `4` sets X to
-  `0xa0 - object_width`, and all four clear `v2`. Deeper side effects remain
-  source-backed: broader object/resource reset, destination logic load, and
-  resource/event recording. `0x15`, `0x1b`, `0x1c`, `0x20`, and `0x99` also
-  have targeted QEMU-backed lifecycle fixtures.
+  `v2`. Two four-case batches validate `v2` entry-boundary placement for both
+  immediate and variable-selected room switches: selector `1` sets object 0 Y
+  to `0xa7`, selector `2` sets X to `0`, selector `3` sets Y to `0x25`,
+  selector `4` sets X to `0xa0 - object_width`, and all four clear `v2`.
+  A two-case object-reset batch validates that a persistent object activated
+  before the switch is absent from the destination-room render for both
+  opcodes. Deeper side effects are source-backed from the latest disassembly
+  pass: every object record clears bits `0x0001`/`0x0040`, sets `0x0010`,
+  clears pointer fields `+0x08`/`+0x10`/`+0x14`, and stores `1` into
+  `+0x00`/`+0x01`/`+0x1e`/`+0x1f`/`+0x20`; room cache reset preserves the first
+  logic cache record and clears view, sound, and picture cache roots.
+  Destination logic load and resource/event recording are mapped but still
+  mostly source-backed. `0x15`, `0x1b`, `0x1c`, `0x20`, and `0x99` also have
+  targeted QEMU-backed lifecycle fixtures.
 - **Text/window/input:** `0x65`, `0x66`, `0x67`, `0x68`, `0x6a`, `0x6b`,
   `0x6c`, `0x6d`, `0x6e`, `0x6f`, `0x70`, `0x71`, `0x73`, `0x76`, `0x77`,
   `0x78`, `0x79`, `0x89`, `0x8a`, `0x97`, `0x98`, `0x9a`, and `0xa9` now have

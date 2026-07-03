@@ -6786,3 +6786,364 @@ Progress updates and outcomes:
 
      Action/result: Added the room current/previous variable QEMU validation
      section to `docs/src/clean_room_executable_notes.md`.
+
+895. Reported: "I’ll proceed with the low-risk custom-logic path first: add the
+     `0x13` variable-room versions of the four `v2` boundary selector tests.
+     That gives us another clean behavioral brick before we reach for memory
+     snapshots or patched instrumentation."
+
+     Action/result: Started the variable-selected room boundary pass.
+
+896. Reported: "I’m checking the committed baseline and the helper shape so I
+     can add these as a small extension rather than duplicating the
+     immediate-room boundary code."
+
+     Action/result: Confirmed the working tree only had untracked generated
+     directories and inspected room-switch helper definitions.
+
+897. Reported: "The helper already takes an arbitrary switch action, so the
+     change can stay tidy: parameterize the boundary case over immediate vs
+     variable switch action, then add four `switch_room_v_boundary_*` cases."
+
+     Action/result: Planned a small parameterization of `room_boundary_case`.
+
+898. Reported: "I’m making `room_boundary_case` accept a switch action,
+     defaulting to `0x12`, then using that for the four `0x13` variants."
+
+     Action/result: Updated `room_boundary_case` to accept an optional
+     caller-supplied switch action.
+
+899. Reported: "The helper is parameterized. I’m inserting the four
+     variable-room boundary cases next to the immediate boundary cases and
+     using separate validation draw positions so mismatches are easy to
+     identify."
+
+     Action/result: Added four `switch_room_v_boundary_*` probe cases.
+
+900. Reported: "The four `0x13` boundary cases are registered. I’m pinning them
+     in the unit test list now."
+
+     Action/result: Added unit assertions for the four variable-room boundary
+     cases.
+
+901. Reported: "I’m running the local probe tests and compile check before
+     launching QEMU."
+
+     Action/result: `tests.test_logic_interpreter_probe` and `py_compile`
+     passed.
+
+902. Reported: "Local checks pass. I’m running the four variable-room boundary
+     cases under QEMU now."
+
+     Action/result: Started QEMU batch `room_boundary_var_001`.
+
+903. Reported: "The QEMU batch is running from one snapshot boot. It has built
+     the fixtures and is executing the capture/compare loop now."
+
+     Action/result: QEMU batch execution continued.
+
+904. Reported: "All four variable-room boundary selectors matched. I’m
+     updating the evidence table and docs now, then I’ll run the full
+     validation suite."
+
+     Action/result: QEMU batch `room_boundary_var_001` matched 4/4 with 0
+     mismatches and 0 errors.
+
+905. Reported: "First I’ll update the generated evidence source so `0x13`
+     cites the boundary cases alongside the re-entry and previous-room cases,
+     then regenerate the markdown."
+
+     Action/result: Updated `tools/logic_opcode_evidence.py` and regenerated
+     `docs/src/logic_opcode_evidence.md`.
+
+906. Reported: "The evidence chapter is regenerated. I’m updating the
+     room-switch prose, compatibility commands, current-status handoff,
+     clean-room notes, and progress log."
+
+     Action/result: Began docs updates for variable-room boundary validation.
+
+907. Reported: "I’m patching those sections so they explicitly say both
+     immediate and variable-selected room switches now share the same boundary
+     behavior."
+
+     Action/result: Updated `docs/src/logic_bytecode.md`,
+     `docs/src/compatibility_testing.md`, and `docs/src/current_status.md`.
+
+908. Reported: "I’m appending a clean-room note section for this run: exact
+     command, matched result, and the fact that it completes the `v2` selector
+     coverage for `0x13`."
+
+     Action/result: Added the variable-room entry-boundary selector QEMU
+     validation section to `docs/src/clean_room_executable_notes.md`.
+
+909. Reported: "I’ll continue with room-switch object reset behavior using the
+     unmodified interpreter first. I’m going to make a fixture where a
+     persistent object is visible before the switch, then verify the destination
+     room does not retain that draw state."
+
+     Action/result: Began a targeted room-switch persistent-object reset probe.
+
+910. Reported: "I’m reading the current helper and comparison code so the new
+     case fits the existing QEMU snapshot harness instead of inventing a new
+     path."
+
+     Action/result: Inspected logic probe helpers and expected-render
+     comparison behavior.
+
+911. Reported: "The comparator can already catch 'extra survivor' sprites,
+     which is perfect for this. I’m adding two cases now: immediate switch and
+     variable-selected switch, both with a pre-switch active object."
+
+     Action/result: Planned paired `0x12` and `0x13` object-reset fixtures.
+
+912. Reported: "The object-reset fixture builder is in. It loads view 11,
+     activates object 10 before the room switch, then expects only the
+     destination-room validation sprite afterward."
+
+     Action/result: Added `room_pre_switch_logic0_code` and
+     `room_pre_switch_object_reset_case` to `tools/logic_interpreter_probe.py`.
+
+913. Reported: "The cases are registered and the unit expectations know about
+     them. I’m running the quick local tests and compile check before starting
+     QEMU."
+
+     Action/result: Added
+     `switch_room_removes_preexisting_persistent_object` and
+     `switch_room_v_removes_preexisting_persistent_object` plus unit coverage.
+
+914. Reported: "Oops, I just noticed the plan still says the local checks are
+     running; they actually passed. I’m correcting that and moving on to the
+     QEMU validation."
+
+     Action/result: Quick local unit test and `py_compile` checks passed.
+
+915. Reported: "Local checks pass. I’m launching the two-case snapshot batch
+     now; if the pre-switch object survives into room 1, the rendered output
+     should mismatch as an extra sprite."
+
+     Action/result: Started QEMU batch `room_object_reset_001`.
+
+916. Reported: "Both object-reset cases matched. That validates the visible
+     effect: an active persistent object from before the room switch is absent
+     in the destination render for both `0x12` and `0x13`. I’m documenting that
+     carefully as an observable rendering result, not a complete proof of every
+     object-table field reset."
+
+     Action/result: QEMU batch `room_object_reset_001` matched 2/2 with 0
+     mismatches and 0 errors.
+
+917. Reported: "I’ll add the two new case names to the generated opcode
+     evidence, then regenerate the markdown so the action tables point to the
+     new proof."
+
+     Action/result: Updated `tools/logic_opcode_evidence.py` evidence rows for
+     actions `0x12` and `0x13`.
+
+918. Reported: "The evidence table is regenerated. I’m updating the
+     higher-level bytecode notes, compatibility testing chapter, and current
+     status with the precise scope of this result."
+
+     Action/result: Regenerated `docs/src/logic_opcode_evidence.md` and began
+     documentation updates.
+
+919. Reported: "I’m updating these sections to add the 'persistent object
+     removed' observable behavior without overstating it as a full object-field
+     memory reset."
+
+     Action/result: Updated `docs/src/logic_bytecode.md`,
+     `docs/src/compatibility_testing.md`, and `docs/src/current_status.md`.
+
+920. Reported: "Now I’ll add the new QEMU command and matched result into the
+     compatibility chapter so the fixture can be rerun later."
+
+     Action/result: Added the `room_object_reset_001` command and result to
+     `docs/src/compatibility_testing.md`.
+
+921. Reported: "I’m updating current status with the new observable and the
+     remaining uncertainty around broader room-switch resource/object reset
+     internals."
+
+     Action/result: Refined `docs/src/current_status.md` room-lifecycle status.
+
+922. Reported: "I’m appending the clean-room notes for this object-reset probe:
+     the fixture shape, command, matched result, and the boundary of what it
+     proves."
+
+     Action/result: Added the room-switch persistent-object reset QEMU
+     validation section to `docs/src/clean_room_executable_notes.md`.
+
+923. Reported: "I’ll pick this back up at the object-reset documentation point
+     and then run the full local checks. The useful result we already have is a
+     small but solid one: pre-switch active object drawing does not visibly
+     survive either immediate or variable room switches."
+
+     Action/result: Resumed from the room-switch object-reset documentation
+     handoff.
+
+924. Reported: "The repo is exactly where the handoff said it was:
+     variable-room boundary notes are already in place, and the object-reset
+     result still needs its clean-room trail. I’m adding that trail now,
+     including the QEMU command and the narrower interpretation of what the
+     fixture proves."
+
+     Action/result: Confirmed dirty files and appended the object-reset
+     clean-room evidence section.
+
+925. Reported: "That note is now in the executable log. Next I’m preserving the
+     user-facing step log, then I’ll validate the code, generated evidence, and
+     mdBook together so the docs don’t drift from the probes."
+
+     Action/result: Added progress entries for the object-reset probe work.
+
+926. Reported: "The historical log is caught up through this run. I’m running
+     the usual verification set now: unit tests, mdBook build, and whitespace
+     checks."
+
+     Action/result: Ran `python3 -B -m unittest discover -s tests`,
+     `mdbook build docs`, and `git diff --check`; all passed.
+
+927. Reported: "All three checks are green. I’m cleaning up the generated
+     Python cache and then I’ll take one last status/diff snapshot so I can give
+     you a clean handoff."
+
+     Action/result: Removed `tools/__pycache__` and checked status/stat output.
+
+928. Reported: "The object-reset probe is validated and documented, so I’m
+     going to keep moving rather than stop there. Next I’ll go back to the
+     disassembly first and try to pin down which room-switch helper
+     clears/initializes object state, then I’ll only use QEMU if there’s a
+     specific observable to confirm."
+
+     Action/result: Shifted from QEMU fixture work back to source-first
+     disassembly analysis of room-switch reset helpers.
+
+929. Reported: "I’ve got the current handoff notes in view. The next useful
+     static target is `code.room.switch_state` at image `0x1792` and the dynamic
+     reset helper at `0x1485`, because those are where the room switch seems to
+     fan into object/resource cleanup."
+
+     Action/result: Re-read current status and symbolic labels; searched for
+     room-switch/reset references.
+
+930. Reported: "One trap popped up in the search output: the whole-file
+     disassembly includes the MZ header, so its printed offsets are not the same
+     as the project’s image offsets. I’m using the focused `ndisasm -o
+     image_offset -e image_offset+0x200` form now, which is the reliable one
+     we’ve been documenting."
+
+     Action/result: Rejected misleading whole-file offset readings and used
+     focused image-offset disassembly.
+
+931. Reported: "The room-switch body gives a very concrete object-record reset
+     loop: it walks every 0x2b-byte object record and clears only selected
+     fields/bits, while seeding several timing bytes to 1. I’m checking the
+     adjacent helpers now so I can name the calls around that loop instead of
+     leaving them as raw addresses."
+
+     Action/result: Identified the room-switch object loop at `0x17b6..0x17e5`
+     and inspected helpers around `0x10d0`, `0x30d6`, `0x4482`, and `0x4c23`.
+
+932. Reported: "The static pass found a correction worth making: earlier prose
+     says the room switch clears object bytes `+0x1e`, `+0x1f`, and `+0x20`,
+     but the instructions keep `AL = 1` and store `1` into those three bytes.
+     That matters for a portable spec, so I’m going to fix the docs and label
+     the cache-reset helpers while I’m here."
+
+     Action/result: Determined that room switch seeds object step/frame-timer
+     bytes to `1` rather than clearing them.
+
+933. Reported: "The object field map confirms those three bytes are step size
+     and frame-timer reload/current counters. I’m checking whether there’s an
+     existing bytecode getter we can use for a small QEMU confirmation, but the
+     spec correction itself already comes straight from the room-switch
+     instruction sequence."
+
+     Action/result: Re-read object field documentation and opcode getter
+     coverage; no direct bytecode getter exists for all three reset bytes.
+
+934. Reported: "There’s a second correction in the same static pass: room
+     switching does not wipe the whole logic cache root. The helper at `0x10f7`
+     preserves the first logic cache record and unlinks later records, while
+     separate helpers clear the view, picture, and sound cache roots."
+
+     Action/result: Mapped helper `0x10d0`: `0x10f7` truncates the logic cache
+     to its head, while `0x396d`, `0x50cc`, and `0x49dc` clear view, sound, and
+     picture cache roots.
+
+935. Reported: "I’m going to make this as a source-backed correction rather
+     than invent a new behavioral claim: exact object bytes from
+     `0x17b6..0x17e5`, exact cache reset calls from `0x10d0`, and the QEMU
+     result only for the visible persistent-object disappearance."
+
+     Action/result: Updated `docs/src/logic_bytecode.md` with the corrected
+     object-reset and cache-reset source model.
+
+936. Reported: "The bytecode chapter now reflects the corrected reset bytes and
+     cache behavior. I’m adding the same source-backed cache distinction to the
+     logic-resource chapter so future work doesn’t accidentally rebuild the
+     older 'clear everything' model."
+
+     Action/result: Added a room-switch cache reset section to
+     `docs/src/logic_resources.md`.
+
+937. Reported: "I’m assigning symbolic names for the newly clarified helpers,
+     since these are exactly the kinds of routines that should carry across
+     later interpreter builds even when addresses move."
+
+     Action/result: Updated `docs/src/symbolic_labels.md` with labels for the
+     logic-cache truncation helper, room-cache reset helper, cache-root clear
+     helpers, input reset helper, and cache-root globals.
+
+938. Reported: "The symbolic map is updated. I’m threading the correction into
+     the status handoff now, so a later session starts from the refined source
+     model instead of the older shorthand."
+
+     Action/result: Updated `docs/src/current_status.md` with the corrected
+     room-switch reset model.
+
+939. Reported: "Before I write the clean-room note, I’m rerunning the key
+     disassembly slices in short form. That gives the documentation a tidy
+     command trail instead of relying on the oversized exploratory dumps."
+
+     Action/result: Reran compact `ndisasm` slices for room-switch object reset,
+     room cache reset, view/picture/sound cache root clear helpers, and input
+     reset.
+
+940. Reported: "The compact slices confirm the correction cleanly. I’m
+     appending the source-pass note now: what changed, what commands support it,
+     and what remains dynamic/QEMU-backed versus source-backed."
+
+     Action/result: Added the room-switch object/cache reset source-correction
+     section to `docs/src/clean_room_executable_notes.md`.
+
+941. Reported: "Verification is green again. I’m doing one last scan for the
+     old incorrect wording and then I’ll summarize where we landed."
+
+     Action/result: Ran the final test/book/whitespace verification set; an
+     initial wording-scan command failed because shell backticks in the search
+     string were not quoted safely.
+
+942. Reported: "That last scan command tripped over shell backticks in the
+     search string, not over the repo. I’m rerunning the wording scan with safer
+     quoting."
+
+     Action/result: Reran the wording scan and found one older historical
+     clean-room note that still said the room switch clears the logic cache
+     root.
+
+943. Reported: "The scan found one old historical note still saying 'clears the
+     logic cache root.' Since that sentence is now known to be inaccurate, I’m
+     correcting it in place and leaving the new source-correction section as the
+     evidence trail for why."
+
+     Action/result: Corrected the older clean-room note to say room switching
+     resets caches through `0x10d0`, with the later correction identifying that
+     it preserves the first logic cache record and clears view, sound, and
+     picture cache roots.
+
+944. Reported: "I’ll rerun the wording scan and the lightweight checks after
+     that correction."
+
+     Action/result: Reran the wording scan, `mdbook build docs`, and
+     `git diff --check`. The checks passed; the only remaining scan hit is the
+     intentional correction sentence describing the old wording.
