@@ -1727,3 +1727,70 @@ Progress updates and outcomes:
 
      Action/result: Updated compatibility, current-status, clean-room notes,
      and progress docs.
+
+191. Reported: "Checkpoint is `bbda90f`; only generated/local artifacts remain
+     untracked. I'm starting the next pass by checking the existing object/view
+     action notes and local view metadata so the new probes use expected values
+     that are already derived from local evidence."
+
+     Action/result: Reviewed object/view getter and bitfield notes in
+     `logic_bytecode.md`, inspected view 11 with `tools/inspect_view.py`, and
+     checked the current evidence matrix rows.
+
+192. Reported: "For this pass I'm splitting the target actions into two
+     evidence types: value probes where a getter/condition observes the
+     expected state, and smoke probes for bitfield actions whose direct bit
+     value is not exposed by an existing script predicate. That keeps the docs
+     honest: 'this opcode executed and consumed operands under QEMU' is useful,
+     but different from proving every downstream semantic."
+
+     Action/result: Added value probes for object/view metadata getters,
+     variable-backed field `+0x24`, inactive object-distance behavior, and
+     `0x4d` clearing direction byte `+0x21`; added one dispatch smoke case for
+     selected bitfield/helper actions.
+
+193. Reported: "The new object/view cases are in: metadata getters,
+     variable-backed field `+0x24`, inactive distance behavior, `0x4d` clearing
+     direction, and a dispatch smoke case for the bitfield/helper actions with
+     no direct script-visible getter. I'm running the focused tests now."
+
+     Action/result: Ran `python3 -B -m unittest tests.test_logic_interpreter_probe`;
+     6 tests passed, and the default logic probe set now contains 52 cases.
+
+194. Reported: "The local tests pass and the default set is now 52 cases. I'm
+     running just the five new object/view cases through QEMU so the snapshot
+     disk stays small."
+
+     Action/result: The first QEMU attempt under sandbox failed before
+     execution because the VNC socket bind was not permitted.
+
+195. Reported: "QEMU was blocked by the sandbox when binding the local VNC
+     socket. I'm rerunning the same filtered batch with approval so the emulator
+     can start; this is the same kind of local QEMU validation we've been
+     using."
+
+     Action/result: Reran the filtered object/view batch with approved
+     escalation.
+
+196. Reported: "QEMU is running the five filtered cases now. The first four are
+     value probes; the fifth is intentionally a dispatch smoke probe for
+     bitfield/helper actions that don't expose a simple script-visible bit
+     readback."
+
+     Action/result: The QEMU batch matched with 5 matches, 0 mismatches, and
+     0 errors.
+
+197. Reported: "The QEMU batch is green: five matches, zero mismatches. I'm
+     updating the evidence matrix now, marking direct value probes as
+     QEMU-validated and the remaining bitfield/helper actions as QEMU
+     dispatch-smoke rather than overstating their full semantics."
+
+     Action/result: Updated `tools/logic_opcode_evidence.py` and regenerated
+     `docs/src/logic_opcode_evidence.md`.
+
+198. Reported: "The generated matrix now has a separate `QEMU dispatch-smoke`
+     evidence level. I'm documenting the new object/view batch and the
+     distinction between value probes and smoke probes in the project notes."
+
+     Action/result: Updated compatibility, current-status, clean-room notes,
+     and progress docs with the object/view follow-up batch.

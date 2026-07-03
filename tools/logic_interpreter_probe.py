@@ -243,13 +243,43 @@ def assignn(var_no: int, value: int) -> bytes:
     return byte_action(0x03, var_no, value)
 
 
-def setup_object_10_for_view11() -> bytes:
+def setup_object_for_view11(object_no: int, x: int = 42, baseline_y: int = 80, group_no: int = 0, frame_no: int = 0) -> bytes:
     return (
-        byte_action(0x21, 10)
-        + byte_action(0x29, 10, 11)
-        + byte_action(0x2B, 10, 0)
-        + byte_action(0x2F, 10, 0)
-        + byte_action(0x25, 10, 42, 80)
+        byte_action(0x21, object_no)
+        + byte_action(0x29, object_no, 11)
+        + byte_action(0x2B, object_no, group_no)
+        + byte_action(0x2F, object_no, frame_no)
+        + byte_action(0x25, object_no, x, baseline_y)
+    )
+
+
+def setup_object_10_for_view11() -> bytes:
+    return setup_object_for_view11(10)
+
+
+def object_bitfield_smoke_actions() -> bytes:
+    return (
+        setup_object_10_for_view11()
+        + assignn(1, 9)
+        + assignn(2, 11)
+        + byte_action(0x36, 10, 12)
+        + byte_action(0x38, 10)
+        + byte_action(0x3B, 10)
+        + byte_action(0x3A, 10)
+        + byte_action(0x3C, 10)
+        + byte_action(0x3D, 10)
+        + byte_action(0x3E, 10)
+        + byte_action(0x40, 10)
+        + byte_action(0x41, 10)
+        + byte_action(0x42, 10)
+        + byte_action(0x43, 10)
+        + byte_action(0x44, 10)
+        + byte_action(0x47, 10)
+        + byte_action(0x46, 10)
+        + byte_action(0x4C, 10, 1)
+        + byte_action(0x4E, 10)
+        + byte_action(0x58, 10)
+        + byte_action(0x59, 10)
     )
 
 
@@ -582,6 +612,47 @@ def base_cases() -> list[LogicInterpreterCase]:
             "Action 0x60 stores a variable value into a variable-selected inventory/object-table index.",
             assignn(1, 0) + assignn(2, 9) + byte_action(0x60, 1, 2) + byte_action(0x61, 1, 3),
             var_eq_imm_condition(3, 9),
+        ),
+        _draw_if_case(
+            "object_view_metadata_getters",
+            "Actions 0x31..0x35 read selected object/view metadata after binding view 11 group 1 frame 1.",
+            setup_object_for_view11(10, group_no=1, frame_no=1)
+            + byte_action(0x31, 10, 1)
+            + byte_action(0x32, 10, 2)
+            + byte_action(0x33, 10, 3)
+            + byte_action(0x34, 10, 4)
+            + byte_action(0x35, 10, 5),
+            all_conditions(
+                var_eq_imm_condition(1, 1),
+                var_eq_imm_condition(2, 1),
+                var_eq_imm_condition(3, 1),
+                var_eq_imm_condition(4, 11),
+                var_eq_imm_condition(5, 2),
+            ),
+        ),
+        _draw_if_case(
+            "object_field_24_var_getter_observes_value",
+            "Actions 0x37 and 0x39 set object byte +0x24 from a variable and read it back.",
+            assignn(1, 13) + byte_action(0x37, 10, 1) + byte_action(0x39, 10, 2),
+            var_eq_imm_condition(2, 13),
+        ),
+        _draw_if_case(
+            "object_distance_inactive_pair_sets_ff",
+            "Action 0x45 stores 0xff when either object is not active.",
+            byte_action(0x45, 10, 11, 1),
+            var_eq_imm_condition(1, 0xFF),
+        ),
+        _draw_if_case(
+            "clear_object_fields_21_22_clears_direction",
+            "Action 0x4d clears object byte +0x21, observable through getter 0x57.",
+            assignn(1, 8) + byte_action(0x56, 10, 1) + byte_action(0x4D, 10) + byte_action(0x57, 10, 2),
+            var_eq_imm_condition(2, 0),
+        ),
+        _custom_case(
+            "object_bitfield_actions_dispatch_smoke",
+            "Bitfield/helper actions 0x38, 0x3a..0x3e, 0x40..0x44, 0x46..0x47, 0x4c, 0x4e, and 0x58..0x59 execute and return to following bytecode.",
+            object_bitfield_smoke_actions() + draw_view11_at(50),
+            50,
         ),
     ]
 

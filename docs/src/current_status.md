@@ -10,8 +10,9 @@ has a test-backed coverage check against `tools/disassemble_logic.py`, and the
 QEMU-backed logic batches validate jump, false-branch, inversion, OR-group,
 variable, flag, comparison, arithmetic, selected object-field behavior,
 logic load/call variants, variable-backed resource/object variants, object
-rectangle predicates, string/message parsing, and inventory/object marker
-operations through visible output.
+rectangle predicates, string/message parsing, inventory/object marker
+operations, and additional object/view getter and bitfield dispatch behavior
+through visible output.
 
 ## Confirmed Motion and Object Findings
 
@@ -83,7 +84,9 @@ Return to the logic interpreter:
    filtered QEMU batches cover the core variable/flag/comparison family,
    selected object fields, call/load/resume smoke behavior, var-backed resource
    setup, object predicates, string/message operations, and inventory marker
-   operations.
+   operations. The latest object/view follow-up adds QEMU value probes for
+   `0x31..0x35`, `0x37`, `0x45`, and `0x4d`, plus dispatch-smoke coverage for
+   several bitfield/helper actions.
 2. Prefer QEMU fixture evidence for additional opcodes whose behavior can be made visible;
    keep source-only wording for UI, save/restore, sound, and diagnostics until a
    narrow probe is practical.

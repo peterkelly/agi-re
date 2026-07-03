@@ -52,8 +52,13 @@ class LogicInterpreterProbeTests(unittest.TestCase):
         self.assertIn("object_right_rect_condition_true", case_ids)
         self.assertIn("set_string_from_message_equal_normalized", case_ids)
         self.assertIn("inventory_marker_from_var_var", case_ids)
+        self.assertIn("object_view_metadata_getters", case_ids)
+        self.assertIn("object_field_24_var_getter_observes_value", case_ids)
+        self.assertIn("object_distance_inactive_pair_sets_ff", case_ids)
+        self.assertIn("clear_object_fields_21_22_clears_direction", case_ids)
+        self.assertIn("object_bitfield_actions_dispatch_smoke", case_ids)
         self.assertEqual(len(case_ids), len(base_cases()))
-        self.assertGreaterEqual(len(case_ids), 47)
+        self.assertGreaterEqual(len(case_ids), 52)
 
     def test_json_case_loading(self) -> None:
         case = base_cases()[0]

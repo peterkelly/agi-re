@@ -11,6 +11,9 @@ Evidence levels:
 - **QEMU-validated**: a generated fixture has been run through the
   original SQ2 interpreter in QEMU and compared against the local
   expected output.
+- **QEMU dispatch-smoke**: a generated fixture proves the opcode executes,
+  consumes operands, and returns to following bytecode under the original
+  interpreter, but it does not yet expose every downstream state mutation.
 - **source-backed**: behavior is derived from local disassembly and local
   SQ2 bytecode/resource scans, but no targeted QEMU fixture is recorded
   for the opcode yet.
@@ -91,36 +94,36 @@ Evidence levels:
 | `0x2e` | `clear_object_bit_2000` | imm0 | clear object bit 2000 | source-backed | Handler disassembly and local SQ2 bytecode scan; see logic_bytecode.md. |
 | `0x2f` | `set_object_derived_resource_2` | imm0, imm1 | set object derived resource 2 | QEMU-validated | object overlay and movement probes select object frames |
 | `0x30` | `set_object_derived_resource_2_var` | imm0, var1 | set object derived resource 2 var | QEMU-validated | logic_interpreter_probe: var_resource_group_frame_setup_draws_persistent_object |
-| `0x31` | `get_object_resource_loop_count` | imm0, var1 | get object resource loop count | source-backed | Handler disassembly and local SQ2 bytecode scan; see logic_bytecode.md. |
-| `0x32` | `get_object_field_0e` | imm0, var1 | get object field 0e | source-backed | Handler disassembly and local SQ2 bytecode scan; see logic_bytecode.md. |
-| `0x33` | `get_object_field_0a` | imm0, var1 | get object field 0a | source-backed | Handler disassembly and local SQ2 bytecode scan; see logic_bytecode.md. |
-| `0x34` | `get_object_field_07` | imm0, var1 | get object field 07 | source-backed | Handler disassembly and local SQ2 bytecode scan; see logic_bytecode.md. |
-| `0x35` | `get_object_field_0b` | imm0, var1 | get object field 0b | source-backed | Handler disassembly and local SQ2 bytecode scan; see logic_bytecode.md. |
+| `0x31` | `get_object_resource_loop_count` | imm0, var1 | get object resource loop count | QEMU-validated | logic_interpreter_probe: object_view_metadata_getters |
+| `0x32` | `get_object_field_0e` | imm0, var1 | get object field 0e | QEMU-validated | logic_interpreter_probe: object_view_metadata_getters |
+| `0x33` | `get_object_field_0a` | imm0, var1 | get object field 0a | QEMU-validated | logic_interpreter_probe: object_view_metadata_getters |
+| `0x34` | `get_object_field_07` | imm0, var1 | get object field 07 | QEMU-validated | logic_interpreter_probe: object_view_metadata_getters |
+| `0x35` | `get_object_field_0b` | imm0, var1 | get object field 0b | QEMU-validated | logic_interpreter_probe: object_view_metadata_getters |
 | `0x36` | `set_object_field_24` | imm0, imm1 | set object field 24 | QEMU-validated | logic_interpreter_probe: object_field_24_getter_observes_setter |
-| `0x37` | `set_object_field_24_var` | imm0, var1 | set object field 24 var | source-backed | Handler disassembly and local SQ2 bytecode scan; see logic_bytecode.md. |
-| `0x38` | `clear_object_bit_0004` | imm0 | clear object bit 0004 | source-backed | Handler disassembly and local SQ2 bytecode scan; see logic_bytecode.md. |
+| `0x37` | `set_object_field_24_var` | imm0, var1 | set object field 24 var | QEMU-validated | logic_interpreter_probe: object_field_24_var_getter_observes_value |
+| `0x38` | `clear_object_bit_0004` | imm0 | clear object bit 0004 | QEMU dispatch-smoke | logic_interpreter_probe: object_bitfield_actions_dispatch_smoke |
 | `0x39` | `get_object_field_24` | imm0, var1 | get object field 24 | QEMU-validated | logic_interpreter_probe: object_field_24_getter_observes_setter |
-| `0x3a` | `clear_object_bit_0010` | imm0 | clear object bit 0010 | source-backed | Handler disassembly and local SQ2 bytecode scan; see logic_bytecode.md. |
-| `0x3b` | `set_object_bit_0010` | imm0 | set object bit 0010 | source-backed | Handler disassembly and local SQ2 bytecode scan; see logic_bytecode.md. |
-| `0x3c` | `refresh_object_helper` | imm0 | refresh object helper | source-backed | Handler disassembly and local SQ2 bytecode scan; see logic_bytecode.md. |
-| `0x3d` | `set_object_bit_0008` | imm0 | set object bit 0008 | source-backed | Handler disassembly and local SQ2 bytecode scan; see logic_bytecode.md. |
-| `0x3e` | `clear_object_bit_0008` | imm0 | clear object bit 0008 | source-backed | Handler disassembly and local SQ2 bytecode scan; see logic_bytecode.md. |
+| `0x3a` | `clear_object_bit_0010` | imm0 | clear object bit 0010 | QEMU dispatch-smoke | logic_interpreter_probe: object_bitfield_actions_dispatch_smoke |
+| `0x3b` | `set_object_bit_0010` | imm0 | set object bit 0010 | QEMU dispatch-smoke | logic_interpreter_probe: object_bitfield_actions_dispatch_smoke |
+| `0x3c` | `refresh_object_helper` | imm0 | refresh object helper | QEMU dispatch-smoke | logic_interpreter_probe: object_bitfield_actions_dispatch_smoke |
+| `0x3d` | `set_object_bit_0008` | imm0 | set object bit 0008 | QEMU dispatch-smoke | logic_interpreter_probe: object_bitfield_actions_dispatch_smoke |
+| `0x3e` | `clear_object_bit_0008` | imm0 | clear object bit 0008 | QEMU dispatch-smoke | logic_interpreter_probe: object_bitfield_actions_dispatch_smoke |
 | `0x3f` | `set_global_012d` | imm0 | set global 012d | source-backed | Handler disassembly and local SQ2 bytecode scan; see logic_bytecode.md. |
-| `0x40` | `set_object_bit_0100` | imm0 | set object bit 0100 | source-backed | Handler disassembly and local SQ2 bytecode scan; see logic_bytecode.md. |
-| `0x41` | `set_object_bit_0800` | imm0 | set object bit 0800 | source-backed | Handler disassembly and local SQ2 bytecode scan; see logic_bytecode.md. |
-| `0x42` | `clear_object_bits_0900` | imm0 | clear object bits 0900 | source-backed | Handler disassembly and local SQ2 bytecode scan; see logic_bytecode.md. |
+| `0x40` | `set_object_bit_0100` | imm0 | set object bit 0100 | QEMU dispatch-smoke | logic_interpreter_probe: object_bitfield_actions_dispatch_smoke |
+| `0x41` | `set_object_bit_0800` | imm0 | set object bit 0800 | QEMU dispatch-smoke | logic_interpreter_probe: object_bitfield_actions_dispatch_smoke |
+| `0x42` | `clear_object_bits_0900` | imm0 | clear object bits 0900 | QEMU dispatch-smoke | logic_interpreter_probe: object_bitfield_actions_dispatch_smoke |
 | `0x43` | `set_object_bit_0200` | imm0 | set object bit 0200 | QEMU-validated | object_movement_probe: movement_collision |
-| `0x44` | `clear_object_bit_0200` | imm0 | clear object bit 0200 | source-backed | Handler disassembly and local SQ2 bytecode scan; see logic_bytecode.md. |
-| `0x45` | `object_distance_to_var` | imm0, imm1, var2 | object distance to var | source-backed | Handler disassembly and local SQ2 bytecode scan; see logic_bytecode.md. |
-| `0x46` | `clear_object_bit_0020` | imm0 | clear object bit 0020 | source-backed | Handler disassembly and local SQ2 bytecode scan; see logic_bytecode.md. |
-| `0x47` | `set_object_bit_0020` | imm0 | set object bit 0020 | source-backed | Handler disassembly and local SQ2 bytecode scan; see logic_bytecode.md. |
+| `0x44` | `clear_object_bit_0200` | imm0 | clear object bit 0200 | QEMU dispatch-smoke | logic_interpreter_probe: object_bitfield_actions_dispatch_smoke |
+| `0x45` | `object_distance_to_var` | imm0, imm1, var2 | object distance to var | QEMU-validated | logic_interpreter_probe: object_distance_inactive_pair_sets_ff |
+| `0x46` | `clear_object_bit_0020` | imm0 | clear object bit 0020 | QEMU dispatch-smoke | logic_interpreter_probe: object_bitfield_actions_dispatch_smoke |
+| `0x47` | `set_object_bit_0020` | imm0 | set object bit 0020 | QEMU dispatch-smoke | logic_interpreter_probe: object_bitfield_actions_dispatch_smoke |
 | `0x48` | `set_object_field_23_mode0` | imm0 | set object field 23 mode0 | source-backed | Handler disassembly and local SQ2 bytecode scan; see logic_bytecode.md. |
 | `0x49` | `set_object_field_23_mode1` | imm0, imm1 | set object field 23 mode1 | source-backed | Handler disassembly and local SQ2 bytecode scan; see logic_bytecode.md. |
 | `0x4a` | `set_object_field_23_mode3` | imm0 | set object field 23 mode3 | source-backed | Handler disassembly and local SQ2 bytecode scan; see logic_bytecode.md. |
 | `0x4b` | `set_object_field_23_mode2` | imm0, imm1 | set object field 23 mode2 | source-backed | Handler disassembly and local SQ2 bytecode scan; see logic_bytecode.md. |
-| `0x4c` | `set_object_field_1f_var` | imm0, var1 | set object field 1f var | source-backed | Handler disassembly and local SQ2 bytecode scan; see logic_bytecode.md. |
-| `0x4d` | `clear_object_fields_21_22` | imm0 | clear object fields 21 22 | source-backed | Handler disassembly and local SQ2 bytecode scan; see logic_bytecode.md. |
-| `0x4e` | `clear_object_field_22_and_global` | imm0 | clear object field 22 and global | source-backed | Handler disassembly and local SQ2 bytecode scan; see logic_bytecode.md. |
+| `0x4c` | `set_object_field_1f_var` | imm0, var1 | set object field 1f var | QEMU dispatch-smoke | logic_interpreter_probe: object_bitfield_actions_dispatch_smoke |
+| `0x4d` | `clear_object_fields_21_22` | imm0 | clear object fields 21 22 | QEMU-validated | logic_interpreter_probe: clear_object_fields_21_22_clears_direction |
+| `0x4e` | `clear_object_field_22_and_global` | imm0 | clear object field 22 and global | QEMU dispatch-smoke | logic_interpreter_probe: object_bitfield_actions_dispatch_smoke |
 | `0x4f` | `set_object_field_1e_var` | imm0, var1 | set object field 1e var | QEMU-validated | object_movement_probe: autonomous_modes_003 and motion_modes_004 |
 | `0x50` | `set_object_field_01_var` | imm0, var1 | set object field 01 var | QEMU-validated | object_movement_probe: autonomous_modes_003 and motion_modes_004 |
 | `0x51` | `move_object_to` | imm0, imm1, imm2, imm3, imm4 | move object to | QEMU-validated | object_movement_probe: motion_modes_004 |
@@ -130,8 +133,8 @@ Evidence levels:
 | `0x55` | `stop_motion_mode` | imm0 | stop motion mode | QEMU-validated | object_movement_probe setup paths |
 | `0x56` | `set_object_field_21_var` | imm0, var1 | set object field 21 var | QEMU-validated | logic_interpreter_probe: object_field_21_getter_observes_setter |
 | `0x57` | `get_object_field_21` | imm0, var1 | get object field 21 | QEMU-validated | logic_interpreter_probe: object_field_21_getter_observes_setter |
-| `0x58` | `set_object_bit_0002` | imm0 | set object bit 0002 | source-backed | Handler disassembly and local SQ2 bytecode scan; see logic_bytecode.md. |
-| `0x59` | `clear_object_bit_0002` | imm0 | clear object bit 0002 | source-backed | Handler disassembly and local SQ2 bytecode scan; see logic_bytecode.md. |
+| `0x58` | `set_object_bit_0002` | imm0 | set object bit 0002 | QEMU dispatch-smoke | logic_interpreter_probe: object_bitfield_actions_dispatch_smoke |
+| `0x59` | `clear_object_bit_0002` | imm0 | clear object bit 0002 | QEMU dispatch-smoke | logic_interpreter_probe: object_bitfield_actions_dispatch_smoke |
 | `0x5a` | `set_rect_bounds_0131` | imm0, imm1, imm2, imm3 | set rect bounds 0131 | source-backed | Handler disassembly and local SQ2 bytecode scan; see logic_bytecode.md. |
 | `0x5b` | `clear_rect_bounds_0131` | - | clear rect bounds 0131 | source-backed | Handler disassembly and local SQ2 bytecode scan; see logic_bytecode.md. |
 | `0x5c` | `set_entry_0971_marker_ff` | imm0 | set entry 0971 marker ff | QEMU-validated | logic_interpreter_probe: inventory_marker_ff_condition_true |

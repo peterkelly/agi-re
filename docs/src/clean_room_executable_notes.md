@@ -3262,3 +3262,29 @@ Documented result:
   - action `0x72`, action `0x75`, condition `0x0f`, and condition `0x0e`
     using custom messages `HELLO!`, `hello`, and `look`;
   - condition opcodes `0x09` and `0x0a`, plus marker actions `0x5c..0x61`.
+
+## 2026-07-03: object/view getter and bitfield follow-up probes
+
+Commands run from `/Users/peter/ai/agi/reverse`:
+
+- `python3 -B -m unittest tests.test_logic_interpreter_probe`
+- `python3 -B tools/logic_interpreter_probe.py --dos-prefix LF --output build/logic-interpreter-probes/batches/object_getter_bitfield_001.json --boot-wait 5 --draw-wait 8 --stop-on-failure --case object_view_metadata_getters --case object_field_24_var_getter_observes_value --case object_distance_inactive_pair_sets_ff --case clear_object_fields_21_22_clears_direction --case object_bitfield_actions_dispatch_smoke`
+- `python3 -B tools/logic_opcode_evidence.py`
+
+Documented result:
+
+- Added five object/view follow-up cases to `tools/logic_interpreter_probe.py`.
+- The QEMU batch matched with 5 matches, 0 mismatches, and 0 errors.
+- Value probes now validate:
+  - `0x31..0x35` reading view/object metadata after binding view 11 group 1
+    frame 1;
+  - `0x37` writing object byte `+0x24` from a variable, observed through
+    getter `0x39`;
+  - `0x45` storing `0xff` when measuring distance between inactive objects;
+  - `0x4d` clearing object byte `+0x21`, observed through getter `0x57`.
+- Added a separate `QEMU dispatch-smoke` evidence level to
+  `docs/src/logic_opcode_evidence.md`. The smoke case proves that selected
+  bitfield/helper opcodes execute, consume operands, and return to subsequent
+  bytecode under the original interpreter, but does not claim to expose every
+  downstream state mutation. Current smoke rows include `0x38`, `0x3a..0x3e`,
+  `0x40..0x42`, `0x44`, `0x46..0x47`, `0x4c`, `0x4e`, and `0x58..0x59`.

@@ -253,6 +253,20 @@ custom message-table loading, string-slot normalization, dictionary parsing for
 `look`, input-word sequence testing, inventory/object marker predicates, and
 marker actions `0x5c..0x61`.
 
+Run the object/view getter and bitfield follow-up batch:
+
+```bash
+python3 -B tools/logic_interpreter_probe.py --dos-prefix LF --output build/logic-interpreter-probes/batches/object_getter_bitfield_001.json --boot-wait 5 --draw-wait 8 --stop-on-failure --case object_view_metadata_getters --case object_field_24_var_getter_observes_value --case object_distance_inactive_pair_sets_ff --case clear_object_fields_21_22_clears_direction --case object_bitfield_actions_dispatch_smoke
+```
+
+This five-case batch matched QEMU with 0 mismatches. Four cases are value
+probes: view/object metadata getters `0x31..0x35`, variable-backed field
+`+0x24` setter `0x37`, inactive object-distance result `0xff` for `0x45`, and
+`0x4d` clearing direction byte `+0x21` as observed through getter `0x57`. The
+fifth case is a dispatch smoke probe for bitfield/helper actions whose direct
+bit state is not yet exposed by a script predicate; the evidence matrix marks
+those rows as `QEMU dispatch-smoke`.
+
 Regenerate the opcode evidence matrix after updating opcode labels or probe
 annotations:
 

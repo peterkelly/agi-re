@@ -49,7 +49,13 @@ QEMU_ACTIONS = {
     0x2C: "logic_interpreter_probe: var_resource_group_frame_setup_draws_persistent_object",
     0x2F: "object overlay and movement probes select object frames",
     0x30: "logic_interpreter_probe: var_resource_group_frame_setup_draws_persistent_object",
+    0x31: "logic_interpreter_probe: object_view_metadata_getters",
+    0x32: "logic_interpreter_probe: object_view_metadata_getters",
+    0x33: "logic_interpreter_probe: object_view_metadata_getters",
+    0x34: "logic_interpreter_probe: object_view_metadata_getters",
+    0x35: "logic_interpreter_probe: object_view_metadata_getters",
     0x36: "logic_interpreter_probe: object_field_24_getter_observes_setter",
+    0x37: "logic_interpreter_probe: object_field_24_var_getter_observes_value",
     0x39: "logic_interpreter_probe: object_field_24_getter_observes_setter",
     0x43: "object_movement_probe: movement_collision",
     0x4F: "object_movement_probe: autonomous_modes_003 and motion_modes_004",
@@ -61,6 +67,8 @@ QEMU_ACTIONS = {
     0x55: "object_movement_probe setup paths",
     0x56: "logic_interpreter_probe: object_field_21_getter_observes_setter",
     0x57: "logic_interpreter_probe: object_field_21_getter_observes_setter",
+    0x45: "logic_interpreter_probe: object_distance_inactive_pair_sets_ff",
+    0x4D: "logic_interpreter_probe: clear_object_fields_21_22_clears_direction",
     0x5C: "logic_interpreter_probe: inventory_marker_ff_condition_true",
     0x5D: "logic_interpreter_probe: inventory_marker_ff_var_and_getter",
     0x5E: "logic_interpreter_probe: inventory_marker_clear_and_getter",
@@ -78,6 +86,26 @@ QEMU_ACTIONS = {
     0xA7: "logic_interpreter_probe: divn_stores_quotient_byte",
     0xA8: "logic_interpreter_probe: divv_stores_quotient_byte",
     0xAE: "object_overlay_probe: priority-table rebuild effects",
+}
+
+
+QEMU_SMOKE_ACTIONS = {
+    0x38: "logic_interpreter_probe: object_bitfield_actions_dispatch_smoke",
+    0x3A: "logic_interpreter_probe: object_bitfield_actions_dispatch_smoke",
+    0x3B: "logic_interpreter_probe: object_bitfield_actions_dispatch_smoke",
+    0x3C: "logic_interpreter_probe: object_bitfield_actions_dispatch_smoke",
+    0x3D: "logic_interpreter_probe: object_bitfield_actions_dispatch_smoke",
+    0x3E: "logic_interpreter_probe: object_bitfield_actions_dispatch_smoke",
+    0x40: "logic_interpreter_probe: object_bitfield_actions_dispatch_smoke",
+    0x41: "logic_interpreter_probe: object_bitfield_actions_dispatch_smoke",
+    0x42: "logic_interpreter_probe: object_bitfield_actions_dispatch_smoke",
+    0x44: "logic_interpreter_probe: object_bitfield_actions_dispatch_smoke",
+    0x46: "logic_interpreter_probe: object_bitfield_actions_dispatch_smoke",
+    0x47: "logic_interpreter_probe: object_bitfield_actions_dispatch_smoke",
+    0x4C: "logic_interpreter_probe: object_bitfield_actions_dispatch_smoke",
+    0x4E: "logic_interpreter_probe: object_bitfield_actions_dispatch_smoke",
+    0x58: "logic_interpreter_probe: object_bitfield_actions_dispatch_smoke",
+    0x59: "logic_interpreter_probe: object_bitfield_actions_dispatch_smoke",
 }
 
 
@@ -132,6 +160,8 @@ def action_evidence(opcode: int) -> tuple[str, str]:
         )
     if opcode in QEMU_ACTIONS:
         return ("QEMU-validated", QEMU_ACTIONS[opcode])
+    if opcode in QEMU_SMOKE_ACTIONS:
+        return ("QEMU dispatch-smoke", QEMU_SMOKE_ACTIONS[opcode])
     return ("source-backed", "Handler disassembly and local SQ2 bytecode scan; see logic_bytecode.md.")
 
 
@@ -160,6 +190,9 @@ def markdown() -> str:
         "- **QEMU-validated**: a generated fixture has been run through the",
         "  original SQ2 interpreter in QEMU and compared against the local",
         "  expected output.",
+        "- **QEMU dispatch-smoke**: a generated fixture proves the opcode executes,",
+        "  consumes operands, and returns to following bytecode under the original",
+        "  interpreter, but it does not yet expose every downstream state mutation.",
         "- **source-backed**: behavior is derived from local disassembly and local",
         "  SQ2 bytecode/resource scans, but no targeted QEMU fixture is recorded",
         "  for the opcode yet.",
