@@ -462,6 +462,12 @@ values:
 | `0x4b00` | `7` |
 | `0x4700` | `8` |
 
+The adjacent hardware/display remap table at `DS:0x16d7` maps single-byte
+numeric keypad values to the same type-2 movement values when display adapter
+word `[0x112e] == 2`: `0x38`, `0x39`, `0x36`, `0x33`, `0x32`, `0x31`,
+`0x34`, and `0x37` map to `1..8`. The trailing `0x35 -> 0` entry is present
+in the table but does not enqueue a movement value.
+
 Helper `0x4634` normalizes some multi-byte key words after dequeue: values
 `0x0101` and `0x0301` become `0x000d`, while `0x0201` and `0x0401` become
 `0x001b`.
@@ -665,15 +671,49 @@ sets that flag while clearing sound state. The same batch validates `0x1d` as a
 blocking priority/control display that returns after Enter and `0x85` as an
 object-diagnostics display action that returns after Enter.
 
+Source mapping clarifies the sound state transition. Action `0x63` first calls
+the same stop helper used by `0x64`, then reads the sound resource number and
+completion flag operand. It stores the flag number in `[0x126a]`, clears that
+flag, locates an already loaded sound resource through helper `0x50d8`, reports
+an error if it cannot be found, and calls the hardware/driver start helper
+`0x7f96` with the located record. Action `0x64` is a thin wrapper around
+`code.sound.stop_or_clear_state`; that helper only sets the configured
+completion flag when active-state word `[0x1258]` is nonzero, then clears the
+active-state word and calls the hardware/driver stop helper `0x80af`.
+
 Room/state switch helper `0x1792`, reached by actions `0x12` (`switch_room_like`) and
 `0x13` (`switch_room_like_var`),
+first stops active sound state, resets heap/update-list state through
+`code.heap.reset_dynamic_state`, clears parser/input state, initializes the
+resource/event pair buffer, and enables resource/event pair recording. It then
 resets all object records from `[0x096b]` to `[0x096d]`. For each 43-byte
 record it clears active/update bits `0x0001` and `0x0040`, sets bit `0x0010`,
 clears fields `+0x08`, `+0x10`, `+0x14`, `+0x1e`, `+0x1f`, and `+0x20`, and
-stores `1` in bytes `+0x00` and `+0x01`. After loading the destination logic,
-it interprets byte variable `[0x000b]` as an entry boundary for object 0:
-`1` places Y at `0xa7`, `2` places X at `0`, `3` places Y at `0x25`, and `4`
-places X at `0xa0 - object_width`; the byte is then cleared.
+stores `1` in bytes `+0x00` and `+0x01`.
+
+After the object reset, the helper clears the logic cache root, sets the
+object-boundary flag word `[0x0139] = 1`, clears word `[0x013d]`, restores the
+horizon-like global `[0x012d]` to `0x24`, copies current room byte variable 0
+to previous-room byte variable 1, writes the destination room to byte variable
+0, clears object-boundary bytes `[0x000d]` and `[0x000e]`, copies object 0's
+view/resource byte `+0x07` to byte variable 16, refreshes object/resource state,
+loads the destination logic through `code.logic.load_cached`, reloads optional
+trace logic `[0x1d12]` when configured, handles the entry-boundary selector,
+sets flag 5, refreshes display/resource state, redraws the status line, redraws
+the input line, and returns zero.
+
+The zero return is important. `code.engine.main_cycle` calls logic 0 through
+`code.logic.call_logic(0)`; if that call returns zero, it clears temporary
+room-boundary variables and immediately calls logic 0 again instead of
+continuing the post-logic frame/update path. This explains why one-shot
+synthetic room-switch probes that draw after `0x12`/`0x13` are the wrong shape:
+the switch action intentionally aborts the current bytecode stream so the next
+logic-0 pass can perform entry initialization and room dispatch.
+
+Entry-boundary selector byte variable 2 (`DS:0x000b`) is interpreted after the
+destination logic is loaded: `1` places object 0 Y at `0xa7`, `2` places X at
+`0`, `3` places Y at `0x25`, and `4` places X at
+`0xa0 - object_width`; the byte is then cleared.
 
 In script terms, byte variable 0 (`DS:0x0009`) is the current room, byte
 variable 1 (`DS:0x000a`) is the previous room, and byte variable 2
@@ -682,16 +722,29 @@ The helper loads the destination logic resource but does not by itself execute
 that room's bytecode. In SQ2, logic 0 later dispatches the current room via
 `call_logic_var(v0)`.
 
-Additional attempted QEMU probes for `0x12`/`0x13` did not produce stable
-reusable evidence. A direct `var0` assertion after the switch failed, a
-target-logic draw probe failed, and a later logic-0 re-entry fixture with
-`0x92` (`restore_logic_entry_ip`) before the switch still did not reach its
-validation draw. A still-later synthetic fixture that copied SQ2 logic 0's
-`call_logic_var(v0)` dispatch shape also did not reach the validation draw.
-The source evidence remains strong for the state reset, destination-logic load,
-variable updates, entry-boundary handling, flag 5 set, and the SQ2 logic-0 room
-dispatch pattern, but `0x12`/`0x13` remain source-backed until a fuller
-synthetic room-cycle fixture matches original-engine behavior.
+Several early QEMU probes for `0x12`/`0x13` did not produce stable reusable
+evidence. A direct `var0` assertion after the switch failed, a target-logic
+draw probe failed, a logic-0 re-entry fixture with `0x92`
+(`restore_logic_entry_ip`) before the switch did not reach its validation draw,
+and a first synthetic `call_logic_var(v0)` dispatch fixture still produced the
+same blank-screen mismatch. Those failures were fixture-shape problems rather
+than disproofs of the source model.
+
+A later QEMU fixture `room_switch_reentry_001` matched the original engine for
+both `0x12` and `0x13`. In that fixture, logic 0 sets a private init flag
+before executing the switch action. Because the switch returns zero, the
+current logic invocation aborts and `code.engine.main_cycle` immediately calls
+logic 0 again. On the second pass, logic 0 skips the switch and executes
+`call_logic_var(v0)`. The destination logic then checks flag 5, loads and shows
+its own picture, loads its view, and draws a validation sprite. This validates
+the user-visible re-entry/current-room dispatch shape: a room switch prepares
+state and loads the destination logic, but room-local drawing/setup belongs to
+the destination room logic reached on the following logic-0 pass.
+
+The broader internal reset effects are still source-backed from the
+disassembly: object/resource reset, previous-room byte update, entry-boundary
+selector handling, resource/event recording, optional trace logic reload, and
+the exact redraw/input refresh calls.
 
 Additional object-state actions:
 
@@ -968,6 +1021,17 @@ navigation fixture was attempted twice, but the QEMU key sequence did not reach
 the expected second-item status path, so arrow-key navigation remains
 source-backed from the `code.menu.interact` dispatch table.
 
+Source mapping of `code.menu.interact` shows the navigation model. The menu
+loop waits through `code.input.wait_for_event_or_tick`, then normalizes the
+event record through the Enter/Escape helper and the display-adapter remap
+helper. Event type `1` is interpreted as raw Enter/Escape: Enter enqueues a
+type-3 event with the current item's id only if the item enable word
+`[item+0x0a]` is nonzero; Escape leaves without enqueueing a selection. Event
+type `2` is interpreted as a movement code. Movement values `1..8` dispatch
+through a table that moves between item nodes, heading nodes, first/last
+headings, and first/last enabled items. After each non-exit movement, the loop
+stores the current heading/item in `[0x1d2e]` and `[0x1d30]` and waits again.
+
 Text-window and input-line actions:
 
 | Opcode | Label | Handler | Observed action |
@@ -1080,8 +1144,8 @@ Interpreter/session control actions:
 | `0x88` | `pause_game_message` | `0x0257` | Sets word `[0x0615] = 1`, calls helper `0x4482`, stops sound through `0x5234`, displays the fixed message at `0x0c0d` ("Game paused. Press Enter to continue."), then clears `[0x0615]`. |
 | `0x8b` | `calibrate_joystick` | `0x613c` | Initializes joystick-related globals `[0x15c5]` and `[0x15c7]` to `0xffff`, calls helper `0x63be`, and if joystick axes/state globals `[0x15c1]` and `[0x15c3]` are nonzero, displays the message at `0x1549`, which starts "Please center your joystick." It waits for Enter to continue or Escape to cancel. On acceptance it closes any active text window, computes min/max centered bounds around `[0x15c1]` and `[0x15c3]` into `[0x15c9]`, `[0x15cd]`, `[0x15cb]`, and `[0x15cf]`, then repeatedly calls helper `0x6425` while calibration records at `0x1531` or `0x153d` remain active. It finishes by calling helper `0x4482`. |
 | `0x80` | `confirm_restart_game` | `0x2472` | Stops active sound state, clears the prompt/input line, and either proceeds immediately if flag 16 is set or displays the confirmation text at `0x0adb` ("Press ENTER to restart the game... Press ESC to continue this game."). On confirmation it calls input/display cleanup helper `0x3726`, preserves flag 9, resets heap/update-list state through `0x1485`, calls helpers `0x0fa5` and `0x30d6`, sets flag 6, restores flag 9 if it had been set, clears timer/event words `[0x0129]` and `[0x012b]`, reloads logic `[0x1d12]` if configured, and calls menu/list refresh helper `0x930e`. It then redraws the input prompt through `0x37f7`. When restart is accepted it returns zero to the dispatcher. |
-| `0x7d` | `save_game_state` | `0x2753` | Save-game-state path. It asks helper `0x85e5(0x73)` for a selected slot/path, optionally displays the confirmation text at `0x0db6`, creates file `0x1c8c` through DOS wrapper `0x5cad`, writes a 31-byte description/header from `0x1c6c`, then writes several length-prefixed memory blocks through helper `0x28c6`. On write failure it closes and deletes the file, displays the error text at `0x0e46`, and returns through cleanup helper `0x1f2b`. |
-| `0x7e` | `restore_game_state` | `0x2512` | Restore-game-state path. It asks helper `0x85e5(0x72)` for a selected slot/path, optionally displays the confirmation text at `0x0d34`, opens file `0x1c8c` through DOS wrapper `0x5cce`, seeks past a 31-byte description/header, then reads several length-prefixed memory blocks through helper `0x26b0`. On read failure it displays the error text at `0x0d87` and calls `0x02ae`; on success it refreshes display/resource state through helpers including `0x681c`, `0x4c23`, `0x30d6`, and `0x930e`. |
+| `0x7d` | `save_game_state` | `0x2753` | Save-game-state path. It marks modal state `[0x0615] = 1`, temporarily changes byte `[0x0d15]` to `0x40`, asks helper `code.save.select_slot_or_path(0x73)` for a selected save slot/path, optionally displays the confirmation text at `0x0db6`, creates file `0x1c8c` through DOS wrapper `0x5cad`, writes a 31-byte description/header from `0x1c6c`, then writes several length-prefixed memory blocks through helper `0x28c6`: the engine string/config area beginning just before `0x05e3`, the object record range `[0x096b..0x096f)`, the inventory/object metadata range `[0x0971..0x0975)`, the resource/event pair buffer length `[0x0141] * 2` from `[0x1707]`, and a logic/cache-related block beginning at `0x0985` whose size is returned by `0x1364`. On write failure it closes and deletes the file, displays the error text at `0x0e46`, restores text state, restores `[0x0d15]`, clears `[0x0615]`, and returns to the following bytecode. |
+| `0x7e` | `restore_game_state` | `0x2512` | Restore-game-state path. It marks modal state `[0x0615] = 1`, saves and temporarily changes byte `[0x0d15]`, asks helper `code.save.select_slot_or_path(0x72)` for a selected restore slot/path, optionally displays the confirmation text at `0x0d34`, opens file `0x1c8c` through DOS wrapper `0x5cce`, seeks past a 31-byte description/header, then reads the same length-prefixed block families through helper `0x26b0`. On read failure it displays the error text at `0x0d87` and calls `0x02ae`. On success it restores hardware/display byte variables from `[0x112e]` and `[0x1130]`, sets flag 11 according to hardware mode, calls `code.restore.replay_resource_events`, refreshes display/resource state through `0x4c23` and `0x30d6`, clears the caller return pointer so execution restarts through the restored state, calls menu/list refresh helper `0x930e`, restores text state, restores `[0x0d15]`, and clears `[0x0615]`. |
 | `0x8e` | `set_global_0141_and_refresh` | `0x716a` | Stores immediate `arg0` as word `[0x0141]`, then wraps refresh helper `0x707c` with calls to `0x6a54` and `0x6a8e`. |
 | `0x8c` | `toggle_display_mode_bit` | `0x794c` | If word `[0x112e] == 0`, byte variable 0 is nonzero, and display mode word `[0x1130]` is neither 2 nor 3, calls helper `0x1364`, toggles bit 0 of word `[0x1130]`, and refreshes display state through helpers `0x2b28`, `0x5528`, `0x2b4f`, and `0x681c`. This appears to switch an available display mode or display attribute variant; the hardware-facing meaning of `[0x1130]` still needs dynamic confirmation. |
 | `0x8f` | `verify_game_signature` | `0x0e7e` | Reads immediate message number `arg0`, resolves that current-logic message through `0x21f0`, copies up to seven bytes into absolute buffer `0x0002` with `0x4de8`, then calls helper `0x5b49`. Helper `0x5b49` compares bytes at `0x0002` against an embedded `SQ2\0` string at code offset `0x5b6c`, calling helper `0x02ae` on the first mismatch. The one observed local use is in logic 140 immediately before action `0x6f` (`set_input_line_config`), consistent with a game-signature/configuration guard. |
@@ -1105,6 +1169,15 @@ QEMU fixture `file_log_001` validates that `0x7d` and `0x7e` open their
 save/restore selector paths and return after Escape cancellation. It also
 dispatch-smokes `0x90` by appending a formatted record to the DOS `logfile` and
 returning to following bytecode.
+
+The shared save/restore selector helper `code.save.select_slot_or_path`
+(`0x85e5`) is responsible for the modal UI around choosing a slot or path. It
+captures whether the prompt marker was visible, erases the marker, pushes text
+attribute state, stops active sound, draws the selector prompt for save
+(`0x73`) or restore (`0x72`), validates or accepts a path buffer, formats the
+selected filename into `0x1c8c`, restores text state, and redraws the prompt
+marker if it had been visible. A zero return means cancel/no selection; a
+nonzero return lets the caller perform actual file I/O.
 
 Follow-up fixture `log_file_contents_001` ran the log append case alone, then
 converted the post-run qcow2 disk image to raw and extracted `LF00000\LOGFILE`

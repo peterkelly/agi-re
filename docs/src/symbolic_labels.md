@@ -47,6 +47,7 @@ Address columns use these meanings:
 | `code.logic.call_logic` | image `0x12ae` | Temporarily switches current logic, runs `code.logic.interpret_main`, and may unlink a transient record. |
 | `code.logic.save_resume_ip_action` | image `0x1335` | Action handler for `0x91`; stores the current bytecode pointer in the current logic record's resume pointer field `+0x06`. |
 | `code.logic.restore_entry_ip_action` | image `0x134a` | Action handler for `0x92`; copies the current logic record's entry pointer field `+0x04` back to resume pointer field `+0x06`. |
+| `code.heap.reset_dynamic_state` | image `0x1485` | Flushes object update lists through `code.object.flush_update_lists_restore`, clears heap/global state near `[0x0a5d]`, restores the current heap pointer from `[0x0a59]`, and updates byte variable 8-like heap-high-water state at `[0x0011]`. Used by room switch, restart, and restore paths. |
 
 ## Resources and DOS Files
 
@@ -153,8 +154,13 @@ Address columns use these meanings:
 | `code.text.enter_attr_mode` | image `0x76ca` | Action handler for `0x6a`; erases the prompt marker, sets byte `[0x1757]`, derives attributes, enters the overlay text mode through entry `0x9803`, then clears a text rectangle. |
 | `code.text.leave_attr_mode` | image `0x78cb` | Shared cleanup for action `0x6b`; clears byte `[0x1757]`, recomputes attributes, calls overlay entry `0x9806`, then redraws status and input-line areas. |
 | `code.input.edit_string` | image `0x0da9` | Blocking string editor used by `0x73` and `0x76`. It copies the destination buffer to a local edit buffer, displays it, waits through `code.input.wait_event`, dispatches keys through `data.input.edit_key_table`, copies accepted text back on Enter, and returns without copying on Escape. |
+| `code.input.wait_for_event_or_tick` | image `0x4529` | Blocks until an event queue record is available or timer globals `[0x0129]`/`[0x012b]` change, then returns the event record pointer. Menu interaction uses this before normalizing raw and movement events. |
 | `code.input.wait_event` | image `0x45d7` | Blocking event wait helper. Calls the event normalizer at `0x459e` until the returned word is neither `0x0000` nor `0xffff`. |
 | `code.input.enqueue_event` | image `0x44a9` | Enqueues an input/event record with a type word and value word in the circular queue rooted near `data.input.event_queue`. Menu selection uses this to enqueue type 3 item ids. |
+| `code.input.dequeue_event` | image `0x44f9` | Dequeues one 4-byte event record from `data.input.event_queue_base`, returning zero when read and write pointers match. |
+| `code.input.drain_bios_keys` | image `0x467f` | Repeatedly polls BIOS-key helper `0x5a89`, maps known movement keys through `code.input.map_raw_direction_key`, and enqueues type-2 movement events or type-1 raw key events. |
+| `code.input.map_raw_direction_key` | image `0x46b6` | Scans `data.input.menu_direction_event_map` for a raw key word and returns the movement value, or `0xffff` when unmapped. |
+| `code.input.remap_display_adapter_event` | image `0x46e8` | When display adapter word `[0x112e] == 2`, scans `data.input.display_adapter_event_map` and converts matching type-1 events to type-2 movement events. |
 | `code.input.normalize_confirm_event` | image `0x4634` | Normalizes type-1 event values for confirm/editor paths: observed mappings include `0x0101`/`0x0301` to Enter (`0x0d`) and `0x0201`/`0x0401` to Escape (`0x1b`). |
 | `code.input.show_prompt_marker` | image `0x37f7` | Draws the configured prompt marker byte from `data.input.prompt_marker_char` when the marker is not already visible and the display-mode gates allow it. |
 | `code.input.erase_prompt_marker` | image `0x382e` | Clears the prompt-marker visible flag and echoes backspace when a prompt marker byte is configured. |
@@ -168,6 +174,7 @@ Address columns use these meanings:
 | `code.save.read_length_prefixed_block` | image `0x26b0` | Reads a length-prefixed memory block from a save file. |
 | `code.save.write_length_prefixed_block` | image `0x28c6` | Writes a length-prefixed memory block to a save file. |
 | `code.save.select_slot_or_path` | image `0x85e5` | Shared save/restore slot/path selection helper. |
+| `code.restore.replay_resource_events` | image `0x681c` | Restore-time state rebuild. Stops sound, clears resource caches, disables resource-event recording, replays saved resource/event pairs, rebinds active object views, refreshes display/input/status state, and re-enables normal runtime state. |
 
 ## Inventory and Menus
 
@@ -182,6 +189,9 @@ Address columns use these meanings:
 | `code.menu.finalize_setup` | image `0x92ba` | Action handler for `0x9e`; finalizes/freezes menu setup. |
 | `code.menu.set_item_enabled` | image `0x935f` | Shared helper used by `0x9f` and `0xa0` to enable or disable menu items by id. |
 | `code.menu.interact` | image `0x93d1` | Interactive menu path. Draws the menu, waits for input, and enqueues type-3 events with selected item ids for enabled items; QEMU `menu_interaction_001` validates one-item Enter selection and `menu_edges_002` validates Escape, disabled Enter, and re-enable behavior. |
+| `code.menu.draw_heading` | image `0x9557` | Draws a menu heading and its item list, including highlighting the current item through helpers `0x95d0`, `0x9625`, and `0x95a9`. |
+| `code.menu.draw_item` | image `0x95d0` | Positions and draws one menu item using row/column fields from an item node. |
+| `code.menu.erase_or_unhighlight_item` | image `0x9625` | Redraws or clears the item's saved rectangle/highlight state while navigating menu items. |
 | `data.menu.finalized` | data `0x1d2a` | Menu setup finalization flag set by `code.menu.finalize_setup`. |
 | `data.menu.request_interaction` | data `0x1d22` | Word set by action `0xa1` when flag 14 is set; the input/event path enters `code.menu.interact` and clears this word after handling menu interaction. |
 | `data.menu.heading_root` | data `0x1d2c` | Root/current circular menu heading list pointer used by menu setup and interaction routines. |
@@ -203,6 +213,10 @@ Address columns use these meanings:
 | `data.trace.height` | data `0x1d0a` | Trace-window height configured by action `0x96`, clamped upward to at least 2. |
 | `code.sound.start_with_flag` | image `0x51d3` | Action handler for `0x63`; stops prior sound, stores/clears completion flag, locates a loaded sound resource, and starts playback. QEMU `sound_completion_001` validates load/start/stop dispatch after a prior `0x62`. |
 | `code.sound.stop_or_clear_state` | image `0x5234` | Shared stop helper used by `0x64` and before starting another sound. Clears active state and sets the configured completion flag when a sound was active; QEMU `priority_diag_sound_001` validates that stop sets flag 77 after `0x63(1,77)`. |
+| `code.sound.find_loaded_resource` | image `0x50d8` | Looks up a loaded sound cache record by resource number for `code.sound.start_with_flag`; a zero result triggers an error path. |
+| `code.sound.load_resource` | image `0x5126` | Loads/caches a sound-like payload. Restore-time resource replay calls this for saved sound load events. |
+| `code.sound.driver_start` | image `0x7f96` | Hardware/driver-facing sound start helper called after `code.sound.start_with_flag` finds a loaded sound record. |
+| `code.sound.driver_stop` | image `0x80af` | Hardware/driver-facing sound stop helper called by `code.sound.stop_or_clear_state` when sound state had been active. |
 | `data.sound.active_state` | data `0x1258` | Word set while sound playback state is active. |
 | `data.sound.completion_flag` | data `0x126a` | Word holding the flag number set by `code.sound.stop_or_clear_state`; `0x63` stores and clears this flag before starting playback. |
 | `code.log.append_message` | image `0x828f` | Action handler for `0x90`; opens/creates `logfile`, appends a room/input/message record, closes the handle, and returns. QEMU `log_file_contents_001` validates the extracted `LOGFILE` content for a synthetic message. |
@@ -244,7 +258,11 @@ Address columns use these meanings:
 | `data.picture.pattern_bits` | data `0x15f9` | Bit masks used by patterned picture drawing. |
 | `data.picture.pattern_pointer_table` | data `0x1619` | Pattern pointer table selected by low three bits of picture pattern mode. |
 | `data.input.key_event_map` | data `0x0145` | Up to 39 four-byte key mapping slots populated by `code.input.map_key_event`; helper `0x4566` consults this table while normalizing events. |
+| `data.input.event_queue_base` | data `0x11ba` | Start of the 20-record circular raw event queue. Records are 4 bytes: type word, value word. |
+| `data.input.event_queue_write` | data `0x120a` | Write pointer used by `code.input.enqueue_event`; wraps to `data.input.event_queue_base` at the queue end. |
+| `data.input.event_queue_read` | data `0x120c` | Read pointer used by `code.input.dequeue_event`; equal read/write pointers mean the queue is empty. |
 | `data.input.menu_direction_event_map` | data `0x16b3` | Four-byte raw key/event to movement-code table consulted by helper `0x46b6` before type-2 events are enqueued. Observed SQ2 entries map `0x4800`, `0x4900`, `0x4d00`, `0x5100`, `0x5000`, `0x4f00`, `0x4b00`, and `0x4700` to movement codes `1..8`. |
+| `data.input.display_adapter_event_map` | data `0x16d7` | Four-byte remap table used when display adapter word `[0x112e] == 2`; observed entries map numeric keypad values `0x38`, `0x39`, `0x36`, `0x33`, `0x32`, `0x31`, `0x34`, and `0x37` to movement values `1..8`. |
 | `data.input.prompt_marker_char` | data `0x05d7` | Prompt/input marker character configured by action `0x6c`; `code.input.show_prompt_marker` and `code.input.erase_prompt_marker` use it when drawing or erasing the marker. |
 | `data.text.status_line_enabled` | data `0x05d9` | Word flag controlled by actions `0x70` and `0x71`; `code.text.redraw_status_line` only draws the status line when this is nonzero. |
 | `data.text.input_line_enabled` | data `0x05d3` | Word flag controlled by actions `0x77` and `0x78`; input-line redraw/erase helpers test it before updating the visible input area. |

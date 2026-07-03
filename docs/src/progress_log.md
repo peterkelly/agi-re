@@ -6225,3 +6225,335 @@ Progress updates and outcomes:
      Action/result: Checked final Git status; the remaining worktree changes
      are documentation files, with generated `build/` artifacts and local DOS
      installer images still untracked.
+
+819. Reported: "I’ll take the five-step list as the work queue: room lifecycle
+     first, then input/menu, selection/system, sound, and labels/docs. I’m
+     going source-first and will only use QEMU if a result needs confirmation
+     or turns into a durable test."
+
+     Action/result: Started a five-step source-first lifecycle pass and created
+     a working plan.
+
+820. Reported: "First I’m gathering the existing symbol map, notes, and helper
+     scripts so I can extend the current evidence trail instead of creating a
+     parallel one."
+
+     Action/result: Read the symbol map, searched existing notes/tools/tests,
+     and confirmed only generated/local directories were untracked.
+
+821. Reported: "The current docs already have many labels, so this pass can be
+     a tightening pass rather than a broad search. I’m opening the disassembly
+     around the five target families now, especially the call sites that explain
+     why the previous synthetic room fixture is too thin."
+
+     Action/result: Opened real SQ2 logic 0 and the first broad disassembly
+     windows for room, main-cycle, input, menu, save, and sound paths.
+
+822. Reported: "One wrinkle: the raw full disassembly includes executable
+     header bytes, so some addresses are offset from the “image” addresses in
+     the docs. I’m checking the existing slice/disassembly workflow before
+     trusting any raw line numbers."
+
+     Action/result: Reconfirmed the documented convention that file offset is
+     image offset plus `0x200` for `build/cleanroom/AGI.decrypted.exe`.
+
+823. Reported: "The project’s convention is clear: file offset is image offset
+     plus `0x200`. I’m using focused `ndisasm` windows with that correction for
+     the room switch, main cycle, input/menu, save/restore, and sound paths."
+
+     Action/result: Re-disassembled focused corrected windows for
+     `0x175c`, `0x0150`, `0x4529`, and `0x93d1`.
+
+824. Reported: "The first source pass already answers two useful questions:
+     room switching deliberately returns zero to force the main cycle back into
+     logic 0, and menu arrow navigation is driven by normalized type-2 events,
+     not status bytes. I’m reading save/system and sound now."
+
+     Action/result: Identified the room-switch zero return and menu type-2
+     movement dispatch, then opened save, restore, selector, and sound windows.
+
+825. Reported: "I’m going one layer down on the room reset calls now. The
+     switch helper’s call list is compact, so mapping those callees should give
+     us a higher-level lifecycle spec without guessing from QEMU symptoms."
+
+     Action/result: Mapped reset/resource-event callees around `0x10d0`,
+     `0x1485`, `0x7060`, and restore replay helper `0x681c`.
+
+826. Reported: "The save/restore path is also cleaner now: the selector helper
+     is responsible for prompt-mode setup, path validation, and preserving the
+     input marker; the save/restore handlers do the actual block I/O after it
+     returns a nonzero selection. I’m checking the event queue root next so the
+     menu/input notes can name the globals."
+
+     Action/result: Mapped event queue enqueue/dequeue helpers and identified
+     queue storage `0x11ba`, write pointer `0x120a`, and read pointer `0x120c`.
+
+827. Reported: "I spotted one bad byte dump: I asked `xxd` for the executable
+     at the data-table offset, which is the wrong backing file for AGIDATA
+     data. I’m correcting that against `SQ2/AGIDATA.OVL` before I document the
+     menu table."
+
+     Action/result: Discarded the executable dump and confirmed
+     `DS:0x16b3`/`DS:0x16d7` movement tables from `SQ2/AGIDATA.OVL`.
+
+828. Reported: "I have enough source-backed material to start editing: this
+     will be mostly spec/label expansion, plus the progress log. I’m going to
+     keep the wording careful: QEMU did not validate new behavior here, but the
+     disassembly improves the model and narrows what future tests should
+     target."
+
+     Action/result: Prepared documentation-only edits with no new QEMU cases.
+
+829. Reported: "I’m making the documentation edits now. The main additions are:
+     the room switch’s exact return-to-main-cycle behavior, event queue/menu
+     navigation roles, save/restore selector responsibilities, restore-time
+     resource replay, and sound state labels."
+
+     Action/result: Updated `docs/src/logic_bytecode.md` with refined room,
+     menu/input, save/restore, and sound semantics.
+
+830. Reported: "The bytecode chapter has the first wave of updates. I’m adding
+     the stable labels next, including the event queue globals and room/save/sound
+     helper roles that future version comparisons will need."
+
+     Action/result: Added symbolic labels for heap reset, input event queue,
+     menu drawing/navigation helpers, restore replay, sound helpers, and event
+     queue globals.
+
+831. Reported: "Labels are expanded. I’m adding the chronological clean-room
+     notes for the commands and observations, then I’ll refresh the
+     current-status page so the handoff reflects this pass."
+
+     Action/result: Added a clean-room notes section for the source-first
+     lifecycle pass.
+
+832. Reported: "The clean-room note is in place. I’m checking its placement
+     now; if I accidentally inserted it inside an older section instead of
+     after it, I’ll move it so the chronology stays readable."
+
+     Action/result: Found the new lifecycle note had split an older picture/view
+     command list.
+
+833. Reported: "Placement is good. I’m reading the following lines too just to
+     make sure the older picture/view section still continues cleanly after the
+     new note."
+
+     Action/result: Confirmed the split was real because older picture/view
+     commands continued after the new lifecycle note.
+
+834. Reported: "Yep, one issue: the new section split an older picture/view
+     command list. I’m moving the lifecycle note down below that older section
+     so the historical record stays tidy."
+
+     Action/result: Removed the misplaced lifecycle note from the middle of the
+     picture/view command list.
+
+835. Reported: "The accidental split is removed. I’m inserting the lifecycle
+     pass after the picture/view section’s documented result now."
+
+     Action/result: Reinserted the lifecycle pass after the picture/view
+     documented result and before the next historical section.
+
+836. Reported: "The note is back in chronological shape. I’m updating current
+     status now: several “what’s next” items have changed from “map this” to
+     “we have the source model; build targeted tests only where possible.”"
+
+     Action/result: Updated `docs/src/current_status.md` with the refined room,
+     menu, save/restore, and sound source models and next-test guidance.
+
+837. Reported: "The main docs are updated. I’m recording the work-session
+     updates in the progress log before running validation, so the historical
+     trail includes the source pass and the small correction I made while
+     editing."
+
+     Action/result: Added progress-log entries for the source-first lifecycle
+     pass, including the corrected AGIDATA table dump and the note-placement
+     fix.
+
+838. Reported: "Progress log is caught up through the documentation edits. I’m
+     doing a quick read of the touched sections for continuity before
+     validation."
+
+     Action/result: Reviewed the edited bytecode and clean-room note sections
+     for continuity.
+
+839. Reported: "The touched sections read coherently now. I’m running the
+     validation suite and docs build next; since these are documentation-only
+     edits, the full local unit suite plus mdBook/diff checks should be enough."
+
+     Action/result: Ran the full local unit suite, opcode evidence check,
+     mdBook build, and diff whitespace check successfully.
+
+840. Reported: "Validation is clean. I’m checking the final diff/status and
+     then I’ll add the closing progress-log entries for the validation and
+     handoff."
+
+     Action/result: Checked final status and diff summary; the worktree has
+     documentation changes only, plus expected untracked `build/` and
+     `002962_ms_dos_622/` directories.
+
+841. Reported: "I’m going to turn the room-switch finding into a fixture that
+     mirrors the source-shaped lifecycle more closely: logic 0 performs the
+     switch once, then on engine re-entry dispatches through
+     `call_logic_var(v0)` into a target room logic that owns its own
+     picture/view setup. Then I’ll let QEMU tell us whether that structure
+     matches the original engine rather than treating a guess as fact."
+
+     Action/result: Started a room-switch re-entry probe pass focused on
+     source-shaped logic-0/current-room dispatch.
+
+842. Reported: "The helper insertion point moved a little from what I had in
+     my head, so I’m checking the exact neighborhood before patching. Small
+     friction, but it’s useful because the harness has accumulated a lot of
+     deliberately-shaped fixture helpers."
+
+     Action/result: Re-read the probe helper area and call-logic case list in
+     `tools/logic_interpreter_probe.py`.
+
+843. Reported: "I’ve added explicit helper code for the re-entry shape, with
+     the initialization flag set before the room switch because the switch path
+     itself short-circuits the current logic invocation. That detail is exactly
+     the kind of thing that made the earlier fixtures slippery."
+
+     Action/result: Added room re-entry helper functions and initial immediate
+     and variable-selected room-switch probe cases.
+
+844. Reported: "I’m also pinning the new cases in the unit coverage list. It’s
+     not deep verification by itself, but it prevents these probe definitions
+     from quietly disappearing while we iterate on the harder QEMU behavior."
+
+     Action/result: Added unit coverage assertions for
+     `switch_room_reentry_dispatches_current_room` and
+     `switch_room_v_reentry_dispatches_current_room`.
+
+845. Reported: "The first unit pass caught a naming mismatch in the dataclass
+     constructor, not a behavioral problem. I’m correcting that before moving
+     on to QEMU so the probe harness stays internally clean."
+
+     Action/result: Fixed the new case constructor to use
+     `expected_group_no`, `expected_frame_no`, and `expected_baseline_y`.
+
+846. Reported: "The dataclass fix is in. Next I’m doing the quick
+     deterministic test run again, then I’ll run the two new fixtures through
+     the original interpreter."
+
+     Action/result: `python3 -B -m unittest tests.test_logic_interpreter_probe`
+     passed: 7 tests OK.
+
+847. Reported: "The local harness tests pass now. I’m moving to the important
+     part: running just the new room-switch cases under QEMU so we have
+     original-engine evidence before documenting them as validated."
+
+     Action/result: First QEMU command attempted a bare `--snapshot` flag, but
+     the harness only exposes snapshot image path options.
+
+848. Reported: "This harness doesn’t have a `--snapshot` flag on the current
+     branch; it only exposes the snapshot image paths. I’ll use its normal
+     serial runner for the two-case check."
+
+     Action/result: Re-ran the room-switch cases with the supported harness
+     arguments.
+
+849. Reported: "Both room-switch re-entry cases matched the original engine in
+     QEMU, including the variable-selected room form. I’m going to run the
+     project’s compatibility unit suite next, then I’ll update the docs with
+     the evidence and the higher-level semantics."
+
+     Action/result: QEMU batch `room_switch_reentry_001` matched 2/2 with 0
+     errors and 0 mismatches.
+
+850. Reported: "The full local compatibility suite is green. I’m documenting
+     the new evidence now: the source-shaped model, what the QEMU cases prove,
+     and why the target room logic has to perform its own resource setup after
+     the switch."
+
+     Action/result: `python3 -B -m unittest discover -s tests` passed: 99
+     tests OK.
+
+851. Reported: "The docs still correctly preserve the earlier failures, but
+     now need a follow-up paragraph that supersedes their status. I’m also
+     checking the opcode evidence generator so the evidence table doesn’t lag
+     behind the new QEMU result."
+
+     Action/result: Found `tools/logic_opcode_evidence.py` still marked
+     action rows `0x12` and `0x13` as source-backed.
+
+852. Reported: "The evidence generator still marks room switching as
+     source-backed. Since the new QEMU cases match the original interpreter,
+     I’m promoting only the tested behavior: zero-return re-entry plus
+     current-room dispatch, not every side effect of the broad reset helper."
+
+     Action/result: Updated the evidence generator to cite the two matched
+     room-switch re-entry cases for action rows `0x12` and `0x13`.
+
+853. Reported: "The generator is updated. I’m regenerating the opcode evidence
+     chapter now so the book reflects the promoted room-switch cases."
+
+     Action/result: Regenerated `docs/src/logic_opcode_evidence.md`.
+
+854. Reported: "I’m updating the handoff/status text so it no longer tells
+     future us that the room-switch fixture still needs to be built. The older
+     failed attempts stay in the record; the new matched case becomes the
+     current evidence."
+
+     Action/result: Updated `docs/src/current_status.md` with the validated
+     room-switch re-entry fixture and revised next steps.
+
+855. Reported: "I’m adjusting the logic bytecode chapter next. The key nuance
+     is that QEMU validates the control-flow shape, while several internal
+     reset effects are still grounded in disassembly rather than direct fixture
+     assertions."
+
+     Action/result: Updated `docs/src/logic_bytecode.md` to describe
+     `room_switch_reentry_001` and separate QEMU-validated dispatch behavior
+     from source-backed reset details.
+
+856. Reported: "I’m adding the exact QEMU command to the compatibility chapter
+     and marking the older failed room fixtures as superseded experiments, not
+     current blockers."
+
+     Action/result: Updated `docs/src/compatibility_testing.md` with the new
+     room-switch re-entry batch and superseded-fixture notes.
+
+857. Reported: "I’m appending the clean-room notes with the actual commands and
+     observed result. This is the audit trail piece: future readers should be
+     able to see exactly how the room-switch fixture went from failed attempts
+     to a matched QEMU batch."
+
+     Action/result: Added a clean-room notes section for the room-switch
+     re-entry QEMU validation pass.
+
+858. Reported: "The main docs are updated. I’m logging the intermediate
+     progress updates now so the historical record includes the small test
+     failure, the harness flag correction, and the successful QEMU validation."
+
+     Action/result: Added progress-log entries for the room-switch re-entry
+     fixture work and QEMU result.
+
+859. Reported: "The progress log is caught up through the docs edits. I’m
+     running validation now: the local unit suite again, mdBook build, and a
+     quick diff/status pass."
+
+     Action/result: Ran `python3 -B -m unittest discover -s tests` and
+     `mdbook build docs`; both passed.
+
+860. Reported: "Validation is clean. I’m checking the final diff now so I can
+     give you the concise “what changed / what’s next” without making you sift
+     through generated noise."
+
+     Action/result: Checked `git status --short` and `git diff --stat`.
+
+861. Reported: "The core validation passed. I’m doing one last whitespace check
+     and a focused status read; then I’ll hand back the result and the next
+     concrete reverse-engineering steps."
+
+     Action/result: `git diff --check` passed with no whitespace errors; final
+     status still includes pre-existing modified docs and untracked generated
+     directories.
+
+862. Reported: "The whitespace check is clean too. I’m adding the closing
+     validation entries to the progress log so this turn’s record includes the
+     green tests and book build."
+
+     Action/result: Added closing progress-log entries for validation and
+     handoff.

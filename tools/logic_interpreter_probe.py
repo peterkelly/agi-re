@@ -246,6 +246,60 @@ def one_time_with_per_cycle_code(
     )
 
 
+def room_reentry_logic0_code(switch_action: bytes, init_flag: int = 120) -> bytes:
+    return (
+        if_then(not_flag_set_condition(init_flag), set_flag_action(init_flag) + switch_action)
+        + byte_action(0x17, 0)
+        + end_action()
+    )
+
+
+def validation_room_logic(expected_x: int, picture_no: int = 0, view_no: int = 11) -> bytes:
+    return (
+        if_then(
+            flag_set_condition(5),
+            load_show_picture_actions(picture_no)
+            + bytes([0x1E, view_no])
+            + draw_view11_at(expected_x),
+        )
+        + self_loop()
+    )
+
+
+def room_switch_reentry_case(
+    case_id: str,
+    description: str,
+    switch_action: bytes,
+    expected_x: int,
+    picture_no: int = 0,
+    view_no: int = 11,
+    init_flag: int = 120,
+) -> LogicInterpreterCase:
+    return LogicInterpreterCase(
+        case_id=case_id,
+        description=description,
+        code_hex=room_reentry_logic0_code(switch_action, init_flag=init_flag).hex(),
+        picture_payload_hex=b"\xff".hex(),
+        picture_no=picture_no,
+        expected_view_no=view_no,
+        expected_group_no=0,
+        expected_frame_no=0,
+        expected_x=expected_x,
+        expected_baseline_y=80,
+        expected_priority=15,
+        extra_logics=[
+            logic_patch(
+                1,
+                validation_room_logic(
+                    expected_x=expected_x,
+                    picture_no=picture_no,
+                    view_no=view_no,
+                ),
+            )
+        ],
+    )
+
+
 def _case(case_id: str, description: str, body: bytes, expected_x: int) -> LogicInterpreterCase:
     return _custom_case(case_id, description, body, expected_x)
 
@@ -651,6 +705,19 @@ def base_cases() -> list[LogicInterpreterCase]:
             assignn(1, 2) + byte_action(0x17, 1),
             50,
             extra_logics=[logic_patch(2, draw_view11_at(50) + self_loop())],
+        ),
+        room_switch_reentry_case(
+            "switch_room_reentry_dispatches_current_room",
+            "Action 0x12 returns through the main-cycle re-entry path before logic 0 dispatches current-room logic.",
+            byte_action(0x12, 1),
+            expected_x=50,
+        ),
+        room_switch_reentry_case(
+            "switch_room_v_reentry_dispatches_current_room",
+            "Action 0x13 reads the destination room from a variable before the same re-entry dispatch path.",
+            assignn(10, 1) + byte_action(0x13, 10),
+            expected_x=58,
+            init_flag=121,
         ),
         _draw_if_case(
             "save_restore_resume_actions_continue_to_draw",

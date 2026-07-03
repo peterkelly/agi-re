@@ -63,12 +63,12 @@ Evidence levels:
 | `0x0f` | `set_flag_var` | var0 | set flag var | QEMU-validated | logic_interpreter_probe: flag_var_actions_and_condition |
 | `0x10` | `clear_flag_var` | var0 | clear flag var | QEMU-validated | logic_interpreter_probe: flag_var_actions_and_condition |
 | `0x11` | `toggle_flag_var` | var0 | toggle flag var | QEMU-validated | logic_interpreter_probe: flag_var_actions_and_condition |
-| `0x12` | `switch_room_like` | imm0 | switch room like | source-backed | Handler disassembly and local SQ2 bytecode scan; see logic_bytecode.md. |
-| `0x13` | `switch_room_like_var` | var0 | switch room like var | source-backed | Handler disassembly and local SQ2 bytecode scan; see logic_bytecode.md. |
+| `0x12` | `switch_room_like` | imm0 | switch room like | QEMU-validated | logic_interpreter_probe: switch_room_reentry_dispatches_current_room |
+| `0x13` | `switch_room_like_var` | var0 | switch room like var | QEMU-validated | logic_interpreter_probe: switch_room_v_reentry_dispatches_current_room |
 | `0x14` | `load_logic` | imm0 | load logic | QEMU-validated | logic_interpreter_probe: load_logic_then_call_logic_draws |
 | `0x15` | `load_logic_var` | var0 | load logic var | QEMU-validated | logic_interpreter_probe: load_logic_var_then_call_logic_draws |
 | `0x16` | `call_logic` | imm0 | call logic | QEMU-validated | logic_interpreter_probe: call_logic_draws_from_called_logic, load_logic_then_call_logic_draws |
-| `0x17` | `call_logic_var` | var0 | call logic var | QEMU-validated | logic_interpreter_probe: call_logic_var_draws_selected_logic |
+| `0x17` | `call_logic_var` | var0 | call logic var | QEMU-validated | logic_interpreter_probe: call_logic_var_draws_selected_logic, switch_room_reentry_dispatches_current_room |
 | `0x18` | `load_picture_var` | var0 | load picture var | QEMU-validated | picture/view QEMU fixtures load generated picture resources |
 | `0x19` | `prepare_picture_var` | var0 | prepare picture var | QEMU-validated | picture/view QEMU fixtures prepare generated picture resources |
 | `0x1a` | `show_picture_like` | - | show picture like | QEMU-validated | picture/view QEMU fixtures show generated picture resources; logic_interpreter_probe: overlay_picture_var_composes_extra_picture |

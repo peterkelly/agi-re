@@ -2137,6 +2137,82 @@ Documented result:
   helpers, pattern data, picture draw-state globals, and the view-frame rewrite
   helper.
 
+## 2026-07-03: source-first lifecycle pass for room, menu, save, and sound
+
+Commands run from `/Users/peter/ai/agi/reverse`:
+
+- `sed -n '1,260p' docs/src/symbolic_labels.md`
+- `rg -n "room\\.switch|switch_state|main_cycle|menu_direction|sound|save|restore|selection|0x1792|0x0150|0x44a9|0x16b3" docs/src tools tests`
+- `python3 -B tools/disassemble_logic.py 0`
+- `ndisasm -b 16 -o 0x175c -e 0x195c build/cleanroom/AGI.decrypted.exe | sed -n '1,260p'`
+- `ndisasm -b 16 -o 0x0150 -e 0x0350 build/cleanroom/AGI.decrypted.exe | sed -n '1,180p'`
+- `ndisasm -b 16 -o 0x4529 -e 0x4729 build/cleanroom/AGI.decrypted.exe | sed -n '1,240p'`
+- `ndisasm -b 16 -o 0x93d1 -e 0x95d1 build/cleanroom/AGI.decrypted.exe | sed -n '1,260p'`
+- `ndisasm -b 16 -o 0x2470 -e 0x2670 build/cleanroom/AGI.decrypted.exe | sed -n '1,240p'`
+- `ndisasm -b 16 -o 0x2700 -e 0x2900 build/cleanroom/AGI.decrypted.exe | sed -n '1,260p'`
+- `ndisasm -b 16 -o 0x51d0 -e 0x53d0 build/cleanroom/AGI.decrypted.exe | sed -n '1,260p'`
+- `ndisasm -b 16 -o 0x85e0 -e 0x87e0 build/cleanroom/AGI.decrypted.exe | sed -n '1,220p'`
+- `ndisasm -b 16 -o 0x10d0 -e 0x12d0 build/cleanroom/AGI.decrypted.exe | sed -n '1,260p'`
+- `ndisasm -b 16 -o 0x1485 -e 0x1685 build/cleanroom/AGI.decrypted.exe | sed -n '1,240p'`
+- `ndisasm -b 16 -o 0x7060 -e 0x7260 build/cleanroom/AGI.decrypted.exe | sed -n '1,220p'`
+- `ndisasm -b 16 -o 0x681c -e 0x6a1c build/cleanroom/AGI.decrypted.exe | sed -n '1,240p'`
+- `ndisasm -b 16 -o 0x4480 -e 0x4680 build/cleanroom/AGI.decrypted.exe | sed -n '1,180p'`
+- `xxd -g 2 -s 0x16b3 -l 0x30 SQ2/AGIDATA.OVL`
+- `xxd -g 2 -s 0x16d7 -l 0x30 SQ2/AGIDATA.OVL`
+
+Rejected or corrected observations:
+
+- A first `xxd` read of offset `0x16b3` used
+  `build/cleanroom/AGI.decrypted.exe`. That offset belongs to AGIDATA runtime
+  data, so the dump was not used. The command was rerun against
+  `SQ2/AGIDATA.OVL`, confirming the movement table bytes.
+
+Documented result:
+
+- Refined `code.room.switch_state` (`0x1792`) from disassembly. The helper
+  stops sound, resets heap/update-list state, clears parser/input state,
+  initializes and enables resource-event recording, resets all object records,
+  clears the logic cache root, sets object-boundary word `[0x0139]`, resets
+  horizon-like word `[0x012d]` to `0x24`, updates current/previous room byte
+  variables, loads the destination logic, reloads trace logic `[0x1d12]` when
+  configured, consumes byte variable 2 as the entry-boundary selector, sets
+  flag 5, refreshes display/status/input state, and returns zero.
+- Re-read `code.engine.main_cycle` (`0x0150`) to explain the zero return. When
+  `code.logic.call_logic(0)` returns zero, the main cycle clears temporary
+  boundary bytes and calls logic 0 again immediately. This supports the model
+  that room-switch bytecode intentionally aborts the current script stream so
+  logic 0 can re-enter and later dispatch the current room with
+  `call_logic_var(v0)`.
+- Mapped input/event queue helpers around `0x44a9`, `0x44f9`, `0x4529`,
+  `0x467f`, `0x46b6`, and `0x46e8`. The raw event queue is a 20-record
+  circular queue rooted at `DS:0x11ba`, with write pointer `0x120a` and read
+  pointer `0x120c`.
+- Confirmed `data.input.menu_direction_event_map` at AGIDATA `0x16b3` maps
+  raw BIOS arrow/keypad words `0x4800`, `0x4900`, `0x4d00`, `0x5100`,
+  `0x5000`, `0x4f00`, `0x4b00`, and `0x4700` to movement codes `1..8`.
+  The adjacent display-adapter remap table at `0x16d7` maps numeric keypad
+  bytes `0x38`, `0x39`, `0x36`, `0x33`, `0x32`, `0x31`, `0x34`, and `0x37`
+  to movement codes `1..8`.
+- Refined `code.menu.interact` (`0x93d1`). Event type 1 handles Enter/Escape:
+  Enter enqueues type-3 item ids only for enabled items, while Escape exits
+  without a selection. Event type 2 dispatches movement codes through the
+  navigation table and persists current heading/item globals `[0x1d2e]` and
+  `[0x1d30]` after each non-exit movement.
+- Refined save/restore from `0x2472`, `0x2512`, `0x2753`, and
+  `0x85e5`. The shared selector handles modal text/path UI and returns zero
+  for cancel. Save writes a 31-byte header followed by length-prefixed engine,
+  object, inventory, resource-event, and logic/cache blocks. Restore reads the
+  same block families and calls `code.restore.replay_resource_events` (`0x681c`)
+  to rebuild loaded resource/display/object state before menu refresh.
+- Refined sound source notes. Action `0x63` stops any prior active sound,
+  stores and clears the completion flag, looks up an already loaded sound
+  record through `0x50d8`, and calls driver start helper `0x7f96`. Action
+  `0x64` calls `0x5234`; that helper only sets the configured completion flag
+  when active-state word `[0x1258]` is nonzero, then clears active state and
+  calls driver stop helper `0x80af`.
+- Added symbolic labels for the newly mapped room, heap, input/event, menu,
+  restore, save, sound, and event-queue roles.
+
 ## Initial graphics compatibility test scaffold
 
 Commands run from `/Users/peter/ai/agi/reverse`:
@@ -4391,3 +4467,50 @@ Documented result:
 - Removed the failed synthetic room-dispatch cases from the reusable probe
   registry. The source model is stronger, but `0x12`/`0x13` remain
   source-backed until a fixture can reproduce the full runtime room lifecycle.
+
+## 2026-07-03: room-switch re-entry QEMU validation
+
+Commands run from `/Users/peter/ai/agi/reverse`:
+
+- `rg -n "room|switch_room|call_logic_var|restore_logic|save_resume|logic0|case|def .*logic|class|Fixture|extra_logic" tools/logic_interpreter_probe.py tests/test_logic_interpreter_probe.py docs/src/compatibility_testing.md docs/src/clean_room_executable_notes.md`
+- `sed -n '1,260p' tools/logic_interpreter_probe.py`
+- `sed -n '240,620p' tools/logic_interpreter_probe.py`
+- `sed -n '620,980p' tools/logic_interpreter_probe.py`
+- `sed -n '980,1360p' tools/logic_interpreter_probe.py`
+- `sed -n '1360,1760p' tools/logic_interpreter_probe.py`
+- `sed -n '1,260p' tests/test_logic_interpreter_probe.py`
+- `python3 -B -m unittest tests.test_logic_interpreter_probe`
+- First attempted run, rejected because this harness does not expose a bare
+  `--snapshot` flag:
+  `python3 -B tools/logic_interpreter_probe.py --snapshot --case switch_room_reentry_dispatches_current_room --case switch_room_v_reentry_dispatches_current_room --dos-prefix RS --output build/logic-interpreter-probes/batches/room_switch_reentry_001.json --boot-wait 5 --draw-wait 8 --stop-on-failure`
+- Successful QEMU run:
+  `python3 -B tools/logic_interpreter_probe.py --case switch_room_reentry_dispatches_current_room --case switch_room_v_reentry_dispatches_current_room --dos-prefix RS --output build/logic-interpreter-probes/batches/room_switch_reentry_001.json --boot-wait 5 --draw-wait 8 --stop-on-failure`
+- `python3 -B -m unittest discover -s tests`
+- `python3 -B tools/logic_opcode_evidence.py`
+
+Documented result:
+
+- Added two reusable logic-interpreter probe cases:
+  `switch_room_reentry_dispatches_current_room` for action `0x12`, and
+  `switch_room_v_reentry_dispatches_current_room` for action `0x13`.
+- The fixture shape is deliberately source-like. Logic 0 sets a private init
+  flag before the switch action. The switch action returns zero, so the current
+  interpreter invocation aborts and `code.engine.main_cycle` immediately calls
+  logic 0 again. On the second pass, logic 0 skips the switch and calls
+  `call_logic_var(v0)`. The destination room logic checks flag 5 and performs
+  its own picture/view load and validation draw.
+- QEMU `room_switch_reentry_001` matched 2/2 with 0 mismatches. This promotes
+  the visible room-switch re-entry/current-room dispatch shape from
+  source-backed to QEMU-validated for both immediate and variable-selected room
+  operands.
+- The earlier failed room-switch fixtures remain useful negative evidence about
+  fixture shape. A validation draw after `0x12`/`0x13`, or a destination logic
+  that relies on pre-switch picture/view state, does not model the original
+  runtime lifecycle.
+- Full local compatibility suite passed after adding the cases:
+  `Ran 99 tests in 18.114s, OK`.
+- Regenerated `docs/src/logic_opcode_evidence.md`; action rows `0x12` and
+  `0x13` now cite the matched room-switch re-entry probes. Broader internal
+  effects of helper `0x1792`, including object/resource reset, previous-room
+  update, entry-boundary placement, and resource-event recording, remain
+  source-backed unless separately probed.

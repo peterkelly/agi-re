@@ -49,6 +49,8 @@ class LogicInterpreterProbeTests(unittest.TestCase):
         self.assertIn("object_position_getter_observes_setter", case_ids)
         self.assertIn("call_logic_draws_from_called_logic", case_ids)
         self.assertIn("load_logic_var_then_call_logic_draws", case_ids)
+        self.assertIn("switch_room_reentry_dispatches_current_room", case_ids)
+        self.assertIn("switch_room_v_reentry_dispatches_current_room", case_ids)
         self.assertIn("overlay_picture_var_composes_extra_picture", case_ids)
         self.assertIn("discard_picture_var_allows_reload_and_overlay", case_ids)
         self.assertIn("discard_view_allows_reload_and_draw", case_ids)
