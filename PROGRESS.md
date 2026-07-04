@@ -19,8 +19,8 @@ better understood, or a new remaining-work item is discovered.
 
 ## Current Snapshot
 
-- Logic action opcodes: 158 of 176 are covered at `[x]` level
-  (`157` QEMU-validated plus `0x00` structural); 18 remain `[~]`.
+- Logic action opcodes: 160 of 176 are covered at `[x]` level
+  (`159` QEMU-validated plus `0x00` structural); 16 remain `[~]`.
 - Logic condition opcodes: all 19 of 19 are QEMU-validated.
 - Main remaining risk areas: full picture/view renderer edge behavior, text and
   input UI details, sound/audio semantics, final compatibility suite breadth,
@@ -149,7 +149,7 @@ better understood, or a new remaining-work item is discovered.
 - [x] `0x67` `display_formatted_message` - QEMU-validated
 - [x] `0x68` `display_formatted_message_var` - QEMU-validated
 - [x] `0x69` `clear_text_rect` - QEMU-validated
-- [~] `0x6a` `enable_text_attr_mode_1757` - QEMU dispatch-smoke
+- [x] `0x6a` `enable_text_attr_mode_1757` - QEMU-validated
 - [~] `0x6b` `disable_text_attr_mode_1757` - QEMU dispatch-smoke
 - [~] `0x6c` `set_input_prompt_char` - QEMU dispatch-smoke
 - [~] `0x6d` `set_text_window_pair` - QEMU dispatch-smoke
@@ -163,7 +163,7 @@ better understood, or a new remaining-work item is discovered.
 - [x] `0x75` `parse_string_slot` - QEMU-validated
 - [x] `0x76` `prompt_number_to_var` - QEMU-validated
 - [x] `0x77` `disable_input_line_like` - QEMU-validated
-- [~] `0x78` `enable_input_line_like` - QEMU dispatch-smoke
+- [x] `0x78` `enable_input_line_like` - QEMU-validated
 - [x] `0x79` `map_key_event` - QEMU-validated
 - [x] `0x7a` `setup_transient_object` - QEMU-validated
 - [x] `0x7b` `setup_transient_object_var` - QEMU-validated

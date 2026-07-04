@@ -612,6 +612,7 @@ def _custom_case(
     post_launch_key_names: list[str] | None = None,
     agidata_patches: list[dict[str, object]] | None = None,
     expected_visual_rects: list[dict[str, int]] | None = None,
+    compare_view: bool = True,
 ) -> LogicInterpreterCase:
     if init_once_flag is not None and per_cycle_body:
         code = one_time_with_per_cycle_code(
@@ -652,7 +653,7 @@ def _custom_case(
         post_launch_key_names,
         agidata_patches,
         "SIERRA",
-        True,
+        compare_view,
         expected_visual_rects,
     )
 
@@ -1406,6 +1407,22 @@ def base_cases() -> list[LogicInterpreterCase]:
             ],
         ),
         _custom_case(
+            "input_line_enable_clears_configured_row",
+            "Action 0x78 enables the input line and redraws the row configured by action 0x6f operand 1.",
+            byte_action(0x6C, 1)
+            + byte_action(0x67, 5, 5, 2)
+            + byte_action(0x6F, 0, 5, 22)
+            + byte_action(0x78)
+            + draw_view11_at(50),
+            50,
+            messages=["", "HELLO"],
+            post_launch_keys="\n",
+            post_launch_wait=1.0,
+            expected_visual_rects=[
+                {"left": 0, "top": 40, "right": WIDTH - 1, "bottom": 47, "color": 0}
+            ],
+        ),
+        _custom_case(
             "text_rect_clear_dispatch_smoke",
             "Actions 0x69 and 0x9a clear text rectangles and return to following bytecode.",
             byte_action(0x69, 0, 0, 0)
@@ -1457,6 +1474,16 @@ def base_cases() -> list[LogicInterpreterCase]:
             + byte_action(0x1A)
             + draw_view11_at(50),
             50,
+        ),
+        _custom_case(
+            "text_attribute_enable_clears_visible_surface",
+            "Action 0x6a enters alternate text-attribute mode and leaves the visible text surface cleared.",
+            byte_action(0x6A) + draw_view11_at(50),
+            50,
+            expected_visual_rects=[
+                {"left": 0, "top": 0, "right": WIDTH - 1, "bottom": HEIGHT - 1, "color": 0}
+            ],
+            compare_view=False,
         ),
         _custom_case(
             "screen_shake_dispatch_smoke",

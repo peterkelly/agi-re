@@ -151,7 +151,7 @@ Evidence levels:
 | `0x67` | `display_formatted_message` | imm0, imm1, imm2 | display formatted message | QEMU-validated | logic_interpreter_probe: display_formatted_message_then_ack_continues_to_draw |
 | `0x68` | `display_formatted_message_var` | var0, var1, var2 | display formatted message var | QEMU-validated | logic_interpreter_probe: display_formatted_message_var_then_ack_continues_to_draw |
 | `0x69` | `clear_text_rect` | imm0, imm1, imm2 | clear text rect | QEMU-validated | logic_interpreter_probe: text_rect_clear_rows_removes_formatted_text |
-| `0x6a` | `enable_text_attr_mode_1757` | - | enable text attr mode 1757 | QEMU dispatch-smoke | logic_interpreter_probe: text_attribute_mode_dispatch_smoke |
+| `0x6a` | `enable_text_attr_mode_1757` | - | enable text attr mode 1757 | QEMU-validated | logic_interpreter_probe: text_attribute_enable_clears_visible_surface |
 | `0x6b` | `disable_text_attr_mode_1757` | - | disable text attr mode 1757 | QEMU dispatch-smoke | logic_interpreter_probe: text_attribute_mode_dispatch_smoke |
 | `0x6c` | `set_input_prompt_char` | imm0 | set input prompt char | QEMU dispatch-smoke | logic_interpreter_probe: input_prompt_config_dispatch_smoke |
 | `0x6d` | `set_text_window_pair` | imm0, imm1 | set text window pair | QEMU dispatch-smoke | logic_interpreter_probe: text_attribute_mode_dispatch_smoke |
@@ -165,7 +165,7 @@ Evidence levels:
 | `0x75` | `parse_string_slot` | imm0 | parse string slot | QEMU-validated | logic_interpreter_probe: parse_string_slot_sets_input_word_sequence |
 | `0x76` | `prompt_number_to_var` | imm0, var1 | prompt number to var | QEMU-validated | logic_interpreter_probe: prompt_number_to_var_accepts_digits |
 | `0x77` | `disable_input_line_like` | - | disable input line like | QEMU-validated | logic_interpreter_probe: input_line_disable_clears_configured_row |
-| `0x78` | `enable_input_line_like` | - | enable input line like | QEMU dispatch-smoke | logic_interpreter_probe: input_line_toggle_refresh_erase_dispatch_smoke |
+| `0x78` | `enable_input_line_like` | - | enable input line like | QEMU-validated | logic_interpreter_probe: input_line_enable_clears_configured_row |
 | `0x79` | `map_key_event` | imm0, imm1, imm2 | map key event | QEMU-validated | logic_interpreter_probe: mapped_key_sets_status_byte |
 | `0x7a` | `setup_transient_object` | imm0, imm1, imm2, imm3, imm4, imm5, imm6 | setup transient object | QEMU-validated | logic_interpreter_probe and object_overlay_probe transient drawing |
 | `0x7b` | `setup_transient_object_var` | var0, var1, var2, var3, var4, var5, var6 | setup transient object var | QEMU-validated | logic_interpreter_probe: setup_transient_object_var_draws_selected_cel |

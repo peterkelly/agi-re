@@ -8953,3 +8953,258 @@ Progress updates and outcomes:
 
       Action/result: Recorded the final validation/status summary after the
       second lightweight check pass.
+
+1177. Reported: "I’ll commit the current row-clear/evidence work first, leaving
+      the existing generated `build/` and DOS installer directory untracked.
+      After that I’ll pick up the next highest-value partial opcode from
+      `PROGRESS.md` and keep the new work uncommitted until you ask again."
+
+      Action/result: Re-read status, diff stat, and `PROGRESS.md` before
+      staging the completed row-clear work.
+
+1178. Reported: "The commit candidate is exactly the 11 modified files from
+      the row-clear work. I’m staging only those tracked files now; `build/`
+      and `002962_ms_dos_622/` stay out of the commit."
+
+      Action/result: Staged the 11 tracked files from the status/input
+      row-clear validation pass.
+
+1179. Reported: "Staging succeeded. I’m committing this as the status/input
+      row-clear behavior validation, then I’ll continue from the next partial
+      opcode cluster."
+
+      Action/result: Attempted `git commit -m "Validate status and input row
+      clears"`.
+
+1180. Reported: "The sandbox blocked the commit while trying to create
+      `.git/index.lock`, so I’m rerunning the same commit with escalation."
+
+      Action/result: Reran the commit with escalation. Commit `aa55bda`
+      (`Validate status and input row clears`) succeeded with 11 files changed.
+
+1181. Reported: "Commit `aa55bda` is in. I’m back on the tracker now, and the
+      next likely wins are still in the text/input group: `0x70` status redraw,
+      `0x78` input redraw, and the refresh/erase helpers. I’ll read the source
+      path first and only use QEMU once there’s a precise behavior hypothesis
+      to validate."
+
+      Action/result: Confirmed the post-commit status and re-read the relevant
+      source-backed text/input opcode notes and disassembly.
+
+1182. Reported: "The committed tree is clean aside from the long-standing
+      untracked input/generated directories. I’m noticing the same address-map
+      trap as before: one disassembly artifact is file-offset oriented, while
+      the docs use image-oriented labels, so I’m cross-checking against byte
+      patterns before naming any new behavior."
+
+      Action/result: Searched for byte patterns and reran image-oriented
+      `ndisasm` commands around the status, input, and text-attribute handlers.
+
+1183. Reported: "Two behavior probes look worth trying from the disassembly:
+      `0x78` should redraw/clear the configured input row, and `0x6a` should
+      enter alternate text mode and clear the visible text surface through
+      `code.text.clear_rows`. I’m adding both as screen comparisons, with QEMU
+      as confirmation rather than discovery."
+
+      Action/result: Began adding `input_line_enable_clears_configured_row` and
+      `text_attribute_enable_clears_visible_surface` to the probe catalog.
+
+1184. Reported: "That patch missed one nearby context block, so I’m reopening
+      the exact probe catalog slice and applying the additions in smaller
+      pieces."
+
+      Action/result: Re-read the probe catalog slice around the existing
+      text/input cases.
+
+1185. Reported: "I’ve got the exact insertion points now. I’m adding the
+      `0x78` row-redraw case and the `0x6a` visible-surface clear case
+      separately."
+
+      Action/result: Added the `0x78` input-line enable row-clear probe.
+
+1186. Reported: "The `0x78` case is in. I’m adding the `0x6a` full
+      visible-surface clear check right after the existing text-attribute smoke
+      case."
+
+      Action/result: Added the initial `0x6a` visible-surface clear probe.
+
+1187. Reported: "Both new probe definitions are in place. I’m updating the unit
+      assertions now so the catalog and expected rectangles stay pinned down."
+
+      Action/result: Re-read the unit-test catalog and expected-rectangle
+      assertions.
+
+1188. Reported: "The test file already has the recent row-clear assertions; I’m
+      extending that same check for `0x78` and the full-surface `0x6a` case."
+
+      Action/result: Added unit assertions for the two new case ids and
+      expected visual rectangles.
+
+1189. Reported: "The catalog tests are updated. I’m running the focused unit
+      checks before taking the two hypotheses to QEMU."
+
+      Action/result: Ran the two focused logic-interpreter probe unit tests;
+      both passed.
+
+1190. Reported: "The focused checks passed. I’m running the new `0x78` and
+      `0x6a` cases through the original engine as a two-case QEMU snapshot
+      batch now."
+
+      Action/result: Started QEMU batch `text_enable_attr_behaviour_001`.
+
+1191. Reported: "The `0x78` input-line enable case matched. The `0x6a`
+      full-surface case is still running, so I’m waiting for that capture
+      before updating evidence."
+
+      Action/result: Waited for the second case in
+      `text_enable_attr_behaviour_001`.
+
+1192. Reported: "The batch split neatly: `0x78` matched, while my `0x6a`
+      full-black expectation was too blunt. I’m inspecting the mismatch before
+      deciding whether to revise that case or leave `0x6a` as source-backed
+      smoke for now."
+
+      Action/result: Inspected the QEMU report, the `0x6a` PPM capture, and
+      text-attribute helper disassembly.
+
+1193. Reported: "The `0x6a` mismatch is interesting rather than bad: the
+      capture is entirely black, so the surface clear happened, but the later
+      transient-object validation draw did not appear while alternate text mode
+      was active. I’m adjusting the harness carefully so this case can compare
+      the visible surface without requiring the usual object draw."
+
+      Action/result: Re-read the probe helper and comparator paths for
+      `compare_view` handling.
+
+1194. Reported: "I’m going to keep the `0x6a` probe, but make the expected
+      result match what the original actually does in this mode: black visible
+      surface, no composed validation object. That means adding a small
+      `compare_view` switch to the shared case helper instead of special-casing
+      the comparator."
+
+      Action/result: Added a `compare_view` parameter to `_custom_case` and set
+      the `0x6a` case to `compare_view=False`.
+
+1195. Reported: "The harness now supports a no-composed-view expectation for
+      special display states, and the `0x6a` case uses it. I’m pinning that in
+      the unit test before rerunning QEMU."
+
+      Action/result: Added a unit assertion that the `0x6a` case does not
+      compare the usual composed view.
+
+1196. Reported: "The unit expectation now records that `0x6a` is a surface-only
+      comparison. I’m rerunning the focused tests and then the two QEMU cases."
+
+      Action/result: Reran the focused unit tests and started QEMU batch
+      `text_enable_attr_behaviour_002`.
+
+1197. Reported: "The focused tests passed again and QEMU has re-confirmed the
+      `0x78` case. I’m waiting on the revised `0x6a` comparison."
+
+      Action/result: Waited for the second case in
+      `text_enable_attr_behaviour_002`.
+
+1198. Reported: "The revised QEMU batch matched both cases. I’m promoting
+      `0x78` and `0x6a` in the generated evidence map now, while leaving
+      `0x6c`, `0x6b`, and `0x6d` at their current partial levels."
+
+      Action/result: Re-read evidence, symbolic-label, opcode, compatibility,
+      and clean-room note context before promotion.
+
+1199. Reported: "The evidence source now promotes `0x6a` and `0x78`. I’m
+      regenerating the evidence chapter and updating the progress counts from
+      158 to 160 covered action opcodes."
+
+      Action/result: Updated `tools/logic_opcode_evidence.py` and regenerated
+      `docs/src/logic_opcode_evidence.md`.
+
+1200. Reported: "The generated evidence chapter is refreshed. I’m aligning
+      `PROGRESS.md` with two more `[x]` promotions: `0x6a` and `0x78`."
+
+      Action/result: Updated `PROGRESS.md` to 160/176 action opcodes at `[x]`
+      level, with 16 partial action opcodes remaining.
+
+1201. Reported: "I’m updating the narrative docs next. The key wording is:
+      `0x78` is a normal input-row redraw/clear, while `0x6a` is alternate
+      text-attribute mode, where the visible surface clears and the usual
+      composed object check is intentionally not expected."
+
+      Action/result: Updated `docs/src/logic_bytecode.md` rows and behavior
+      fixture narrative for `0x6a` and `0x78`.
+
+1202. Reported: "The opcode chapter is updated with the new behavior fixture.
+      I’m adding the same command/result to the compatibility chapter and
+      adjusting the runtime model’s state-machine notes."
+
+      Action/result: Updated `docs/src/compatibility_testing.md` and
+      `docs/src/runtime_model.md`.
+
+1203. Reported: "I’m also tightening the symbolic-label notes for the two
+      helpers implicated here, so later cross-version work has the behavioral
+      evidence attached to the label map."
+
+      Action/result: Updated `docs/src/symbolic_labels.md` entries for
+      `code.text.enter_attr_mode` and `code.input.redraw_input_line`.
+
+1204. Reported: "I’m correcting one older compatibility paragraph too, so it
+      remains historically true without implying `0x6a` and `0x78` are still
+      only smoke-covered."
+
+      Action/result: Revised the text/status smoke-batch wording in
+      `docs/src/compatibility_testing.md`.
+
+1205. Reported: "The compatibility history is now clearer. I’m appending the
+      clean-room notes for the `0x78`/`0x6a` disassembly-backed QEMU pass,
+      including the first failed expectation for `0x6a`."
+
+      Action/result: Added the clean-room notes section for
+      `text_enable_attr_behaviour_001` and `text_enable_attr_behaviour_002`.
+
+1206. Reported: "The clean-room notes now have the command/result trail. I’m
+      doing a consistency scan for stale counts and smoke labels before the
+      final validation pass."
+
+      Action/result: Ran stale-reference scans, checked `PROGRESS.md`,
+      `docs/src/logic_opcode_evidence.md`, status, and diff stat.
+
+1207. Reported: "The current stale-count hits are only historical notes from
+      the just-committed previous section, so I’m leaving them intact. I’m
+      appending the progress-log entries for this commit-and-continue pass now,
+      then I’ll run validation."
+
+      Action/result: Began appending this progress-log batch.
+
+1208. Reported: "I’m adding a fairly long progress-log batch because this turn
+      included the requested commit, a sandbox retry, a failed hypothesis for
+      `0x6a`, and the corrected validation. This is exactly the sort of trail
+      future-us will be grateful not to reconstruct."
+
+      Action/result: Appended this progress-log batch before final validation.
+
+1209. Reported: "The progress log is caught up through the corrected
+      `0x6a`/`0x78` work. I’m running the full validation set now: unit tests,
+      evidence check, mdBook, and whitespace."
+
+      Action/result: Ran `python3 -B -m unittest discover -s tests`,
+      `python3 -B tools/logic_opcode_evidence.py --check`, `mdbook build docs`,
+      and `git diff --check`.
+
+1210. Reported: "All four validations passed: 103 unit tests, evidence
+      `--check`, mdBook, and whitespace. I’m recording that and then doing a
+      final status/diff pass."
+
+      Action/result: Recorded the successful validation result before final
+      status and diff inspection.
+
+1211. Reported: "Because the progress log changed after validation, I’m
+      rerunning the lightweight checks and grabbing the final status summary."
+
+      Action/result: Reran `mdbook build docs`,
+      `python3 -B tools/logic_opcode_evidence.py --check`, `git diff --check`,
+      `git status --short`, and `git diff --stat`.
+
+1212. Reported: "One last log entry was added for the lightweight rerun, so I’m
+      doing a quiet final check now and then I’ll stop the commentary loop."
+
+      Action/result: Recorded the final bookkeeping note before quiet final
+      validation and status checks.

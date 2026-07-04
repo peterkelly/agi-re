@@ -499,15 +499,34 @@ surface includes logical Y 40..47 cleared to black, confirming that
 `code.text.clear_row` (`0x2ba6`) clears one configured text row without
 refreshing the picture resource.
 
+Run the input-enable/text-attribute behavior batch:
+
+```bash
+python3 -B tools/logic_interpreter_probe.py --dos-prefix TE --output build/logic-interpreter-probes/batches/text_enable_attr_behaviour_002.json --boot-wait 5 --draw-wait 8 --stop-on-failure --case input_line_enable_clears_configured_row --case text_attribute_enable_clears_visible_surface
+```
+
+This two-case batch matched QEMU with 0 mismatches. It promotes `0x78`
+(`enable_input_line_like`) and `0x6a` (`enable_text_attr_mode_1757`) to
+behavior-level coverage for the observed EGA path. The `0x78` case confirms
+that enabling the input line redraws the configured input row; the prompt marker
+is deliberately set to an empty message so the comparison only checks the row
+clear. The `0x6a` case confirms that entering alternate text-attribute mode
+clears the visible logical surface to black. A prior attempt in
+`text_enable_attr_behaviour_001` expected the usual transient-object validation
+draw to appear after `0x6a`, but the original capture remained black, so the
+promoted case treats the visible surface itself as the observable contract.
+
 Run the text/status configuration batch:
 
 ```bash
 python3 -B tools/logic_interpreter_probe.py --dos-prefix TS --output build/logic-interpreter-probes/batches/text_status_002.json --boot-wait 5 --draw-wait 8 --stop-on-failure --case text_attribute_mode_dispatch_smoke --case screen_shake_dispatch_smoke --case input_prompt_config_dispatch_smoke --case status_line_show_hide_dispatch_smoke --case key_event_mapping_dispatch_smoke
 ```
 
-This five-case batch matched QEMU with 0 mismatches. It dispatch-smokes
-`0x6a`, `0x6b`, `0x6c`, `0x6d`, `0x6e`, `0x6f`, `0x70`, `0x71`, and `0x79`.
-The earlier batch `text_status_001` used first operand `1` for `0x6f` and
+This five-case batch matched QEMU with 0 mismatches. It originally
+dispatch-smoked `0x6a`, `0x6b`, `0x6c`, `0x6d`, `0x6e`, `0x6f`, `0x70`,
+`0x71`, and `0x79`; later behavior batches supersede the smoke-only status for
+`0x6a` and `0x71`, while `0x6f` and `0x79` have their own behavior probes. The
+earlier batch `text_status_001` used first operand `1` for `0x6f` and
 mismatched because the interpreter shifted the later validation draw relative
 to the local renderer; the clean smoke fixture uses operand `0` and leaves that
 non-default display-offset behavior for a dedicated probe.

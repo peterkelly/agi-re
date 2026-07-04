@@ -5272,3 +5272,66 @@ Results:
 - Updated `PROGRESS.md`: logic action opcode coverage is now 158 of 176 at
   `[x]` level (`157` QEMU-validated plus structural `0x00`), with 18 partial
   action opcodes remaining.
+
+## 2026-07-04: input-line enable and alternate text-attribute surface probes
+
+Commands run from `/Users/peter/ai/agi/reverse`:
+
+- `git status --short`
+- `sed -n` reads of `PROGRESS.md`, `docs/src/logic_bytecode.md`,
+  `docs/src/runtime_model.md`, `docs/src/compatibility_testing.md`,
+  `docs/src/symbolic_labels.md`, `docs/src/clean_room_executable_notes.md`,
+  `tools/logic_interpreter_probe.py`, `tools/logic_opcode_evidence.py`, and
+  `tests/test_logic_interpreter_probe.py`.
+- `rg -n "0x70|0x78|0x89|0x8a|0x6c|0x6d|0xa3|0xa4|0x0d0f|0x05d3|0x05d7|0x05d9|0x0ff8|0x0fa4|0x0fce|0x38d7|0x37a5|0x3652|0x34bd" docs/src/clean_room_executable_notes.md docs/src/logic_bytecode.md docs/src/runtime_model.md tools/logic_interpreter_probe.py tests/test_logic_interpreter_probe.py`
+- `ndisasm -b 16 -o 0x34bd -e 0x36bd build/cleanroom/AGI.decrypted.exe | sed -n '1,120p'`
+- `ndisasm -b 16 -o 0x3726 -e 0x3926 build/cleanroom/AGI.decrypted.exe | sed -n '1,170p'`
+- `ndisasm -b 16 -o 0x38b4 -e 0x3ab4 build/cleanroom/AGI.decrypted.exe | sed -n '1,160p'`
+- `ndisasm -b 16 -o 0x76ca -e 0x78ca build/cleanroom/AGI.decrypted.exe | sed -n '1,150p'`
+- `ndisasm -b 16 -o 0x78cb -e 0x7acb build/cleanroom/AGI.decrypted.exe | sed -n '1,180p'`
+- `ndisasm -b 16 -o 0x77d5 -e 0x79d5 build/cleanroom/AGI.decrypted.exe | sed -n '1,120p'`
+- `python3 -B -m unittest tests.test_logic_interpreter_probe.LogicInterpreterProbeTests.test_base_cases_cover_core_control_flow tests.test_logic_interpreter_probe.LogicInterpreterProbeTests.test_text_rect_clear_cases_expect_display_surface_rectangles`
+- First attempted QEMU run:
+  `python3 -B tools/logic_interpreter_probe.py --dos-prefix TE --output build/logic-interpreter-probes/batches/text_enable_attr_behaviour_001.json --boot-wait 5 --draw-wait 8 --stop-on-failure --case input_line_enable_clears_configured_row --case text_attribute_enable_clears_visible_surface`
+- Corrected QEMU run:
+  `python3 -B tools/logic_interpreter_probe.py --dos-prefix TE --output build/logic-interpreter-probes/batches/text_enable_attr_behaviour_002.json --boot-wait 5 --draw-wait 8 --stop-on-failure --case input_line_enable_clears_configured_row --case text_attribute_enable_clears_visible_surface`
+- `cat build/logic-interpreter-probes/batches/text_enable_attr_behaviour_001.json`
+- `python3 -B tools/inspect_ppm.py build/logic-interpreter-probes/fixtures/text_attribute_enable_clears_visible_surface/qemu_capture.ppm`
+- `python3 -B tools/logic_opcode_evidence.py`
+
+Results:
+
+- Re-read action `0x78` at image `0x3898` and helper
+  `code.input.redraw_input_line` at image `0x38d7`. The action sets word
+  `[0x05d3] = 1`; in the normal non-display-mode-2 path, the helper erases any
+  visible prompt marker, calls `code.text.clear_row` (`0x2ba6`) for row
+  `[0x05d5]` with attribute `[0x05cf]`, positions the cursor at that row, and
+  writes fixed string slot 0, the visible input buffer, and the prompt marker.
+- Added QEMU case `input_line_enable_clears_configured_row`. The fixture sets
+  the prompt marker to an empty message, displays formatted text on row 5,
+  acknowledges it, runs `0x6f(0, 5, 22)`, and then runs `0x78`. The capture
+  matches only when logical Y 40..47 is cleared to visual color 0 before the
+  final object draw.
+- Re-read action `0x6a` at image `0x76ca`. The handler erases the prompt
+  marker, sets byte `[0x1757] = 1`, derives text attributes through
+  `code.text.set_attribute_pair` (`0x77d5`), calls overlay entry `0x9803`, then
+  calls `code.text.clear_rows` (`0x2b78`) for rows 0..24.
+- Added QEMU case `text_attribute_enable_clears_visible_surface`. The first
+  expected model composed the usual transient-object validation draw after
+  `0x6a`, but QEMU batch `text_enable_attr_behaviour_001` mismatched only in
+  the object area. Inspecting the capture showed a single black color across
+  the screen, so the visible surface clear was correct and the object
+  composition expectation was wrong for this active alternate text mode.
+- Updated the probe helper with an explicit `compare_view` switch and changed
+  the `0x6a` case to compare only the visible surface. QEMU batch
+  `text_enable_attr_behaviour_002` then matched with 2 matches, 0 mismatches,
+  and 0 errors.
+- Actions `0x78` (`enable_input_line_like`) and `0x6a`
+  (`enable_text_attr_mode_1757`) are now behavior-level QEMU-validated for the
+  observed EGA paths.
+- Updated `tools/logic_opcode_evidence.py`, regenerated
+  `docs/src/logic_opcode_evidence.md`, and updated opcode, runtime,
+  compatibility, and symbolic-label docs.
+- Updated `PROGRESS.md`: logic action opcode coverage is now 160 of 176 at
+  `[x]` level (`159` QEMU-validated plus structural `0x00`), with 16 partial
+  action opcodes remaining.

@@ -85,11 +85,13 @@ class LogicInterpreterProbeTests(unittest.TestCase):
         self.assertIn("prompt_number_to_var_accepts_digits", case_ids)
         self.assertIn("input_line_toggle_refresh_erase_dispatch_smoke", case_ids)
         self.assertIn("input_line_disable_clears_configured_row", case_ids)
+        self.assertIn("input_line_enable_clears_configured_row", case_ids)
         self.assertIn("text_rect_clear_dispatch_smoke", case_ids)
         self.assertIn("text_rect_clear_rows_removes_formatted_text", case_ids)
         self.assertIn("text_rect_clear_bounds_removes_formatted_text", case_ids)
         self.assertIn("close_text_window_state_dispatch_smoke", case_ids)
         self.assertIn("text_attribute_mode_dispatch_smoke", case_ids)
+        self.assertIn("text_attribute_enable_clears_visible_surface", case_ids)
         self.assertIn("screen_shake_dispatch_smoke", case_ids)
         self.assertIn("input_prompt_config_dispatch_smoke", case_ids)
         self.assertIn("status_line_show_hide_dispatch_smoke", case_ids)
@@ -246,9 +248,18 @@ class LogicInterpreterProbeTests(unittest.TestCase):
             [{"left": 0, "top": 40, "right": WIDTH - 1, "bottom": 47, "color": 0}],
         )
         self.assertEqual(
+            cases["input_line_enable_clears_configured_row"].expected_visual_rects,
+            [{"left": 0, "top": 40, "right": WIDTH - 1, "bottom": 47, "color": 0}],
+        )
+        self.assertEqual(
             cases["status_line_hide_clears_configured_row"].expected_visual_rects,
             [{"left": 0, "top": 40, "right": WIDTH - 1, "bottom": 47, "color": 0}],
         )
+        self.assertEqual(
+            cases["text_attribute_enable_clears_visible_surface"].expected_visual_rects,
+            [{"left": 0, "top": 0, "right": WIDTH - 1, "bottom": HEIGHT - 1, "color": 0}],
+        )
+        self.assertFalse(cases["text_attribute_enable_clears_visible_surface"].compare_view)
 
     def test_report_summary_counts_statuses(self) -> None:
         with tempfile.TemporaryDirectory() as temp_dir:
