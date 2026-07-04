@@ -518,6 +518,28 @@ no-joystick calibration return, guarded display-mode no-op, gated trace-window
 configuration dispatch, save/restore Escape cancellation, log append dispatch,
 and sound load/start/stop dispatch.
 
+Run the display-mode replay cases:
+
+```bash
+python3 -B tools/logic_interpreter_probe.py --dos-prefix RV --output build/logic-interpreter-probes/batches/replay_visible_001.json --boot-wait 5 --draw-wait 8 --stop-on-failure --case display_mode_replay_skips_flag7_unrecorded_picture --case display_mode_replay_uses_rolled_back_event_count
+```
+
+These cases patch the display guard words and launch the original engine with
+`SIERRA -p -c` so action `0x8c` reaches the replay branch. The visual
+comparison expectation is deliberately the observed screen behavior: after
+`0x8c`, the background alternates even rows from the recorded picture and odd
+rows from the unrecorded or rolled-back picture. The fixtures compare the
+background only, avoiding unrelated object-color effects in the toggled display
+mode. A paired manual QEMU memory probe, documented in the clean-room notes, is
+the stronger evidence for internal replay semantics: the event log excludes the
+second picture when flag 7 blocks recording or when `0xab`/`0xac` rolls the
+count back. The current automated harness does not yet read interpreter memory,
+so treat these cases as observable display checks plus source/memory-backed
+replay-log notes.
+
+The corrected two-case batch matched QEMU with 2 matches, 0 mismatches, and
+0 errors.
+
 Run the follow-up priority/diagnostics/sound and menu-edge batches:
 
 ```bash

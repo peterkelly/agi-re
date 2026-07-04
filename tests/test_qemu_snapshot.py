@@ -29,6 +29,7 @@ class QemuSnapshotTests(unittest.TestCase):
 
     def test_snapshot_case_defaults_to_no_post_launch_input(self) -> None:
         case = SnapshotFixtureCase("CASE", Path("fixture"), Path("capture.ppm"))
+        self.assertEqual(case.launch_command, "SIERRA")
         self.assertEqual(case.post_launch_keys, "")
         self.assertEqual(case.post_launch_wait, 0.0)
         self.assertEqual(case.post_launch_key_delay, 0.03)
@@ -37,6 +38,7 @@ class QemuSnapshotTests(unittest.TestCase):
 
     def test_dos_key_names_cover_monitor_specials(self) -> None:
         self.assertEqual(dos_key_name("\\"), "backslash")
+        self.assertEqual(dos_key_name("-"), "minus")
         self.assertEqual(dos_key_name("\n"), "ret")
         self.assertEqual(dos_key_name(" "), "spc")
         self.assertEqual(dos_key_name(":"), "shift-semicolon")

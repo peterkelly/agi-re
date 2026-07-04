@@ -191,7 +191,7 @@ Address columns use these meanings:
 | `code.save.read_length_prefixed_block` | image `0x26b0` | Reads a length-prefixed memory block from a save file. |
 | `code.save.write_length_prefixed_block` | image `0x28c6` | Writes a length-prefixed memory block to a save file. |
 | `code.save.select_slot_or_path` | image `0x85e5` | Shared save/restore slot/path selection helper. |
-| `code.restore.replay_resource_events` | image `0x681c` | Restore/display-mode state rebuild. Stops sound, clears resource caches, disables resource-event recording, replays saved resource/event pairs, rebinds active object views, and refreshes display/input/status state. No matching `code.event.enable_recording` call has been observed in this routine or its restore/display-mode callers. |
+| `code.restore.replay_resource_events` | image `0x681c` | Restore/display-mode state rebuild. Stops sound, clears resource caches, disables resource-event recording, replays saved resource/event pairs, rebinds active object views, and refreshes display/input/status state. Direct static scanning found no matching `code.event.enable_recording` call in this routine or its restore/display-mode callers, but a QEMU display-mode probe observed recording enabled again after the following script action; exact re-enable timing remains unresolved. |
 
 ## Inventory and Menus
 

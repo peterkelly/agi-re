@@ -738,12 +738,15 @@ walks pairs with `code.event.next_replay_pair`. Disabling recording is what
 prevents the replayed loads/discards from appending duplicates to the log.
 After replay it rebinds any object view resources that are present again,
 restores object flags saved around the cache reset, refreshes the display, and
-redraws text/input state. A follow-up caller scan found no matching
+redraws text/input state. A direct static call/store scan found no matching
 `code.event.enable_recording` call in this routine, in the restore action after
-it returns, or in the display-mode toggle path that also calls it. The only
-observed re-enable calls are in room switching and the temporary view-resource
-display helper, so the post-replay recording lifecycle remains a source-backed
-open question rather than an assumed automatic re-enable.
+it returns, or in the display-mode toggle path that also calls it; the only
+direct re-enable calls found so far are in room switching and the temporary
+view-resource display helper. A targeted QEMU display-mode replay probe later
+observed `data.event.recording_enabled == 1` after the following script action
+and showed the final transient-object packet appended. Treat duplicate
+prevention during replay as confirmed; the exact post-replay re-enable timing
+is still an open source-follow-up.
 
 The temporary view-resource display actions `0x81` and `0xa2` also call
 `code.event.disable_recording` before their internal load/display/discard
@@ -1251,7 +1254,7 @@ Interpreter/session control actions:
 | `0x7d` | `save_game_state` | `0x2753` | Save-game-state path. It marks modal state `[0x0615] = 1`, temporarily changes byte `[0x0d15]` to `0x40`, asks helper `code.save.select_slot_or_path(0x73)` for a selected save slot/path, optionally displays the confirmation text at `0x0db6`, creates file `0x1c8c` through DOS wrapper `0x5cad`, writes a 31-byte description/header from `0x1c6c`, then writes several length-prefixed memory blocks through helper `0x28c6`: the engine string/config area beginning just before `0x05e3`, the object record range `[0x096b..0x096f)`, the inventory/object metadata range `[0x0971..0x0975)`, the resource/event pair buffer length `[0x0141] * 2` from `[0x1707]`, and a logic/cache-related block beginning at `0x0985` whose size is returned by `0x1364`. On write failure it closes and deletes the file, displays the error text at `0x0e46`, restores text state, restores `[0x0d15]`, clears `[0x0615]`, and returns to the following bytecode. |
 | `0x7e` | `restore_game_state` | `0x2512` | Restore-game-state path. It marks modal state `[0x0615] = 1`, saves and temporarily changes byte `[0x0d15]`, asks helper `code.save.select_slot_or_path(0x72)` for a selected restore slot/path, optionally displays the confirmation text at `0x0d34`, opens file `0x1c8c` through DOS wrapper `0x5cce`, seeks past a 31-byte description/header, then reads the same length-prefixed block families through helper `0x26b0`. On read failure it displays the error text at `0x0d87` and calls `0x02ae`. On success it restores hardware/display byte variables from `[0x112e]` and `[0x1130]`, sets flag 11 according to hardware mode, calls `code.restore.replay_resource_events`, refreshes display/resource state through `0x4c23` and `0x30d6`, clears the caller return pointer so execution restarts through the restored state, calls menu/list refresh helper `0x930e`, restores text state, restores `[0x0d15]`, and clears `[0x0615]`. |
 | `0x8e` | `set_global_0141_and_refresh` | `0x716a` | Stores immediate `arg0` as `data.event.pair_capacity`, then wraps `code.event.reset_pair_buffer` with update-list flush/rebuild calls `0x6a54` and `0x6a8e`. |
-| `0x8c` | `toggle_display_mode_bit` | `0x794c` | If word `[0x112e] == 0`, byte variable 0 is nonzero, and display mode word `[0x1130]` is neither 2 nor 3, calls helper `0x1364`, toggles bit 0 of word `[0x1130]`, and refreshes display state through helpers `0x2b28`, `0x5528`, `0x2b4f`, and `0x681c`. This appears to switch an available display mode or display attribute variant; the hardware-facing meaning of `[0x1130]` still needs dynamic confirmation. |
+| `0x8c` | `toggle_display_mode_bit` | `0x794c` | If word `[0x112e] == 0`, byte variable 0 is nonzero, and display mode word `[0x1130]` is neither 2 nor 3, calls helper `0x1364`, toggles bit 0 of word `[0x1130]`, and refreshes display state through helpers `0x2b28`, `0x5528`, `0x2b4f`, and `0x681c`. A QEMU memory probe with `SIERRA -p -c` and patched guard words confirmed the branch executes and toggles `[0x1130]` from 0 to 1. The same probe showed replay excludes a picture drawn while flag 7 was set or after `0xab`/`0xac` rollback, but the visible CGA-style background interleaves rows from the recorded and unrecorded/rolled-back pictures; the display-buffer part of this mode change remains provisional. |
 | `0x8f` | `verify_game_signature` | `0x0e7e` | Reads immediate message number `arg0`, resolves that current-logic message through `0x21f0`, copies up to seven bytes into absolute buffer `0x0002` with `0x4de8`, then calls helper `0x5b49`. Helper `0x5b49` compares bytes at `0x0002` against an embedded `SQ2\0` string at code offset `0x5b6c`, calling helper `0x02ae` on the first mismatch. The one observed local use is in logic 140 immediately before action `0x6f` (`set_input_line_config`), consistent with a game-signature/configuration guard. |
 | `0x90` | `append_message_to_log_file` | `0x828f` | Reads immediate message number `arg0`. If global file handle `[0x1823]` is `0xffff`, helper `0x833f` opens or creates the file named at `0x1825` (`logfile`) and seeks it to the end. The handler then appends a formatted room/input-line record using template `0x1809` (`Room %d\nInput line: %s\n`) with byte variable 0 and string/input buffer `0x0fce`, resolves message `arg0` through `0x21f0`, formats it into the same stack buffer through `0x1f54`, appends it, and closes the file handle with `0x5d52`. If opening fails, it returns after consuming the operand. |
 | `0x91` | `save_logic_resume_ip` | `0x1335` | Stores the current bytecode pointer `SI` into word `[current_logic+0x06]`, where `current_logic` is the record pointed to by `[0x0981]`. |
@@ -1264,10 +1267,15 @@ cluster. `0x8f` returns when the resolved message begins with the expected SQ2
 signature. `0x80` and `0x86(0)` display confirmation prompts and return to
 following bytecode when Escape cancels. `0x8b` follows the no-joystick path
 under the current QEMU environment and returns. `0x8c` returns without toggling
-when byte variable 0 is zero. `0x96` followed by `0x95` dispatch-smokes the
-trace-window configuration path with flag 10 clear; a separate enabled attempt
-showed the expected trace box on screen, so enabled trace drawing remains
-source-backed rather than part of the visual comparison suite.
+when byte variable 0 is zero. Two later display-mode replay cases patch the
+hardware/mode guard words and launch with `SIERRA -p -c`; screenshot comparison
+validates the observable row-interleaved background, while the paired QEMU
+memory probe validates the internal replay log rather than relying on the
+screenshot alone. `0x96` followed by `0x95`
+dispatch-smokes the trace-window configuration path with flag 10 clear; a
+separate enabled attempt showed the expected trace box on screen, so enabled
+trace drawing remains source-backed rather than part of the visual comparison
+suite.
 
 QEMU fixture `file_log_001` validates that `0x7d` and `0x7e` open their
 save/restore selector paths and return after Escape cancellation. It also

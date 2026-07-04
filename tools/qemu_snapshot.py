@@ -19,6 +19,7 @@ class SnapshotFixtureCase:
     dos_dir: str
     fixture: Path
     capture: Path
+    launch_command: str = "SIERRA"
     post_launch_keys: str = ""
     post_launch_wait: float = 0.0
     post_launch_key_delay: float = 0.03
@@ -74,6 +75,8 @@ def build_snapshot_boot_disk(
 def dos_key_name(character: str) -> str:
     if character == "\\":
         return "backslash"
+    if character == "-":
+        return "minus"
     if character == " ":
         return "spc"
     if character == "\n":
@@ -153,7 +156,7 @@ def run_snapshot_qemu_cases(
             time.sleep(0.5)
             monitor_type(proc, f"cd \\{case.dos_dir}\n")
             time.sleep(0.5)
-            monitor_type(proc, "SIERRA\n")
+            monitor_type(proc, f"{case.launch_command}\n")
             if case.post_launch_wait:
                 time.sleep(case.post_launch_wait)
             if case.post_launch_keys:

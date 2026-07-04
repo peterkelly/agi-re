@@ -14,7 +14,14 @@ ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT / "tools"))
 
 from agi_graphics import HEIGHT, PALETTE, WIDTH, PictureRenderer, compose_frame_on_picture, render_view_frame  # noqa: E402
-from logic_interpreter_probe import base_cases, compare_capture, load_cases, qemu_batch_dos_dir, write_report  # noqa: E402
+from logic_interpreter_probe import (  # noqa: E402
+    alternating_row_picture_payload,
+    base_cases,
+    compare_capture,
+    load_cases,
+    qemu_batch_dos_dir,
+    write_report,
+)
 
 
 def write_scaled_capture(path: Path, nibbles: bytes) -> None:
@@ -105,6 +112,8 @@ class LogicInterpreterProbeTests(unittest.TestCase):
         self.assertIn("confirm_restart_like_escape_continues_to_draw", case_ids)
         self.assertIn("joystick_calibration_no_joystick_returns", case_ids)
         self.assertIn("display_mode_toggle_guarded_noop_continues", case_ids)
+        self.assertIn("display_mode_replay_skips_flag7_unrecorded_picture", case_ids)
+        self.assertIn("display_mode_replay_uses_rolled_back_event_count", case_ids)
         self.assertIn("trace_window_config_enable_dispatch_smoke", case_ids)
         self.assertIn("log_file_append_dispatch_smoke", case_ids)
         self.assertIn("save_game_escape_continues_to_draw", case_ids)
@@ -203,6 +212,19 @@ class LogicInterpreterProbeTests(unittest.TestCase):
             write_scaled_capture(capture, expected.visual_nibbles)
             comparison = compare_capture(case, capture)
         self.assertEqual(comparison.status, "match")
+
+    def test_display_mode_replay_cases_expect_row_interleaving(self) -> None:
+        expected_payload = alternating_row_picture_payload(0x06, 0x04).hex()
+        for case_id in (
+            "display_mode_replay_skips_flag7_unrecorded_picture",
+            "display_mode_replay_uses_rolled_back_event_count",
+        ):
+            case = next(item for item in base_cases() if item.case_id == case_id)
+            self.assertFalse(case.compare_view)
+            self.assertEqual(case.expected_picture_payload_hex, expected_payload)
+            picture = PictureRenderer(case.expected_picture_payload).render(case.picture_no)
+            self.assertEqual(set(picture.visual_nibbles[0:WIDTH]), {0x06})
+            self.assertEqual(set(picture.visual_nibbles[WIDTH : WIDTH * 2]), {0x04})
 
     def test_report_summary_counts_statuses(self) -> None:
         with tempfile.TemporaryDirectory() as temp_dir:

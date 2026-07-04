@@ -60,6 +60,8 @@ class LogicInterpreterCase:
     post_launch_after_text_wait: float = 0.0
     post_launch_key_names: list[str] | None = None
     agidata_patches: list[dict[str, object]] | None = None
+    launch_command: str = "SIERRA"
+    compare_view: bool = True
 
     @property
     def code(self) -> bytes:
@@ -369,6 +371,61 @@ def previous_room_validation_logic(
         )
         + self_loop()
     )
+
+
+def display_mode_replay_validation_logic(
+    expected_draw_x: int,
+    init_flag: int,
+    picture_no: int = 0,
+    rollback_picture_no: int = 1,
+    view_no: int = 11,
+    draw_after_replay: bool = True,
+) -> bytes:
+    body = if_then(
+        all_conditions(flag_set_condition(5), not_flag_set_condition(init_flag)),
+        load_show_picture_actions(picture_no)
+        + byte_action(0xAB)
+        + load_show_picture_actions(rollback_picture_no)
+        + byte_action(0xAC)
+        + bytes([0x1E, view_no])
+        + byte_action(0x8C)
+        + set_flag_action(init_flag),
+    )
+    if draw_after_replay:
+        body += draw_view11_at(expected_draw_x)
+    return body + self_loop()
+
+
+def display_mode_replay_flag7_validation_logic(
+    expected_draw_x: int,
+    init_flag: int,
+    picture_no: int = 0,
+    unrecorded_picture_no: int = 1,
+    view_no: int = 11,
+    draw_after_replay: bool = True,
+) -> bytes:
+    body = if_then(
+        all_conditions(flag_set_condition(5), not_flag_set_condition(init_flag)),
+        load_show_picture_actions(picture_no)
+        + set_flag_action(7)
+        + load_show_picture_actions(unrecorded_picture_no)
+        + byte_action(0x0D, 7)
+        + bytes([0x1E, view_no])
+        + byte_action(0x8C)
+        + set_flag_action(init_flag),
+    )
+    if draw_after_replay:
+        body += draw_view11_at(expected_draw_x)
+    return body + self_loop()
+
+
+def alternating_row_picture_payload(even_color: int, odd_color: int) -> bytes:
+    payload = bytearray()
+    for y in range(HEIGHT):
+        color = even_color if y % 2 == 0 else odd_color
+        payload.extend([0xF0, color, 0xF6, 0x00, y, WIDTH - 1, y])
+    payload.append(0xFF)
+    return bytes(payload)
 
 
 def room_switch_reentry_case(
@@ -1959,6 +2016,86 @@ def base_cases() -> list[LogicInterpreterCase]:
             assignn(0, 0) + byte_action(0x8C) + draw_view11_at(50),
             50,
         ),
+        LogicInterpreterCase(
+            case_id="display_mode_replay_skips_flag7_unrecorded_picture",
+            description=(
+                "Action 0x8c enters display-mode replay after a picture drawn with "
+                "flag 7 set; the visible CGA-style background interleaves rows "
+                "from the recorded and unrecorded pictures."
+            ),
+            code_hex=room_reentry_logic0_code(byte_action(0x12, 1), init_flag=136).hex(),
+            picture_payload_hex=bytes([0xF0, 0x06, 0xF8, 0x00, 0x00, 0xFF]).hex(),
+            expected_picture_payload_hex=alternating_row_picture_payload(0x06, 0x04).hex(),
+            picture_no=0,
+            expected_view_no=11,
+            expected_group_no=0,
+            expected_frame_no=0,
+            expected_x=50,
+            expected_baseline_y=80,
+            expected_priority=15,
+            extra_logics=[
+                logic_patch(
+                    1,
+                    display_mode_replay_flag7_validation_logic(
+                        expected_draw_x=50,
+                        init_flag=137,
+                        draw_after_replay=False,
+                    ),
+                )
+            ],
+            extra_pictures=[
+                {
+                    "picture_no": 1,
+                    "payload_hex": bytes([0xF0, 0x04, 0xF8, 0x00, 0x00, 0xFF]).hex(),
+                }
+            ],
+            agidata_patches=[
+                {"offset": 0x112E, "data_hex": "0000"},
+                {"offset": 0x1130, "data_hex": "0000"},
+            ],
+            launch_command="SIERRA -p -c",
+            compare_view=False,
+        ),
+        LogicInterpreterCase(
+            case_id="display_mode_replay_uses_rolled_back_event_count",
+            description=(
+                "Action 0x8c enters display-mode replay after 0xab/0xac roll back "
+                "the resource-event count; the visible CGA-style background "
+                "interleaves rows from the recorded and rolled-back pictures."
+            ),
+            code_hex=room_reentry_logic0_code(byte_action(0x12, 1), init_flag=134).hex(),
+            picture_payload_hex=bytes([0xF0, 0x06, 0xF8, 0x00, 0x00, 0xFF]).hex(),
+            expected_picture_payload_hex=alternating_row_picture_payload(0x06, 0x04).hex(),
+            picture_no=0,
+            expected_view_no=11,
+            expected_group_no=0,
+            expected_frame_no=0,
+            expected_x=50,
+            expected_baseline_y=80,
+            expected_priority=15,
+            extra_logics=[
+                logic_patch(
+                    1,
+                    display_mode_replay_validation_logic(
+                        expected_draw_x=50,
+                        init_flag=135,
+                        draw_after_replay=False,
+                    ),
+                )
+            ],
+            extra_pictures=[
+                {
+                    "picture_no": 1,
+                    "payload_hex": bytes([0xF0, 0x04, 0xF8, 0x00, 0x00, 0xFF]).hex(),
+                }
+            ],
+            agidata_patches=[
+                {"offset": 0x112E, "data_hex": "0000"},
+                {"offset": 0x1130, "data_hex": "0000"},
+            ],
+            launch_command="SIERRA -p -c",
+            compare_view=False,
+        ),
         _custom_case(
             "trace_window_config_enable_dispatch_smoke",
             "Actions 0x96 and gated 0x95 configure trace-window globals and return when flag 10 is clear.",
@@ -2112,14 +2249,17 @@ def compare_capture(case: LogicInterpreterCase, capture: Path) -> LogicCompariso
                 sprite["baseline_y"],
                 sprite["priority"],
             )
-        frame = render_view_frame(case.expected_view_no, case.expected_group_no, case.expected_frame_no)
-        expected = compose_frame_on_picture(
-            expected_picture,
-            frame,
-            case.expected_x,
-            case.expected_baseline_y,
-            case.expected_priority,
-        ).visual_nibbles
+        if case.compare_view:
+            frame = render_view_frame(case.expected_view_no, case.expected_group_no, case.expected_frame_no)
+            expected = compose_frame_on_picture(
+                expected_picture,
+                frame,
+                case.expected_x,
+                case.expected_baseline_y,
+                case.expected_priority,
+            ).visual_nibbles
+        else:
+            expected = expected_picture.visual_nibbles
     except Exception as exc:  # noqa: BLE001 - probe records exact local exception.
         return LogicComparison(case.case_id, "error", None, None, None, None, f"{type(exc).__name__}: {exc}")
 
@@ -2177,6 +2317,7 @@ def run_snapshot_batch(
                 dos_dir,
                 fixture,
                 capture,
+                launch_command=case.launch_command,
                 post_launch_keys=case.post_launch_keys,
                 post_launch_wait=case.post_launch_wait,
                 post_launch_key_delay=case.post_launch_key_delay,

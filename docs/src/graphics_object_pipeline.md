@@ -72,6 +72,19 @@ instead of `0x6445`. Since `0x6445` first clears/fills the graphics/control
 buffer and then falls into `0x6440`, `0x1c` appears to be the picture path that
 draws without that extra clear step.
 
+Restore and display-mode replay reconnect to this same picture/object pipeline
+through the resource-event log. Replay event kind `4` calls the normal picture
+prepare/decode helper (`0x4acf`) for a previously recorded picture, while kind
+`8` calls the overlay prepare helper (`0x4b3b`). Kind `5` is not a resource
+load; it restores the three staged byte pairs at `0x0eae..0x0eb3` and calls
+`code.object.setup_transient_display_object` (`0x2d52`), which feeds the
+temporary object into the object drawing path. A display-mode replay QEMU probe
+showed that the event log can exclude an unrecorded or rolled-back picture
+while the visible CGA-style background after `0x8c` interleaves rows from the
+recorded and unrecorded/rolled-back pictures. That makes the resource replay
+model source/memory-backed, but leaves the exact screen-buffer refresh side
+effect of the display-mode path provisional.
+
 ## Picture decoder
 
 Picture decoding starts at `0x6445` or `0x6440`. The `0x6445` entry performs an

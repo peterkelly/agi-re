@@ -7229,3 +7229,324 @@ Progress updates and outcomes:
      Action/result: Added the no-observed-re-enable finding to
      `docs/src/clean_room_executable_notes.md`, `docs/src/logic_bytecode.md`,
      `docs/src/symbolic_labels.md`, and `docs/src/current_status.md`.
+
+954. Reported: "I'll take those in order: first settle the replay recording
+     gate from source, then map the save/restore data it depends on, then add
+     only the QEMU validation that gives us new confidence. I'll keep the docs
+     updated as I go, since this is exactly the sort of trail future us will be
+     grateful for."
+
+     Action/result: Began a follow-up source-first pass over the replay log,
+     save/restore blocks, and display-mode replay path.
+
+955. Reported: "The first source pass is already showing a deeper wrinkle: the
+     replay log's active count appears to be carried through the save/restore
+     block around `[0x05e1]`, but replay itself reads `[0x0143]`. I'm tracing
+     that carefully now, because it affects whether `0xab`/`0xac` are just
+     script rollback helpers or part of the save/restore contract."
+
+     Action/result: Re-examined the save/read block helpers and the memory
+     ranges passed by the save and restore action handlers.
+
+956. Reported: "One of those disassembly slices was shifted by the EXE header
+     offset, so I'm rerunning the save/read helper slices with the correct
+     `image offset + 0x200` file skip. This is exactly why keeping the command
+     trail matters; the wrong slice was plausible-looking but not the helper we
+     needed."
+
+     Action/result: Corrected the image/file-offset relationship used for the
+     whole-file disassembly and reran the relevant save/restore slices.
+
+957. Reported: "The save-block dependency is now clearer: the first
+     length-prefixed save block is not a tiny `[0x05e1]` block. It writes
+     `0x05e1` bytes starting at `DS:0x0002`, which includes the pair count at
+     `[0x0143]` and capacity at `[0x0141]`. The actual pair bytes are a later
+     block from `[0x1707]`, and the recording gate `[0x170d]` is not in
+     either."
+
+     Action/result: Confirmed that save/restore persist replay capacity and
+     active pair count in the first state block, persist pair bytes in a
+     separate block, and do not persist the recording-enabled gate there.
+
+958. Reported: "For dynamic validation, a full save/restore UI probe would be
+     useful but expensive and brittle. A better first target is action `0x8c`:
+     it calls the same replay routine without involving the save selector UI.
+     If we can build a room-switch fixture that records events and then
+     triggers `0x8c`, we get a replay validation path with much less
+     machinery."
+
+     Action/result: Chose display-mode replay as the first QEMU validation
+     target because it reaches the same replay helper while avoiding the
+     save-slot UI.
+
+959. Reported: "I'll make the replay probe use the existing logic harness
+     rather than a new tool. It can already patch `AGIDATA.OVL`, so if needed I
+     can force the display-mode guard values for this fixture without changing
+     the original DOS image."
+
+     Action/result: Extended the logic snapshot harness to support per-case
+     launch commands, needed for `SIERRA -p -c`, and added monitor key mapping
+     for `-`.
+
+960. Reported: "For the `0x8c` replay fixture, I want the guard to actually
+     enter the replay branch. The source says it requires display hardware word
+     `[0x112e] == 0` and mode word `[0x1130]` not `2` or `3`, so I'm checking
+     whether our fixture overlay starts that way or whether we need a small
+     `AGIDATA.OVL` patch."
+
+     Action/result: Checked `SQ2/AGIDATA.OVL`; the words at `0x112e` and
+     `0x1130` initialize to `0xffff`, so the QEMU fixture patches both words
+     to zero and launches with `SIERRA -p -c`.
+
+961. Reported: "I'm picking the replay thread back up from the source-first
+     angle: finish the save/restore dependency map, add the least brittle
+     dynamic check, then fold it back into the spec. I'll also preserve these
+     working updates in the progress log before I make new substantive edits."
+
+     Action/result: Reviewed current docs, harness state, and diffs before
+     continuing the replay probe.
+
+962. Reported: "The replay harness change is in place, and the regular unit
+     suite passes. The first QEMU run is interesting in exactly the useful way:
+     the engine reaches the display-mode replay fixture, but the visible
+     background is still the second picture. I'm going back to source and
+     memory state before assuming the replay model is wrong."
+
+     Action/result: Initial QEMU display-mode replay probe produced a
+     screenshot mismatch against the first-picture hypothesis, while confirming
+     the fixture reached the expected visual state after `0x8c`.
+
+963. Reported: "I'm adding a second replay case that uses flag 7 instead of
+     `0xab`/`0xac`. If the source model is right, both should exclude the
+     second picture from the event log; if the screen still shows the second
+     picture, the missing piece is in display refresh rather than the log
+     gates."
+
+     Action/result: Added `display_mode_replay_skips_flag7_unrecorded_picture`
+     beside the `0xab`/`0xac` rollback case.
+
+964. Reported: "Both replay probes show the same visible result: the
+     second-picture background remains. That narrows it nicely: either `0x8c`
+     is not taking the replay branch under this launch mode, or the replay
+     branch rebuilds resource state without clearing the currently visible CGA
+     buffer. I’m checking memory around `[0x112e]`, `[0x1130]`, and the event
+     buffer next."
+
+     Action/result: Switched from screenshot comparison to a direct QEMU memory
+     probe of display-mode words and replay-log state.
+
+965. Reported: "The QEMU memory probe found the branch did execute: `[0x1130]`
+     changed from 0 to 1 after `0x8c`. The event log also excludes the
+     flag-7 picture as expected. So the surprising part is display-buffer
+     behavior, not the replay-pair gate."
+
+     Action/result: With `DS = 0x16a5`, reads showed `[0x112e] = 0`,
+     `[0x1130] = 1`, capacity `0x32`, pair count `8`, and recording enabled
+     again after the later script action.
+
+966. Reported: "The pair buffer is wonderfully concrete: it has room-switch
+     logic 1, picture 0 load/prepare, view 11 load, and the final transient
+     object packet. No picture 1 event is present. I’m capturing one fresh
+     screenshot from the same paused VM so we can tie the memory evidence to
+     the visible mismatch."
+
+     Action/result: Decoded the pair buffer as `(0,1)`, `(2,0)`, `(4,0)`,
+     `(1,11)`, `(5,0)`, `(11,0)`, `(0,50)`, `(80,255)` and captured the same
+     visible background as the earlier automated run.
+
+967. Reported: "Fresh capture from the memory-probed VM has the same result:
+     the log excludes picture 1, `0x8c` toggled display mode, but the screen
+     still shows picture 1's color. I'm going to change the automated cases so
+     they validate the observed screen behavior, while documenting the memory
+     probe as the stronger evidence for replay-log semantics."
+
+     Action/result: Updated the replay fixture expectations to compare against
+     the visible second-picture background instead of the initial
+     first-picture hypothesis.
+
+968. Reported: "I'll pick this back up from the replay work and keep it
+     source-first. I'm going to check the current diffs and the doc spots that
+     need to be brought into line with the QEMU memory probe before I edit
+     anything."
+
+     Action/result: Reviewed the working tree, replay-related docs, and the
+     code/test diffs for the launch-command and replay-fixture changes.
+
+969. Reported: "The current tree has the replay probe code changes, but the
+     docs still contain the earlier `no re-enable observed` wording. I also
+     found the new progress section inserted into an old fuzz section; I’ll
+     move that history to the chronological tail so the log stays readable."
+
+     Action/result: Identified the stale replay lifecycle language and the
+     misplaced progress section.
+
+970. Reported: "I’m going to patch the docs in one pass: correct the replay
+     lifecycle wording, add the memory-probe evidence, connect kind-4/kind-5
+     replay back to graphics/object rendering, and move the misplaced progress
+     section to the end with the new updates appended."
+
+     Action/result: Started the documentation patch pass.
+
+971. Reported: "I’m editing now. First pass is housekeeping: remove the replay
+     section from the middle of the older fuzz chronology and append it after
+     the current logic-interpreter entries with the newer replay-memory
+     findings."
+
+     Action/result: Removed the misplaced replay progress section from the
+     synthetic picture fuzz chronology.
+
+972. Reported: "That misplaced section is out of the fuzz chapter now. I’ll
+     append it at the chronological end, keeping the earlier updates and the
+     fresh observations together so the evidence trail reads in order."
+
+     Action/result: Appended the replay follow-up progress entries here.
+
+973. Reported: "The progress log now has the replay work in the right
+     chronological spot. Next I’m tightening the spec language so it says what
+     we actually know: replay-pair duplicate suppression is confirmed, but the
+     later recording lifecycle and visible buffer behavior have sharper
+     caveats."
+
+     Action/result: Updated the replay model in `logic_bytecode.md`,
+     `current_status.md`, and `symbolic_labels.md`.
+
+974. Reported: "The compatibility chapter now separates the screen assertion
+     from the memory-backed replay semantics. I’ll add the
+     graphics/object pipeline connection next, since replay kind 4 and kind 5
+     are where the resource log actually turns back into drawn pixels."
+
+     Action/result: Linked replay event kinds `4`, `5`, and `8` to picture
+     decode, overlay decode, and transient-object drawing in
+     `graphics_object_pipeline.md`.
+
+975. Reported: "The clean-room notes now have the corrected save layout and the
+     QEMU memory probe. I’m going to scan for stale replay wording before
+     running the executable checks."
+
+     Action/result: Appended the save-block correction, static
+     recording-gate scan, and display-mode memory probe to
+     `clean_room_executable_notes.md`.
+
+976. Reported: "The first wording scan accidentally let shell backticks run as
+     commands, so that result is just a quoting miss. I’m rerunning it with
+     single quotes and then I’ll move into tests."
+
+     Action/result: Reran the scan safely; only intentional current caveats and
+     historical correction wording remained.
+
+977. Reported: "The unit suite is green and the whitespace check is clean. I’m
+     running the two replay fixtures against the original engine now; this is
+     the slowest check because it boots QEMU and captures the screenshots."
+
+     Action/result: `python3 -B -m unittest discover -s tests` passed with
+     99 tests, `git diff --check` passed, and the first QEMU replay batch
+     started.
+
+978. Reported: "The first replay fixture still mismatched, so I’m not going to
+     paper over it. I’ll inspect the generated report and capture comparison to
+     see whether the expected B background is mapped differently in this launch
+     mode, or whether the local expected picture setup is still not matching
+     the original screen."
+
+     Action/result: The generated report showed the capture and expectation
+     were not a plain first-picture or plain second-picture match.
+
+979. Reported: "I misread the tuple direction from the report. In this harness,
+     samples are `(x, y, captured, expected)`: QEMU is showing nibble 6 and the
+     new expected payload is nibble 4. I’m checking the old manual capture and
+     an A-vs-B local comparison now, because the fixture should follow the
+     evidence rather than my earlier shorthand."
+
+     Action/result: Compared the capture against both single-picture
+     expectations and confirmed neither matched.
+
+980. Reported: "Neither plain A nor plain B matches: row 0 looks like nibble 6,
+     while row 1 and onward show nibble 4 in the sample set. That points to the
+     display-mode toggle changing the screen interpretation or row mapping. I’m
+     sampling the downsampled capture by row before changing the fixture
+     expectation."
+
+     Action/result: Downsampled row sampling showed an alternating pattern:
+     even rows are nibble `6`, odd rows are nibble `4`.
+
+981. Reported: "The capture is an alternating-row display: even logical rows
+     are nibble 6, odd rows nibble 4. I’m changing the replay fixtures to
+     expect that interleaved background, which matches the actual display-mode
+     effect better than either single-picture hypothesis."
+
+     Action/result: Added `alternating_row_picture_payload()` and changed both
+     replay cases to use it as the expected background.
+
+982. Reported: "The remaining 62 pixels are the validation sprite, not the
+     replay background. Since these cases are about display-mode replay, I’m
+     going to make them background-only instead of mixing in object-color
+     behavior from the toggled display mode. The separate memory probe already
+     covers the replay log."
+
+     Action/result: Added `compare_view=False`, skipped the post-replay
+     validation sprite in both replay fixtures, and taught `compare_capture()`
+     to compare background-only cases.
+
+983. Reported: "The current spec pages now say `row-interleaved` and note that
+     the automated comparison is background-only. I’m correcting the clean-room
+     note’s result wording too."
+
+     Action/result: Replaced the earlier second-picture shorthand in current
+     docs with the row-interleaved display observation.
+
+984. Reported: "Unit tests are green at 100 tests and whitespace is clean. I’m
+     rerunning the replay QEMU batch with the background-only row-interleaved
+     expectation."
+
+     Action/result: The corrected unit suite passed with 100 tests, and the
+     replay QEMU batch was rerun.
+
+985. Reported: "The first replay case now matches. QEMU is still running the
+     second case from the same snapshot, so I’ll let it finish and then inspect
+     the report."
+
+     Action/result: Both replay cases matched QEMU with 2 matches,
+     0 mismatches, and 0 errors.
+
+986. Reported: "Both corrected replay cases match QEMU now. I’m recording that
+     result in the compatibility and clean-room notes, then I’ll run mdBook."
+
+     Action/result: Added the passing
+     `build/logic-interpreter-probes/batches/replay_visible_001.json` result to
+     `compatibility_testing.md` and `clean_room_executable_notes.md`.
+
+987. Reported: "The compatibility chapter has the passing replay-batch result.
+     I’m adding the same outcome to the clean-room entry beside the harness
+     changes."
+
+     Action/result: Completed the clean-room result note for the corrected
+     replay batch.
+
+988. Reported: "Clean-room notes have the successful batch result. I’m
+     appending the latest working updates to the progress log so the failed
+     hypothesis and correction are preserved rather than erased."
+
+     Action/result: Added progress entries for the single-picture mismatch,
+     row-interleaving discovery, background-only harness correction, and QEMU
+     replay success.
+
+989. Reported: "The progress log now records the failed single-picture
+     hypothesis, the row-interleaving discovery, and the passing QEMU rerun.
+     I’m building the mdBook now."
+
+     Action/result: `mdbook build docs` succeeded and `git diff --check`
+     passed.
+
+990. Reported: "mdBook builds cleanly and whitespace is still clean. I’ll do
+     one final wording scan and status check before wrapping this pass."
+
+     Action/result: Checked replay wording, working-tree status, diff stat, and
+     the corrected QEMU replay report.
+
+991. Reported: "The final scan only finds historical progress-log text for the
+     earlier working hypothesis plus the current row-interleaved wording. I’m
+     logging the last verification steps, then I’ll rebuild mdBook once more
+     because the progress log is itself a docs change."
+
+     Action/result: Recorded this final progress-log update before the last
+     docs build.

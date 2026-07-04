@@ -4820,3 +4820,126 @@ Documented result:
   after restore replay.
 - Updated `docs/src/logic_bytecode.md` with the higher-level event-log model,
   and updated `docs/src/symbolic_labels.md` with the new code/data labels.
+
+## 2026-07-03: replay save-block correction and display-mode QEMU probe
+
+Commands run from `/Users/peter/ai/agi/reverse`:
+
+- `git status --short`
+- `sed -n` reads of `docs/src/progress_log.md`,
+  `docs/src/clean_room_executable_notes.md`,
+  `docs/src/symbolic_labels.md`, `docs/src/logic_bytecode.md`,
+  `docs/src/current_status.md`, `docs/src/compatibility_testing.md`, and
+  `docs/src/graphics_object_pipeline.md`
+- `ndisasm` slices around image offsets `0x2512`, `0x2753`, `0x681c`,
+  `0x794c`, `0x00c4`, and `0x821c`
+- Pattern scans of `build/cleanroom/AGI.decrypted.exe` and
+  `build/cleanroom/AGI.decrypted.ndisasm` for stores to `[0x170d]` and calls
+  to `code.event.disable_recording`, `code.event.enable_recording`, and
+  `code.restore.replay_resource_events`
+- `python3 -B -m unittest discover -s tests`
+- QEMU monitor-driven display-mode replay probes using
+  `build/logic-interpreter-probes/snapshot/logic_interpreter.qcow2`, followed
+  by `info registers`, memory reads, and `screendump`
+- `python3 -B tools/inspect_ppm.py
+  build/logic-interpreter-probes/fixtures/display_mode_replay_skips_flag7_unrecorded_picture/manual_memory_probe.ppm`
+
+Important correction:
+
+- The saved whole-file disassembly uses file offsets, while MZ code image
+  addresses are two hundredh bytes lower. For this executable,
+  `file offset = image offset + 0x200`. Earlier helper slices that did not
+  account for that relationship were plausible-looking but pointed at the wrong
+  bytes.
+
+Save/restore dependency map:
+
+- In the save action (`0x2753`, file offset `0x2953`), helper `0x28c6` writes
+  length-prefixed blocks. The first large state block is length `0x05e1` bytes
+  starting at `DS:0x0002`, not a small block rooted at `[0x05e1]`. That range
+  includes `data.event.pair_capacity` (`[0x0141]`) and
+  `data.event.pair_count` (`[0x0143]`).
+- The active replay pair bytes are a later block whose length is
+  `[0x0141] << 1` and whose pointer is `data.event.pair_buffer_base`
+  (`[0x1707]`).
+- `data.event.recording_enabled` (`[0x170d]`) is not part of those save blocks.
+- Restore action `0x2512` reads the same block families through helper
+  `0x26b0`, then calls `code.restore.replay_resource_events`.
+- Helper `0x1364` serializes logic-cache resume metadata into `[0x0985]` as
+  four-byte entries containing a logic resource byte and a resume offset,
+  terminated by word `0xffff`. Helper `0x13a5` restores a loaded logic record's
+  resume pointer by matching the resource number and adding the saved offset to
+  the loaded entry pointer.
+
+Static recording-gate scan:
+
+- Direct stores to `data.event.recording_enabled` were found only in the helper
+  bodies:
+  - file `0x7263` / image `0x705e`: clear to zero;
+  - file `0x7272` / image `0x706d`: set to one.
+- Direct calls to the enable helper were found at file `0x19a3` / image
+  `0x17a3` (room switch) and file `0x6224` / image `0x6024` (temporary
+  view-resource display helper).
+- Direct calls to the disable helper were found at file `0x60e3` / image
+  `0x5ee3` (temporary view-resource display helper) and file `0x6a2a` / image
+  `0x682a` (restore/display-mode replay).
+- Direct calls to `code.restore.replay_resource_events` were found at file
+  `0x287a` / image `0x267a` (restore success path) and file `0x7b7f` / image
+  `0x797f` (display-mode toggle action `0x8c`).
+- This scan does not show a direct re-enable inside replay or its immediate
+  restore/display-mode callers. The dynamic probe below proves recording is
+  enabled again by the time the following script action records a transient
+  object packet, so the exact post-replay re-enable timing remains unresolved.
+
+Display-mode replay QEMU probe:
+
+- The fixture patched `AGIDATA.OVL` words `0x112e` and `0x1130` to zero and
+  launched the game with `SIERRA -p -c`, so action `0x8c` could pass its source
+  guard and call replay.
+- Runtime `info registers` showed `DS = 0x16a5`, so the data segment physical
+  base was `0x16a50`.
+- Memory reads after the fixture stopped:
+  - `[0x112e]` at physical `0x17b7e`: `00 00`;
+  - `[0x1130]` at physical `0x17b80`: `01 00`, proving `0x8c` toggled bit 0;
+  - around `[0x0141]`/`[0x0143]`: bytes `00 32 00 08`, meaning capacity
+    `0x32` and active pair count `8`;
+  - `[0x1707] = 0x4f33`, `[0x1709] = 0x4f43`, `[0x170b] = 0x4f3b`,
+    `[0x170d] = 0x0001`, and `[0x170f] = 0x0008`.
+- Pair buffer at physical `DS*16 + 0x4f33 = 0x1b983`:
+
+  ```text
+  00 01  02 00  04 00  01 0b  05 00  0b 00  00 32  50 ff
+  ```
+
+  Decoded as pairs: `(0,1)`, `(2,0)`, `(4,0)`, `(1,11)`, `(5,0)`, `(11,0)`,
+  `(0,50)`, `(80,255)`.
+
+- The pair buffer proves the replay log includes the room-switch logic load,
+  picture 0 load/prepare, view 11 load, and final transient object packet. It
+  does not include picture 1 when that picture was drawn with flag 7 set or
+  after `0xab`/`0xac` rolled the pair count back.
+- A fresh screenshot from the same paused VM still matched the earlier
+  automated capture and visibly showed an alternating-row background:
+  `sha256_rgb e0f5d9669c5d1ecc326a42b28c0b517d4cdc3d1770f53ce38b49a887e1ed5123`.
+  Comparing it against the picture-0-only expectation produced 13,473
+  mismatches with bbox `(0,1,159,167)`, while comparing it against the
+  picture-1-only expectation produced 13,466 mismatches with bbox
+  `(0,0,159,166)`. The downsampled rows alternate: even rows are nibble `6`,
+  odd rows are nibble `4`.
+
+Documentation and harness result:
+
+- Added per-case launch-command support to the QEMU snapshot harness and mapped
+  the DOS monitor key name for `-`, allowing logic fixtures to launch as
+  `SIERRA -p -c`.
+- Added two display-mode replay fixtures:
+  `display_mode_replay_skips_flag7_unrecorded_picture` and
+  `display_mode_replay_uses_rolled_back_event_count`.
+- The automated screenshot expectations now reflect the original engine's
+  observable behavior in this fixture: the background alternates rows from the
+  recorded and unrecorded/rolled-back pictures. The replay-log semantics are
+  documented from source plus memory inspection rather than inferred from the
+  screenshot.
+- The corrected QEMU batch
+  `build/logic-interpreter-probes/batches/replay_visible_001.json` matched with
+  2 matches, 0 mismatches, and 0 errors.

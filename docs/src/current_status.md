@@ -33,9 +33,12 @@ read/write cursors, recording gates, event kinds `0..8`, and a special
 four-pair transient-display-object packet for kind `5`. Menu arrow navigation
 consumes type-2 movement events, save/restore selection is separated from
 block I/O, restore replays saved resource events with recording disabled, and
-no matching event-recording re-enable has been observed on the restore or
-display-mode replay callers. Sound completion flags are only set by the stop
-helper when active sound state is nonzero.
+the direct static scan has not found a matching event-recording re-enable in
+the restore or display-mode replay callers. A QEMU display-mode replay memory
+probe did observe recording enabled again after the following script action, so
+the duplicate-prevention role is source-backed but the exact post-replay
+re-enable timing remains unresolved. Sound completion flags are only set by the
+stop helper when active sound state is nonzero.
 
 ## Confirmed Motion and Object Findings
 
