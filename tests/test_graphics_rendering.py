@@ -46,6 +46,14 @@ def changed_visual_pixels(rendered) -> set[tuple[int, int]]:
     }
 
 
+def changed_control_pixels(rendered) -> set[tuple[int, int]]:
+    return {
+        (idx % WIDTH, idx // WIDTH)
+        for idx, cell in enumerate(rendered.cells)
+        if (cell & 0xF0) != (DEFAULT_CELL & 0xF0)
+    }
+
+
 class PictureRenderingTests(unittest.TestCase):
     def test_picture_directory_has_renderable_entries(self) -> None:
         present = [picture_no for picture_no, _payload in iter_valid_resources("PICDIR")]
@@ -316,6 +324,29 @@ class PictureRenderingTests(unittest.TestCase):
         self.assertEqual(visual[25 * WIDTH + 25], 3)
         self.assertEqual(visual[30 * WIDTH + 22], 4)
         self.assertEqual(visual[30 * WIDTH + 30], 5)
+
+    def test_pattern_plot_writes_all_active_channels(self) -> None:
+        payload = bytes([0xF2, 5, 0xF0, 3, 0xF9, 0x12, 0xFA, 40, 40, 0xFF])
+        rendered = PictureRenderer(payload).render()
+        visual = changed_visual_pixels(rendered)
+        control = changed_control_pixels(rendered)
+        self.assertEqual(visual, control)
+        self.assertIn((40, 40), visual)
+        self.assertEqual(rendered.cells[40 * WIDTH + 40], 0x53)
+
+    def test_pattern_plot_respects_visual_disable(self) -> None:
+        payload = bytes([0xF0, 6, 0xF1, 0xF2, 5, 0xF9, 0x12, 0xFA, 40, 40, 0xFF])
+        rendered = PictureRenderer(payload).render()
+        self.assertEqual(changed_visual_pixels(rendered), set())
+        self.assertIn((40, 40), changed_control_pixels(rendered))
+        self.assertEqual(rendered.cells[40 * WIDTH + 40], 0x5F)
+
+    def test_pattern_plot_respects_control_disable(self) -> None:
+        payload = bytes([0xF2, 5, 0xF3, 0xF0, 6, 0xF9, 0x12, 0xFA, 40, 40, 0xFF])
+        rendered = PictureRenderer(payload).render()
+        self.assertIn((40, 40), changed_visual_pixels(rendered))
+        self.assertEqual(changed_control_pixels(rendered), set())
+        self.assertEqual(rendered.cells[40 * WIDTH + 40], 0x46)
 
 
 class ViewRenderingTests(unittest.TestCase):

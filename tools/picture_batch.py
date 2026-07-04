@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Run QEMU validation batches for picture plus view/cel fixtures."""
+"""Run QEMU validation batches for real SQ2 picture resources."""
 
 from __future__ import annotations
 
@@ -10,38 +10,30 @@ import time
 from dataclasses import asdict, dataclass
 from pathlib import Path
 
-from agi_graphics import render_view_frame, search_object_placement
+from agi_graphics import iter_valid_resources
 from compare_picture_capture import PictureCaptureComparison, compare_picture_capture
 from picture_fuzz import run_qemu_fixture
-from qemu_fixture import build_picture_view_fixture
+from qemu_fixture import build_packed_picture_fixture
 from qemu_snapshot import SnapshotFixtureCase, build_snapshot_boot_disk, run_snapshot_qemu_cases
 
 
-DEFAULT_FIXTURES = Path("build/view-batch/fixtures")
-DEFAULT_RESULTS = Path("build/view-batch/batches")
-DEFAULT_SNAPSHOT_RAW = Path("build/view-batch/snapshot/view_batch.raw")
-DEFAULT_SNAPSHOT_QCOW = Path("build/view-batch/snapshot/view_batch.qcow2")
+DEFAULT_FIXTURES = Path("build/picture-batch/fixtures")
+DEFAULT_RESULTS = Path("build/picture-batch/batches")
+DEFAULT_SNAPSHOT_RAW = Path("build/picture-batch/snapshot/picture_batch.raw")
+DEFAULT_SNAPSHOT_QCOW = Path("build/picture-batch/snapshot/picture_batch.qcow2")
 
 
 @dataclass(frozen=True)
-class ViewBatchCase:
+class PictureBatchCase:
     case_id: str
     picture_no: int
-    view_no: int
-    group_no: int
-    frame_no: int
-    x: int
-    baseline_y: int
-    priority: int
-    control: int | None = None
-    expected_x: int | None = None
-    expected_baseline_y: int | None = None
-    expected_priority: int | None = None
+    description: str
 
 
 @dataclass(frozen=True)
-class ViewBatchResult:
+class PictureBatchResult:
     case_id: str
+    picture_no: int
     status: str
     dos_dir: str
     capture: str
@@ -50,47 +42,97 @@ class ViewBatchResult:
     error: str | None
 
 
-def base_cases() -> list[ViewBatchCase]:
+def base_cases() -> list[PictureBatchCase]:
     return [
-        ViewBatchCase("view_011_normal_mid", 1, 11, 0, 0, 20, 80, 15),
-        ViewBatchCase("view_000_group0_cached_mid", 1, 0, 0, 0, 20, 80, 15),
-        ViewBatchCase("view_000_group1_mirrored_mid", 1, 0, 1, 0, 20, 80, 15),
-        ViewBatchCase("view_011_left_clip", 1, 11, 0, 0, 0, 80, 15),
-        ViewBatchCase("view_011_top_clip", 1, 11, 0, 0, 20, 2, 15),
-        ViewBatchCase("view_011_right_clip", 1, 11, 0, 0, 150, 80, 15),
-        ViewBatchCase("view_011_bottom_clip", 1, 11, 0, 0, 20, 170, 15),
-        ViewBatchCase("view_011_low_priority", 1, 11, 0, 0, 20, 80, 1),
+        PictureBatchCase(
+            "picture_001_first_present",
+            1,
+            "First present SQ2 picture resource; includes pattern plots.",
+        ),
+        PictureBatchCase(
+            "picture_045_largest_payload",
+            45,
+            "Largest valid SQ2 picture payload in the local corpus.",
+        ),
     ]
 
 
-def stress_cases() -> list[ViewBatchCase]:
+def broad_cases() -> list[PictureBatchCase]:
     return [
-        ViewBatchCase("view_117_tall_transparent0", 1, 117, 0, 0, 20, 140, 15),
-        ViewBatchCase("view_029_group3_transparent1", 1, 29, 3, 0, 20, 120, 15),
-        ViewBatchCase("view_092_large_transparent2", 1, 92, 0, 0, 20, 130, 15),
-        ViewBatchCase("view_224_transparent5", 1, 224, 0, 0, 20, 120, 15),
-        ViewBatchCase("view_103_transparent6", 1, 103, 0, 0, 20, 100, 15),
-        ViewBatchCase("view_037_tall_transparent7", 1, 37, 0, 0, 20, 150, 15),
-        ViewBatchCase("view_029_large_transparent8", 1, 29, 0, 0, 20, 120, 15),
-        ViewBatchCase("view_010_bit80_transparent10", 1, 10, 0, 0, 20, 80, 15),
-        ViewBatchCase("view_157_transparent13", 1, 157, 0, 2, 20, 110, 15),
-        ViewBatchCase("view_175_large_transparent14", 1, 175, 0, 0, 20, 130, 15),
-        ViewBatchCase("view_093_large_transparent15", 1, 93, 0, 2, 20, 130, 15),
+        PictureBatchCase(
+            "picture_001_first_present",
+            1,
+            "First present SQ2 picture resource; includes pattern plots.",
+        ),
+        PictureBatchCase(
+            "picture_006_pattern_fill_dense",
+            6,
+            "Early picture with many fills and pattern plots.",
+        ),
+        PictureBatchCase(
+            "picture_017_full_command_mix",
+            17,
+            "Uses all observed picture command families, including multiple pattern-mode changes.",
+        ),
+        PictureBatchCase(
+            "picture_043_dense_large_fill_pattern",
+            43,
+            "Dense large picture with many fill, line, and pattern commands.",
+        ),
+        PictureBatchCase(
+            "picture_044_fill_heavy_large",
+            44,
+            "Large fill-heavy picture with many control toggles.",
+        ),
+        PictureBatchCase(
+            "picture_045_largest_payload",
+            45,
+            "Largest valid SQ2 picture payload in the local corpus.",
+        ),
+        PictureBatchCase(
+            "picture_046_pattern_heavy",
+            46,
+            "Pattern-heavy large picture with the broadest command-family mix in the local corpus.",
+        ),
+        PictureBatchCase(
+            "picture_076_pattern_dense",
+            76,
+            "High pattern-count picture outside the largest-payload cluster.",
+        ),
     ]
+
+
+def all_present_cases() -> list[PictureBatchCase]:
+    return [
+        PictureBatchCase(
+            f"picture_{picture_no:03d}_present",
+            picture_no,
+            "Present valid SQ2 picture resource.",
+        )
+        for picture_no, _payload in iter_valid_resources("PICDIR")
+    ]
+
+
+def preset_cases(name: str) -> list[PictureBatchCase]:
+    if name == "base":
+        return base_cases()
+    if name == "broad":
+        return broad_cases()
+    if name == "all":
+        return all_present_cases()
+    raise ValueError(f"unknown preset: {name}")
 
 
 def load_cases(
     path: Path | None,
-    include_stress: bool = False,
     selected_ids: list[str] | None = None,
-) -> list[ViewBatchCase]:
+    preset: str = "base",
+) -> list[PictureBatchCase]:
     if path is None:
-        cases = base_cases()
-        if include_stress:
-            cases.extend(stress_cases())
+        cases = preset_cases(preset)
     else:
         data = json.loads(path.read_text(encoding="ascii"))
-        cases = [ViewBatchCase(**item) for item in data]
+        cases = [PictureBatchCase(**item) for item in data]
     if selected_ids:
         selected = set(selected_ids)
         cases = [case for case in cases if case.case_id in selected]
@@ -101,82 +143,48 @@ def load_cases(
 
 
 def qemu_batch_dos_dir(prefix: str, index: int) -> str:
-    clean = "".join(character for character in prefix.upper() if character.isalnum()) or "VB"
+    clean = "".join(character for character in prefix.upper() if character.isalnum()) or "PB"
     return f"{clean[:3]}{index:05d}"[:8]
 
 
-def expected_view_tuple(case: ViewBatchCase) -> tuple[int, int, int, int, int, int]:
-    frame = render_view_frame(case.view_no, case.group_no, case.frame_no)
-    if case.expected_x is not None or case.expected_baseline_y is not None:
-        expected_x = case.expected_x if case.expected_x is not None else case.x
-        expected_baseline_y = (
-            case.expected_baseline_y
-            if case.expected_baseline_y is not None
-            else case.baseline_y
-        )
-    else:
-        expected_x, expected_baseline_y = search_object_placement(
-            case.x,
-            case.baseline_y,
-            frame.width,
-            frame.height,
-        )
-    expected_priority = (
-        case.expected_priority if case.expected_priority is not None else case.priority
-    )
-    return (
-        case.view_no,
-        case.group_no,
-        case.frame_no,
-        expected_x,
-        expected_baseline_y,
-        expected_priority,
-    )
-
-
 def run_batch(
-    cases: list[ViewBatchCase],
+    cases: list[PictureBatchCase],
     fixture_root: Path,
     boot_wait: float,
     draw_wait: float,
     dos_prefix: str,
     stop_on_failure: bool,
-) -> list[ViewBatchResult]:
-    results: list[ViewBatchResult] = []
+) -> list[PictureBatchResult]:
+    results: list[PictureBatchResult] = []
     for index, case in enumerate(cases):
         dos_dir = qemu_batch_dos_dir(dos_prefix, index)
         fixture = fixture_root / case.case_id
-        capture = fixture / "qemu_capture.ppm"
+        capture = fixture / f"qemu_picture_{case.picture_no:03d}.ppm"
         started = time.monotonic()
         comparison: PictureCaptureComparison | None = None
         error: str | None = None
         status = "error"
         print(f"[{index + 1}/{len(cases)}] {case.case_id} -> {dos_dir}", file=sys.stderr, flush=True)
         try:
-            build_picture_view_fixture(
-                case.picture_no,
-                case.view_no,
-                case.group_no,
-                case.frame_no,
-                case.x,
-                case.baseline_y,
-                case.priority,
-                fixture,
-                case.control,
-            )
+            build_packed_picture_fixture(case.picture_no, fixture)
             run_qemu_fixture(fixture, dos_dir, capture, boot_wait, draw_wait)
-            comparison = compare_picture_capture(
-                case.picture_no,
-                capture,
-                view=expected_view_tuple(case),
-            )
+            comparison = compare_picture_capture(case.picture_no, capture)
             status = "match" if comparison.matches else "mismatch"
         except Exception as exc:  # noqa: BLE001 - batch harness records exact local exception.
             error = f"{type(exc).__name__}: {exc}"
         elapsed = round(time.monotonic() - started, 3)
         print(f"[{index + 1}/{len(cases)}] {case.case_id} {status}", file=sys.stderr, flush=True)
         results.append(
-            ViewBatchResult(case.case_id, status, dos_dir, str(capture), elapsed, comparison, error)
+            PictureBatchResult(
+                case.case_id,
+                case.picture_no,
+                status,
+                dos_dir,
+                str(capture),
+                elapsed,
+                comparison,
+                error,
+            )
         )
         if stop_on_failure and status != "match":
             break
@@ -184,7 +192,7 @@ def run_batch(
 
 
 def run_snapshot_batch(
-    cases: list[ViewBatchCase],
+    cases: list[PictureBatchCase],
     fixture_root: Path,
     boot_wait: float,
     draw_wait: float,
@@ -192,27 +200,16 @@ def run_snapshot_batch(
     stop_on_failure: bool,
     snapshot_raw: Path,
     snapshot_qcow: Path,
-) -> list[ViewBatchResult]:
+) -> list[PictureBatchResult]:
     qemu_cases: list[SnapshotFixtureCase] = []
     started_at: dict[str, float] = {}
-    results: list[ViewBatchResult] = []
     for index, case in enumerate(cases):
         dos_dir = qemu_batch_dos_dir(dos_prefix, index)
         fixture = fixture_root / case.case_id
-        capture = fixture / "qemu_capture.ppm"
+        capture = fixture / f"qemu_picture_{case.picture_no:03d}.ppm"
         started_at[case.case_id] = time.monotonic()
         print(f"[{index + 1}/{len(cases)}] build {case.case_id} -> {dos_dir}", file=sys.stderr, flush=True)
-        build_picture_view_fixture(
-            case.picture_no,
-            case.view_no,
-            case.group_no,
-            case.frame_no,
-            case.x,
-            case.baseline_y,
-            case.priority,
-            fixture,
-            case.control,
-        )
+        build_packed_picture_fixture(case.picture_no, fixture)
         qemu_cases.append(SnapshotFixtureCase(dos_dir, fixture, capture))
 
     print(f"building snapshot disk: {snapshot_qcow}", file=sys.stderr, flush=True)
@@ -220,30 +217,36 @@ def run_snapshot_batch(
     print(f"running {len(qemu_cases)} cases from one QEMU snapshot", file=sys.stderr, flush=True)
     run_snapshot_qemu_cases(snapshot_qcow, qemu_cases, boot_wait, draw_wait)
 
+    results: list[PictureBatchResult] = []
     for index, (case, qemu_case) in enumerate(zip(cases, qemu_cases)):
         comparison: PictureCaptureComparison | None = None
         error: str | None = None
         status = "error"
         try:
-            comparison = compare_picture_capture(
-                case.picture_no,
-                qemu_case.capture,
-                view=expected_view_tuple(case),
-            )
+            comparison = compare_picture_capture(case.picture_no, qemu_case.capture)
             status = "match" if comparison.matches else "mismatch"
         except Exception as exc:  # noqa: BLE001 - batch harness records exact local exception.
             error = f"{type(exc).__name__}: {exc}"
         elapsed = round(time.monotonic() - started_at[case.case_id], 3)
         print(f"[{index + 1}/{len(cases)}] {case.case_id} {status}", file=sys.stderr, flush=True)
         results.append(
-            ViewBatchResult(case.case_id, status, qemu_case.dos_dir, str(qemu_case.capture), elapsed, comparison, error)
+            PictureBatchResult(
+                case.case_id,
+                case.picture_no,
+                status,
+                qemu_case.dos_dir,
+                str(qemu_case.capture),
+                elapsed,
+                comparison,
+                error,
+            )
         )
         if stop_on_failure and status != "match":
             break
     return results
 
 
-def write_report(results: list[ViewBatchResult], output: Path) -> dict[str, object]:
+def write_report(results: list[PictureBatchResult], output: Path) -> dict[str, object]:
     output.parent.mkdir(parents=True, exist_ok=True)
     report = {
         "summary": {
@@ -261,20 +264,20 @@ def write_report(results: list[ViewBatchResult], output: Path) -> dict[str, obje
 def main() -> None:
     parser = argparse.ArgumentParser()
     parser.add_argument("--cases", type=Path)
+    parser.add_argument("--case", action="append", dest="case_ids")
+    parser.add_argument("--preset", choices=["base", "broad", "all"], default="base")
     parser.add_argument("--fixture-root", type=Path, default=DEFAULT_FIXTURES)
-    parser.add_argument("--output", type=Path, default=DEFAULT_RESULTS / "view_base.json")
-    parser.add_argument("--dos-prefix", default="VB")
+    parser.add_argument("--output", type=Path, default=DEFAULT_RESULTS / "picture_base.json")
+    parser.add_argument("--dos-prefix", default="PB")
     parser.add_argument("--boot-wait", type=float, default=5.0)
     parser.add_argument("--draw-wait", type=float, default=8.0)
     parser.add_argument("--stop-on-failure", action="store_true")
-    parser.add_argument("--include-stress", action="store_true")
-    parser.add_argument("--case", action="append", dest="case_ids")
     parser.add_argument("--snapshot", action="store_true")
     parser.add_argument("--snapshot-raw", type=Path, default=DEFAULT_SNAPSHOT_RAW)
     parser.add_argument("--snapshot-qcow", type=Path, default=DEFAULT_SNAPSHOT_QCOW)
     args = parser.parse_args()
 
-    cases = load_cases(args.cases, args.include_stress, args.case_ids)
+    cases = load_cases(args.cases, args.case_ids, args.preset)
     if args.snapshot:
         results = run_snapshot_batch(
             cases,

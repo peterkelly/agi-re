@@ -112,15 +112,25 @@ u8 length_high
 length bytes from pointer
 ```
 
+It returns 1 only when both one-byte length writes and the payload write return
+the requested byte counts. The save action treats a short write of either the
+31-byte header or any length-prefixed block as a recoverable save failure:
+close the handle, delete the partial file named at `0x1c8c`, display message
+`0x0e46`, restore modal/text state, and continue after the opcode.
+
+If file creation itself returns `0xffff`, the save action displays formatted
+message `0x0df0` using the path buffer at `0x1962`, restores modal/text state,
+and continues without attempting a delete.
+
 The observed save blocks are:
 
-| Source pointer | Length source | Observed role |
-| ---: | ---: | --- |
-| `0x05e1` | `0x0002` | Small global state block; exact fields still open. |
-| `[0x096b]` | `[0x096f]` | Object table bytes. |
-| `[0x0971]` | `[0x0975]` | Three-byte entry table bytes. |
-| `[0x1707]` | `[0x0141] * 2` | Word table whose active count is stored in `[0x0141]`. |
-| `0x0985` | return value from `0x1364` | Heap or interpreter-state region sized by helper `0x1364`. |
+| Source pointer | Length source | Local SQ2 length | Observed role |
+| ---: | ---: | ---: | --- |
+| `0x0002` | `0x05e1` | `1505` | Main scalar/string/config/runtime block. |
+| `[0x096b]` | `[0x096f]` | `903` | Object table bytes. |
+| `[0x0971]` | `[0x0975]` | `328` | Three-byte entry table bytes. |
+| `[0x1707]` | `[0x0141] * 2` | `200` | Resource-event pair buffer. |
+| `0x0985` | return value from `0x1364` | `16..28` observed | Heap or logic/cache state region sized by helper `0x1364`. |
 
 Restore action `0x7e` (`restore_game_state`) at image offset `0x2512`:
 
@@ -137,6 +147,13 @@ Helper `0x26b0(handle, destination)` reads a little-endian 16-bit length from
 two one-byte reads, then reads that many bytes into `destination`, returning 1
 only when all reads return the requested byte count.
 
+If `code.dos.open_file` returns `0xffff`, the restore action displays
+formatted message `0x0d73`, restores modal/text state, and continues after the
+opcode. If opening succeeds but any length-prefixed block read fails, restore
+closes the handle, displays message `0x0d87`, and enters
+`code.system.exit_with_cleanup`; this path terminates the DOS process rather
+than returning to the current logic stream.
+
 The observed restore destinations mirror the saved blocks:
 
 ```text
@@ -147,10 +164,40 @@ The observed restore destinations mirror the saved blocks:
 0x0985
 ```
 
+The checked-in local SQ2 saves `SQ2/SQ2SG.1` through `SQ2/SQ2SG.11` all match
+this envelope: a 31-byte description/header, four fixed-size blocks with
+lengths `1505`, `903`, `328`, and `200`, and a fifth variable-size block. The
+parser and serializer in `tools/agi_save.py` round-trip those saves
+byte-for-byte and reject truncated blocks, trailing bytes, or inconsistent
+block metadata.
+
 Local strings in `AGIDATA.OVL` confirm the path roles: `0x0d34` starts
 `About to restore the game`, `0x0d73` starts `Can't open file`, `0x0d87` starts
-`Error in restoring game`, `0x0db6` starts `About to save the game`, and
-`0x0e46` is the save-error display path.
+`Error in restoring game`, `0x0db6` starts `About to save the game`, `0x0df0`
+starts the directory-full/write-protected message, and `0x0e46` starts the
+disk-full save-error message.
+
+The shared selector helper `0x85e5` is the user-facing slot/path state machine.
+It remembers whether the prompt marker was visible, erases that marker, saves
+text attribute state, stops active sound, sets the text attribute pair, then
+calls path prompt helper `0x8705`. If no runtime path/description is already in
+`[0x0e72]`, `0x8705` displays the save or restore path question and edits the
+path buffer at `0x1962` through modal edit helper `0x8794`; path validator
+`0x5bdd` accepts or rejects that path. Helper `0x86a3` displays the insert-disk
+style message when the selected drive/path is unavailable.
+
+Slot helper `0x8814` scans up to 12 numbered save files through summary reader
+`0x8b9f`. Reader `0x8b9f` formats a slot filename, opens it, reads the 31-byte
+description into the slot summary record, seeks and reads a short signature
+fragment used to filter candidates, and records the DOS timestamp returned by
+`0x5e73`. The selector displays the available descriptions, marks the current
+row with a right-arrow glyph (`0x1a`), clears the old row with a space, and
+loops on normalized events: Enter accepts, Escape cancels, and movement events
+1 and 5 move the current row up and down with wrap. In save mode, accepting an
+empty-description slot opens a second modal edit prompt rooted at `0x1baa` and
+fills the 31-byte header buffer at `0x1c6c` before the handler creates the
+file. On any exit, `0x85e5` restores text state and redraws the prompt marker
+if it was visible before entry.
 
 ## Overlay loader
 

@@ -53,6 +53,12 @@ class PictureFuzzTests(unittest.TestCase):
         self.assertTrue(any(case.safe_for_qemu for case in cases))
         self.assertTrue(any(not case.safe_for_qemu for case in cases))
 
+    def test_base_cases_include_pattern_channel_masks(self) -> None:
+        case_ids = {case.case_id for case in base_cases()}
+        self.assertIn("base_027_pattern_visual_control_channels", case_ids)
+        self.assertIn("base_028_pattern_visual_disabled_control_only", case_ids)
+        self.assertIn("base_029_pattern_control_disabled_visual_only", case_ids)
+
     def test_random_generation_is_deterministic(self) -> None:
         left = generate_cases(8, seed=1234, include_unsafe=True)
         right = generate_cases(8, seed=1234, include_unsafe=True)

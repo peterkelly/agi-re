@@ -246,6 +246,21 @@ The helper's observed algorithm is:
    if the shifted-out carry was set, then draw only when bit 0 is clear and
    bit 1 is set.
 
+The pattern plotter does not maintain a separate visual/control channel path.
+When a candidate pixel passes the pattern tests, helper `0x652a` writes
+`AH = x`, `AL = y` to `[0x150b]` and calls the common pixel writer `0x52f9`.
+That writer selects `[0x136d]` for odd Y rows and `[0x136e]` for even Y rows,
+ORs in active draw bits from `[0x1369]`, and ANDs with the selected mask. In the
+full 16-color EGA path, `code.display.map_visual_color_for_adapter` returns the
+same visual nibble in both registers, so visual odd/even masks are identical;
+the parity branch is still part of the implementation contract because other
+display modes can populate the two masks differently. Local renderer tests now
+cover pattern writes with both channels active, with visual disabled, and with
+control disabled. QEMU snapshot batch `pattern_channel_masks_001` confirms the
+visible EGA surface for those valid streams; the control-buffer nibble remains
+source-backed plus local cell-test evidence because screenshots expose only the
+visual channel.
+
 Coordinate readers are shared across the command handlers. Helper `0x66c1`
 reads X into `AH`, accepts bytes `<= 0xef`, clamps values above `0x9f` down to
 `0x9f`, and returns carry set on a command/sentinel byte. Helper `0x66d4` does
@@ -604,7 +619,10 @@ left `20`, baseline `2` first becomes bounds-acceptable at left `18`, baseline
 spiral reaches left `140`, baseline `67`. Focused QEMU batch `clip_edges_001`
 revalidates the top-edge case and also confirms that the same view flush with
 the left edge at left `0`, baseline `80` draws at the requested in-bounds
-placement. The local compatibility helper models this bounds-only portion of
+placement. The simpler view-batch harness now uses the same placement search:
+focused QEMU batch `clip_right_bottom_002` validates request `(150, 80)` as
+placement `(140, 71)` and request `(20, 170)` as placement `(23, 167)`. The
+local compatibility helper models this bounds-only portion of
 `0x593a` directly and exposes an `accept` predicate for the two later source
 tests, `0x4719(object) == 0` and `0x56b8(object) != 0`. Local tests now reject
 the first four otherwise-valid candidates and confirm that the same spiral then

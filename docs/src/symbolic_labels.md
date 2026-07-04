@@ -34,6 +34,7 @@ Address columns use these meanings:
 | Label | SQ2 address | Notes/evidence |
 | --- | --- | --- |
 | `code.engine.main_cycle` | image `0x0150` | Top-level interpreter cycle. Calls input/system helpers, mirrors object-0 direction/global direction state (`[0x0139] == 0` copies object0 `+0x21` to `[0x000f]`, nonzero copies `[0x000f]` to object0), runs pre-motion mode updates, invokes logic 0 through `code.logic.call_logic`, restores object0 `+0x21` from `[0x000f]`, then runs `code.object.frame_timer_update` unless text-attribute mode byte `[0x1757]` is nonzero. |
+| `code.engine.wait_for_cycle_counter` | image `0x7f78` | Top-level cycle throttle called near the start of `code.engine.main_cycle`; reads byte `DS:0x0013` (`v10`), spins until word `[0x1784]` is at least that value, then clears `[0x1784]`. |
 | `code.logic.interpret_main` | image `0x293c` | Main logic bytecode loop. Reads opcodes from current logic bytecode and dispatches actions/conditions. |
 | `code.logic.action_dispatch` | image `0x02c4` | Action dispatcher. Uses `table.logic.action_dispatch`. |
 | `code.logic.condition_dispatch` | image `0x07e3` | Condition dispatcher. Uses `table.logic.condition_dispatch`. |
@@ -48,7 +49,15 @@ Address columns use these meanings:
 | `code.logic.call_logic` | image `0x12ae` | Temporarily switches current logic, runs `code.logic.interpret_main`, and may unlink a transient record. |
 | `code.logic.save_resume_ip_action` | image `0x1335` | Action handler for `0x91`; stores the current bytecode pointer in the current logic record's resume pointer field `+0x06`. |
 | `code.logic.restore_entry_ip_action` | image `0x134a` | Action handler for `0x92`; copies the current logic record's entry pointer field `+0x04` back to resume pointer field `+0x06`. |
-| `code.heap.reset_dynamic_state` | image `0x1485` | Flushes object update lists through `code.object.flush_update_lists_restore`, clears heap/global state near `[0x0a5d]`, restores the current heap pointer from `[0x0a59]`, and updates byte variable 8-like heap-high-water state at `[0x0011]`. Used by room switch, restart, and restore paths. |
+| `code.heap.allocate` | image `0x13d6` | Bump-allocates from `data.heap.current_top_0a55` up to `data.heap.limit_0a5b`. On success it returns the old top, advances the current top, refreshes `data.vars.free_memory_pages_0011` through `code.heap.update_free_memory_var`, and updates `data.heap.high_water_0a5f`. On exhaustion it displays the out-of-memory message and calls the restart/exit helper at `0x02ae`; no recoverable failure return was observed. |
+| `code.heap.current_top` | image `0x1430` | Returns `data.heap.current_top_0a55`. |
+| `code.heap.rewind_to` | image `0x143c` | Stores a caller-supplied pointer in `data.heap.current_top_0a55`; unlike allocation/reset paths, this helper does not refresh the free-memory byte. |
+| `code.heap.save_temporary_mark` | image `0x144b` | Copies `data.heap.current_top_0a55` to `data.heap.temporary_mark_0a5d`. |
+| `code.heap.restore_temporary_mark` | image `0x145a` | If `data.heap.temporary_mark_0a5d` is nonzero, rewinds `data.heap.current_top_0a55` to that mark and clears the mark. |
+| `code.heap.save_room_reset_mark` | image `0x1476` | Copies `data.heap.current_top_0a55` to `data.heap.room_reset_mark_0a59`. Startup calls this after initial object/inventory setup and logic 0 load. |
+| `code.heap.reset_dynamic_state` | image `0x1485` | Flushes object update lists through `code.object.flush_update_lists_restore`, clears the temporary heap mark, restores the current heap pointer from `data.heap.room_reset_mark_0a59`, and refreshes the free-memory byte. Used by room switch, restart, and restore paths. |
+| `code.heap.update_free_memory_var` | image `0x14a0` | Computes `data.heap.limit_0a5b - data.heap.current_top_0a55`, stores the high byte at `data.vars.free_memory_pages_0011`, and returns the free-byte count. |
+| `code.heap.show_status_action` | image `0x14bd` | Action handler for `0x87`; formats heap size, current usage, high-water usage, room/reset mark usage, and max resource-event/script count. |
 
 ## Resources and DOS Files
 
@@ -65,13 +74,21 @@ Address columns use these meanings:
 | `code.view.clear_cache_root` | image `0x396d` | Clears the view-like resource cache root at `[0x0ffa]`; called by room-switch cache reset. |
 | `code.picture.clear_cache_root` | image `0x49dc` | Clears the picture-like resource cache root at `[0x120e]`; called by room-switch cache reset. |
 | `code.sound.clear_cache_root` | image `0x50cc` | Clears the sound-like resource cache root at `[0x125a]`; called by room-switch cache reset. |
-| `code.dos.create_file` | image `0x5cad` | DOS file wrapper used by save/log paths. |
-| `code.dos.open_file` | image `0x5cce` | DOS open wrapper. |
-| `code.dos.close_file` | image `0x5d52` | DOS close wrapper. |
-| `code.dos.delete_file` | image `0x5d6b` | DOS delete wrapper. |
-| `code.dos.write_file` | image `0x5db2` | DOS write wrapper. |
-| `code.dos.read_file` | image `0x5e01` | DOS read wrapper. |
-| `code.dos.seek_file` | image `0x5e3e` | DOS seek wrapper. |
+| `code.dos.create_file` | image `0x5cad` | DOS `int 21h` wrapper for `AH=0x3c`. Returns `0xffff` on carry/error. |
+| `code.dos.open_file` | image `0x5cce` | DOS `int 21h` wrapper for `AH=0x3d`. Returns `0xffff` on carry/error. |
+| `code.dos.read_file` | image `0x5cef` | DOS `int 21h` wrapper for `AH=0x3f`. Returns zero on carry/error, so callers compare the returned byte count with the requested count. |
+| `code.dos.write_file` | image `0x5d12` | DOS `int 21h` wrapper for `AH=0x40`. Returns zero on carry/error, so callers compare the returned byte count with the requested count. |
+| `code.dos.delete_file` | image `0x5d35` | DOS `int 21h` wrapper for `AH=0x41`. Returns zero on carry/error. |
+| `code.dos.close_file` | image `0x5d52` | DOS `int 21h` wrapper for `AH=0x3e`; callers observed so far do not inspect an error return. |
+| `code.dos.seek_file` | image `0x5d6b` | DOS `int 21h` wrapper for `AH=0x42`. Returns `0xffff:0xffff` in `DX:AX` on carry/error. |
+| `code.dos.duplicate_handle` | image `0x5d94` | DOS `int 21h` wrapper for `AH=0x45`. Returns `0xffff` on carry/error. |
+| `code.dos.get_current_directory` | image `0x5db2` | Writes a leading slash/backslash then calls DOS `AH=0x47` for the default drive. Used by save-path prompting. |
+| `code.dos.get_current_drive_letter` | image `0x5dea` | Calls DOS `AH=0x19` and returns lowercase drive letter `a` plus the zero-based drive number. |
+| `code.dos.find_first` | image `0x5e01` | Sets the DTA with `AH=0x1a`, then calls DOS `AH=0x4e`; returns `0xffff` on carry/error. |
+| `code.dos.find_next` | image `0x5e26` | DOS `int 21h` wrapper for `AH=0x4f`. Returns `0xffff` on carry/error. |
+| `code.dos.probe_drive_selectable` | image `0x5e3e` | Saves the current drive, attempts to select a requested lowercase drive letter, checks whether DOS reports it as current, restores the original drive, and returns 1 on success. |
+| `code.dos.get_file_time` | image `0x5e73` | DOS `int 21h` wrapper for `AH=0x57`, `AL=0`; selector code uses the returned time word from `CX`. |
+| `code.dos.prepare_call` | image `0x5e8d` | Shared pre-call helper that temporarily switches `DS` to segment `0x0a01` and clears word `[0x184d]`. |
 | `code.event.disable_recording` | image `0x705e` | Clears `data.event.recording_enabled`; restore replay and temporary view-resource display use this so replay/internal loads do not append new resource-event pairs. |
 | `code.event.enable_recording` | image `0x706d` | Sets `data.event.recording_enabled`; room switch enables recording after resetting the pair buffer, restore/display-mode replay calls it from the post-table finish target at `0x6927`, and temporary view-resource display re-enables it before returning. |
 | `code.event.reset_pair_buffer` | image `0x707c` | Allocates the pair buffer when `data.event.pair_capacity > 0` and no buffer exists, then resets write pointer and active pair count. |
@@ -166,9 +183,12 @@ Address columns use these meanings:
 | Label | SQ2 address | Notes/evidence |
 | --- | --- | --- |
 | `code.text.display_string` | image `0x1ce8` | Displays a resolved string and returns an interaction result in some paths. |
-| `code.text.close_window_state` | image `0x1f2b` | Restores/clears active text-window state and always clears `data.input.width_flag_0d0f`. QEMU `close_text_window_state_clears_input_width_flag` validates the inactive-window clear side; saved-rectangle restore remains source-backed. |
+| `code.text.display_message_window` | image `0x1d96` | Builds a modal message window: closes any prior active saved window, formats the message, computes packed save/restore rectangle coordinates, calls `code.text.draw_boxed_window`, sets `data.text.window_active_0d1d`, prints the formatted text, and refreshes text/input areas. |
+| `code.text.close_window_state` | image `0x1f2b` | Restores/clears active text-window state and always clears `data.input.width_flag_0d0f`. If `data.text.window_active_0d1d` is set, it restores the rectangle saved by `code.text.display_message_window` through `code.text.restore_saved_rectangle`; QEMU `close_text_window_state_clears_input_width_flag` validates the inactive-window clear side. |
 | `code.text.format_string` | image `0x2374` | Formats text into caller-provided buffers. |
 | `code.text.format_message_to_buffer` | image `0x1f54` | Formats/copies a resolved logic message into a stack buffer. |
+| `code.text.draw_boxed_window` | image `0x5590` | Helper called by the modal message window path with packed rectangle coordinates and attribute word `0x040f`; it delegates to overlay save/fill helpers around `0x9812`. |
+| `code.text.restore_saved_rectangle` | image `0x560c` | Helper called by `code.text.close_window_state` with the packed saved-window rectangle words. It loads those words and delegates to overlay restore helper `0x980c`. |
 | `code.text.clear_rows` | image `0x2b78` | Helper used by action `0x69`; wraps `code.text.clear_bounds` with left column 0 and right column `0x27`. QEMU `text_rect_clear_rows_removes_formatted_text` validates rows 5..6 clearing logical Y 40..55 to visual color 0. |
 | `code.text.clear_row` | image `0x2ba6` | Wraps `code.text.clear_rows` with top row equal to bottom row. Used by status-line hide (`0x71`) and input-line disable (`0x77`); QEMU `text_hide_clear_behaviour_001` validates a configured row clearing to visual color 0. |
 | `code.text.clear_bounds` | image `0x2bc4` | BIOS `int 10h` scroll/clear wrapper used by action `0x9a`; arguments map to top, left, bottom, right, attribute. QEMU validates text columns as four logical pixels wide and rows as eight logical pixels tall in the EGA target. |
@@ -179,6 +199,9 @@ Address columns use these meanings:
 | `code.input.set_width_flag_action` | image `0x3939` | Action handler for `0xa3`; sets `data.input.width_flag_0d0f`. QEMU validates the wider live-input path with a long blank string slot 0. |
 | `code.input.clear_width_flag_action` | image `0x394b` | Action handler for `0xa4`; clears `data.input.width_flag_0d0f`. QEMU validates the narrowed live-input path after `0xa3`. |
 | `data.input.width_flag_0d0f` | data `0x0d0f` | Word tested by input helper `code.input.handle_input_char`; when set, the helper uses a fixed `0x24` character cap, otherwise it derives the cap from fixed string slot 0. Also cleared by `code.text.close_window_state`. |
+| `data.text.window_active_0d1d` | data `0x0d1d` | Word set after a modal message window saves/draws its rectangle. `code.text.display_message_window` closes an existing active window before opening a new one; `code.text.close_window_state` tests this word before restoring the saved rectangle, then clears it. |
+| `data.text.window_saved_lower_right_0d23` | data `0x0d23` | Packed rectangle word computed by `code.text.display_message_window` and passed as the first restore argument to `code.text.restore_saved_rectangle`. |
+| `data.text.window_saved_upper_left_0d25` | data `0x0d25` | Packed rectangle word computed by `code.text.display_message_window` and passed as the second restore argument to `code.text.restore_saved_rectangle`. |
 | `code.text.enter_attr_mode` | image `0x76ca` | Action handler for `0x6a`; erases the prompt marker, sets byte `[0x1757]`, derives attributes, enters the overlay text mode through entry `0x9803`, then clears a text rectangle. QEMU `text_attribute_enable_clears_visible_surface` validates a black visible logical surface with the default pair, and `text_attribute_pair_changes_attr_mode_clear_color` validates the stored pair path. |
 | `code.text.leave_attr_mode` | image `0x78cb` | Shared cleanup for action `0x6b`; clears byte `[0x1757]`, recomputes attributes, calls overlay entry `0x9806`, then redraws status and input-line areas. QEMU `text_attribute_disable_restores_picture_draw` validates that ordinary picture/object drawing is visible again after this action. |
 | `code.input.edit_string` | image `0x0da9` | Blocking string editor used by `0x73` and `0x76`. It copies the destination buffer to a local edit buffer, displays it, waits through `code.input.wait_event`, dispatches keys through `data.input.edit_key_table`, copies accepted text back on Enter, and returns without copying on Escape. |
@@ -209,7 +232,12 @@ Address columns use these meanings:
 | `code.save.copy_description_to_string_action` | image `0x2726` | Action handler for `0xaa`; copies up to `0x1f` bytes from runtime save-description buffer `[0x0e72]` into string slot `0x020d + arg0 * 0x28`. |
 | `code.save.read_length_prefixed_block` | image `0x26b0` | Reads a length-prefixed memory block from a save file. |
 | `code.save.write_length_prefixed_block` | image `0x28c6` | Writes a length-prefixed memory block to a save file. |
-| `code.save.select_slot_or_path` | image `0x85e5` | Shared save/restore slot/path selection helper. |
+| `code.save.select_slot_or_path` | image `0x85e5` | Shared save/restore slot/path selection helper. Saves/restores text state, stops sound, delegates path prompting, scans selectable save slots, formats the selected filename, and returns zero for cancel/no selection. |
+| `code.save.check_drive_or_path_available` | image `0x86a3` | Selector helper that compares the selected drive/path state and displays the insert-disk style message when the target is unavailable. |
+| `code.save.prompt_path_if_needed` | image `0x8705` | Selector helper that fills a default path when needed, displays the save/restore path prompt, edits `data.save.path_buffer_1962`, validates it through the path validator at `0x5bdd`, and returns zero on cancel/failure. |
+| `code.save.edit_modal_text_field` | image `0x8794` | Modal edit helper used by the save selector. Draws a prompt window, clears the edit row, calls the line editor with a 31-character cap, closes the window, and returns one only when Enter accepted the edit. |
+| `code.save.select_numbered_slot` | image `0x8814` | Scans up to 12 numbered save files, displays description rows, handles Enter/Escape/up/down selection, and returns the selected slot number or zero. In save mode it prompts for a new description before accepting an empty-description slot. |
+| `code.save.read_slot_summary` | image `0x8b9f` | Formats a numbered save filename, opens it, records the file timestamp, reads the 31-byte description, seeks/reads a short signature fragment, and returns whether the slot is a valid candidate. |
 | `code.restore.replay_resource_events` | image `0x681c` | Restore/display-mode state rebuild. Stops sound, clears resource caches, disables resource-event recording while replaying saved resource/event pairs, then reaches `code.restore.finish_replay_and_reenable_recording` at `0x6927` to re-enable recording, rebind active object views, and refresh display/input/status state. |
 
 ## Inventory and Menus
@@ -235,11 +263,22 @@ Address columns use these meanings:
 | `data.menu.current_heading` | data `0x1d2e` | Current/remembered heading pointer persisted by `code.menu.interact` after movement events and initialized by `code.menu.finalize_setup`. |
 | `data.menu.current_item` | data `0x1d30` | Current/remembered item pointer persisted by `code.menu.interact` after movement events and initialized from the current heading's item root. |
 
-## System, Trace, Sound, and Files
+## System, Restart, Trace, Sound, and Files
 
 | Label | SQ2 address | Notes/evidence |
 | --- | --- | --- |
+| `code.system.dos_terminate` | image `0x00ae` | DOS process termination wrapper. Loads exit code byte argument into `AL`, sets `AH=0x4c`, and invokes `int 21h`. |
+| `code.system.exit_with_cleanup` | image `0x02ae` | Shared fatal/exit helper. Calls `code.system.shutdown_cleanup`, then calls `code.system.dos_terminate(0)`. Used by `0x86` confirmed exit/restart, restore read failure, verification failure, and allocation failure paths. |
+| `code.system.pause_action` | image `0x0257` | Action handler for `0x88`; enters modal state, resets input/event state, stops sound, displays the pause message, and returns to the following bytecode. |
+| `code.system.confirm_exit_action` | image `0x027f` | Action handler for `0x86`; stops sound, either exits immediately when operand byte is `1` or displays the confirmation message at `0x05e3` and exits only on confirmation. |
+| `code.restart.confirm_restart_action` | image `0x2472` | Action handler for `0x80`; confirmation-gated in-engine restart. On acceptance it clears input, preserves flag 9, rewinds heap/update-list state, reruns initial object/inventory setup, refreshes display/menu state, optionally reloads trace logic, clears timer words, and returns zero to stop the current logic stream. Escape/cancel returns the following bytecode pointer. |
+| `code.system.shutdown_cleanup` | image `0x8275` | Cleanup before DOS termination. Closes the log file if open, restores hooked interrupt vectors/timer state, then sets the BIOS video mode from `[0x1807]`. |
+| `code.log.close_if_open` | image `0x838c` | If `data.log.file_handle` is not `0xffff`, closes it and resets the global to `0xffff`. Called by `code.system.shutdown_cleanup`. |
+| `code.system.install_interrupt_hooks` | image `0x83ac` | Saves original interrupt vectors and installs interpreter hooks for keyboard/timer/critical-error style services. |
+| `code.system.restore_interrupt_hooks` | image `0x849f` | Restores interrupt vectors saved by `code.system.install_interrupt_hooks` and resets the timer PIT divisor before DOS termination. |
+| `code.video.set_mode` | image `0x5a5e` | BIOS video-mode wrapper used by shutdown cleanup; calls `int 10h` with `AH=0` and mode byte argument. |
 | `code.room.switch_state` | image `0x1792` | Shared helper for actions `0x12` and `0x13`; stops sound, resets heap/update/input state, seeds selected object fields, resets room caches through `code.resource.reset_room_caches`, updates room variables, loads destination logic, handles entry-boundary placement, sets flag 5, redraws status/input state, and returns zero. QEMU now validates re-entry/current-room dispatch, current/previous/boundary variables, all four boundary placements, and visible absence of a pre-switch persistent object. Exact object/cache field effects are source-backed from disassembly. |
+| `code.restart.initialize_game_tables` | image `0x0fa5` | Initial object/inventory/setup routine called during startup and accepted in-engine restart. It prepares inventory/object metadata, allocates or clears the object table, resets flags/input/display defaults, clears resource caches/update lists, and seeds room-entry globals. |
 | `code.display.show_priority_screen_action` | image `0x731b` | Action handler for `0x1d`; sets `data.display.priority_screen_mode`, refreshes the screen, waits for an event, refreshes again, then clears the mode. QEMU `priority_diag_sound_001` validates return after Enter. |
 | `data.display.priority_screen_mode` | data `0x1755` | Word tested by the full-screen refresh path to display priority/control nibbles instead of normal visual nibbles. |
 | `code.object.display_diagnostics_action` | image `0x72b5` | Action handler for `0x85`; formats object fields into the diagnostic template at data `0x1713` and displays the text. QEMU `priority_diag_sound_001` validates return after Enter. |
@@ -255,13 +294,21 @@ Address columns use these meanings:
 | `code.sound.find_loaded_resource` | image `0x50d8` | Looks up a loaded sound cache record by resource number for `code.sound.start_with_flag`; a zero result triggers an error path. |
 | `code.sound.load_resource` | image `0x5126` | Loads/caches a sound-like payload. Restore-time resource replay calls this for saved sound load events. |
 | `code.sound.driver_start` | image `0x7f96` | Hardware/driver-facing sound start helper called after `code.sound.start_with_flag` finds a loaded sound record. |
+| `code.sound.driver_tick` | image `0x801c` | Timer-driven playback tick. Tests flag 9, advances active channel countdowns, consumes duration/tone/control records, and stops/completes playback when all active channels terminate. |
 | `code.sound.driver_stop` | image `0x80af` | Hardware/driver-facing sound stop helper called by `code.sound.stop_or_clear_state` when sound state had been active. |
+| `code.sound.driver_stop_core` | image `0x80c1` | Shared low-level stop/completion helper. Silences hardware, clears `data.sound.active_state`, and sets `data.sound.completion_flag`. |
+| `code.sound.driver_write_tone` | image `0x80f3` | Hardware-specific tone/control output helper called after an event record is consumed and by the stop path for silence writes. |
+| `code.sound.driver_write_attenuation` | image `0x8162` | Hardware-specific attenuation/envelope output helper called on countdown ticks, event reads, and channel termination. |
+| `code.sound.timer_irq_hook` | image `0x8521` | Replacement timer interrupt hook. Calls `code.sound.driver_tick` while sound state is active, then chains to the original timer interrupt every third invocation through divider byte `data.sound.timer_irq_divider`. |
 | `data.sound.active_state` | data `0x1258` | Word set while sound playback state is active. |
 | `data.sound.completion_flag` | data `0x126a` | Word holding the flag number set by `code.sound.stop_or_clear_state`; `0x63` stores and clears this flag before starting playback. |
 | `data.sound.channel_stream_pointers` | data `0x1788..0x178f` | Four current stream pointers copied from a sound cache record by `code.sound.driver_start`; the playback tick advances them through event records. |
 | `data.sound.channel_countdowns` | data `0x1790..0x1797` | Four countdown words initialized to 1 and reloaded from event duration words during playback. |
 | `data.sound.channel_active_words` | data `0x1798..0x179f` | Four nonzero/zero words used by the playback tick to decide whether a channel is still active. |
 | `data.sound.channel_attenuation` | data `0x17a8..0x17af` | Per-channel low-nibble attenuation/control values; `0x0f` is the silent value used when a channel terminates. |
+| `data.sound.active_channel_byte_limit` | data `0x1804` | Tick-loop byte offset limit. Value `2` advances only channel 0; value `8` advances channels 0 through 3. |
+| `data.sound.remaining_active_channels` | data `0x1806` | Byte decremented as channel terminators are consumed; zero triggers the stop/completion path. |
+| `data.sound.timer_irq_divider` | data `0x184f` | Timer-hook countdown byte. The hook acknowledges the interrupt directly until it reaches zero, then resets it to 3 and chains to the original timer interrupt. |
 | `code.log.append_message` | image `0x828f` | Action handler for `0x90`; opens/creates `logfile`, appends a room/input/message record, closes the handle, and returns. QEMU `log_file_contents_001` validates the extracted `LOGFILE` content for a synthetic message. |
 | `data.log.file_handle` | data `0x1823` | DOS file handle for the log file; `0xffff` means closed/unopened. |
 | `data.log.filename` | data `0x1825` | Zero-terminated log filename, observed as `logfile`. |
@@ -274,6 +321,7 @@ Address columns use these meanings:
 | `data.vars.current_room` | data `0x0009` | Byte variable 0. `code.room.switch_state` writes the destination room here; SQ2 logic 0 later dispatches room logic with `call_logic_var(v0)` at logic bytecode offset `0x053e`. |
 | `data.vars.previous_room` | data `0x000a` | Byte variable 1. `code.room.switch_state` copies the prior current-room byte here before overwriting `data.vars.current_room`. Many room-entry blocks branch on this value. |
 | `data.vars.entry_boundary` | data `0x000b` | Byte variable 2. `code.room.switch_state` uses values `1..4` to place object 0 at a room edge, then clears the byte. |
+| `data.vars.free_memory_pages_0011` | data `0x0011` | Byte variable 8. `code.heap.update_free_memory_var` stores the high byte of available heap bytes here after successful allocations and dynamic-state resets. |
 | `data.motion.global_direction_000f` | data `0x000f` | Global direction byte mirrored with object0 byte `+0x21` by `code.engine.main_cycle`; also written by first-object motion helpers. |
 | `data.motion.direction_mirror_selector_0139` | data `0x0139` | Word selector for the pre-logic object0/global direction mirror. Action `0x83` clears it; action `0x84`, room switch, and selected first-object stop/reset helpers set it. |
 | `data.flags.packed_flags` | data `0x0109` | Packed flag bitfield; flag 0 is the high bit of byte `0x0109`. |
@@ -294,12 +342,21 @@ Address columns use these meanings:
 | `data.resource.picture_cache_root` | pointer/global record `[0x120e]` | Picture-like cache root/static first record used by picture loading. Cleared by `code.picture.clear_cache_root` during room-switch cache reset. |
 | `data.resource.sound_cache_root` | pointer/global record `[0x125a]` | Sound-like cache root/static first record used by sound loading. Cleared by `code.sound.clear_cache_root` during room-switch cache reset. |
 | `data.save.description_buffer` | data `0x0e72` | Runtime save-description/path buffer consumed by `0xaa` and tested by save/restore handlers after slot/path selection. |
+| `data.save.path_buffer_1962` | data `0x1962` | Path buffer edited by `code.save.prompt_path_if_needed` and validated by the generic path helper. |
+| `data.save.header_description_buffer_1c6c` | data `0x1c6c` | 31-byte save-file description/header buffer written before the length-prefixed state blocks. Filled by the empty-slot save-description prompt when needed. |
+| `data.save.filename_buffer_1c8c` | data `0x1c8c` | Fully formatted save filename/path used by the save and restore DOS file wrappers after slot selection. |
 | `data.display.hardware_kind` | global `[0x112e]` | Display adapter/hardware selector used by setup and display branches. |
 | `data.display.mode` | global `[0x1130]` | Display mode selector affected by command-line flags and opcode `0x8c`. |
 | `data.display.shake_low_base` | data `0x1779` | Base value added to the second byte of each normal-path screen-shake table pair before writing CRT controller register `0x07`; `0x6e` sets it to `0x70` or `0x38` from hardware selector `[0x112e]`. |
 | `data.display.shake_offset_table` | data `0x177a` | Byte pairs consumed by the normal-path `0x6e` screen shake loop. The first byte plus `[0x1365]` is written to CRT register `0x02`; the second byte plus `data.display.shake_low_base` is written to register `0x07`. |
 | `data.display.shake_high_offset` | data `0x1365` | Offset added to the first byte of each screen-shake table pair before writing CRT controller register `0x02`. |
 | `data.display.cga_color_map` | `AGIDATA.OVL:0x1d36` | Three-byte-per-color table used by the CGA graphics overlay color mapper. Mode 0 uses byte 0 duplicated; mode 1 uses bytes 1 and 2 as the returned word. |
+| `data.heap.current_top_0a55` | data `0x0a55` | Current top pointer for the interpreter's bump heap. |
+| `data.heap.base_0a57` | data `0x0a57` | Heap base used by the heap-status display to report allocated size relative to the start of the heap. |
+| `data.heap.room_reset_mark_0a59` | data `0x0a59` | Mark used by room switch, restart, and restore cleanup; `code.heap.reset_dynamic_state` rewinds the heap to this pointer. |
+| `data.heap.limit_0a5b` | data `0x0a5b` | Heap limit pointer used by `code.heap.allocate` and `code.heap.update_free_memory_var`. |
+| `data.heap.temporary_mark_0a5d` | data `0x0a5d` | Optional one-shot temporary heap mark saved by `code.heap.save_temporary_mark` and consumed by `code.heap.restore_temporary_mark`. |
+| `data.heap.high_water_0a5f` | data `0x0a5f` | Highest current-top value observed after successful allocations; reported by `code.heap.show_status_action`. |
 | `data.control.priority_table` | data `0x127a` | Runtime 168-byte row-to-priority/control table. |
 | `data.display.logical_buffer_segment` | global `[0x136f]` | Segment of logical graphics/control buffer. |
 | `data.picture.current_payload` | global `[0x1377]` | Pointer to selected picture payload during decode. |

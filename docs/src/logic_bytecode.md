@@ -117,7 +117,12 @@ The top-level engine cycle observed at `code.engine.main_cycle` (`0x0150`)
 wraps logic execution with object and input/update passes. The current source
 model is:
 
-1. Run several input, sound, and display-maintenance helpers.
+1. Run several input, sound, and display-maintenance helpers. One of these is
+   `code.engine.wait_for_cycle_counter` (`0x7f78`), which reads byte
+   `DS:0x0013` (`v10`), waits until word `[0x1784]` is at least that value,
+   then clears `[0x1784]`. Lower `v10` values therefore reduce the top-level
+   cycle wait; generated timed-carousel fixtures use `v10 = 1` for fast but
+   still capturable pacing.
 2. Mirror direction state between object 0 byte `+0x21` and global byte
    `[0x000f]`, depending on global word `[0x0139]`: when `[0x0139] == 0`,
    copy object 0 `+0x21` to `[0x000f]`; otherwise copy `[0x000f]` back to
@@ -715,8 +720,21 @@ runtime channel pointer table, initializes four countdown words to 1, initialize
 active/tone state words, and marks sound state active at `[0x1258]`. The driver
 tick reads `duration u16`, treats `0xffff` as a channel terminator, otherwise
 reads a 16-bit tone/control word followed by one control byte whose low nibble
-is the observed attenuation/control value. Playback timing and hardware pitch
-semantics are still provisional.
+is the observed attenuation/control value.
+
+The timer interrupt hook calls `code.sound.driver_tick` while `[0x1258]` is
+nonzero. `code.sound.driver_tick` first tests flag 9 through the shared flag
+helper; if flag 9 is clear, it immediately runs the stop/core completion path.
+When playback is allowed, the tick loop advances channel 0 only for hardware
+selector `[0x112e]` values `0` and `8`, and advances channels 0 through 3 for
+other observed selector values. Each channel's countdown starts at 1, so its
+first event or terminator is consumed on the first tick. Event durations are
+stored as 16-bit countdown values. Duration zero would wrap before the next
+record read; no present SQ2 sound resource uses duration zero. Natural
+completion occurs when all active channels have consumed `0xffff` terminators,
+which reaches the same stop/core path that clears active state and sets the
+configured completion flag. Tone-to-frequency conversion, attenuation envelopes,
+and hardware port effects remain provisional.
 
 ### Resource Event Log
 
@@ -1211,7 +1229,7 @@ Text-window and input-line actions:
 | `0x8a` | `erase_input_line` | `0x3726` | Erases the visible input-line buffer by repeatedly passing byte `0x08` to helper `0x3652` while word `[0x0ff8]` is nonzero. In display mode `[0x1130] == 2`, it skips the erase loop when word `[0x0d0f] == 0`. QEMU validates the normal EGA path by first confirming typed characters are visible on the configured input row, then running `0x8a` each cycle and matching logical Y 40..47 back to black. |
 | `0xa3` | `set_global_0d0f` | `0x3939` | Sets word `[0x0d0f] = 1`. Helper `0x3652` uses this global while computing input-line width: when set, it starts from a fixed `0x24` character cap instead of deriving the cap from fixed string slot 0. QEMU validates this by using a long blank string slot 0 and observing accepted live-input glyphs on the wrapped input row only after `0xa3`. |
 | `0xa4` | `clear_global_0d0f` | `0x394b` | Clears word `[0x0d0f]`. QEMU validates the visible counterpart to `0xa3`: after `0xa3` followed by `0xa4`, the same long blank string slot 0 leaves the wrapped input row without live-input glyph pixels. |
-| `0xa9` | `close_text_window_state` | `0x1f2b` | If word `[0x0d1d]` is nonzero, calls helper `0x560c([0x0d23], [0x0d25])`, which restores a saved display rectangle. It then clears words `[0x0d0f]` and `[0x0d1d]`. QEMU validates the unconditional `[0x0d0f]` clear by setting `0xa3`, running `0xa9` with no active saved window, and observing the same narrowed input-width behavior as `0xa4`. The saved-rectangle restore path remains source-backed from the helper calls. |
+| `0xa9` | `close_text_window_state` | `0x1f2b` | If word `[0x0d1d]` is nonzero, calls helper `0x560c([0x0d23], [0x0d25])`, which restores the display rectangle saved by the modal message-window opener at `0x1d96`. That opener closes any prior active window, computes packed rectangle words `[0x0d23]` and `[0x0d25]`, calls helper `0x5590` to save/fill/draw the window region, and only then sets `[0x0d1d] = 1`. After the conditional restore, `0xa9` clears words `[0x0d0f]` and `[0x0d1d]`. QEMU validates the unconditional `[0x0d0f]` clear by setting `0xa3`, running `0xa9` with no active saved window, and observing the same narrowed input-width behavior as `0xa4`; the active restore lifecycle is source-backed from the producer/consumer code. |
 
 `code.input.edit_string` (`0x0da9`) is the shared line editor used by both
 `0x73` and `0x76`. Static disassembly shows that it clamps the requested maximum
@@ -1335,8 +1353,8 @@ Interpreter/session control actions:
 | `0x88` | `pause_game_message` | `0x0257` | Sets word `[0x0615] = 1`, calls helper `0x4482`, stops sound through `0x5234`, displays the fixed message at `0x0c0d` ("Game paused. Press Enter to continue."), then clears `[0x0615]`. |
 | `0x8b` | `calibrate_joystick` | `0x613c` | Initializes joystick-related globals `[0x15c5]` and `[0x15c7]` to `0xffff`, calls helper `0x63be`, and if joystick axes/state globals `[0x15c1]` and `[0x15c3]` are nonzero, displays the message at `0x1549`, which starts "Please center your joystick." It waits for Enter to continue or Escape to cancel. On acceptance it closes any active text window, computes min/max centered bounds around `[0x15c1]` and `[0x15c3]` into `[0x15c9]`, `[0x15cd]`, `[0x15cb]`, and `[0x15cf]`, then repeatedly calls helper `0x6425` while calibration records at `0x1531` or `0x153d` remain active. It finishes by calling helper `0x4482`. |
 | `0x80` | `confirm_restart_game` | `0x2472` | Stops active sound state, clears the prompt/input line, and either proceeds immediately if flag 16 is set or displays the confirmation text at `0x0adb` ("Press ENTER to restart the game... Press ESC to continue this game."). On confirmation it calls input/display cleanup helper `0x3726`, preserves flag 9, resets heap/update-list state through `0x1485`, calls helpers `0x0fa5` and `0x30d6`, sets flag 6, restores flag 9 if it had been set, clears timer/event words `[0x0129]` and `[0x012b]`, reloads logic `[0x1d12]` if configured, and calls menu/list refresh helper `0x930e`. It then redraws the input prompt through `0x37f7`. When restart is accepted it returns zero to the dispatcher. |
-| `0x7d` | `save_game_state` | `0x2753` | Save-game-state path. It marks modal state `[0x0615] = 1`, temporarily changes byte `[0x0d15]` to `0x40`, asks helper `code.save.select_slot_or_path(0x73)` for a selected save slot/path, optionally displays the confirmation text at `0x0db6`, creates file `0x1c8c` through DOS wrapper `0x5cad`, writes a 31-byte description/header from `0x1c6c`, then writes several length-prefixed memory blocks through helper `0x28c6`: the engine string/config area beginning just before `0x05e3`, the object record range `[0x096b..0x096f)`, the inventory/object metadata range `[0x0971..0x0975)`, the resource/event pair buffer length `[0x0141] * 2` from `[0x1707]`, and a logic/cache-related block beginning at `0x0985` whose size is returned by `0x1364`. On write failure it closes and deletes the file, displays the error text at `0x0e46`, restores text state, restores `[0x0d15]`, clears `[0x0615]`, and returns to the following bytecode. |
-| `0x7e` | `restore_game_state` | `0x2512` | Restore-game-state path. It marks modal state `[0x0615] = 1`, saves and temporarily changes byte `[0x0d15]`, asks helper `code.save.select_slot_or_path(0x72)` for a selected restore slot/path, optionally displays the confirmation text at `0x0d34`, opens file `0x1c8c` through DOS wrapper `0x5cce`, seeks past a 31-byte description/header, then reads the same length-prefixed block families through helper `0x26b0`. On read failure it displays the error text at `0x0d87` and calls `0x02ae`. On success it restores hardware/display byte variables from `[0x112e]` and `[0x1130]`, sets flag 11 according to hardware mode, calls `code.restore.replay_resource_events`, refreshes display/resource state through `0x4c23` and `0x30d6`, clears the caller return pointer so execution restarts through the restored state, calls menu/list refresh helper `0x930e`, restores text state, restores `[0x0d15]`, and clears `[0x0615]`. |
+| `0x7d` | `save_game_state` | `0x2753` | Save-game-state path. It marks modal state `[0x0615] = 1`, temporarily changes byte `[0x0d15]` to `0x40`, asks helper `code.save.select_slot_or_path(0x73)` for a selected save slot/path, optionally displays the confirmation text at `0x0db6`, creates file `0x1c8c` through DOS wrapper `0x5cad`, writes a 31-byte description/header from `0x1c6c`, then writes five length-prefixed memory blocks through helper `0x28c6`: `0x05e1` bytes from `0x0002`, `[0x096f]` bytes from `[0x096b]`, `[0x0975]` bytes from `[0x0971]`, `[0x0141] * 2` bytes from `[0x1707]`, and the `0x1364`-sized block from `0x0985`. Local SQ2 save files confirm block lengths `1505`, `903`, `328`, `200`, and a variable fifth block. Create failure displays the directory-full/write-protected text at `0x0df0` and returns to the following bytecode. Header or block write failure closes and deletes the partial file, displays the disk-full text at `0x0e46`, restores text state, restores `[0x0d15]`, clears `[0x0615]`, and returns to the following bytecode. |
+| `0x7e` | `restore_game_state` | `0x2512` | Restore-game-state path. It marks modal state `[0x0615] = 1`, saves and temporarily changes byte `[0x0d15]`, asks helper `code.save.select_slot_or_path(0x72)` for a selected restore slot/path, optionally displays the confirmation text at `0x0d34`, opens file `0x1c8c` through DOS wrapper `0x5cce`, seeks past a 31-byte description/header, then reads the same five length-prefixed block families into `0x0002`, `[0x096b]`, `[0x0971]`, `[0x1707]`, and `0x0985` through helper `0x26b0`. Open failure displays the can't-open-file text at `0x0d73`, restores modal/text state, and returns to the following bytecode. Block read failure closes the file, displays the error text at `0x0d87`, and calls `0x02ae`. On success it restores hardware/display byte variables from `[0x112e]` and `[0x1130]`, sets flag 11 according to hardware mode, calls `code.restore.replay_resource_events`, refreshes display/resource state through `0x4c23` and `0x30d6`, clears the caller return pointer so execution restarts through the restored state, calls menu/list refresh helper `0x930e`, restores text state, restores `[0x0d15]`, and clears `[0x0615]`. |
 | `0x8e` | `set_global_0141_and_refresh` | `0x716a` | Stores immediate `arg0` as `data.event.pair_capacity`, then wraps `code.event.reset_pair_buffer` with update-list flush/rebuild calls `0x6a54` and `0x6a8e`. Source-backed reset semantics: if capacity is positive and no pair buffer exists, `code.event.reset_pair_buffer` allocates `capacity * 2` bytes, stores the pointer in `data.event.pair_buffer_base`, initializes allocator state, resets `data.event.pair_buffer_write` to the base pointer, and clears `data.event.pair_count`. |
 | `0x8c` | `toggle_display_mode_bit` | `0x794c` | If word `[0x112e] == 0`, byte variable 0 is nonzero, and display mode word `[0x1130]` is neither 2 nor 3, calls helper `0x1364`, toggles bit 0 of word `[0x1130]`, and refreshes display state through helpers `0x2b28`, `0x5528`, `0x2b4f`, and `0x681c`. A QEMU memory probe with `SIERRA -p -c` and patched guard words confirmed the branch executes and toggles `[0x1130]` from 0 to 1. The same probe showed replay excludes a picture drawn while flag 7 was set or after `0xab`/`0xac` rollback. Source inspection now indicates the visible row-interleaved background is a CGA-mode remapping of the replayed recorded picture, not the excluded picture surviving. Because the handler requires `[0x112e] == 0`, this behavior is outside the full 16-color EGA target path. |
 | `0x8f` | `verify_game_signature` | `0x0e7e` | Reads immediate message number `arg0`, resolves that current-logic message through `0x21f0`, copies up to seven bytes into absolute buffer `0x0002` with `0x4de8`, then calls helper `0x5b49`. Helper `0x5b49` compares bytes at `0x0002` against an embedded `SQ2\0` string at code offset `0x5b6c`, calling helper `0x02ae` on the first mismatch. The one observed local use is in logic 140 immediately before action `0x6f` (`set_input_line_config`), consistent with a game-signature/configuration guard. |
@@ -1371,11 +1389,20 @@ returning to following bytecode.
 The shared save/restore selector helper `code.save.select_slot_or_path`
 (`0x85e5`) is responsible for the modal UI around choosing a slot or path. It
 captures whether the prompt marker was visible, erases the marker, pushes text
-attribute state, stops active sound, draws the selector prompt for save
-(`0x73`) or restore (`0x72`), validates or accepts a path buffer, formats the
-selected filename into `0x1c8c`, restores text state, and redraws the prompt
-marker if it had been visible. A zero return means cancel/no selection; a
-nonzero return lets the caller perform actual file I/O.
+attribute state, stops active sound, sets a text attribute pair, and calls the
+path prompt helper at `0x8705`. If runtime buffer `[0x0e72]` is empty, that
+helper displays the save or restore path question, edits path buffer `0x1962`
+through modal helper `0x8794`, and validates the path with `0x5bdd`; helper
+`0x86a3` displays the insert-disk style message when the selected drive/path is
+not available. Slot helper `0x8814` scans up to 12 numbered save files through
+summary reader `0x8b9f`, displays their 31-byte descriptions, highlights the
+current row with glyph `0x1a`, and handles Enter, Escape, and movement events
+1 and 5 for accept, cancel, up, and down. In save mode, accepting an empty
+description slot prompts for a new 31-byte description into `0x1c6c` before the
+caller creates the file. On exit, `0x85e5` formats the selected filename into
+`0x1c8c`, restores text state, and redraws the prompt marker if it had been
+visible. A zero return means cancel/no selection; a nonzero return lets the
+caller perform actual file I/O.
 
 Follow-up fixture `log_file_contents_001` ran the log append case alone, then
 converted the post-run qcow2 disk image to raw and extracted `LF00000\LOGFILE`

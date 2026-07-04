@@ -258,8 +258,8 @@ better understood, or a new remaining-work item is discovered.
     be documented only where it explains observed SQ2 behavior.
 - [~] Resource directories, volume records, and cache records
   - Evidence: local resource parsers, loader labels, room-switch cache reset.
-  - Remaining: formalize allocation/failure behavior and cache record layout in
-    implementation-ready text.
+  - Remaining: cache record layout polish and any loader error-path behavior
+    needed by compatibility tests.
 - [x] Logic resource format, messages, dispatch, and control flow
   - Evidence: logic resource docs, interpreter source pass, QEMU opcode probes.
   - Remaining: keep opcode tracker aligned with new findings.
@@ -272,16 +272,22 @@ better understood, or a new remaining-work item is discovered.
   - Evidence: picture decoder notes, Python renderer, fuzz corpus, QEMU
     comparison harness, source-backed seed-fill span traversal, and QEMU
     seed-fill edge cases for full-height barriers and multi-seed fills, plus
-    QEMU pattern mask-bypass and interleaved line/fill/pattern cases.
+    QEMU pattern mask-bypass, channel-mask, and interleaved
+    line/fill/pattern cases, and real-picture snapshot batches for base
+    pictures 1/45, the 8-picture broad preset, and all 74 valid local SQ2
+    pictures.
   - Remaining: finish edge-case semantics for valid EGA picture streams and
-    expand comparison fixtures, especially odd/even mask interactions,
-    additional interleavings, and larger real-resource parity checks.
+    expand comparison fixtures, especially additional synthetic interleavings
+    and future cross-game/interpreter real-resource parity checks. Odd/even
+    visual-mask divergence is outside the full EGA target path unless another
+    observed SQ2 behavior requires it.
 - [~] View resource decoding and cel drawing
   - Evidence: view layout notes, view/object snapshot batches, focused edge
-    placement captures, and optional 17-case QEMU stress batch for larger cels
-    plus transparent-color variants.
-  - Remaining: broaden right/bottom clipping, priority/control combinations,
-    runtime animation state, and formal implementation text.
+    placement captures including right/bottom placement-search cases, and
+    optional 17-case QEMU stress batch for larger cels plus transparent-color
+    variants.
+  - Remaining: broaden priority/control combinations, runtime animation state,
+    and formal implementation text.
 - [~] Object records, priority/control screens, and drawing pipeline
   - Evidence: object overlay probes, priority/control bit probes, labels, and
     implementation-facing drawing lifecycle state machine; bounds-only
@@ -295,16 +301,22 @@ better understood, or a new remaining-work item is discovered.
   - Remaining: add any missing edge probes for valid movement and collision
     behavior.
 - [~] Room switching, restart, save/restore, and resource-event replay
-  - Evidence: room-switch probes, save/restore source map, replay re-enable
-    correction at `0x6927`, and rollback probe for `0xab`/`0xac`.
-  - Remaining: deepen save-file path/selection semantics and restore/restart
-    state transitions.
+  - Evidence: room-switch probes, save/restore source map, source-backed save
+    selector subroutine map, local save-file parser/tests for the five-block
+    file envelope including byte-for-byte serialization, replay re-enable
+    correction at `0x6927`, rollback probe for `0xab`/`0xac`, and
+    source-backed restart/termination and save/restore file-error lifecycles.
+  - Remaining: dynamic original-engine save/restore round-trip behavior,
+    representative observable file-error probes, and any observable
+    restore/restart edge cases needed by compatibility tests.
 - [~] Text windows, status line, prompts, and interactive input
   - Evidence: message/string/numeric input probes, visible status/input-line
     probes, mapped-key/raw-key probes, prompt-marker behavior, input-width flag
-    behavior, and implementation-facing UI lifecycle state machine.
-  - Remaining: active saved-window restore path for `0xa9` and any non-EGA text
-    paths that become relevant to explaining SQ2 behavior.
+    behavior, source-backed active `0xa9` saved-window restore lifecycle, and
+    implementation-facing UI lifecycle state machine.
+  - Remaining: non-EGA text paths only if they become relevant to explaining
+    SQ2 behavior, plus any polish needed to turn the UI notes into a final
+    normative spec.
 - [~] Menus and inventory UI
   - Evidence: inventory selection, menu setup, disabled/enabled item probes,
     and a source-backed `code.menu.interact` movement dispatch table.
@@ -314,23 +326,38 @@ better understood, or a new remaining-work item is discovered.
 - [~] Sound and audio
   - Evidence: load/start/stop completion-flag behavior; source-backed sound
     cache/channel pointer setup; local parser/tests for the four-channel sound
-    payload header and duration/tone/control event streams across all present
-    SQ2 sound resources.
-  - Remaining: playback timing, tone/pitch interpretation, driver/hardware
-    behavior, and completion semantics beyond current stop helper evidence.
+    payload header, duration/tone/control event streams, active-channel
+    selection, countdown scheduling, flag-9 stop gate, and natural completion
+    ticks across all present SQ2 sound resources.
+  - Remaining: tone/pitch interpretation, attenuation/envelope side effects,
+    hardware driver output, and optional dynamic confirmation of natural sound
+    completion if that becomes useful.
 - [~] DOS file I/O, logging, save descriptions, and path selection
-  - Evidence: log-file QEMU content check and save/restore source map.
-  - Remaining: save-description copy behavior, full selector/path behavior, and
-    file error paths.
+  - Evidence: log-file QEMU content check, save/restore source map, selector
+    path/slot source map, save-description buffer copy source map, corrected
+    DOS wrapper symbolic-label map, source-backed file-error continuation
+    behavior, and structural parse/serialize tests over the present local SQ2
+    save files.
+  - Remaining: dynamic save/restore round trip, representative file-error UI
+    probes, and any path-validation edge cases needed for the final
+    compatibility suite.
 - [~] Memory, heap, allocation, and diagnostics
-  - Evidence: heap helpers, reset paths, high-water diagnostics.
-  - Remaining: formal allocator/free-list model and error semantics.
+  - Evidence: source-backed bump-heap helper map, room/reset and temporary mark
+    semantics, allocation failure path, high-water tracking, free-memory byte
+    update, and heap-status diagnostic formulas.
+  - Remaining: heap initialization details and any representative observable
+    out-of-memory UI behavior needed for final compatibility coverage.
 - [~] Compatibility test suite and harnesses
   - Evidence: `tests/`, `tools/logic_interpreter_probe.py`,
     `tools/object_movement_probe.py`, `tools/object_overlay_probe.py`,
-    `tools/picture_fuzz.py`, QEMU snapshot support.
+    `tools/picture_fuzz.py`, `tools/picture_batch.py`, QEMU snapshot support,
+    packed picture fixtures, two-picture key-driven `tools/picture_carousel.py`
+    smoke validation, and an eight-picture timed polling carousel validation
+    from one engine process.
   - Remaining: assemble a final broad suite that can validate a clean-room
-    implementation against original-engine outputs.
+    implementation against original-engine outputs; scale timed polling
+    carousel sweeps to larger picture/view/resource batches and future
+    interpreter versions.
 - [ ] Cross-version comparison workflow
   - Evidence: symbolic labels are being curated for SQ2.
   - Remaining: apply the labels and subsystem trackers to additional
@@ -346,12 +373,13 @@ better understood, or a new remaining-work item is discovered.
    where the fixture would be representative rather than brittle (`0x6e`,
    `0x83`, `0x8e`, `0xaa`, `0xad` are otherwise covered for the current spec
    target).
-2. Deepen the remaining text/input UI gap around active saved-window restore
-   for `0xa9`, plus non-EGA text paths only if they become relevant to SQ2
-   behavior.
+2. Add a representative dynamic save/restore round-trip or file-error UI probe,
+   using the source-backed save envelope for generated fixtures and QEMU only
+   for observable outputs or compatibility cases.
 3. Continue the picture/view renderer compatibility work with valid synthetic
    resources and original-engine captures.
 4. Continue turning the remaining subsystem notes into implementation-ready
-   state machines, especially save/file selection, sound playback,
-   heap/allocation, and menu movement/event delivery.
-5. Keep expanding the final compatibility suite as each subsystem solidifies.
+   state machines, especially save/file selection, sound hardware output, heap
+   initialization, and menu movement/event delivery.
+5. Keep expanding the final compatibility suite as each subsystem solidifies,
+   using timed polling carousels where one-engine resource sweeps are practical.

@@ -221,21 +221,30 @@ entry. Routine `0x13a5(record)` performs the reverse lookup for one record: if
 it finds a matching logic number in `0x0985`, it restores
 `record[0x06] = record[0x04] + saved_offset`.
 
-## Heap marks used by logic loading
+## Heap and lifetime model
 
-The logic cache records and resource payloads are allocated from a bump pointer
-stored at `[0x0a55]`. The observed helpers are:
+The logic cache records, resource payloads, menu nodes, and selected render
+nodes are allocated from a bump pointer stored at `[0x0a55]`. No source-backed
+general free-list behavior has been observed for this heap. Instead, the engine
+uses marks and rewinds for broad lifetime changes: startup stores a room/reset
+mark with `0x1476` after initial setup and logic 0 load; room switch, restart,
+and restore paths call `0x1485` to return to that mark after freeing update-list
+nodes; temporary `call_logic` cleanup rewinds directly to the transient record
+pointer with `0x143c`.
 
 | Helper | Observed role |
 | --- | --- |
-| `0x13d6(size)` | Allocate `size` bytes from `[0x0a55]`; check against heap limit `[0x0a5b]`; update memory-status byte `[0x0011]`. |
+| `0x13d6(size)` | Allocate `size` bytes from `[0x0a55]`. If `size > [0x0a5b] - [0x0a55]`, formats the out-of-memory message at `0x09fd`, displays it, and calls the restart/exit helper `0x02ae`. Otherwise returns the old heap pointer, advances `[0x0a55]`, refreshes byte variable 8 at `[0x0011]`, and updates high-water pointer `[0x0a5f]` when the new top is larger. |
 | `0x1430` | Return the current heap pointer `[0x0a55]`. |
-| `0x143c(ptr)` | Rewind or set `[0x0a55]` to `ptr`. |
+| `0x143c(ptr)` | Rewind or set `[0x0a55]` to `ptr`. It does not itself refresh `[0x0011]`; callers that need the free-memory byte current call `0x14a0` separately. |
 | `0x144b` | Save the current heap pointer in `[0x0a5d]`. |
-| `0x145a` | Restore `[0x0a55]` from `[0x0a5d]` if it is nonzero, then clear `[0x0a5d]`. |
+| `0x145a` | Restore `[0x0a55]` from temporary mark `[0x0a5d]` if it is nonzero, then clear `[0x0a5d]`. |
 | `0x1476` | Store the current heap pointer in `[0x0a59]`. |
 | `0x1485` | Free update-list nodes, clear `[0x0a5d]`, restore `[0x0a55]` from `[0x0a59]`, and refresh memory status. |
 | `0x14a0` | Compute free heap bytes as `[0x0a5b] - [0x0a55]` and store the high byte in byte variable `[0x0011]`. |
 
-The broad state-switch path uses `0x1485`, while temporary call-logic cleanup
-uses the more direct `0x143c(record)`.
+The heap-status diagnostic `0x87` formats the same pointers as offsets from
+heap base `[0x0a57]`: heap size is `[0x0a5b] - [0x0a57]`, current use is
+`[0x0a55] - [0x0a57]`, maximum use is `[0x0a5f] - [0x0a57]`, and the room/reset
+mark is `[0x0a59] - [0x0a57]`. It also displays the maximum observed
+resource-event pair count `[0x170f]` as the script/resource-event budget line.

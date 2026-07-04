@@ -133,6 +133,9 @@ def base_cases() -> list[PictureFuzzCase]:
         _case("base_024_pattern_bypass_mask", "Pattern mode bit 0x10 bypasses the row/column mask test.", bytes([0xF0, 11, 0xF9, 0x13, 0xFA, 80, 80, 0xFF]), "pattern"),
         _case("base_025_interleaved_line_fill_pattern", "Rectangle outline, seed fill, line, and pattern plot in one valid stream.", bytes([0xF0, 2, 0xF4, 20, 20, 40, 40, 20, 20, 0xF0, 3, 0xF8, 30, 30, 0xF0, 4, 0xF6, 20, 30, 40, 30, 0xF0, 5, 0xF9, 0x14, 0xFA, 30, 30, 0xFF]), "pattern"),
         _case("base_026_pattern_random_bypass_sequence", "Two pattern plots with both bypass-mask and pseudo-random bits set.", bytes([0xF0, 12, 0xF9, 0x35, 0xFA, 0x7D, 70, 70, 0x22, 75, 72, 0xFF]), "pattern"),
+        _case("base_027_pattern_visual_control_channels", "Pattern plotting with both visual and control channels active writes both nibbles.", bytes([0xF2, 5, 0xF0, 3, 0xF9, 0x12, 0xFA, 40, 40, 0xFF]), "pattern"),
+        _case("base_028_pattern_visual_disabled_control_only", "Pattern plotting after visual disable updates only the control channel.", bytes([0xF0, 6, 0xF1, 0xF2, 5, 0xF9, 0x12, 0xFA, 40, 40, 0xFF]), "pattern"),
+        _case("base_029_pattern_control_disabled_visual_only", "Pattern plotting after control disable updates only the visual channel.", bytes([0xF2, 5, 0xF3, 0xF0, 6, 0xF9, 0x12, 0xFA, 40, 40, 0xFF]), "pattern"),
     ]
 
 

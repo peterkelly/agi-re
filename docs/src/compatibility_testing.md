@@ -96,6 +96,65 @@ After copying the fixture directory into the DOS image and capturing a QEMU
 python3 -B tools/compare_picture_capture.py 45 build/qemu-fixtures/picture_045/qemu_picture_045.ppm
 ```
 
+Run a reusable real-picture snapshot batch:
+
+```bash
+python3 -B tools/picture_batch.py --snapshot --dos-prefix PB --output build/picture-batch/batches/picture_base_001.json --boot-wait 5 --draw-wait 8 --stop-on-failure
+```
+
+The first real-picture batch matched both base cases with 0 mismatches from one
+QEMU snapshot run. It covers picture 1, the first present local SQ2 picture
+resource with pattern plots, and picture 45, the largest valid local picture
+payload.
+
+Run the broader representative real-picture preset:
+
+```bash
+python3 -B tools/picture_batch.py --preset broad --snapshot --dos-prefix PB --output build/picture-batch/batches/picture_broad_001.json --boot-wait 5 --draw-wait 8 --stop-on-failure
+```
+
+The first broad real-picture batch matched all 8 cases with 0 mismatches. It
+covers pictures 1, 6, 17, 43, 44, 45, 46, and 76: a mix selected from local
+corpus counts for first-present coverage, dense fill usage, full command-family
+coverage, largest payload, and high pattern counts.
+
+Run the full present-picture parity batch:
+
+```bash
+python3 -B tools/picture_batch.py --preset all --snapshot --fixture-root build/picture-batch/all-fixtures --dos-prefix PA --output build/picture-batch/batches/picture_all_001.json --boot-wait 5 --draw-wait 8 --stop-on-failure
+```
+
+The first full present-picture batch matched all 74 valid local SQ2 picture
+resources with 0 mismatches. This run used packed picture fixtures that copy the
+minimal engine support files and store the generated `LOGIC.0` plus the tested
+picture payload in each fixture's `VOL.3`.
+
+Prototype and validate a faster in-engine carousel:
+
+```bash
+python3 -B tools/picture_carousel.py --preset base --fixture-root build/picture-carousel/base-fixtures --dos-dir PICSWEEP --output build/picture-carousel/batches/picture_carousel_base_mapped_fkey_001.json --boot-wait 5 --first-wait 8 --advance-wait 4
+```
+
+The key-driven carousel prototype matched the two-picture base smoke with 2
+matches and 0 mismatches using one engine process and mapped function-key
+advance events. It is not broad-suite evidence: four-picture and eight-picture
+key-driven sweeps still stall after two displayed pictures or leave input/UI
+artifacts.
+
+Use timed polling carousel mode for broader picture sweeps:
+
+```bash
+python3 -B tools/picture_carousel.py --preset broad --mode timed --poll --delay-cycles 120 --speed-value 1 --fixture-root build/picture-carousel/timed-broad-poll-fast-fixtures --dos-dir PICPOLL --output build/picture-carousel/batches/picture_carousel_broad_timed_poll_fast_001.json --boot-wait 5 --first-wait 3 --poll-interval 0.5 --poll-timeout 15
+```
+
+This run matched pictures 1, 6, 17, 43, 44, 45, 46, and 76 with 8 matches,
+0 mismatches, and 0 errors from one engine process. The fixture sets byte
+variable `v10` to `1`, because disassembly of the cycle-throttle helper at
+image `0x7f78` shows it waits for counter `[0x1784]` to reach byte
+`DS:0x0013` (`v10`) before the next top-level cycle. A shorter
+`delay-cycles 60` polling run missed intermediate pictures, so `120` is the
+current practical broad-preset setting.
+
 Generate a fixture that draws one view cel over a picture:
 
 ```bash
@@ -183,8 +242,23 @@ Run the same view/object cases with one QEMU boot and internal snapshots:
 python3 -B tools/view_batch.py --snapshot --dos-prefix VS --output build/view-batch/batches/view_snapshot.json --boot-wait 5 --draw-wait 8
 ```
 
-The first snapshot-mode view/object smoke ran the six built-in cases and all
-six matched from one QEMU boot.
+The first snapshot-mode view/object smoke ran the original six built-in cases
+and all six matched from one QEMU boot. The base registry now has eight cases:
+the original normal/cached/mirrored/left/top/low-priority cases plus right and
+bottom edge-placement cases.
+
+Run the focused right/bottom edge-placement batch:
+
+```bash
+python3 -B tools/view_batch.py --snapshot --dos-prefix VC --output build/view-batch/batches/clip_right_bottom_002.json --boot-wait 5 --draw-wait 8 --stop-on-failure --case view_011_right_clip --case view_011_bottom_clip
+```
+
+The first right/bottom attempt used simple direct composition and mismatched the
+right-edge case. After the view-batch comparison was changed to use the
+source-derived `0x593a` placement search, `clip_right_bottom_002` matched both
+cases with 2 matches and 0 mismatches. For view 11/group 0/frame 0, request
+`(150, 80)` resolves to `(140, 71)`, and request `(20, 170)` resolves to
+`(23, 167)`.
 
 Run the optional larger cel/transparent-color stress suite in the same snapshot
 batch:
@@ -697,7 +771,30 @@ sorted in-bounds channel offsets with first offset 8, that all channels parse to
 an in-payload `0xffff` terminator, and that sound 1's first channel matches the
 source-backed event record shape observed from the loader and playback tick
 code. These tests validate the resource container and event stream shape; they
-do not yet validate audible pitch, timing, or hardware driver output.
+also validate the source-backed event scheduling model. The schedule checks pin
+the one-tick first-record delay, sound 1's tick-40 natural termination, sound
+60's different one-channel and four-channel completion ticks, immediate
+completion when flag 9 is clear, and the 65,536-tick countdown wrap for a
+synthetic zero-duration event. They do not yet validate audible pitch,
+attenuation-envelope output, or hardware driver port effects.
+
+The static save-file parser is covered by:
+
+```bash
+python3 -B -m unittest tests.test_save_resources
+```
+
+This test module parses the checked-in local `SQ2/SQ2SG.*` save files using the
+source-backed envelope from `0x7d`/`0x7e`: a 31-byte description/header followed
+by five little-endian length-prefixed blocks. It confirms that all 11 present
+save files have the fixed first-four block lengths `1505`, `903`, `328`, and
+`200`, that the fifth block is present and variable-sized, that the parsed file
+size exactly reaches the end of the fifth block, that every present save
+serializes back to identical bytes, and that truncated, trailing, or internally
+inconsistent data is rejected. This is structural compatibility evidence for
+the save-file container and a fixture-building primitive for later generated
+saves; it does not yet validate a full original-engine save/restore round trip
+from QEMU.
 
 Run the focused enabled trace-window case:
 
@@ -968,9 +1065,9 @@ python3 -B tools/picture_fuzz.py compare-capture base_004_clamped_absolute build
 - `tests/test_picture_fuzz.py` covers deterministic fuzz generation, manifest
   writing, Python render-result recording, scaled synthetic capture comparison
   without booting QEMU, QEMU unsafe-case rejection, and mocked batch reporting.
-- The current fuzz corpus command above generates 1,051 synthetic picture
-  cases: 27 curated base cases plus 1,024 deterministic random cases. Of those,
-  1,049 are marked safe for automated QEMU runs; the unsafe cases intentionally
+- The current fuzz corpus command above generates 1,054 synthetic picture
+  cases: 30 curated base cases plus 1,024 deterministic random cases. Of those,
+  1,052 are marked safe for automated QEMU runs; the unsafe cases intentionally
   include payloads such as no terminator or missing command operands that could
   make the original interpreter treat garbage memory as picture data. These
   unsafe cases are retained only as harness guardrails and are not part of the
@@ -982,7 +1079,10 @@ python3 -B tools/picture_fuzz.py compare-capture base_004_clamped_absolute build
   `base_023_control_fill_ignores_visual_barrier`, and
   `pattern_interleaved_001` for `base_024_pattern_bypass_mask`,
   `base_025_interleaved_line_fill_pattern`, and
-  `base_026_pattern_random_bypass_sequence`.
+  `base_026_pattern_random_bypass_sequence`, plus
+  `pattern_channel_masks_001` for `base_027_pattern_visual_control_channels`,
+  `base_028_pattern_visual_disabled_control_only`, and
+  `base_029_pattern_control_disabled_visual_only`.
 - The `seed_fill_edges_001` snapshot batch matched the original engine with 3
   matches, 0 mismatches, and 0 errors. The first two cases validate visible
   full-height barrier and multi-seed fill geometry. The third validates that a
@@ -994,6 +1094,11 @@ python3 -B tools/picture_fuzz.py compare-capture base_004_clamped_absolute build
   `0x10` bypassing the row/column mask test, a rectangle/fill/line/pattern
   sequence in one valid picture stream, and a two-plot pattern sequence with
   both `0x10` and pseudo-random bit `0x20` set.
+- The `pattern_channel_masks_001` snapshot batch matched the original engine
+  with 3 matches, 0 mismatches, and 0 errors. These cases validate the visible
+  EGA surface for pattern plotting with both channels active, visual disabled,
+  and control disabled. The local renderer tests assert the corresponding
+  control-buffer nibbles from the source-backed common pixel-writer path.
 - A 16-case random QEMU batch covering line, corner, pattern, fill, and scanner
   categories also matched with 0 mismatches.
 - The fuzz pass exposed a diagonal-line mismatch for the two edge-line cases.
@@ -1005,6 +1110,18 @@ python3 -B tools/picture_fuzz.py compare-capture base_004_clamped_absolute build
   byte as X `0` on the next scanline rather than clipping it. After the local
   renderer was changed to use linear writes for pattern pixels, circular and
   rectangular lower-right edge cases matched QEMU with 0 mismatches.
+- Real-picture snapshot batch `picture_base_001` matched picture 1 and picture
+  45 with 2 matches, 0 mismatches, and 0 errors.
+- Broad real-picture snapshot batch `picture_broad_001` matched pictures 1, 6,
+  17, 43, 44, 45, 46, and 76 with 8 matches, 0 mismatches, and 0 errors.
+- Full present-picture snapshot batch `picture_all_001` matched all 74 valid
+  local SQ2 picture resources with 74 matches, 0 mismatches, and 0 errors.
+- Key-driven carousel smoke batch `picture_carousel_base_mapped_fkey_001`
+  matched pictures 1 and 45 from one engine process, but broader key-driven
+  runs still stall or leave UI artifacts.
+- Timed polling carousel batch `picture_carousel_broad_timed_poll_fast_001`
+  matched the eight-picture broad preset from one engine process with
+  8 matches, 0 mismatches, and 0 errors.
 
 These tests are still intentionally resource-focused. They protect the parser
 and data model while the picture draw helpers are being matched against the
@@ -1015,22 +1132,24 @@ executable and QEMU captures.
 The view cel renderer is based on the row run-length format documented from the
 IBM object overlay and now has both a small QEMU validation batch and an
 optional 17-case stress batch for larger cels and transparent-color variants.
-It still needs broader right/bottom clipping, priority interactions with
-different picture control bands, and runtime animated-object state changes.
+It still needs broader priority interactions with different picture control
+bands and runtime animated-object state changes.
 
 The picture renderer is still a compatibility scaffold, but it now has direct
 QEMU fuzz coverage for scanner behavior, exact/right-lower-edge diagonal lines,
 visual/control seed fill, bounded fill barriers, pseudo-random pattern plotting,
 lower-right pattern edge wrapping, mask-bypass pattern plotting, interleaved
-line/fill/pattern streams, and safe truncated coordinate data. The seed-fill
-traversal class is source-backed as a horizontal span fill with deferred stack
-state; the local renderer uses a queue because the observable contract for
-valid finite data is the final connected region under the selected channel
-target test. Full-height narrow-barrier, multi-seed, and visible control-only
-barrier cases now match the original engine in QEMU. Fuzz cases should still
-expand toward more varied odd/even mask interactions, additional interleavings,
-and larger real-resource picture hashes before picture hashes are treated as
-complete original-engine parity checks.
+line/fill/pattern streams, pattern channel-mask states, safe truncated
+coordinate data, and two real SQ2 picture resources. The seed-fill traversal
+class is source-backed as a
+horizontal span fill with deferred stack state; the local renderer uses a queue
+because the observable contract for valid finite data is the final connected
+region under the selected channel target test. Full-height narrow-barrier,
+multi-seed, and visible control-only barrier cases now match the original
+engine in QEMU. Fuzz cases should still expand toward more varied odd/even mask
+interactions outside the full EGA target path, additional interleavings, and
+future cross-game/interpreter real-resource coverage before picture hashes are
+treated as complete original-engine parity checks beyond this SQ2 executable.
 
 Future tests should prefer focused fixtures: a room or script state that draws a
 single picture, a single moving object, or a known cel at a known screen

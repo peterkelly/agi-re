@@ -11,7 +11,16 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT / "tools"))
 
-from agi_sound import parse_sound, sound_channel_offsets, sound_payload  # noqa: E402
+from agi_sound import (  # noqa: E402
+    SoundChannel,
+    SoundEvent,
+    active_sound_channel_indices,
+    parse_sound,
+    schedule_sound_channel,
+    sound_channel_offsets,
+    sound_completion_tick,
+    sound_payload,
+)
 from disassemble_logic import SQ2, read_dir_entries, read_volume_payload  # noqa: E402
 
 
@@ -55,6 +64,37 @@ class SoundResourceTests(unittest.TestCase):
         self.assertEqual(channels[0].events[0].control_byte, 0x9F)
         self.assertEqual(channels[0].events[0].attenuation, 0x0F)
         self.assertEqual(channels[0].terminator_offset, 13)
+
+    def test_driver_channel_count_depends_on_hardware_selector(self) -> None:
+        self.assertEqual(active_sound_channel_indices(0), (0,))
+        self.assertEqual(active_sound_channel_indices(8), (0,))
+        self.assertEqual(active_sound_channel_indices(2), (0, 1, 2, 3))
+
+    def test_sound_one_schedule_matches_source_countdown_rule(self) -> None:
+        payload = sound_payload(1)
+        channels = parse_sound(payload)
+        channel_0 = schedule_sound_channel(channels[0])
+        channel_3 = schedule_sound_channel(channels[3])
+        self.assertEqual([event.tick for event in channel_0.events], [1])
+        self.assertEqual(channel_0.terminator_tick, 40)
+        self.assertEqual([event.tick for event in channel_3.events], [1, 4, 7, 10, 13, 22, 25, 28, 31, 34])
+        self.assertEqual(channel_3.terminator_tick, 40)
+        self.assertEqual(sound_completion_tick(payload, hardware_selector=0), 40)
+        self.assertEqual(sound_completion_tick(payload, hardware_selector=2), 40)
+
+    def test_multi_channel_completion_depends_on_active_channels(self) -> None:
+        payload = sound_payload(60)
+        self.assertEqual(sound_completion_tick(payload, hardware_selector=0), 3403)
+        self.assertEqual(sound_completion_tick(payload, hardware_selector=2), 3404)
+
+    def test_zero_duration_wraps_countdown_before_next_record(self) -> None:
+        channel = SoundChannel(0, 8, (SoundEvent(0, 0x1234, 0x90),), 13)
+        schedule = schedule_sound_channel(channel)
+        self.assertEqual([event.tick for event in schedule.events], [1])
+        self.assertEqual(schedule.terminator_tick, 65537)
+
+    def test_flag_9_clear_completes_on_first_tick(self) -> None:
+        self.assertEqual(sound_completion_tick(sound_payload(60), sound_flag_9_set=False), 1)
 
 
 if __name__ == "__main__":

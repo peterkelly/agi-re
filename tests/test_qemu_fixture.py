@@ -14,14 +14,23 @@ sys.path.insert(0, str(ROOT / "tools"))
 
 from qemu_fixture import (  # noqa: E402
     DEFAULT_INIT_FLAG,
+    CAROUSEL_DELAY_VAR,
+    CAROUSEL_INDEX_VAR,
     SCRATCH_VAR,
+    SPEED_VAR,
+    all_conditions,
+    build_picture_carousel_fixture,
+    build_packed_picture_fixture,
+    build_picture_timed_carousel_fixture,
     approach_first_object_until_near_action,
     assignn_action,
     build_synthetic_picture_persistent_object_fixture,
     build_synthetic_picture_view_fixture,
     build_synthetic_picture_fixture,
     if_then,
+    inc_var_action,
     logic_resource,
+    map_key_event_action,
     clear_object_bit_0020_action,
     clear_object_field_22_and_global_action,
     clear_rect_bounds_action,
@@ -31,10 +40,14 @@ from qemu_fixture import (  # noqa: E402
     not_flag_set_condition,
     patch_dir_entry,
     patch_logdir_entry_zero,
+    picture_carousel_logic_payload,
+    picture_timed_carousel_logic_payload,
     persistent_object_logic_payload,
     persistent_object_once_logic_payload,
     picture_logic_payload,
     picture_view_logic_payload,
+    raw_key_event_available_condition,
+    status_byte_condition,
     rebuild_priority_table_action,
     run_once_logic,
     set_flag_action,
@@ -59,7 +72,7 @@ from qemu_fixture import (  # noqa: E402
     var_eq_imm_condition,
     volume_record,
 )
-from agi_graphics import PALETTE, render_picture  # noqa: E402
+from agi_graphics import PALETTE, picture_payload, render_picture  # noqa: E402
 from compare_picture_capture import compare_picture_capture  # noqa: E402
 
 
@@ -155,6 +168,13 @@ class QemuFixtureTests(unittest.TestCase):
         block = if_then(not_flag_set_condition(199), body)
         self.assertEqual(block, bytes([0xFF, 0xFD, 0x07, 199, 0xFF, 0x03, 0x00, 0x03, 1, 2]))
         self.assertEqual(var_eq_imm_condition(247, 1), bytes([0x01, 247, 1]))
+        self.assertEqual(raw_key_event_available_condition(), bytes([0x0D]))
+        self.assertEqual(
+            all_conditions(var_eq_imm_condition(247, 1), raw_key_event_available_condition()),
+            bytes([0x01, 247, 1, 0x0D]),
+        )
+        self.assertEqual(status_byte_condition(7), bytes([0x0C, 7]))
+        self.assertEqual(map_key_event_action(ord("x"), 7), bytes([0x79, ord("x"), 0, 7]))
 
     def test_run_once_logic_wraps_actions_with_init_guard_and_end(self) -> None:
         payload = run_once_logic(bytes([0x1A]), init_flag=199)
@@ -228,6 +248,9 @@ class QemuFixtureTests(unittest.TestCase):
     def test_assignn_action_encodes_variable_and_immediate(self) -> None:
         self.assertEqual(assignn_action(249, 5), bytes([0x03, 249, 5]))
 
+    def test_inc_var_action_encodes_variable(self) -> None:
+        self.assertEqual(inc_var_action(249), bytes([0x01, 249]))
+
     def test_autonomous_motion_actions_encode_fixed_operands(self) -> None:
         self.assertEqual(approach_first_object_until_near_action(1, 25, 214), bytes([0x53, 1, 25, 214]))
         self.assertEqual(clear_object_field_22_and_global_action(2), bytes([0x4E, 2]))
@@ -289,6 +312,76 @@ class QemuFixtureTests(unittest.TestCase):
             self.assertEqual((fixture / "LOGDIR").read_bytes()[:3], bytes([0x30, 0x00, 0x00]))
             picture_entry = (fixture / "PICDIR").read_bytes()[:3]
             self.assertEqual(picture_entry, bytes([0x30, 0x00, len(logic_record)]))
+
+    def test_packed_picture_fixture_omits_original_volumes(self) -> None:
+        with tempfile.TemporaryDirectory() as temp_dir:
+            fixture = build_packed_picture_fixture(45, Path(temp_dir) / "fixture")
+            vol3 = (fixture / "VOL.3").read_bytes()
+            logic_record = volume_record(picture_logic_payload(45), volume=3)
+            self.assertTrue(vol3.startswith(logic_record))
+            self.assertEqual(vol3[len(logic_record) :], volume_record(picture_payload(45), volume=3))
+            self.assertFalse((fixture / "VOL.0").exists())
+            self.assertFalse((fixture / "VOL.1").exists())
+            self.assertFalse((fixture / "VOL.2").exists())
+            picdir = (fixture / "PICDIR").read_bytes()
+            entry = picdir[45 * 3 : 45 * 3 + 3]
+            self.assertEqual(entry[0], 0x30)
+            self.assertEqual((entry[1] << 8) | entry[2], len(logic_record))
+
+    def test_picture_carousel_logic_uses_mapped_key_advance(self) -> None:
+        payload = picture_carousel_logic_payload([1, 45], [ord("x")])
+        code_len = payload[0] | (payload[1] << 8)
+        code = payload[2 : 2 + code_len]
+        self.assertIn(bytes([0x79, ord("x"), 0, 7]), code)
+        self.assertIn(bytes([0x0C, 7]), code)
+        self.assertIn(bytes([0x03, CAROUSEL_INDEX_VAR, 0]), code)
+        self.assertIn(bytes([0x03, CAROUSEL_INDEX_VAR, 1]), code)
+        self.assertIn(bytes([0x1B, SCRATCH_VAR]), code)
+        self.assertNotIn(bytes([0x0D]), code)
+
+    def test_picture_carousel_fixture_packs_selected_pictures(self) -> None:
+        with tempfile.TemporaryDirectory() as temp_dir:
+            fixture = build_picture_carousel_fixture([1, 45], Path(temp_dir) / "fixture", [ord("x")])
+            vol3 = (fixture / "VOL.3").read_bytes()
+            logic_record = volume_record(picture_carousel_logic_payload([1, 45], [ord("x")]), volume=3)
+            first_record = volume_record(picture_payload(1), volume=3)
+            self.assertTrue(vol3.startswith(logic_record + first_record))
+            self.assertIn(volume_record(picture_payload(45), volume=3), vol3)
+            self.assertFalse((fixture / "VOL.0").exists())
+            picdir = (fixture / "PICDIR").read_bytes()
+            entry1 = picdir[1 * 3 : 1 * 3 + 3]
+            entry45 = picdir[45 * 3 : 45 * 3 + 3]
+            self.assertEqual(entry1[0], 0x30)
+            self.assertEqual((entry1[1] << 8) | entry1[2], len(logic_record))
+            self.assertEqual(entry45[0], 0x30)
+            self.assertEqual((entry45[1] << 8) | entry45[2], len(logic_record) + len(first_record))
+
+    def test_picture_timed_carousel_logic_sets_speed_and_cycle_delay(self) -> None:
+        payload = picture_timed_carousel_logic_payload([1, 45], delay_cycles=3, speed_value=0)
+        code_len = payload[0] | (payload[1] << 8)
+        code = payload[2 : 2 + code_len]
+        self.assertIn(bytes([0x03, SPEED_VAR, 0]), code)
+        self.assertIn(bytes([0x0C, 7]), code)
+        self.assertIn(bytes([0x01, CAROUSEL_DELAY_VAR]), code)
+        self.assertIn(bytes([0x01, CAROUSEL_INDEX_VAR, 0, 0x01, CAROUSEL_DELAY_VAR, 3]), code)
+        self.assertIn(bytes([0x03, CAROUSEL_INDEX_VAR, 1, 0x03, CAROUSEL_DELAY_VAR, 0]), code)
+        self.assertNotIn(bytes([0x79]), code)
+
+    def test_picture_timed_carousel_fixture_packs_selected_pictures(self) -> None:
+        with tempfile.TemporaryDirectory() as temp_dir:
+            fixture = build_picture_timed_carousel_fixture([1, 45], Path(temp_dir) / "fixture", delay_cycles=3)
+            vol3 = (fixture / "VOL.3").read_bytes()
+            logic_record = volume_record(picture_timed_carousel_logic_payload([1, 45], 3), volume=3)
+            first_record = volume_record(picture_payload(1), volume=3)
+            self.assertTrue(vol3.startswith(logic_record + first_record))
+            self.assertIn(volume_record(picture_payload(45), volume=3), vol3)
+            picdir = (fixture / "PICDIR").read_bytes()
+            entry1 = picdir[1 * 3 : 1 * 3 + 3]
+            entry45 = picdir[45 * 3 : 45 * 3 + 3]
+            self.assertEqual(entry1[0], 0x30)
+            self.assertEqual((entry1[1] << 8) | entry1[2], len(logic_record))
+            self.assertEqual(entry45[0], 0x30)
+            self.assertEqual((entry45[1] << 8) | entry45[2], len(logic_record) + len(first_record))
 
     def test_synthetic_picture_view_fixture_patches_picture_and_logic(self) -> None:
         payload = bytes([0xFF])

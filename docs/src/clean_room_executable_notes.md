@@ -6110,3 +6110,673 @@ Documented result:
   tone_word=0x8037, control_byte=0x9f)`, and channel 0 terminator offset 13.
 - This is source-backed resource-format evidence. Audible pitch, timing, and
   hardware-driver output remain provisional.
+
+## 2026-07-04: sound playback tick scheduling source pass
+
+Commands run from `/Users/peter/ai/agi/reverse`:
+
+- `ndisasm -b 16 -o 0x7f60 -e 0x8160 build/cleanroom/AGI.decrypted.exe`
+- `ndisasm -b 16 -o 0x8160 -e 0x8360 build/cleanroom/AGI.decrypted.exe`
+- `ndisasm -b 16 -o 0x74c0 -e 0x76c0 build/cleanroom/AGI.decrypted.exe`
+- `ndisasm -b 16 -o 0x83a0 -e 0x85a0 build/cleanroom/AGI.decrypted.exe`
+- `ndisasm -b 16 -o 0x84f0 -e 0x86f0 build/cleanroom/AGI.decrypted.exe`
+- Local Python scans over parsed SQ2 sound events and completion ticks.
+- `python3 -B -m unittest tests.test_sound_resources`
+
+Documented result:
+
+- `code.sound.driver_start` chooses the active channel set from hardware
+  selector `[0x112e]`: selector values `0` and `8` set
+  `data.sound.active_channel_byte_limit = 2` and
+  `data.sound.remaining_active_channels = 1`, so only channel 0 is advanced.
+  Other observed selector values set the byte limit to 8 and the remaining
+  count to 4, advancing channel offsets `0`, `2`, `4`, and `6`.
+- `code.sound.driver_tick` starts by testing flag 9 through `code.flags.test`
+  at `0x7502`. If flag 9 is clear, it calls the low-level stop/completion path
+  immediately.
+- The timer interrupt hook at `0x8521` calls `code.sound.driver_tick` only when
+  `data.sound.active_state` is nonzero, then either acknowledges the interrupt
+  or chains to the original timer interrupt every third hook call through byte
+  `0x184f`.
+- Every channel countdown is initialized to 1, so the first event or terminator
+  is consumed on the first active tick. After an event is consumed, its duration
+  word is stored as the next 16-bit countdown. A duration of zero would wrap and
+  delay the next channel record read for 65,536 ticks.
+- The local SQ2 corpus contains 3,619 parsed sound events. The minimum duration
+  is 1, the maximum is 688, and no present event uses duration zero.
+- Added source-backed scheduling helpers to `tools/agi_sound.py`:
+  `active_sound_channel_indices`, `schedule_sound_channel`, and
+  `sound_completion_tick`.
+- Expanded `tests/test_sound_resources.py` from four to nine tests. New checks
+  validate the one-channel/four-channel selector rule, sound 1's tick-40
+  natural termination, sound 60's differing one-channel and four-channel
+  completion ticks (`3403` and `3404`), the synthetic zero-duration wrap, and
+  immediate first-tick completion when flag 9 is clear.
+- The targeted sound-resource tests passed: 9 tests in `tests.test_sound_resources`.
+  Hardware pitch, attenuation envelopes, and port-level output remain
+  provisional.
+
+## 2026-07-04: active text-window restore source pass
+
+Commands run from `/Users/peter/ai/agi/reverse`:
+
+- `rg -n "0d1d|0D1D|0d23|0D23|0d25|0D25|560c|5590|text window|saved-window|saved window|close_text" build/cleanroom docs/src tools tests`
+- `ndisasm -b 16 -o 0x5500 -e 0x5700 build/cleanroom/AGI.decrypted.exe`
+- `ndisasm -b 16 -o 0x1cc0 -e 0x1ec0 build/cleanroom/AGI.decrypted.exe`
+
+Documented result:
+
+- `code.text.display_string` at `0x1ce8` calls the modal message-window setup
+  helper at `0x1d96`, waits for the relevant acknowledgement/event path, and
+  later calls `code.text.close_window_state` at `0x1f2b` with argument zero on
+  the normal close path.
+- `code.text.display_message_window` at `0x1d96` first checks word `[0x0d1d]`.
+  If a saved window is already active, it calls `code.text.close_window_state`
+  before building the next window. This prevents stacking multiple saved
+  rectangles in the observed modal-message path.
+- The same opener formats/copies the current message text through helper
+  `0x1f54`, derives text-window row/column and size words from the text metrics
+  and configuration globals, computes packed rectangle words `[0x0d23]` and
+  `[0x0d25]`, then calls helper `0x5590` with those words and attribute
+  `0x040f`.
+- Helper `0x5590` is the boxed-window draw/save helper. It delegates the actual
+  surface save/fill/draw operations to overlay/helper calls around `0x9812`.
+  After that call returns, the opener sets `[0x0d1d] = 1`, prints the formatted
+  text, refreshes text/input areas, and sets `[0x0d0f] = 1`.
+- `code.text.close_window_state` at `0x1f2b` tests `[0x0d1d]`; when nonzero it
+  calls helper `0x560c([0x0d23], [0x0d25])`. Helper `0x560c` loads those packed
+  rectangle words and delegates to overlay restore helper `0x980c`.
+- After the conditional restore, `code.text.close_window_state` always clears
+  `[0x0d0f]` and `[0x0d1d]`. The existing QEMU probe validates the inactive
+  unconditional `[0x0d0f]` clear; the active saved-rectangle lifecycle is now
+  source-backed by both the producer at `0x1d96` and consumer at `0x1f2b`.
+
+## 2026-07-04: save-file selector and block-envelope source pass
+
+Commands run from `/Users/peter/ai/agi/reverse`:
+
+- `ndisasm -b 16 -o 0x2500 -e 0x2700 build/cleanroom/AGI.decrypted.exe`
+- `ndisasm -b 16 -o 0x2700 -e 0x2900 build/cleanroom/AGI.decrypted.exe`
+- `ndisasm -b 16 -o 0x85e5 -e 0x87e5 build/cleanroom/AGI.decrypted.exe | sed -n '1,220p'`
+- `ndisasm -b 16 -o 0x8814 -e 0x8a14 build/cleanroom/AGI.decrypted.exe | sed -n '1,260p'`
+- `ndisasm -b 16 -o 0x8a80 -e 0x8c80 build/cleanroom/AGI.decrypted.exe | sed -n '1,260p'`
+- `ndisasm -b 16 -o 0x8794 -e 0x8994 build/cleanroom/AGI.decrypted.exe | sed -n '1,110p'`
+- `ndisasm -b 16 -o 0x8b9f -e 0x8d9f build/cleanroom/AGI.decrypted.exe | sed -n '1,190p'`
+- `xxd -g 1 -s 0x1860 -l 0x400 SQ2/AGIDATA.OVL`
+- Local Python scan over `SQ2/SQ2SG.*` save files.
+- `python3 -B -m unittest tests.test_save_resources`
+
+Documented result:
+
+- Rechecked the save and restore handlers at `0x2753` and `0x2512`. The save
+  block table in earlier notes had the first write reversed. Source argument
+  order and the local save files show that the first length-prefixed block is
+  `0x05e1` bytes from data address `0x0002`, not two bytes from `0x05e1`.
+- The five save-file blocks written by `code.save.write_length_prefixed_block`
+  and read by `code.save.read_length_prefixed_block` are:
+  - `0x05e1` bytes from/to `0x0002`.
+  - `[0x096f]` bytes from/to `[0x096b]`.
+  - `[0x0975]` bytes from/to `[0x0971]`.
+  - `[0x0141] * 2` bytes from/to `[0x1707]`.
+  - `0x1364()` bytes from/to `0x0985`.
+- The checked-in local SQ2 saves `SQ2/SQ2SG.1` through `SQ2/SQ2SG.11` all parse
+  as a 31-byte description/header followed by five little-endian
+  length-prefixed blocks. The first four block lengths are fixed in this local
+  corpus: `1505`, `903`, `328`, and `200`. The fifth block is present and
+  variable-sized (`16..28` bytes observed).
+- Added `tools/agi_save.py`, a narrow parser for the source-backed save-file
+  envelope. Added `tests/test_save_resources.py`; the targeted test run passed
+  four tests and checks all local SQ2 save files, description extraction,
+  truncated-block rejection, and trailing-byte rejection.
+- Refined `code.save.select_slot_or_path` at `0x85e5`. It saves prompt-marker
+  visibility, erases the marker, saves/restores text state, stops active sound,
+  sets a text attribute pair, delegates path prompting, scans selectable slots,
+  formats the selected filename into `0x1c8c`, and returns zero for cancel/no
+  selection.
+- Labeled selector subhelpers:
+  - `code.save.check_drive_or_path_available` at `0x86a3`.
+  - `code.save.prompt_path_if_needed` at `0x8705`.
+  - `code.save.edit_modal_text_field` at `0x8794`.
+  - `code.save.select_numbered_slot` at `0x8814`.
+  - `code.save.read_slot_summary` at `0x8b9f`.
+- `code.save.prompt_path_if_needed` displays the save or restore path prompt
+  when `[0x0e72]` is empty, edits path buffer `0x1962`, and validates it
+  through the generic path validator at `0x5bdd`.
+- `code.save.select_numbered_slot` scans up to 12 numbered save files, displays
+  descriptions, marks the current row with glyph `0x1a`, clears the old row
+  with a space, accepts Enter, cancels Escape, and handles movement events `1`
+  and `5` as up/down with wrap.
+- In save mode, accepting an empty-description slot calls
+  `code.save.edit_modal_text_field` with prompt text at `0x1baa` and fills the
+  31-byte header/description buffer at `0x1c6c` before the save handler creates
+  the file.
+
+## 2026-07-04: heap allocation and mark/rewind source pass
+
+Commands run from `/Users/peter/ai/agi/reverse`:
+
+- `ndisasm -b 16 -o 0x1300 -e 0x1500 build/cleanroom/AGI.decrypted.exe | sed -n '1,260p'`
+- `ndisasm -b 16 -o 0x1480 -e 0x1680 build/cleanroom/AGI.decrypted.exe | sed -n '1,260p'`
+- `ndisasm -b 16 -o 0x0f80 -e 0x1180 build/cleanroom/AGI.decrypted.exe | sed -n '1,260p'`
+- Source/local searches over heap globals `0x0a55`, `0x0a57`, `0x0a59`,
+  `0x0a5b`, `0x0a5d`, and `0x0a5f` in the disassembly notes, docs, tools, and
+  tests.
+
+Documented result:
+
+- The interpreter heap is source-backed as a bump allocator with mark/rewind
+  cleanup. No general free-list behavior has been observed in the allocator
+  helpers.
+- `code.heap.allocate` at `0x13d6` computes available bytes as
+  `[0x0a5b] - [0x0a55]`. If the requested size is larger, it formats the
+  out-of-memory message at `0x09fd`, displays it through the text helper, and
+  calls restart/exit helper `0x02ae`. No recoverable allocation-failure return
+  was observed.
+- On successful allocation, `0x13d6` returns the old current heap pointer,
+  advances `[0x0a55]` by the requested size, calls `code.heap.update_free_memory_var`
+  at `0x14a0`, and updates high-water pointer `[0x0a5f]` when the new current
+  top exceeds the prior high-water value.
+- `code.heap.current_top` at `0x1430` returns `[0x0a55]`. `code.heap.rewind_to`
+  at `0x143c` stores a caller-provided pointer in `[0x0a55]` without refreshing
+  the free-memory byte.
+- `code.heap.save_temporary_mark` at `0x144b` stores `[0x0a55]` in `[0x0a5d]`.
+  `code.heap.restore_temporary_mark` at `0x145a` rewinds to `[0x0a5d]` only
+  when that mark is nonzero, then clears the mark.
+- Startup calls `code.heap.save_room_reset_mark` at `0x1476` after initial
+  object/inventory setup and logic 0 load. `code.heap.reset_dynamic_state` at
+  `0x1485`, used by room switch, restart, and restore paths, frees update-list
+  nodes, clears the temporary mark, restores `[0x0a55]` from `[0x0a59]`, and
+  refreshes the free-memory byte through `0x14a0`.
+- `code.heap.update_free_memory_var` computes `[0x0a5b] - [0x0a55]`, stores the
+  high byte in byte variable `[0x0011]`, and returns the full free-byte count.
+- `code.heap.show_status_action` at `0x14bd` formats heap diagnostics from the
+  same globals: heap size `[0x0a5b] - [0x0a57]`, current use
+  `[0x0a55] - [0x0a57]`, maximum use `[0x0a5f] - [0x0a57]`, room/reset mark
+  `[0x0a59] - [0x0a57]`, and resource-event high-water `[0x170f]`.
+
+## 2026-07-04: restart, restore-failure, and shutdown cleanup source pass
+
+Commands run from `/Users/peter/ai/agi/reverse`:
+
+- `ndisasm -b 16 -o 0x02ae -e 0x04ae build/cleanroom/AGI.decrypted.exe | sed -n '1,120p'`
+- `ndisasm -b 16 -o 0x0240 -e 0x0440 build/cleanroom/AGI.decrypted.exe | sed -n '1,120p'`
+- `ndisasm -b 16 -o 0x2460 -e 0x2660 build/cleanroom/AGI.decrypted.exe | sed -n '1,220p'`
+- `ndisasm -b 16 -o 0x2500 -e 0x2700 build/cleanroom/AGI.decrypted.exe | sed -n '1,240p'`
+- `ndisasm -b 16 -o 0x2700 -e 0x2900 build/cleanroom/AGI.decrypted.exe | sed -n '80,260p'`
+- `ndisasm -b 16 -o 0x8240 -e 0x8440 build/cleanroom/AGI.decrypted.exe | sed -n '1,180p'`
+- `ndisasm -b 16 -o 0x8380 -e 0x8580 build/cleanroom/AGI.decrypted.exe | sed -n '1,220p'`
+- `ndisasm -b 16 -o 0x5a20 -e 0x5c20 build/cleanroom/AGI.decrypted.exe | sed -n '1,160p'`
+- `ndisasm -b 16 -o 0x0f80 -e 0x1180 build/cleanroom/AGI.decrypted.exe | sed -n '1,180p'`
+- Source/document searches for `0x80`, `0x86`, `0x02ae`, `0x8275`,
+  restore-success/failure paths, interrupt-vector cleanup, and log-file handle
+  cleanup.
+
+Addressing note:
+
+- A first exploratory `ndisasm` command used `-e` too broadly. `ndisasm -e`
+  is a file skip, not an end address. The documented slices above use the
+  project's existing convention: display image offset with `-o IMAGE`, and skip
+  to the corresponding EXE file offset with `-e IMAGE+0x200`.
+
+Documented result:
+
+- `code.restart.confirm_restart_action` at image `0x2472` is an in-engine
+  restart, not DOS process termination. It stops sound, clears the prompt/input
+  line, tests flag 16 to optionally skip the confirmation prompt, and only
+  enters the reset block when the confirmation result is nonzero.
+- On accepted restart, `0x2472` erases visible input, saves the current flag 9
+  state, calls `code.heap.reset_dynamic_state` (`0x1485`), calls
+  `code.restart.initialize_game_tables` (`0x0fa5`), refreshes display/list
+  state through `0x30d6`, sets flag 6, restores flag 9 if it was previously
+  set, clears timer/event words `[0x0129]` and `[0x012b]`, reloads trace logic
+  `[0x1d12]` if configured, calls menu/list refresh helper `0x930e`, redraws
+  the prompt marker, and returns zero to the dispatcher.
+- On canceled restart, the reset block is skipped and `0x2472` returns the
+  following bytecode pointer after redrawing the prompt marker.
+- `code.system.confirm_exit_action` at image `0x027f` is the smaller
+  confirmation-gated exit path. It stops sound, exits immediately when operand
+  byte `arg0 == 1`, or displays message `0x05e3` and exits only if the display
+  helper returns one.
+- `code.system.exit_with_cleanup` at image `0x02ae` calls
+  `code.system.shutdown_cleanup` (`0x8275`) and then calls
+  `code.system.dos_terminate(0)` at `0x00ae`. The DOS terminate wrapper uses
+  `int 21h` with `AH=0x4c`.
+- `code.system.shutdown_cleanup` closes the log file if open through
+  `code.log.close_if_open` (`0x838c`), restores saved interrupt vectors/timer
+  state through `0x849f`, then calls the BIOS video-mode wrapper `0x5a5e` with
+  mode byte `[0x1807]`.
+- `code.system.install_interrupt_hooks` at `0x83ac` saves original vectors and
+  installs interpreter keyboard/timer/critical-error style hooks. The restore
+  helper at `0x849f` restores saved vectors for interrupts `0x1f`, `0x05`,
+  `0x08`, `0x1c`, `0x09`, `0x23`, `0x24`, and conditionally `0x10`, and resets
+  the PIT timer divisor before returning.
+- Restore action `0x7e` uses the fatal exit helper for read failure: after any
+  length-prefixed state block read fails, it closes the save file, displays
+  message `0x0d87`, and calls `code.system.exit_with_cleanup`. This is not
+  modeled as a recoverable restore error.
+- Restore success has a different continuation: after all five blocks are read,
+  it restores display adapter/mode bytes, sets hardware flag 11 for nonzero
+  adapter kinds, calls `code.restore.replay_resource_events`, refreshes display
+  and list state, clears the saved caller return pointer on the stack, and
+  returns zero so execution resumes through the restored state.
+
+## 2026-07-04: save envelope round-trip and DOS wrapper correction
+
+Commands run from `/Users/peter/ai/agi/reverse`:
+
+- `sed -n '1,220p' tools/agi_save.py`
+- `sed -n '1,240p' tests/test_save_resources.py`
+- `sed -n '680,760p' docs/src/compatibility_testing.md`
+- `sed -n '70,190p' docs/src/agi_executable.md`
+- `sed -n '290,370p' PROGRESS.md`
+- `rg -n "code\\.dos\\.|0x5cef|0x5d12|0x5d35|0x5d6b|0x5db2|0x5e01|0x5e3e|0x5e73" docs/src PROGRESS.md tools tests`
+- `ndisasm -b 16 -o 0x5c80 -e 0x5e80 build/cleanroom/AGI.decrypted.exe`
+- `ndisasm -b 16 -o 0x5ca8 -e 0x5ea8 build/cleanroom/AGI.decrypted.exe | sed -n '1,160p'`
+- `python3 -B -m unittest tests.test_save_resources`
+
+Documented result:
+
+- `tools/agi_save.py` now serializes the parsed save-file envelope back to
+  bytes. The serializer requires the same source-backed structure used by the
+  parser: a 31-byte header, exactly five blocks, matching block order, and each
+  block's stored length matching the number of data bytes. This preserves the
+  interpreter's envelope instead of inventing a higher-level save format.
+- `tests/test_save_resources.py` now checks that all 11 checked-in
+  `SQ2/SQ2SG.*` files parse and serialize back to identical bytes. The focused
+  save test module ran 6 tests successfully.
+- The DOS wrapper symbol rows in `docs/src/symbolic_labels.md` were corrected
+  against disassembly. The previous table had several post-open wrappers mapped
+  to later helper addresses; the corrected source-backed map is:
+
+| Label | Image offset | DOS function / behavior |
+| --- | ---: | --- |
+| `code.dos.create_file` | `0x5cad` | `AH=0x3c`; returns `0xffff` on carry/error. |
+| `code.dos.open_file` | `0x5cce` | `AH=0x3d`; returns `0xffff` on carry/error. |
+| `code.dos.read_file` | `0x5cef` | `AH=0x3f`; returns zero on carry/error, so callers check the returned byte count. |
+| `code.dos.write_file` | `0x5d12` | `AH=0x40`; returns zero on carry/error, so callers check the returned byte count. |
+| `code.dos.delete_file` | `0x5d35` | `AH=0x41`; returns zero on carry/error. |
+| `code.dos.close_file` | `0x5d52` | `AH=0x3e`; callers observed so far ignore a close error. |
+| `code.dos.seek_file` | `0x5d6b` | `AH=0x42`; returns `0xffff:0xffff` in `DX:AX` on carry/error. |
+| `code.dos.duplicate_handle` | `0x5d94` | `AH=0x45`; returns `0xffff` on carry/error. |
+| `code.dos.get_current_directory` | `0x5db2` | Writes a leading separator and calls `AH=0x47` for the default drive. |
+| `code.dos.get_current_drive_letter` | `0x5dea` | `AH=0x19`; returns lowercase `a` plus the zero-based current-drive number. |
+| `code.dos.find_first` | `0x5e01` | Sets DTA with `AH=0x1a`, then calls `AH=0x4e`; returns `0xffff` on carry/error. |
+| `code.dos.find_next` | `0x5e26` | `AH=0x4f`; returns `0xffff` on carry/error. |
+| `code.dos.probe_drive_selectable` | `0x5e3e` | Tries selecting a lowercase drive letter, checks whether DOS reports it as current, then restores the original drive. |
+| `code.dos.get_file_time` | `0x5e73` | `AH=0x57`, `AL=0`; selector code uses the returned `CX` time word. |
+| `code.dos.prepare_call` | `0x5e8d` | Temporarily switches `DS` to segment `0x0a01` and clears word `[0x184d]`. |
+
+- This pass strengthens save-file fixture generation but does not yet prove a
+  dynamic original-engine save/restore round trip from a generated save file.
+
+## 2026-07-04: save/restore file-error source pass
+
+Commands run from `/Users/peter/ai/agi/reverse`:
+
+- `ndisasm -b 16 -o 0x2500 -e 0x2700 build/cleanroom/AGI.decrypted.exe | sed -n '1,220p'`
+- `ndisasm -b 16 -o 0x26a0 -e 0x28a0 build/cleanroom/AGI.decrypted.exe | sed -n '1,220p'`
+- `ndisasm -b 16 -o 0x2750 -e 0x2950 build/cleanroom/AGI.decrypted.exe | sed -n '1,260p'`
+- `rg -n "0x28c6|0x26b0|0x2753|0x2512|0x0e46|0x0d87|write_length|read_length|save_game_state|restore_game_state|About to save|Error in" docs/src tools tests PROGRESS.md`
+- `strings -a -t x SQ2/AGIDATA.OVL | rg "Can't|Error|About|save|restore|file"`
+- `xxd -g 1 -s 0xd20 -l 0x160 SQ2/AGIDATA.OVL`
+- `sed -n '270,300p' docs/src/runtime_model.md`
+- `sed -n '1350,1360p' docs/src/logic_bytecode.md`
+
+Documented result:
+
+- `code.save.write_length_prefixed_block` at image `0x28c6` writes the low
+  length byte, high length byte, and payload separately. It returns 1 only when
+  the two one-byte writes each return 1 and the payload write returns the full
+  requested length.
+- Save action `0x7d` treats create failure and write failure differently.
+  `code.dos.create_file` returning `0xffff` formats message `0x0df0` with path
+  buffer `0x1962`, displays it, restores modal/text state, and returns to the
+  following bytecode. A short header write or failed length-prefixed block
+  closes the handle, deletes filename `0x1c8c`, displays message `0x0e46`,
+  restores modal/text state, and also returns to the following bytecode.
+- `code.save.read_length_prefixed_block` at image `0x26b0` reads the low length
+  byte, high length byte, and payload separately. It returns 1 only when the
+  one-byte reads each return 1 and the payload read returns the decoded length.
+- Restore action `0x7e` also splits open and read failures. Open failure
+  formats/displays message `0x0d73`, restores modal/text state, and returns to
+  the following bytecode. Any failure after the file has opened and block reads
+  have begun closes the file, displays message `0x0d87`, and calls
+  `code.system.exit_with_cleanup`; this path terminates the DOS process.
+- Local strings confirm the visible prompts:
+  - `0x0d73`: can't-open-file message;
+  - `0x0d87`: restoring error followed by an enter-to-quit prompt;
+  - `0x0df0`: directory full or disk write-protected;
+  - `0x0e46`: disk full.
+
+## 2026-07-04: view-batch right/bottom placement validation
+
+Commands run from `/Users/peter/ai/agi/reverse`:
+
+- `rg -n "Picture|picture|view|renderer|Remaining|Highest-Value|fuzz|line|pattern|fill|priority|cel|mirror|clip" PROGRESS.md docs/src/graphics_object_pipeline.md docs/src/picture_resources.md docs/src/view_resources.md docs/src/compatibility_testing.md tests tools | head -n 240`
+- `ls docs/src`
+- `sed -n '1,260p' tests/test_picture_fuzz.py`
+- `sed -n '1,260p' tests/test_view_batch.py`
+- `sed -n '1,260p' tools/view_batch.py`
+- `sed -n '260,620p' tools/view_batch.py`
+- `rg -n "right_clip|bottom_clip|left_clip|top_clip|clip" tools/view_batch.py tools/object_overlay_probe.py tests/test_view_batch.py tests/test_object_overlay_probe.py docs/src/compatibility_testing.md docs/src/graphics_object_pipeline.md`
+- `sed -n '640,710p' tools/agi_graphics.py`
+- `python3 -B -m unittest tests.test_view_batch`
+- Local Python probes using `tools/agi_graphics.render_view_frame` and
+  `tools/agi_graphics.search_object_placement` to compute view 11 frame size
+  and placement-search results.
+- `python3 -B tools/view_batch.py --snapshot --dos-prefix VC --output build/view-batch/batches/clip_right_bottom_001.json --boot-wait 5 --draw-wait 8 --stop-on-failure --case view_011_right_clip --case view_011_bottom_clip`
+- `sed -n '1,220p' build/view-batch/batches/clip_right_bottom_001.json`
+- `python3 -B tools/inspect_ppm.py build/view-batch/fixtures/view_011_right_clip/qemu_capture.ppm`
+- `sed -n '180,235p' tools/object_overlay_probe.py`
+- `sed -n '340,380p' tools/object_overlay_probe.py`
+- `python3 -B tools/view_batch.py --snapshot --dos-prefix VC --output build/view-batch/batches/clip_right_bottom_002.json --boot-wait 5 --draw-wait 8 --stop-on-failure --case view_011_right_clip --case view_011_bottom_clip`
+
+Documented result:
+
+- The simple view-batch registry now includes right and bottom edge-placement
+  cases for view 11/group 0/frame 0, in addition to the previous normal,
+  cached, mirrored, left-edge, top-edge, and low-priority cases.
+- `tools/view_batch.py` now supports repeated `--case CASE_ID` filters, matching
+  the focused-run pattern used by the other QEMU probe harnesses.
+- The first focused QEMU run, `clip_right_bottom_001`, mismatched the
+  right-edge case. The mismatch was not an original-engine failure; it showed
+  that direct view composition expected a simple right clamp while the original
+  engine routed the transient object through `code.object.place` (`0x593a`) and
+  its source-backed spiral placement search.
+- `tools/view_batch.py` now computes the expected comparison placement with
+  `search_object_placement` by default, with optional expected-position and
+  expected-priority overrides available for future cases.
+- Local placement probes for view 11/group 0/frame 0 showed:
+  - request `(150, 80)` resolves to placement `(140, 71)`;
+  - request `(20, 170)` resolves to placement `(23, 167)`.
+- The corrected focused QEMU run, `clip_right_bottom_002`, matched both cases
+  with 2 matches, 0 mismatches, and 0 errors.
+
+## 2026-07-04: real-picture batch harness and base QEMU parity
+
+Commands run from `/Users/peter/ai/agi/reverse`:
+
+- `rg -n "compare_picture_capture.py|qemu_fixture.py picture|picture [0-9]|real-resource|real resource|picture_N|PICDIR|all 74|74 valid|render_picture" docs/src tools tests`
+- `sed -n '620,730p' tools/qemu_fixture.py`
+- `sed -n '1,180p' tools/qemu_fixture.py`
+- Local Python scan of `SQ2/PICDIR` to find present picture resources, picture
+  streams that use pattern commands, and the largest valid picture payload.
+- `sed -n '1,140p' tests/test_graphics_rendering.py`
+- `sed -n '40,110p' docs/src/compatibility_testing.md`
+- Added `tools/picture_batch.py` and `tests/test_picture_batch.py`.
+- `python3 -B -m unittest tests.test_picture_batch tests.test_view_batch`
+- `python3 -B tools/picture_batch.py --snapshot --dos-prefix PB --output build/picture-batch/batches/picture_base_001.json --boot-wait 5 --draw-wait 8 --stop-on-failure`
+- Escalated rerun of the same `tools/picture_batch.py` command after the
+  first unprivileged QEMU attempt could not bind `vnc=127.0.0.1:5` from the
+  sandbox.
+
+Documented result:
+
+- `tools/picture_batch.py` provides a reusable QEMU validation batch for real
+  local SQ2 picture resources. It builds picture fixtures with
+  `build_picture_fixture`, can run them serially or from one QEMU snapshot, and
+  writes a JSON report with match/mismatch/error counts.
+- The base case registry intentionally starts small: picture 1 is the first
+  present local picture resource and includes pattern plotting, while picture
+  45 is the largest valid local picture payload observed in this corpus.
+- The first unprivileged batch attempt failed before the interpreter ran because
+  QEMU could not bind its VNC socket from the sandbox. That is an execution
+  environment failure, not compatibility evidence.
+- The escalated `picture_base_001` snapshot run matched both base cases:
+  `picture_001_first_present` and `picture_045_largest_payload` each had 0
+  mismatches over 26,880 logical pixels, for 2 matches, 0 mismatches, and 0
+  errors overall.
+
+## 2026-07-04: pattern channel-mask source pass and QEMU visible parity
+
+Commands run from `/Users/peter/ai/agi/reverse`:
+
+- `sed -n '230,285p' docs/src/graphics_object_pipeline.md`
+- `sed -n '380,430p' tools/agi_graphics.py`
+- `ndisasm -b 16 -o 0x64e0 -e 0x64e0 build/cleanroom/AGI.decrypted.exe | sed -n '1,150p'`
+- `ndisasm -b 16 -o 0x5200 -e 0x5200 build/cleanroom/AGI.decrypted.exe | sed -n '1,120p'`
+- `ndisasm -b 16 -o 0x6470 -e 0x6470 build/cleanroom/AGI.decrypted.exe | sed -n '1,220p'`
+- `ndisasm -b 16 -o 0x66a0 -e 0x66a0 build/cleanroom/AGI.decrypted.exe | sed -n '1,180p'`
+- `ndisasm -b 16 -o 0x54e0 -e 0x54e0 build/cleanroom/AGI.decrypted.exe | sed -n '1,110p'`
+- `ndisasm -b 16 -o 0x6670 -e 0x6670 build/cleanroom/AGI.decrypted.exe | sed -n '1,150p'`
+- `ndisasm -b 16 -o 0x66f0 -e 0x66f0 build/cleanroom/AGI.decrypted.exe | sed -n '1,150p'`
+- `ndisasm -b 16 -o 0x68b0 -e 0x68b0 build/cleanroom/AGI.decrypted.exe | sed -n '1,120p'`
+- `ndisasm -b 16 -o 0x5860 -e 0x5860 build/cleanroom/AGI.decrypted.exe | sed -n '1,90p'`
+- `sed -n '90,150p' tools/picture_fuzz.py`
+- `sed -n '270,330p' tests/test_graphics_rendering.py`
+- `python3 -B -m unittest tests.test_graphics_rendering tests.test_picture_fuzz`
+- `python3 -B tools/picture_fuzz.py generate --count 8 --seed 4097 --output build/picture-fuzz/pattern-channel-cases --clean`
+- `python3 -B tools/picture_fuzz.py batch-qemu --snapshot --corpus build/picture-fuzz/pattern-channel-cases --fixture-root build/picture-fuzz/pattern-channel-fixtures --case base_027_pattern_visual_control_channels --case base_028_pattern_visual_disabled_control_only --case base_029_pattern_control_disabled_visual_only --dos-prefix PC --output build/picture-fuzz/batches/pattern_channel_masks_001.json --boot-wait 5 --draw-wait 8 --stop-on-failure`
+- `python3 -B tools/picture_fuzz.py generate --count 1024 --seed 4097 --output build/picture-fuzz/corpus --clean`
+
+Documented result:
+
+- The first pattern-source disassembly window intentionally proved a label
+  convention detail: existing picture symbols are loaded-image offsets, while
+  `ndisasm -e` consumes file offsets. In this file-offset pass, the relevant
+  windows are shifted by `0x200`; prose continues using the established
+  symbolic loaded-image labels.
+- Source inspection confirms that pattern helper `code.picture.cmd_pattern_plot`
+  and its draw helper do not implement separate channel rules. For every
+  accepted candidate pixel, the helper writes the current X/Y pair into
+  `[0x150b]` and calls the common pixel writer. The pixel writer selects
+  `[0x136d]` for odd Y rows or `[0x136e]` for even Y rows, ORs active draw bits
+  from `[0x1369]`, ANDs with the selected mask, and stores the resulting byte.
+- In the full 16-color EGA target path, `code.display.map_visual_color_for_adapter`
+  returns with `AH == AL`, so visual odd/even masks are identical. The parity
+  branch remains part of the implementation model, but visual parity divergence
+  is a non-EGA concern unless it is needed to explain observed SQ2 behavior.
+- Added curated safe fuzz cases:
+  - `base_027_pattern_visual_control_channels`: both channels active; local
+    tests assert visual and nondefault control nibbles change together.
+  - `base_028_pattern_visual_disabled_control_only`: visual disabled, control
+    active; local tests assert only the control nibble changes.
+  - `base_029_pattern_control_disabled_visual_only`: control disabled, visual
+    active; local tests assert the default control nibble is preserved.
+- A test correction during this pass clarified that the default control nibble
+  is already `4`, so the both-active case uses control class `5` to make the
+  control-channel change observable in local cell tests.
+- The QEMU snapshot batch `pattern_channel_masks_001` matched the visible EGA
+  surface for all three cases: 3 matches, 0 mismatches, and 0 errors. Screenshots
+  do not expose the control buffer directly, so the control-channel assertions
+  remain source-backed plus local renderer evidence rather than screenshot
+  evidence.
+- Regenerating the standard deterministic corpus after adding the three cases
+  reports 1,054 total cases and 1,052 safe-for-QEMU cases.
+
+## 2026-07-04: broad real-picture preset parity
+
+Commands run from `/Users/peter/ai/agi/reverse`:
+
+- Local Python scan of all valid `PICDIR` payloads, counting local command bytes
+  `0xf0..0xfa` by picture and listing largest payloads, pattern-heavy pictures,
+  fill-heavy pictures, and broad command-family mixes.
+- Added `broad_cases`, `all_present_cases`, and preset selection to
+  `tools/picture_batch.py`.
+- Added preset and discovery tests to `tests/test_picture_batch.py`.
+- `python3 -B -m unittest tests.test_picture_batch`
+- `python3 -B tools/picture_batch.py --preset broad --snapshot --dos-prefix PB --output build/picture-batch/batches/picture_broad_001.json --boot-wait 5 --draw-wait 8 --stop-on-failure`
+- `sed -n '1,220p' build/picture-batch/batches/picture_broad_001.json`
+
+Documented result:
+
+- The local corpus scan found 74 present valid picture resources. The broad
+  preset is intentionally representative rather than exhaustive:
+  - picture 1: first present local picture resource;
+  - picture 6: early resource with many fills and pattern plots;
+  - picture 17: all observed picture command families, including multiple
+    pattern-mode changes;
+  - picture 43: dense large picture with many fills, lines, and pattern plots;
+  - picture 44: large fill-heavy picture with many control toggles;
+  - picture 45: largest valid picture payload in the local corpus;
+  - picture 46: pattern-heavy large picture with broad command-family mix;
+  - picture 76: high pattern-count resource outside the largest-payload cluster.
+- `tools/picture_batch.py --preset all` can now discover all 74 present valid
+  local picture resources for a future full-corpus QEMU run. The default preset
+  remains the two-case base set so quick checks stay cheap.
+- The QEMU snapshot batch `picture_broad_001` matched all eight broad cases:
+  8 matches, 0 mismatches, and 0 errors, with each comparison covering 26,880
+  logical pixels.
+
+## 2026-07-04: packed picture fixtures and full SQ2 picture parity
+
+Commands run from `/Users/peter/ai/agi/reverse`:
+
+- `sed -n '1,260p' tools/qemu_snapshot.py`
+- Local Python check of `picture_batch.all_present_cases()`, confirming 74
+  valid present picture cases from the local `PICDIR`.
+- `du -sh SQ2 build/picture-batch/fixtures`
+- `ls -lh build/dos622/dos622.img build/picture-batch/snapshot/picture_batch.raw build/picture-batch/snapshot/picture_batch.qcow2 2>/dev/null`
+- `find build/picture-batch/fixtures/picture_001_first_present -maxdepth 1 -type f -print0 | xargs -0 ls -lh`
+- `du -sh build/picture-batch/fixtures/picture_001_first_present build/picture-batch/fixtures/picture_046_pattern_heavy`
+- `mdir -i build/picture-batch/snapshot/picture_batch.raw@@32256 :: | tail -n 20`
+- Added `copy_minimal_picture_tree` and `build_packed_picture_fixture` to
+  `tools/qemu_fixture.py`.
+- Updated `tools/picture_batch.py` to use packed picture fixtures.
+- Added packed-fixture structural coverage to `tests/test_qemu_fixture.py`.
+- `python3 -B -m unittest tests.test_qemu_fixture tests.test_picture_batch`
+- Local Python packed-fixture size probe for pictures 1 and 45.
+- `python3 -B tools/picture_batch.py --preset base --snapshot --fixture-root build/picture-batch/packed-fixtures --dos-prefix PP --output build/picture-batch/batches/picture_base_packed_001.json --boot-wait 5 --draw-wait 8 --stop-on-failure`
+- `python3 -B tools/picture_batch.py --preset all --snapshot --fixture-root build/picture-batch/all-fixtures --dos-prefix PA --output build/picture-batch/batches/picture_all_001.json --boot-wait 5 --draw-wait 8 --stop-on-failure`
+
+Documented result:
+
+- A direct all-picture batch using full copied SQ2 fixture directories would put
+  too much pressure on the 64 MB DOS snapshot image. One full picture fixture
+  directory was about 1.7 MB because it included the original volumes and saved
+  games, so 74 copies would exceed the image before filesystem overhead.
+- Packed picture fixtures solve that for picture-only parity checks. They copy
+  the minimal engine/support files, write generated `LOGIC.0` into `VOL.3`,
+  append the tested local picture payload as the next `VOL.3` record, patch
+  `LOGDIR[0]` to the generated logic, and patch the selected `PICDIR` entry to
+  the appended picture record. A packed picture fixture for pictures 1 or 45 is
+  roughly 72 KB of input files.
+- The packed fixture preserves the tested original picture payload while
+  avoiding duplicate copies of unrelated resource volumes. The original one-off
+  `qemu_fixture.py picture` command still uses the historical full-tree fixture
+  path; `picture_batch.py` now uses packed fixtures for batch throughput.
+- Packed base QEMU batch `picture_base_packed_001` matched pictures 1 and 45
+  with 2 matches, 0 mismatches, and 0 errors, validating that the original
+  engine accepts the trimmed picture fixture layout.
+- Full present-picture QEMU batch `picture_all_001` matched all 74 valid local
+  SQ2 picture resources with 74 matches, 0 mismatches, and 0 errors.
+- User feedback during this long run identified an important future throughput
+  direction: for resource sweeps, generate a single in-engine carousel fixture
+  that displays the next resource after input or a timed event, then drive it
+  from QEMU with `screendump` plus key sends. The isolated one-process-per-case
+  snapshot harness remains the simplest reference oracle, but carousel-style
+  sweeps should become part of the infrastructure before comparing many games
+  and interpreter versions.
+- If future fixture sets genuinely need more DOS disk space, the right answer
+  is a larger formatted/bootable DOS test image or a purpose-built large fixture
+  image. Appending bytes to `build/dos622/dos622.img` would not by itself help,
+  because the FAT partition geometry inside the image would still describe the
+  old volume.
+
+## 2026-07-04: picture carousel prototype
+
+Commands run from `/Users/peter/ai/agi/reverse`:
+
+- Added carousel bytecode helpers and `build_picture_carousel_fixture` to
+  `tools/qemu_fixture.py`.
+- Added `tools/picture_carousel.py`.
+- Added `tests/test_picture_carousel.py` and carousel structural coverage in
+  `tests/test_qemu_fixture.py`.
+- `python3 -B -m unittest tests.test_qemu_fixture tests.test_picture_carousel`
+- `python3 -B tools/picture_carousel.py --preset base --fixture-root build/picture-carousel/base-fixtures --dos-dir PICSWEEP --output build/picture-carousel/batches/picture_carousel_base_001.json --boot-wait 5 --first-wait 8 --advance-wait 2`
+- `python3 -B tools/picture_carousel.py --preset base --fixture-root build/picture-carousel/base-fixtures --dos-dir PICSWEEP --output build/picture-carousel/batches/picture_carousel_base_002.json --boot-wait 5 --first-wait 8 --advance-wait 2`
+- `python3 -B tools/picture_carousel.py --preset base --fixture-root build/picture-carousel/base-fixtures --dos-dir PICSWEEP --output build/picture-carousel/batches/picture_carousel_base_003.json --boot-wait 5 --first-wait 8 --advance-wait 2`
+- `python3 -B tools/picture_carousel.py --preset broad --fixture-root build/picture-carousel/broad-fixtures --dos-dir PICSWEEP --output build/picture-carousel/batches/picture_carousel_broad_001.json --boot-wait 5 --first-wait 8 --advance-wait 2`
+- `python3 -B tools/picture_carousel.py --preset broad --fixture-root build/picture-carousel/broad-fixtures --dos-dir PICSWEEP --output build/picture-carousel/batches/picture_carousel_broad_002.json --boot-wait 5 --first-wait 8 --advance-wait 8`
+- Manual four-picture case file `build/picture-carousel/manual_four_cases.json`.
+- `python3 -B tools/picture_carousel.py --cases build/picture-carousel/manual_four_cases.json --fixture-root build/picture-carousel/manual-four-fixtures --dos-dir PICSWEEP --output build/picture-carousel/batches/picture_carousel_manual_four_001.json --boot-wait 5 --first-wait 8 --advance-wait 4`
+- `python3 -B tools/picture_carousel.py --cases build/picture-carousel/manual_four_cases.json --fixture-root build/picture-carousel/manual-four-fixtures --dos-dir PICSWEEP --output build/picture-carousel/batches/picture_carousel_manual_four_002.json --boot-wait 5 --first-wait 8 --advance-wait 4`
+- `python3 -B tools/picture_carousel.py --cases build/picture-carousel/manual_four_cases.json --fixture-root build/picture-carousel/manual-four-fixtures --dos-dir PICSWEEP --output build/picture-carousel/batches/picture_carousel_manual_four_keys_001.json --boot-wait 5 --first-wait 8 --advance-wait 4 --advance-key x,y,z`
+- `python3 -B tools/picture_carousel.py --cases build/picture-carousel/manual_four_cases.json --fixture-root build/picture-carousel/manual-four-fixtures --dos-dir PICSWEEP --output build/picture-carousel/batches/picture_carousel_manual_four_mapped_001.json --boot-wait 5 --first-wait 8 --advance-wait 4`
+- `python3 -B tools/picture_carousel.py --cases build/picture-carousel/manual_four_cases.json --fixture-root build/picture-carousel/manual-four-fixtures --dos-dir PICSWEEP --output build/picture-carousel/batches/picture_carousel_manual_four_fkeys_001.json --boot-wait 5 --first-wait 8 --advance-wait 4`
+- `python3 -B tools/picture_carousel.py --preset base --fixture-root build/picture-carousel/base-fixtures --dos-dir PICSWEEP --output build/picture-carousel/batches/picture_carousel_base_mapped_fkey_001.json --boot-wait 5 --first-wait 8 --advance-wait 4`
+
+Documented result:
+
+- `tools/picture_carousel.py` builds one packed fixture containing multiple
+  picture payloads, launches one engine process, captures the first picture,
+  sends an advance key, waits, captures the next picture, and compares each
+  capture to the local renderer.
+- The first raw-key implementation matched the first capture but failed the
+  second because it cleared the wrong byte variable. The raw-key predicate
+  caches at absolute `[0x001c]`; because script variables start at `[0x0009]`,
+  the matching script variable index is `0x13`, not `0x1c`. Clearing the wrong
+  slot let a single key event advance twice and wrap back to picture 1.
+- Correcting that raw-key cache clear made the two-picture base carousel
+  `picture_carousel_base_003` pass with 2 matches and 0 mismatches.
+- Longer raw-key carousels still stalled after the third displayed picture.
+  Changing the persistent carousel index from high variable `v249` to `v32` did
+  not change that behavior.
+- The mapped-key/status-byte variant uses action `0x79` to map advance keys to
+  unique status bytes and tests `(index == n) && status[n]`. Printable keys and
+  function-key mappings both still failed broader four/eight-picture sweeps:
+  later captures either remained on the previous picture or showed the expected
+  picture with a visible input/message-window artifact in logical rectangle
+  approximately `x=35..124`, `y=67..92`.
+- The current mapped function-key base smoke
+  `picture_carousel_base_mapped_fkey_001` passed with 2 matches and 0
+  mismatches from one engine process. This proves the general packed-carousel
+  fixture can work, but the advance/ack strategy is not robust enough yet for
+  broad compatibility evidence.
+- Keep `tools/picture_carousel.py` as infrastructure prototype and unit-tested
+  scaffolding. Before using it for cross-game sweeps, it needs a deterministic
+  way to advance multiple resources without parser/UI side effects and with a
+  reliable acknowledgement that the next picture has completed drawing.
+
+## 2026-07-04: timed polling picture carousel and speed variable
+
+Commands run from `/Users/peter/ai/agi/reverse`:
+
+- `ndisasm -b 16 -o 0x0150 -e 0x0350 build/cleanroom/AGI.decrypted.exe | sed -n '1,220p'`
+- `ndisasm -b 16 -o 0x7f60 -e 0x8160 build/cleanroom/AGI.decrypted.exe | sed -n '1,120p'`
+- Local message scan over readable SQ2 logic resources for `speed`, `fast`, and
+  `slow`.
+- Added timed-carousel helpers to `tools/qemu_fixture.py`.
+- Added timed and polling modes to `tools/picture_carousel.py`.
+- `python3 -B -m unittest tests.test_qemu_fixture tests.test_picture_carousel`
+- `python3 -B tools/picture_carousel.py --preset base --mode timed --delay-cycles 120 --speed-value 1 --fixture-root build/picture-carousel/timed-base-fixtures --dos-dir PICTIME --output build/picture-carousel/batches/picture_carousel_base_timed_001.json --boot-wait 5 --first-wait 5 --advance-wait 7`
+- `python3 -B tools/picture_carousel.py --preset broad --mode timed --delay-cycles 120 --speed-value 1 --fixture-root build/picture-carousel/timed-broad-fixtures --dos-dir PICTIME --output build/picture-carousel/batches/picture_carousel_broad_timed_001.json --boot-wait 5 --first-wait 5 --advance-wait 7 --snapshot-raw build/picture-carousel/snapshot/picture_carousel_broad.raw --snapshot-qcow build/picture-carousel/snapshot/picture_carousel_broad.qcow2`
+- `python3 -B tools/picture_carousel.py --preset broad --case picture_017_full_command_mix --case picture_043_dense_large_fill_pattern --mode timed --delay-cycles 120 --speed-value 1 --fixture-root build/picture-carousel/timed-17-43-fixtures --dos-dir PT1743 --output build/picture-carousel/batches/picture_carousel_17_43_timed_001.json --boot-wait 5 --first-wait 5 --advance-wait 7 --snapshot-raw build/picture-carousel/snapshot/picture_carousel_17_43.raw --snapshot-qcow build/picture-carousel/snapshot/picture_carousel_17_43.qcow2`
+- `python3 -B tools/picture_carousel.py --preset broad --mode timed --delay-cycles 240 --speed-value 1 --fixture-root build/picture-carousel/timed-broad-fixtures-v4 --dos-dir PICTIME --output build/picture-carousel/batches/picture_carousel_broad_timed_004.json --boot-wait 5 --first-wait 5 --advance-wait 7 --snapshot-raw build/picture-carousel/snapshot/picture_carousel_broad_v4.raw --snapshot-qcow build/picture-carousel/snapshot/picture_carousel_broad_v4.qcow2`
+- `python3 -B tools/picture_carousel.py --preset broad --mode timed --poll --delay-cycles 240 --speed-value 1 --fixture-root build/picture-carousel/timed-broad-poll-fixtures --dos-dir PICPOLL --output build/picture-carousel/batches/picture_carousel_broad_timed_poll_001.json --boot-wait 5 --first-wait 3 --poll-interval 1 --poll-timeout 25 --snapshot-raw build/picture-carousel/snapshot/picture_carousel_broad_poll.raw --snapshot-qcow build/picture-carousel/snapshot/picture_carousel_broad_poll.qcow2`
+- `python3 -B tools/picture_carousel.py --preset broad --mode timed --poll --delay-cycles 120 --speed-value 1 --fixture-root build/picture-carousel/timed-broad-poll-fast-fixtures --dos-dir PICPOLL --output build/picture-carousel/batches/picture_carousel_broad_timed_poll_fast_001.json --boot-wait 5 --first-wait 3 --poll-interval 0.5 --poll-timeout 15 --snapshot-raw build/picture-carousel/snapshot/picture_carousel_broad_poll_fast.raw --snapshot-qcow build/picture-carousel/snapshot/picture_carousel_broad_poll_fast.qcow2`
+- `python3 -B tools/picture_carousel.py --preset broad --mode timed --poll --delay-cycles 60 --speed-value 1 --fixture-root build/picture-carousel/timed-broad-poll-faster-fixtures --dos-dir PICPOLL --output build/picture-carousel/batches/picture_carousel_broad_timed_poll_faster_001.json --boot-wait 5 --first-wait 3 --poll-interval 0.25 --poll-timeout 10 --snapshot-raw build/picture-carousel/snapshot/picture_carousel_broad_poll_faster.raw --snapshot-qcow build/picture-carousel/snapshot/picture_carousel_broad_poll_faster.qcow2`
+
+Documented result:
+
+- The local SQ2 logic message scan did not find obvious script-level speed-menu
+  text, so the speed investigation moved to the executable.
+- `code.engine.main_cycle` calls helper `0x7f78` near the start of each cycle.
+  That helper reads byte `DS:0x0013`, which is script variable `v10` because
+  byte variables start at `DS:0x0009`, spins until word `[0x1784]` is greater
+  than or equal to that value, then clears `[0x1784]`. Setting `v10` lower
+  makes the top-level cycle run faster; timed-carousel fixtures use `v10 = 1`
+  as a fast but capturable pace.
+- The timed carousel avoids parser/key-event side effects by advancing after a
+  generated per-cycle counter rather than a keyboard event. It also sets flag
+  7 before generated picture loads to suppress resource-event pair recording
+  during the artificial sweep.
+- Fixed-sleep timed captures were brittle. With `delay-cycles 120`, a broad run
+  captured pictures `1,17,43,44,46,76,76,76`; with `delay-cycles 240`, it
+  captured `1,6,6,17,43,43,44,45`. These were cadence misses: identity checks
+  found exact matches to other broad-preset pictures.
+- Reordering each transition to update carousel state before discarding the
+  old picture let the timed sequence advance through the whole broad list, but
+  fixed sleeps still drifted as picture load/draw time varied.
+- Polling mode solves the cadence problem for this use case. It repeatedly
+  captures a QEMU `screendump` and compares it to the expected local render
+  until that expected picture appears, then moves to the next expected picture.
+- Timed polling run `picture_carousel_broad_timed_poll_001` matched all eight
+  broad pictures with `delay-cycles 240`, `speed-value 1`, and 0 mismatches.
+- Faster timed polling run `picture_carousel_broad_timed_poll_fast_001` also
+  matched all eight broad pictures with `delay-cycles 120`, `speed-value 1`,
+  0.5-second polling, and 0 mismatches. This is the current recommended
+  one-engine broad picture sweep.
+- `delay-cycles 60` was too short for reliable polling and missed all
+  intermediate broad pictures except the final picture 76. Do not use that as
+  a default for broad resource sweeps.

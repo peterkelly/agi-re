@@ -142,6 +142,22 @@ resources have four sorted, in-bounds channel offsets, and the first offset is
 8, immediately after the four-word header. The current clean-room model covers
 the resource container and event stream shape, not full audio synthesis.
 
+Source inspection also gives an implementation-facing playback schedule. The
+timer interrupt hook calls the sound tick only while `data.sound.active_state`
+is nonzero. At the start of each tick, flag 9 is tested; if flag 9 is clear,
+the driver stops immediately and sets the configured completion flag. Driver
+start initializes every channel countdown to 1, so the first event or channel
+terminator is read on the first active tick. After a non-terminating event is
+read, its duration word becomes the next 16-bit countdown. A duration of zero
+would wrap and delay the next channel record read for 65,536 ticks; the local
+SQ2 corpus has no zero-duration sound events.
+
+The active channel set depends on the hardware selector. When selector
+`[0x112e]` is `0` or `8`, the tick loop advances only channel 0. Other observed
+selector values advance all four channels. Natural completion occurs when the
+last active channel reaches its `0xffff` terminator; the stop path clears active
+state and sets the flag stored by `start_sound_with_flag`.
+
 ## Object records
 
 Persistent objects live in a table of 43-byte records from `[0x096b]` to
@@ -242,6 +258,17 @@ Resource lifecycle:
 | Mutated/displayed | Picture decode/show, transient object draw, active object refresh, sound start/stop | Next refresh, discard, room switch, replay | User-visible or saved-state side effects occur. Picture/view/transient operations append replay pairs unless flag 7 or the recording gate suppresses recording. |
 | Replay/restored | Restore or display-mode replay | Replay finish at `code.restore.finish_replay_and_reenable_recording` | Event recording is disabled while saved pairs are consumed, then re-enabled before normal execution continues. |
 
+Heap and allocation lifecycle:
+
+| State | Entered by | Exited by | Observable contract |
+| --- | --- | --- | --- |
+| Bump heap active | Startup after heap base/limit initialization | Interpreter shutdown or fatal allocation failure | Current heap pointer `[0x0a55]` advances monotonically on ordinary allocations. Heap base `[0x0a57]`, room/reset mark `[0x0a59]`, limit `[0x0a5b]`, temporary mark `[0x0a5d]`, and high-water pointer `[0x0a5f]` define the allocator state. |
+| Allocation | Helper `0x13d6(size)` | Success or fatal error path | If `size <= [0x0a5b] - [0x0a55]`, the helper returns the old heap top, advances `[0x0a55]`, refreshes byte variable 8 at `[0x0011]`, and updates high-water `[0x0a5f]`. If not, it displays the out-of-memory message and calls restart/exit helper `0x02ae`; no recoverable allocation failure return was observed. |
+| Temporary mark | `0x144b` | `0x145a` | The current heap top is saved in `[0x0a5d]`; restore rewinds `[0x0a55]` only if that mark is nonzero, then clears it. |
+| Room/reset mark | Startup `0x1476`, after initial setup and logic 0 load | `0x1485` | The mark at `[0x0a59]` is the broad cleanup target for room switch, restart, and restore. Reset helper `0x1485` frees update-list nodes, clears the temporary mark, rewinds `[0x0a55]` to `[0x0a59]`, and refreshes `[0x0011]`. |
+| Direct rewind | Temporary `call_logic` cleanup or source helper `0x143c(ptr)` | Caller-controlled | `0x143c` stores `ptr` directly in `[0x0a55]`. It does not refresh `[0x0011]` by itself, so callers that need a current free-memory byte use `0x14a0`. |
+| Diagnostics | `0x87` | Modal message close | Heap-status text reports heap size `[0x0a5b] - [0x0a57]`, current use `[0x0a55] - [0x0a57]`, maximum use `[0x0a5f] - [0x0a57]`, room/reset mark `[0x0a59] - [0x0a57]`, and resource-event high-water `[0x170f]`. |
+
 Action `0x8e` configures the replay log capacity. It writes
 `data.event.pair_capacity`, flushes update-list state, resets/allocates the
 pair buffer through `code.event.reset_pair_buffer`, clears the active pair
@@ -251,9 +278,23 @@ Save/restore data model:
 
 | Element | Producers | Consumers | Contract |
 | --- | --- | --- | --- |
-| Save description buffer | Save/restore selector helper | `0x7d`, `0x7e`, `0xaa` | Runtime buffer `[0x0e72]` holds the selected or entered save description/path text. `0xaa` copies up to `0x1f` bytes from this buffer into a fixed 40-byte logic string slot. |
-| Save file state blocks | `0x7d` | `0x7e` | Files store a 31-byte description/header followed by length-prefixed blocks for string/config state, object records, inventory metadata, resource-event pairs, and logic/cache state. |
+| Save description buffer | Save/restore selector helper | `0x7d`, `0x7e`, `0xaa` | Runtime buffer `[0x0e72]` holds the selected or entered save description/path text. The selector also edits path buffer `0x1962`, fills header/description buffer `0x1c6c` for newly described saves, and formats the selected filename into `0x1c8c`. `0xaa` copies up to `0x1f` bytes from `[0x0e72]` into a fixed 40-byte logic string slot. |
+| Save selector lifecycle | `0x7d`, `0x7e` | DOS file I/O handlers | `code.save.select_slot_or_path` saves text/input state, erases the prompt marker, stops active sound, prompts for a path if needed, scans up to 12 numbered save files, displays descriptions, handles Enter/Escape/up/down selection, then restores text state and returns zero for cancel or a nonzero selection for file I/O. |
+| Save file state blocks | `0x7d` | `0x7e` | Files store a 31-byte description/header followed by five little-endian length-prefixed blocks. The fixed local SQ2 block lengths are `1505`, `903`, `328`, and `200` for data rooted at `0x0002`, the object table, inventory/object metadata, and resource-event pairs; the fifth block rooted at `0x0985` has the variable size returned by `0x1364`. |
 | Replay pair block | `0x8e`, resource load/display/discard actions, `0xab`/`0xac` | Restore/display-mode replay | The saved pair block length is `data.event.pair_capacity * 2`; active count controls how much of the buffer replay consumes. |
+
+Restart, save/restore, and termination lifecycle:
+
+| Transition | Trigger | State effects | Continuation |
+| --- | --- | --- | --- |
+| In-engine restart accepted | `0x80` confirmation succeeds, or flag 16 skips confirmation | Stops sound, erases input, preserves flag 9, rewinds heap/update-list state through `code.heap.reset_dynamic_state`, reruns initial object/inventory setup through `code.restart.initialize_game_tables`, refreshes display/menu state, sets flag 6, restores flag 9 if it had been set, clears timer words `[0x0129]` and `[0x012b]`, and reloads trace logic `[0x1d12]` if configured. | Returns zero to the action dispatcher, ending the current logic stream so the main loop continues from the reset state. |
+| Restart canceled | `0x80` confirmation returns zero/Escape | Sound has already been stopped and the prompt/input line redrawn; the reset block is skipped. | Returns the following bytecode pointer, so the current logic continues. |
+| Save create failure | `0x7d` receives `0xffff` from `code.dos.create_file` | Displays the directory-full or write-protected message rooted at `0x0df0`, restores modal text/window state, restores byte `[0x0d15]`, and clears modal-state word `[0x0615]`. | Returns the following bytecode pointer; the game continues. |
+| Save write failure | `0x7d` short-writes the 31-byte header or any length-prefixed block | Closes the partial file, deletes filename buffer `0x1c8c`, displays the disk-full message rooted at `0x0e46`, restores modal text/window state, restores byte `[0x0d15]`, and clears modal-state word `[0x0615]`. | Returns the following bytecode pointer; the game continues. |
+| Restore open failure | `0x7e` receives `0xffff` from `code.dos.open_file` | Displays the can't-open-file message rooted at `0x0d73`, restores modal text/window state, restores byte `[0x0d15]`, and clears modal-state word `[0x0615]`. | Returns the following bytecode pointer; the game continues. |
+| Restore success | `0x7e` reads all five state blocks | Restores scalar/object/inventory/event/cache state from the save file, restores display adapter/mode bytes, adjusts hardware-mode flag 11, replays saved resource-event pairs with recording disabled only during replay, refreshes display/resource state, clears the caller return pointer, and refreshes menu/list state. | The action returns zero, so execution restarts through the restored state rather than continuing after the restore opcode. |
+| Restore read failure | `0x7e` fails any length-prefixed block read | Closes the save file, displays the restore-error message, then enters `code.system.exit_with_cleanup`. | Terminates the DOS process through `int 21h AH=0x4c`; this is not a recoverable restore failure in the observed source. |
+| Confirmed exit or fatal helper | `0x86(1)`, confirmed `0x86(0)`, verification failure, allocation failure, or restore read failure | `code.system.exit_with_cleanup` closes the log file if open, restores interrupt hooks and timer state, sets the BIOS video mode from the saved mode byte, and calls the DOS terminate wrapper with exit code zero. | DOS process exits. |
 
 Object drawing lifecycle:
 
@@ -283,7 +324,7 @@ Text/input UI lifecycle:
 | Input line hidden/disabled | `0x77` or display/text cleanup paths | `0x78` | Word `[0x05d3]` is zero; refresh helpers should not redraw the normal input line. |
 | Input line enabled | `0x78` | `0x77`, modal prompts, or text-window cleanup | Word `[0x05d3]` is one; `0x78` redraws/clears the configured input row in the normal EGA path, `0x89` redraws from the entered source input buffer, and `0x8a` erases visible input characters. |
 | Prompt/status configured | `0x6c`, `0x6f`, `0x70`, `0x71` | Later configuration or cleanup | Prompt character, row/column-like globals, status-line enable word `[0x05d9]`, and display offset `[0x1379]` determine where text helpers draw and erase. QEMU validates that setting the prompt marker from an empty message suppresses marker drawing on the next input-line redraw, and that `0x70` visibly redraws the configured status row. |
-| Modal text window active | Message display, prompt/edit, menu, or diagnostic helpers | `0xa9` or the helper's own close path | Display helpers may save a backing rectangle and set text-window words around `[0x0d1d]`; close restores the rectangle and clears `[0x0d0f]`/`[0x0d1d]`. |
+| Modal text window active | Message display, prompt/edit, menu, or diagnostic helpers | `0xa9` or the helper's own close path | The message-window opener at `0x1d96` first closes any already active saved window, formats the text, computes packed rectangle words `[0x0d23]` and `[0x0d25]`, draws/saves the boxed region through helper `0x5590`, then sets `[0x0d1d] = 1`. Closing through `0xa9`/`0x1f2b` restores that saved rectangle through helper `0x560c([0x0d23], [0x0d25])` when active, then clears `[0x0d0f]` and `[0x0d1d]`. |
 | Alternate text/input-width mode | `0x6a`, `0xa3`, and related display-mode helpers | `0x6b`, `0xa4`, or `0xa9`/cleanup paths | Byte `[0x1757]` alters text drawing, while word `[0x0d0f]` changes input-character width limits in helper `0x3652`. QEMU validates that `0x6a` clears the visible logical surface using the current text attribute pair in the observed EGA path, that `0x6b` restores ordinary picture/object drawing, that `0xa3` permits wrapped live input with a long blank string slot 0, and that both `0xa4` and inactive `0xa9` clear the width flag. |
 | Event/edit loop | `code.input.edit_string`, menus, inventory selection, confirmation dialogs, keyboard IRQ hook | Enter, Escape, selected mapped/status event, or tracked key release | The shared event queue feeds raw key predicates, line editors, menu status-byte events, and confirmation exits. Action `0xad` increments `[0x1530]`, a source-backed nonzero gate that lets the keyboard IRQ hook enqueue type-2 zero events on selected tracked-key releases. |
 

@@ -7,12 +7,39 @@ import argparse
 import shutil
 from pathlib import Path
 
+from agi_graphics import picture_payload
 from disassemble_logic import SQ2
 
 
 SCRATCH_VAR = 250
 DEFAULT_INIT_FLAG = 199
+SPEED_VAR = 0x0A
+CAROUSEL_INDEX_VAR = 0xF9
+CAROUSEL_DELAY_VAR = 0xF8
+RAW_KEY_VAR = 0x13
+CAROUSEL_STATUS_BASE = 7
+EVENT_RECORDING_BLOCK_FLAG = 7
 MESSAGE_XOR_KEY = b"Avis Durgan"
+MINIMAL_PICTURE_FIXTURE_FILES = {
+    "AGI",
+    "AGIDATA.OVL",
+    "CGA_GRAF.OVL",
+    "EGA_GRAF.OVL",
+    "HGC_FONT",
+    "HGC_GRAF.OVL",
+    "HGC_OBJS.OVL",
+    "IBM_OBJS.OVL",
+    "JR_GRAF.OVL",
+    "LOGDIR",
+    "OBJECT",
+    "PICDIR",
+    "SIERRA.COM",
+    "SNDDIR",
+    "VG_GRAF.OVL",
+    "VIEWDIR",
+    "WORDS.TOK",
+    "_SQ2.BAT",
+}
 
 
 def u16le(value: int) -> bytes:
@@ -65,6 +92,12 @@ def assignn_action(var_no: int, value: int) -> bytes:
     return bytes([0x03, var_no, value])
 
 
+def inc_var_action(var_no: int) -> bytes:
+    if not 0 <= var_no <= 0xFF:
+        raise ValueError("inc_var operand must fit in one byte")
+    return bytes([0x01, var_no])
+
+
 def set_flag_action(flag_no: int) -> bytes:
     if not 0 <= flag_no <= 0xFF:
         raise ValueError("flag number must fit in one byte")
@@ -84,6 +117,20 @@ def var_eq_imm_condition(var_no: int, value: int) -> bytes:
     return bytes([0x01, var_no, value])
 
 
+def raw_key_event_available_condition() -> bytes:
+    return bytes([0x0D])
+
+
+def status_byte_condition(index: int) -> bytes:
+    if not 0 <= index <= 0xFF:
+        raise ValueError("status byte index must fit in one byte")
+    return bytes([0x0C, index])
+
+
+def all_conditions(*conditions: bytes) -> bytes:
+    return b"".join(conditions)
+
+
 def if_then(condition: bytes, then_actions: bytes) -> bytes:
     if len(then_actions) > 0x7FFF:
         raise ValueError("conditional body is too large for a positive relative delta")
@@ -101,6 +148,119 @@ def load_show_picture_actions(picture_no: int, scratch_var: int = SCRATCH_VAR) -
     if not 0 <= scratch_var <= 0xFF:
         raise ValueError("scratch variable must fit in one byte")
     return bytes([0x03, scratch_var, picture_no, 0x18, scratch_var, 0x19, scratch_var, 0x1A])
+
+
+def discard_picture_actions(picture_no: int, scratch_var: int = SCRATCH_VAR) -> bytes:
+    if not 0 <= picture_no <= 0xFF:
+        raise ValueError("picture number must fit in one byte")
+    if not 0 <= scratch_var <= 0xFF:
+        raise ValueError("scratch variable must fit in one byte")
+    return bytes([0x03, scratch_var, picture_no, 0x1B, scratch_var])
+
+
+def map_key_event_action(key_word: int, status_index: int) -> bytes:
+    if not 0 <= key_word <= 0xFFFF:
+        raise ValueError("key word must fit in two bytes")
+    if not 0 <= status_index <= 0xFF:
+        raise ValueError("status byte index must fit in one byte")
+    return bytes([0x79, key_word & 0xFF, (key_word >> 8) & 0xFF, status_index])
+
+
+def picture_carousel_logic_payload(
+    picture_numbers: list[int],
+    advance_key_words: list[int] | None = None,
+    scratch_var: int = SCRATCH_VAR,
+    index_var: int = CAROUSEL_INDEX_VAR,
+    status_base: int = CAROUSEL_STATUS_BASE,
+    init_flag: int = DEFAULT_INIT_FLAG,
+) -> bytes:
+    if not picture_numbers:
+        raise ValueError("picture carousel requires at least one picture")
+    if len(picture_numbers) > 0x100:
+        raise ValueError("picture carousel index must fit in one byte")
+    if advance_key_words is None:
+        advance_key_words = [ord("x")]
+    if len(advance_key_words) < max(0, len(picture_numbers) - 1):
+        raise ValueError("picture carousel requires one advance key per transition")
+    values = [*picture_numbers, scratch_var, index_var, status_base, init_flag]
+    if any(not 0 <= value <= 0xFF for value in values):
+        raise ValueError("carousel operands must fit in one byte")
+    if any(not 0 <= value <= 0xFFFF for value in advance_key_words):
+        raise ValueError("carousel advance keys must fit in two bytes")
+    if status_base + len(picture_numbers) - 2 > 0xFF:
+        raise ValueError("carousel status byte indexes must fit in one byte")
+
+    key_mappings = b"".join(
+        map_key_event_action(key_word, status_base + index)
+        for index, key_word in enumerate(advance_key_words[: len(picture_numbers) - 1])
+    )
+    setup = (
+        bytes([0x77])
+        + key_mappings
+        + load_show_picture_actions(picture_numbers[0], scratch_var)
+        + assignn_action(index_var, 0)
+        + set_flag_action(init_flag)
+    )
+    code = if_then(not_flag_set_condition(init_flag), setup)
+    for index, picture_no in enumerate(picture_numbers[:-1]):
+        next_index = index + 1
+        next_picture = picture_numbers[next_index]
+        condition = all_conditions(var_eq_imm_condition(index_var, index), status_byte_condition(status_base + index))
+        actions = (
+            load_show_picture_actions(next_picture, scratch_var)
+            + assignn_action(index_var, next_index)
+            + discard_picture_actions(picture_no, scratch_var)
+        )
+        code += if_then(condition, actions)
+    code += end_action()
+    return logic_resource(code)
+
+
+def picture_timed_carousel_logic_payload(
+    picture_numbers: list[int],
+    delay_cycles: int = 20,
+    speed_value: int = 0,
+    scratch_var: int = SCRATCH_VAR,
+    index_var: int = CAROUSEL_INDEX_VAR,
+    delay_var: int = CAROUSEL_DELAY_VAR,
+    init_flag: int = DEFAULT_INIT_FLAG,
+    suppress_event_recording: bool = True,
+) -> bytes:
+    if not picture_numbers:
+        raise ValueError("picture timed carousel requires at least one picture")
+    if len(picture_numbers) > 0x100:
+        raise ValueError("picture carousel index must fit in one byte")
+    values = [*picture_numbers, delay_cycles, speed_value, scratch_var, index_var, delay_var, init_flag]
+    if any(not 0 <= value <= 0xFF for value in values):
+        raise ValueError("timed carousel operands must fit in one byte")
+    if delay_cycles == 0:
+        raise ValueError("timed carousel delay must be nonzero")
+
+    setup = bytes([0x77])
+    if suppress_event_recording:
+        setup += set_flag_action(EVENT_RECORDING_BLOCK_FLAG)
+    setup += (
+        assignn_action(SPEED_VAR, speed_value)
+        + assignn_action(delay_var, 0)
+        + load_show_picture_actions(picture_numbers[0], scratch_var)
+        + assignn_action(index_var, 0)
+        + set_flag_action(init_flag)
+    )
+    code = if_then(not_flag_set_condition(init_flag), setup)
+    code += inc_var_action(delay_var)
+    for index, picture_no in enumerate(picture_numbers[:-1]):
+        next_index = index + 1
+        next_picture = picture_numbers[next_index]
+        condition = all_conditions(var_eq_imm_condition(index_var, index), var_eq_imm_condition(delay_var, delay_cycles))
+        actions = (
+            load_show_picture_actions(next_picture, scratch_var)
+            + assignn_action(index_var, next_index)
+            + assignn_action(delay_var, 0)
+            + discard_picture_actions(picture_no, scratch_var)
+        )
+        code += if_then(condition, actions)
+    code += end_action()
+    return logic_resource(code)
 
 
 def setup_persistent_object_actions(
@@ -465,12 +625,80 @@ def copy_sq2_tree(destination: Path) -> None:
             shutil.copy2(source, destination / source.name)
 
 
+def copy_minimal_picture_tree(destination: Path) -> None:
+    destination.mkdir(parents=True, exist_ok=True)
+    for path in destination.iterdir():
+        if path.is_file() and path.suffix.lower() != ".ppm":
+            path.unlink()
+    for source in SQ2.iterdir():
+        if source.is_file() and source.name.upper() in MINIMAL_PICTURE_FIXTURE_FILES:
+            shutil.copy2(source, destination / source.name)
+
+
 def build_picture_fixture(picture_no: int, destination: Path) -> Path:
     copy_sq2_tree(destination)
     logic_payload = picture_logic_payload(picture_no)
     (destination / "VOL.3").write_bytes(volume_record(logic_payload, volume=3))
     logdir = (destination / "LOGDIR").read_bytes()
     (destination / "LOGDIR").write_bytes(patch_logdir_entry_zero(logdir, volume=3, offset=0))
+    return destination
+
+
+def build_packed_picture_fixture(picture_no: int, destination: Path) -> Path:
+    copy_minimal_picture_tree(destination)
+    logic_record = volume_record(picture_logic_payload(picture_no), volume=3)
+    picture_record_offset = len(logic_record)
+    picture_record = volume_record(picture_payload(picture_no), volume=3)
+    (destination / "VOL.3").write_bytes(logic_record + picture_record)
+    logdir = (destination / "LOGDIR").read_bytes()
+    (destination / "LOGDIR").write_bytes(patch_logdir_entry_zero(logdir, volume=3, offset=0))
+    picdir = (destination / "PICDIR").read_bytes()
+    (destination / "PICDIR").write_bytes(patch_dir_entry(picdir, picture_no, volume=3, offset=picture_record_offset))
+    return destination
+
+
+def build_picture_carousel_fixture(
+    picture_numbers: list[int],
+    destination: Path,
+    advance_key_words: list[int] | None = None,
+) -> Path:
+    if not picture_numbers:
+        raise ValueError("picture carousel requires at least one picture")
+    copy_minimal_picture_tree(destination)
+    logic_record = volume_record(picture_carousel_logic_payload(picture_numbers, advance_key_words), volume=3)
+    records = bytearray(logic_record)
+    picdir = (destination / "PICDIR").read_bytes()
+    for picture_no in picture_numbers:
+        offset = len(records)
+        records.extend(volume_record(picture_payload(picture_no), volume=3))
+        picdir = patch_dir_entry(picdir, picture_no, volume=3, offset=offset)
+    (destination / "VOL.3").write_bytes(bytes(records))
+    logdir = (destination / "LOGDIR").read_bytes()
+    (destination / "LOGDIR").write_bytes(patch_logdir_entry_zero(logdir, volume=3, offset=0))
+    (destination / "PICDIR").write_bytes(picdir)
+    return destination
+
+
+def build_picture_timed_carousel_fixture(
+    picture_numbers: list[int],
+    destination: Path,
+    delay_cycles: int = 20,
+    speed_value: int = 0,
+) -> Path:
+    if not picture_numbers:
+        raise ValueError("picture timed carousel requires at least one picture")
+    copy_minimal_picture_tree(destination)
+    logic_record = volume_record(picture_timed_carousel_logic_payload(picture_numbers, delay_cycles, speed_value), volume=3)
+    records = bytearray(logic_record)
+    picdir = (destination / "PICDIR").read_bytes()
+    for picture_no in picture_numbers:
+        offset = len(records)
+        records.extend(volume_record(picture_payload(picture_no), volume=3))
+        picdir = patch_dir_entry(picdir, picture_no, volume=3, offset=offset)
+    (destination / "VOL.3").write_bytes(bytes(records))
+    logdir = (destination / "LOGDIR").read_bytes()
+    (destination / "LOGDIR").write_bytes(patch_logdir_entry_zero(logdir, volume=3, offset=0))
+    (destination / "PICDIR").write_bytes(picdir)
     return destination
 
 

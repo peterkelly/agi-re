@@ -12171,3 +12171,2141 @@ Progress updates and outcomes:
 
       Action/result: Committed the staged reverse-engineering, documentation,
       and compatibility-test updates.
+
+1625. Reported: "I’ll pick up from the tracker and avoid committing. First I’m
+      rereading `PROGRESS.md` and the current tree so I can choose the next
+      highest-value source-first work instead of wandering."
+
+      Action/result: Re-read the progress tracker, git status, progress log,
+      and remaining-work references.
+
+1626. Reported: "The tracker points to sound playback and implementation-ready
+      subsystem text as a good next seam. I’m going source-first there: re-read
+      the sound driver/tick code around the parser I just added, then turn any
+      concrete timing/state behavior into docs and tests."
+
+      Action/result: Began a source-first pass over the sound playback driver.
+
+1627. Reported: "The first pass exposed a useful state machine: in the
+      one-channel path the tick loop only advances channel 0, while the
+      four-channel path advances BX offsets 0,2,4,6. I’m checking the gate call
+      at `0x7502` and the timer hook now so the docs don’t accidentally imply
+      every tick always advances audio."
+
+      Action/result: Identified active-channel selection and moved to the flag
+      gate and timer-hook source.
+
+1628. Reported: "The tick gate is flag 9: if that flag is clear, the sound tick
+      stops playback immediately and sets the configured completion flag. I’m
+      scanning the SQ2 sound corpus for duration edge cases before writing a
+      schedule helper, because duration zero would have a very non-obvious
+      16-bit countdown consequence."
+
+      Action/result: Confirmed the flag-9 gate and scanned sound-event
+      durations.
+
+1629. Reported: "The SQ2 corpus has 3,619 sound events and no zero-duration
+      events, but the source would treat duration zero as a 16-bit countdown
+      wrap before the next record. I’m adding a small schedule helper that
+      captures the source timing rule without pretending to synthesize actual
+      audio."
+
+      Action/result: Added source-backed sound scheduling helpers.
+
+1630. Reported: "The helper now models three source-backed things: which
+      channels tick for the hardware selector, the initial one-tick delay before
+      the first record, and the 16-bit countdown wrap. I’m adding tests against
+      SQ2 sound 1, a longer multi-channel sound, and a synthetic zero-duration
+      edge."
+
+      Action/result: Added sound scheduling tests.
+
+1631. Reported: "The targeted sound tests pass: the schedule helper matches
+      sound 1’s tick-40 termination, distinguishes sound 60’s one-channel
+      versus four-channel completion, and pins the zero-duration wrap. I’m
+      folding this into the mdBook and the symbolic map now."
+
+      Action/result: Ran `python3 -B -m unittest tests.test_sound_resources`;
+      all 9 targeted sound tests passed.
+
+1632. Reported: "The source also ties natural completion to the timer interrupt
+      hook, not script bytecode: the IRQ calls the tick only while `[0x1258]` is
+      active, and the tick sets the completion flag when the last active channel
+      terminates. I’m making that distinction explicit in the docs and tracker."
+
+      Action/result: Documented sound tick scheduling, channel selection,
+      flag-9 gating, natural completion, and remaining hardware-output gaps.
+
+1633. Reported: "The sound docs and labels are updated. I’m running the cheap
+      checks for this slice now, then I’ll move to the next tracker item rather
+      than stopping."
+
+      Action/result: Ran the targeted sound tests, mdBook build, whitespace
+      check, and status check; the checks passed, with only expected modified
+      project files and generated/untracked directories present.
+
+1634. Reported: "The sound slice is clean: targeted tests, book build, and
+      whitespace check all passed. Next I’m tackling the remaining `0xa9`
+      active saved-window path from source by finding every writer of the
+      saved-window globals before deciding whether a dynamic probe is worth
+      building."
+
+      Action/result: Began the text-window source pass and searched references
+      to the saved-window globals and helpers.
+
+1635. Reported: "The active `0xa9` path is clearer now: message-window setup at
+      `0x1d96` closes any prior saved window, computes two packed rectangle
+      coordinates, draws/saves through `0x5590`, sets `[0x0d1d]=1`, and later
+      `0xa9` restores via `0x560c`. This looks source-complete even if it’s
+      awkward to isolate dynamically."
+
+      Action/result: Identified the modal saved-window producer at `0x1d96`,
+      the boxed draw/save helper at `0x5590`, the restore helper at `0x560c`,
+      and the close consumer at `0x1f2b`.
+
+1636. Reported: "I’m picking up from the active text-window restore pass and
+      the tracker, with the source-first constraint in mind. I’ll close out the
+      `0xa9` saved-window evidence cleanly, then move to the next highest-value
+      item in `PROGRESS.md` without touching git."
+
+      Action/result: Re-read git status, the progress tracker, the relevant
+      opcode/runtime/symbolic-label sections, and the recent progress log.
+
+1637. Reported: "The log is current through the sound documentation update, so
+      I’m adding the missing verification and text-window source-pass entries
+      before I edit the book. That keeps the historical trail aligned with what
+      already happened rather than retrofitting it at the end."
+
+      Action/result: Prepared to record the missing verification and active
+      text-window source-pass progress-log entries.
+
+1638. Reported: "I’m going to patch the text-window sections now: symbolic
+      labels first, then the opcode/runtime prose, then the tracker and
+      executable notes. The main change is to promote the active `0xa9` path
+      from \"helper calls seen\" to a traced open/restore lifecycle with the
+      producer at `0x1d96` and the close path at `0x1f2b`."
+
+      Action/result: Added symbolic labels for the modal message-window opener,
+      boxed draw/save helper, restore helper, active flag, and packed rectangle
+      words; then updated the opcode, runtime, tracker, and executable notes.
+
+1639. Reported: "The symbolic map now has stable names for the modal window
+      opener, draw helper, restore helper, active flag, and packed
+      restore-coordinate words. Next I’m tightening the spec prose so readers
+      see the lifecycle rather than a pile of addresses."
+
+      Action/result: Tightened the `0xa9` and modal text-window lifecycle prose
+      in `docs/src/logic_bytecode.md` and `docs/src/runtime_model.md`.
+
+1640. Reported: "The `0xa9` docs now describe both sides of the saved-window
+      lifecycle: where the rectangle is created and where it is restored. I’m
+      updating the historical log with those intermediate reports next, then
+      I’ll run the book/whitespace checks and continue to the next tracker
+      item."
+
+      Action/result: Updated the historical progress log for the sound
+      verification and active text-window restore documentation pass.
+
+1641. Reported: "I’m running the lightweight verification for the text-window
+      documentation now. If that passes, the next likely target is save/restore
+      path semantics from the tracker, since the `0xa9` gap is now
+      source-backed."
+
+      Action/result: Ran `mdbook build docs` and `git diff --check`; both
+      passed. A first search for old `0xa9` wording had a harmless shell
+      quoting error from backticks in the pattern.
+
+1642. Reported: "The book build and whitespace check passed. I tripped a
+      harmless shell quoting issue while searching for the old `0xa9` wording,
+      so I’ll re-run that search safely and then start the save/restore path
+      pass from disassembly."
+
+      Action/result: Re-ran the search with safe quoting and confirmed only
+      historical progress-log wording still contained the old phrase.
+
+1643. Reported: "The tracker’s new top practical item is save/restore path
+      selection and state transitions. I’m re-reading the existing save docs
+      plus the handler and selector disassembly now, looking for concrete
+      data-flow we can promote into a higher-level spec."
+
+      Action/result: Re-read the existing save/restore mdBook sections,
+      symbolic labels, progress tracker entries, and source windows for the
+      save, restore, and selector handlers.
+
+1644. Reported: "The selector helper is richer than the current docs show:
+      `0x85e5` is mostly orchestration, with subhelpers at `0x8705` for path
+      prompting/validation, `0x86a3` for drive/path availability messages,
+      `0x8814` for enumerating/selecting slots, and `0x8794` for the modal text
+      edit field. I’m narrowing those subhelpers from the disassembly file now
+      so I can document them without guessing from UI behavior."
+
+      Action/result: Identified the save selector's major subhelpers and moved
+      to bounded disassembly windows for each one.
+
+1645. Reported: "I noticed the prebuilt whole-file disassembly is not using the
+      same image-offset origin as these helper windows, so I’m avoiding it for
+      exact save-selector addresses. I’ll use bounded `ndisasm | sed` windows
+      from the decrypted executable instead, where the origin/skip convention
+      matches the earlier notes."
+
+      Action/result: Used bounded `ndisasm` windows for `0x85e5`, `0x8794`,
+      `0x8814`, and `0x8b9f` rather than relying on the stale origin in the
+      prebuilt disassembly file.
+
+1646. Reported: "The save selector splits cleanly now: it returns zero for
+      cancel/no valid choice, otherwise returns a 1-based-ish file selector
+      that gets formatted into `0x1c8c`. The save-mode special case is also
+      visible: when saving into an empty-description slot, it prompts for a
+      description into `0x1c6c` before creating the file."
+
+      Action/result: Mapped selector return behavior, selected filename
+      formatting, and the save-mode empty-description prompt.
+
+1647. Reported: "There are real SQ2 save files in the local game directory,
+      which is perfect for deterministic parser tests. I’m going to inspect
+      their block lengths and headers, then add a small save-file parser under
+      `tools/` if the files match the source-derived layout."
+
+      Action/result: Scanned `SQ2/SQ2SG.*` and found 11 local saves matching a
+      31-byte header plus five length-prefixed blocks.
+
+1648. Reported: "Good catch from the real files: the existing save-block table
+      had the first block backward. The source writes a 1,505-byte block
+      starting at data address `0x0002`, not a 2-byte block starting near
+      `0x05e1`; all local SQ2 saves confirm the five block lengths `[1505,
+      903, 328, 200, variable]`. I’m adding a parser/test so this correction is
+      pinned."
+
+      Action/result: Corrected the first save-block interpretation and added a
+      plan to pin it with parser tests.
+
+1649. Reported: "I’m adding a tiny parser rather than a full save emulator. Its
+      job is deliberately narrow: prove the file envelope the source writes and
+      reads, keep block offsets/lengths explicit, and fail on truncation so
+      future compatibility work has a trustworthy fixture reader."
+
+      Action/result: Added `tools/agi_save.py` with `parse_save`/`load_save`
+      and save block dataclasses; added `tests/test_save_resources.py`.
+
+1650. Reported: "The save parser and tests are in place. I’m running the new
+      save tests now, then I’ll fold the corrected block layout and selector
+      flow into the mdBook and tracker."
+
+      Action/result: Ran `python3 -B -m unittest tests.test_save_resources`;
+      all four save parser tests passed.
+
+1651. Reported: "The new save tests pass and they pin the source correction.
+      I’m updating the docs now: first the exact save block envelope, then the
+      selector state machine, then the compatibility/tracker notes."
+
+      Action/result: Began updating the executable, opcode, runtime,
+      compatibility, progress, and symbolic-label documentation for the
+      corrected save-file and selector model.
+
+1652. Reported: "I’m also naming the selector subhelpers in the symbol map.
+      That matters for later cross-version work: the addresses will move, but
+      the pattern of `select_slot_or_path -> prompt_path -> list_slots ->
+      read_slot_summary` should be recognizable."
+
+      Action/result: Prepared symbolic labels for the selector subhelper chain.
+
+1653. Reported: "The executable chapter now has the corrected block table and
+      selector flow. I’m mirroring the same model into the opcode chapter,
+      keeping it concise enough that `0x7d`/`0x7e` remain readable."
+
+      Action/result: Updated `docs/src/agi_executable.md` and then
+      `docs/src/logic_bytecode.md` with the save-block envelope and selector
+      flow.
+
+1654. Reported: "The opcode chapter now says exactly what goes on disk and how
+      the slot selector exits. I’m turning that into a small
+      implementation-facing save/restore data model next."
+
+      Action/result: Updated the save/restore data model in
+      `docs/src/runtime_model.md`.
+
+1655. Reported: "The runtime model is updated. I’m adding the save selector’s
+      subroutine/data labels now so future version comparisons can look for
+      behavior, not just the SQ2 addresses."
+
+      Action/result: Added symbolic labels for selector subhelpers and
+      save/path/header/filename buffers.
+
+1656. Reported: "The symbol map has the save selector broken into reusable
+      labels. I’m adding the new save parser tests to the compatibility chapter
+      and then I’ll mark the tracker’s save/file work as more advanced, with
+      the remaining gaps narrowed."
+
+      Action/result: Documented `tests.test_save_resources` in
+      `docs/src/compatibility_testing.md` and updated `PROGRESS.md`.
+
+1657. Reported: "The tracker now narrows the save/file gap to round trips,
+      error paths, and path-validation edges. I’m adding the clean-room evidence
+      note for this pass with the exact commands and the save-file block
+      correction, then I’ll run the relevant checks."
+
+      Action/result: Added the clean-room executable notes section for the
+      save-file selector and block-envelope source pass.
+
+1658. Reported: "I’m bringing the progress log up to date with the text-window
+      verification and save-selector work before running the next check batch.
+      The log is getting long, but it’s doing exactly what the project asks:
+      leaving a breadcrumb trail for the clean-room story."
+
+      Action/result: Updated the historical progress log through the
+      save-selector documentation and parser-test work.
+
+1659. Reported: "The cleanup search is clean. Next I’m taking the tracker’s
+      heap/allocation item source-first, because the disassembly should tell us
+      whether this is a true free-list allocator, a bump allocator, or some
+      hybrid tied to room/resource lifetimes."
+
+      Action/result: Ran broad cleanup searches after the save-selector pass.
+      A first search pattern accidentally used shell-expanded backticks in a
+      double-quoted command, then the safe single-quoted searches found no
+      stale save-block wording. Began source-first heap/allocation analysis.
+
+1660. Reported: "The heap source pass is already yielding a compact model: this
+      is a bump allocator with marks, not a general free list. I’m following
+      each mark helper now so we can describe which lifetimes are temporary,
+      room-scoped, or diagnostic-only."
+
+      Action/result: Identified the current-top, limit, temporary-mark,
+      room/reset-mark, and high-water heap globals around `0x0a55..0x0a5f`.
+
+1661. Reported: "The allocator helpers are now source-clear enough to document
+      as a normative model. One important detail: allocation failure does not
+      look recoverable here; it displays the out-of-memory text and enters the
+      restart/exit helper."
+
+      Action/result: Documented `0x13d6` as a bump allocation helper with a
+      fatal out-of-memory path and high-water/free-memory updates.
+
+1662. Reported: "The startup path confirms one key lifecycle anchor: after
+      initial object/inventory setup and logic 0 load, the engine stores the
+      room/reset heap mark with `0x1476`. That makes the later room-switch
+      cleanup much less mysterious."
+
+      Action/result: Connected startup's `0x1476` call to the room/reset mark
+      consumed by room switch, restart, and restore cleanup helper `0x1485`.
+
+1663. Reported: "The logic-resources chapter now describes the heap as a
+      mark-and-rewind bump allocator. I’m mirroring that into the runtime model
+      next, because implementers should not have to reconstruct lifetime
+      semantics from a helper table."
+
+      Action/result: Added the heap helper table and diagnostic formulas to
+      `docs/src/logic_resources.md`.
+
+1664. Reported: "The runtime model has the heap lifecycle table now. I’m adding
+      the same labels to the symbolic map, including the individual globals, so
+      this remains useful when we compare another interpreter build with moved
+      addresses."
+
+      Action/result: Added the implementation-facing heap/allocation lifecycle
+      table to `docs/src/runtime_model.md`.
+
+1665. Reported: "That patch missed because the data labels have shifted. I’m
+      reopening the exact symbol-map sections and applying it in smaller
+      pieces instead of guessing at the surrounding text."
+
+      Action/result: Re-read the symbol-map sections before applying the heap
+      label updates.
+
+1666. Reported: "I’ll pick up from the heap/allocation pass that was in flight,
+      finish wiring that evidence into the tracker and docs, then keep moving
+      down `PROGRESS.md` until there’s a real blocker."
+
+      Action/result: Re-read `PROGRESS.md`, the symbol map, the progress log,
+      and the current executable notes to resume from the in-progress heap work.
+
+1667. Reported: "I found the in-progress state: the heap model is already
+      written into two chapters, but the symbol map and tracker still have the
+      older compressed allocator note. I’m tightening those now so the
+      cross-version map has names for the allocator routines instead of one
+      catch-all heap label."
+
+      Action/result: Replaced the catch-all heap label with individual routine
+      labels for allocation, current-top lookup, direct rewind, temporary mark
+      save/restore, room/reset mark save, reset, free-memory update, and
+      heap-status display.
+
+1668. Reported: "The allocator routines are now individually labeled. Next I’m
+      adding the matching heap globals, because those names are what will make
+      later “same source, different address” comparisons less brittle."
+
+      Action/result: Added symbolic labels for heap current top, base,
+      room/reset mark, limit, temporary mark, and high-water globals.
+
+1669. Reported: "One small documentation cleanup: the allocator docs now refer
+      to the free-memory byte by name, but that byte variable did not have a
+      symbol row yet. I’m adding that before updating `PROGRESS.md`, so the
+      references resolve cleanly."
+
+      Action/result: Added `data.vars.free_memory_pages_0011` to the symbol
+      map.
+
+1670. Reported: "The heap symbol map is complete enough for this pass. I’m
+      marking the memory/allocation tracker as source-backed now, with the
+      remaining work narrowed to initial heap setup and any observable
+      out-of-memory UI edge we actually care about."
+
+      Action/result: Updated `PROGRESS.md` to describe the source-backed
+      bump-heap model and narrow remaining memory/allocation work.
+
+1671. Reported: "The tracker now reflects the allocator as a mark-and-rewind
+      bump heap instead of an unknown free-list. I’m adding the evidence note
+      with the disassembly commands and the exact helper behavior, then I’ll
+      run the book checks before choosing the next `PROGRESS.md` item."
+
+      Action/result: Added the heap allocation and mark/rewind source-pass
+      section to `docs/src/clean_room_executable_notes.md`.
+
+1672. Reported: "I’m catching up the progress log now, including the allocator
+      updates I reported before the context handoff and the shorter updates
+      from this resumed pass. It’s a bit bookkeeping-heavy, but it keeps the
+      clean-room timeline intact."
+
+      Action/result: Updated this progress log through the resumed heap
+      documentation pass.
+
+1673. Reported: "The heap pass is now recorded across docs, tracker, symbols,
+      and the progress log. I’m running the lightweight checks now; after that
+      I’ll continue with the next high-value item, most likely restore/restart
+      transitions from the source."
+
+      Action/result: Ran `mdbook build docs`, `git diff --check`, and targeted
+      save/sound unit tests; all passed.
+
+1674. Reported: "The heap docs build cleanly, whitespace check is clean, and
+      the targeted save/sound tests still pass. I’m moving to restore/restart
+      transitions next and starting by rereading the existing source-backed
+      notes so I don’t duplicate old ground."
+
+      Action/result: Re-read existing save/restore, replay, restart, and
+      symbol-map notes.
+
+1675. Reported: "The existing notes already cover replay well, so I’m aiming
+      this pass at the narrower gap: restart confirmation and restart-state
+      cleanup. I’m going back to the handlers and their shared fatal/restart
+      helper before changing prose."
+
+      Action/result: Began source-first restart/termination disassembly pass.
+
+1676. Reported: "One of the disassembly commands was too broad because
+      `ndisasm -e` is a skip offset, not an end address. I caught that before
+      using it as evidence; I’m switching to the existing full disassembly and
+      bounded `sed` slices so the addresses I document are reliable."
+
+      Action/result: Discarded the broad exploratory output and switched to
+      bounded slices with the project image/file-offset convention.
+
+1677. Reported: "The address convention is the EXE image address, with the file
+      slice starting 0x200 bytes later. I’m using that convention now:
+      `-o image_address` and `-e image_address+0x200`, then small bounded
+      slices."
+
+      Action/result: Used corrected `ndisasm` commands for handlers `0x02ae`,
+      `0x027f`, `0x2472`, `0x2512`, `0x2753`, and shutdown helpers.
+
+1678. Reported: "The restart/restore slice confirms one important thing
+      already: the fatal helper at `0x02ae` calls cleanup and exits via the
+      lower-level termination helper; restore read failure closes the file,
+      displays the error message, and then enters that same helper. I’m mapping
+      the confirm/restart action handlers next."
+
+      Action/result: Identified `code.system.exit_with_cleanup` and confirmed
+      restore read failure is not recoverable in the observed source.
+
+1679. Reported: "The existing opcode chapter has good handler summaries; I’m
+      verifying them against the slices so I can promote restart transitions
+      into the runtime model without just restating the opcode table."
+
+      Action/result: Verified `0x80`, `0x86`, `0x7e`, and `0x7d` source slices
+      against the opcode chapter.
+
+1680. Reported: "The restart path has a clearer shape now: `0x80` is an
+      in-engine reset that returns zero to stop the current logic stream, while
+      `0x86(1)` and restore read failure go through `0x02ae`, which performs
+      shutdown/exit instead of a room-style reset. I’m checking that shutdown
+      helper before naming it."
+
+      Action/result: Traced `0x02ae` into `0x8275` and DOS termination wrapper
+      `0x00ae`.
+
+1681. Reported: "Shutdown cleanup is not just “exit”: `0x8275` closes the log
+      file if it is open, then calls an interrupt/vector cleanup helper and a
+      final display/driver helper before DOS termination. I’m documenting it at
+      that level unless a later test needs each vector detail."
+
+      Action/result: Mapped shutdown cleanup through log close helper `0x838c`,
+      interrupt-vector restore helper `0x849f`, and BIOS video-mode helper
+      `0x5a5e`.
+
+1682. Reported: "I’m adding symbolic names for the restart and termination
+      helpers now. The key distinction I want the docs to preserve is “reset
+      game state and keep running” versus “cleanup and terminate DOS process.”"
+
+      Action/result: Added restart, termination, shutdown cleanup, interrupt
+      hook, and video-mode labels to `docs/src/symbolic_labels.md`.
+
+1683. Reported: "The symbol map now separates restart, fatal exit, shutdown
+      cleanup, and interrupt restoration. I’m turning that into a short runtime
+      lifecycle table so implementers can model the behavior without copying
+      the interpreter’s exact globals."
+
+      Action/result: Began adding a restart/termination lifecycle table to
+      `docs/src/runtime_model.md`.
+
+1684. Reported: "That insert missed because the next heading text is slightly
+      different than I remembered. I’m reopening that small section and
+      patching against the exact lines."
+
+      Action/result: Re-read the save/restore and object-lifecycle boundary in
+      `docs/src/runtime_model.md`.
+
+1685. Reported: "The runtime model already has a good object lifecycle
+      immediately after save/restore, so I’m placing restart/termination
+      between those. That keeps all whole-session transitions together."
+
+      Action/result: Added the restart and termination lifecycle table to
+      `docs/src/runtime_model.md`.
+
+1686. Reported: "The runtime model now has explicit rows for accepted restart,
+      canceled restart, restore success, restore read failure, and fatal exit.
+      I’m updating `PROGRESS.md` so restart polish is no longer listed as an
+      open gap."
+
+      Action/result: Updated the room/restart/save/restore tracker entry and
+      highest-value remaining work in `PROGRESS.md`.
+
+1687. Reported: "The tracker now reflects the restart distinction. I’m
+      recording the source pass in the evidence log, including the corrected
+      `ndisasm` address convention, so the trail is reproducible."
+
+      Action/result: Added the restart, restore-failure, and shutdown cleanup
+      source-pass section to `docs/src/clean_room_executable_notes.md`.
+
+1688. Reported: "The evidence log is updated. I’m catching the progress log up
+      for the restart pass, then I’ll run checks and continue into the next item
+      rather than stopping here."
+
+      Action/result: Updated this progress log through the restart/termination
+      documentation pass.
+
+1689. Reported: "The restart checks passed. For the save/restore item, I’m
+      going source-first but adding a small compatibility-facing tool
+      improvement too: if we can reserialize the parsed save envelope
+      byte-for-byte, future tests can mutate or generate save files without
+      hand-writing binary glue."
+
+      Action/result: Began the save/restore round-trip pass by inspecting the
+      current save parser, save tests, compatibility docs, executable notes,
+      tracker entry, and DOS wrapper disassembly.
+
+1690. Reported: "I’ll pick up exactly where the context left off: the
+      save/restore round-trip item. I’m going to add a byte-for-byte save
+      serializer and fold the DOS file-wrapper source notes into the docs so
+      this moves from “we can parse saves” to “we can preserve and generate the
+      exact envelope.”"
+
+      Action/result: Confirmed the next implementation target after context
+      compaction and re-read the relevant parser, tests, docs, and tracker
+      sections.
+
+1691. Reported: "The current save helper is intentionally minimal, so the next
+      edit will stay small: serialize the same five-block envelope the parser
+      already accepts, then test every checked-in SQ2 save for exact byte
+      preservation. That gives us a useful compatibility primitive without
+      pretending we’ve modeled every in-memory field yet."
+
+      Action/result: Prepared the save serializer/test edit scope.
+
+1692. Reported: "The serializer is now in place and deliberately validates the
+      same structural promises the parser relies on: exact 31-byte header,
+      exactly five blocks, matching block order, and matching length prefixes.
+      Next I’m expanding the save tests so we prove every local `SQ2SG.*` file
+      round-trips byte-for-byte."
+
+      Action/result: Added `serialize_save`, `u16le_bytes`, and `write_save` to
+      `tools/agi_save.py`.
+
+1693. Reported: "The save tests now cover exact serialization plus validation
+      failures for malformed in-memory save objects. I’m running the focused
+      test module before I touch the prose, so the docs describe something
+      we’ve actually checked."
+
+      Action/result: Added byte-for-byte round-trip coverage for all local
+      `SQ2SG.*` files and serializer structural mismatch tests.
+
+1694. Reported: "The focused save tests pass: 6 checks, including
+      byte-for-byte reserialization of all 11 checked-in saves. I’m documenting
+      that as structural compatibility evidence, while keeping the dynamic
+      original-engine restore path marked as separate remaining work."
+
+      Action/result: Ran `python3 -B -m unittest tests.test_save_resources`,
+      which passed 6 tests.
+
+1695. Reported: "The compatibility chapter now distinguishes “container
+      envelope is exact” from “the engine successfully restores a generated
+      scenario.” I’m making the same distinction in the executable notes so
+      future readers don’t overread the static test."
+
+      Action/result: Updated `docs/src/compatibility_testing.md` and
+      `docs/src/agi_executable.md` with save envelope serialization evidence.
+
+1696. Reported: "While checking the DOS wrapper pass, I found an older
+      symbol-map problem that’s worth fixing immediately: several DOS wrapper
+      labels after `open_file` were shifted to the wrong addresses. The
+      disassembly is clear here, so I’m correcting the label map before I write
+      more prose against those names."
+
+      Action/result: Rechecked the DOS wrapper disassembly and found the
+      correct post-open wrapper map beginning at `0x5cef`.
+
+1697. Reported: "That patch missed because the surrounding lines had already
+      shifted slightly. I’m reopening the small symbol-table window and applying
+      the correction against the exact current text."
+
+      Action/result: Re-read the current DOS wrapper rows in
+      `docs/src/symbolic_labels.md`.
+
+1698. Reported: "The stale rows are isolated. I’m replacing just that DOS
+      wrapper block, so the rest of the resource/event labels stay untouched."
+
+      Action/result: Corrected the DOS wrapper symbolic labels and added
+      labels for handle duplication, current-directory/drive helpers,
+      find-first/find-next, drive probing, file-time reads, and the shared
+      pre-call helper.
+
+1699. Reported: "The DOS symbol map is corrected now. I’m recording the
+      correction in the evidence trail too, because stale labels are exactly
+      the kind of thing that would cause pain when we compare another
+      interpreter build later."
+
+      Action/result: Added the save-envelope round-trip and DOS wrapper
+      correction section to `docs/src/clean_room_executable_notes.md`.
+
+1700. Reported: "The evidence notes now have the serializer result and the
+      corrected DOS wrapper table. I’m catching up the progress log with these
+      intermediate updates, then I’ll run the docs/tests checks and move on to
+      the next PROGRESS item."
+
+      Action/result: Updated this progress log through the save-envelope and
+      DOS-wrapper correction pass.
+
+1701. Reported: "One more small tracker tweak: since the wrapper map was
+      corrected, I’m adding that explicitly to `PROGRESS.md` so the dashboard
+      reflects the source-backed DOS helper names too."
+
+      Action/result: Added the corrected DOS wrapper symbolic-label map to the
+      DOS file I/O tracker evidence.
+
+1702. Reported: "The tracker is caught up. I’m running the focused save tests,
+      mdBook build, and whitespace checks now; after that I’ll continue down
+      the remaining high-value list instead of stopping here."
+
+      Action/result: Ran focused save tests, `mdbook build docs`, and
+      `git diff --check`; all passed.
+
+1703. Reported: "Checks are clean: save tests pass, mdBook builds, and
+      `git diff --check` is quiet. Next I’m staying on the save/restore item,
+      but shifting back to the disassembly to map the actual read/write helper
+      failure paths rather than inferring them from the file format."
+
+      Action/result: Started source inspection of the save and restore handler
+      failure paths around image offsets `0x2512`, `0x26b0`, `0x2753`, and
+      `0x28c6`.
+
+1704. Reported: "The source pass confirms the error split: save write failures
+      are recoverable after closing and deleting the partial file, while
+      restore block-read failures go through fatal cleanup. I’m checking the
+      local strings around those message offsets so the docs name the
+      observable prompts more clearly."
+
+      Action/result: Inspected `AGIDATA.OVL` strings around `0x0d34..0x0e46`
+      and confirmed the save/restore confirmation and error messages.
+
+1705. Reported: "The strings confirm the observable messages: restore read
+      failure says “Error in restoring game” and then quits, while save
+      create/write problems are “directory full/write-protected” or “disk full”
+      style continue prompts. I’m adding a concise failure-path table to the
+      implementation-facing docs."
+
+      Action/result: Prepared runtime-model save/restore failure lifecycle
+      update.
+
+1706. Reported: "The runtime model already had restore success/failure, but it
+      didn’t distinguish recoverable save/open failures from fatal restore
+      reads. I’m extending that lifecycle table so an implementer can model the
+      continuation behavior directly."
+
+      Action/result: Added save create failure, save write failure, and restore
+      open failure rows to `docs/src/runtime_model.md`.
+
+1707. Reported: "The lifecycle table now captures save create failure, save
+      write failure, restore open failure, restore success, and restore read
+      failure as separate transitions. I’m adding the lower-level call/return
+      details to the executable chapter next."
+
+      Action/result: Updated `docs/src/agi_executable.md` with write/read
+      helper return rules and save/restore failure continuations.
+
+1708. Reported: "The executable chapter now has the helper-level behavior. I’m
+      also tightening the opcode rows, because `0x7d` and `0x7e` are where most
+      readers will first look for save/restore continuation semantics."
+
+      Action/result: Updated the `0x7d` and `0x7e` rows in
+      `docs/src/logic_bytecode.md` with create/open/write/read failure
+      behavior.
+
+1709. Reported: "The opcode rows now include the recoverable versus fatal
+      failure distinction too. I’m recording this source pass in the clean-room
+      notes with the exact disassembly/string probes that support it."
+
+      Action/result: Added the save/restore file-error source-pass section to
+      `docs/src/clean_room_executable_notes.md`.
+
+1710. Reported: "The clean-room notes now have the save/restore error-path
+      pass. I’m updating the progress log, then I’ll run checks and continue to
+      the next highest-value area in `PROGRESS.md`."
+
+      Action/result: Updated this progress log through the save/restore
+      file-error documentation pass.
+
+1711. Reported: "Since the source-backed file error paths are now documented,
+      I’m narrowing the tracker wording. The remaining save work is mainly
+      dynamic round-trip and representative UI probes, not basic source
+      mapping."
+
+      Action/result: Narrowed the save/restore and DOS file I/O remaining-work
+      text in `PROGRESS.md`.
+
+1712. Reported: "The tracker now reflects that the source mapping is done and
+      the dynamic/UI side remains. I’m running checks for the doc changes, then
+      I’ll inspect the existing QEMU logic probe harness to see whether a
+      save/restore round-trip case can be added cleanly without inventing a
+      one-off path."
+
+      Action/result: Ran focused save tests, `mdbook build docs`, and
+      `git diff --check`; all passed. Searched the logic probe harness for
+      save/restore cases and input support.
+
+1713. Reported: "The harness search shows existing save/restore coverage is
+      mostly Escape/cancel smoke, not a full file round-trip. I’m reading the
+      probe generator now to see how it handles post-launch keys and fixture
+      DOS directories before deciding whether to add a dynamic save case or
+      leave it as a larger follow-up."
+
+      Action/result: Re-read `tools/logic_interpreter_probe.py` helpers, case
+      definitions, and snapshot runner.
+
+1714. Reported: "A full save/restore round trip through the UI is probably more
+      involved than a single new case, but the harness can patch
+      `AGIDATA.OVL`. I’m checking the selector source to see whether a
+      prefilled path/description buffer lets us trigger a representative
+      open/create error without brittle key navigation."
+
+      Action/result: Disassembled the save/restore selector around
+      `0x85e5..0x8814` and inspected save-related initial data.
+
+1715. Reported: "The selector does have a noninteractive path when `[0x0e72]`
+      is already nonzero, but it still goes through slot matching/formatting
+      rather than simply trusting `0x1c8c`. I’m reading that branch before I
+      decide whether a patched fixture will be stable enough for QEMU evidence."
+
+      Action/result: Inspected the noninteractive slot-matching branch around
+      `0x894e..0x8b99` and the filename formatter/path validator helpers.
+
+1716. Reported: "This selector path is not quite a clean one-liner: the
+      prefilled-buffer branch still scans slot summaries and may fall back
+      through UI-like selection logic. Rather than force a brittle dynamic save
+      probe, I’m going to document that constraint and move to the next
+      high-value item, the picture/view renderer compatibility work, where we
+      have more direct harnesses."
+
+      Action/result: Deferred a dynamic save/restore probe as a larger focused
+      task and moved to the picture/view compatibility tracker items.
+
+1717. Reported: "The picture/view tracker points to two practical gaps: valid
+      picture edge semantics and broader view clipping. I’m starting with the
+      view batch because the test already says base coverage includes mirror
+      and top/left clipping, but `PROGRESS.md` still calls out right/bottom
+      clipping as remaining."
+
+      Action/result: Inspected picture/view progress entries, view-batch tests,
+      picture fuzz tests, and related docs.
+
+1718. Reported: "The object-overlay harness already has right and bottom edge
+      cases, but the simpler picture-plus-view batch only has left/top. I’m
+      going to broaden that base batch with right/bottom clipping cases and add
+      local tests so the coverage is visible before any QEMU run."
+
+      Action/result: Re-read `tools/view_batch.py`, object-overlay clip cases,
+      and clipping-related docs/tests.
+
+1719. Reported: "View 11’s frame is 20 by 5, so clean right and bottom cases
+      are straightforward: request left `150` to exercise right clamping to
+      `140`, and baseline `170` to exercise bottom clipping past the 168-row
+      logical screen. I’m adding those to the base view batch and tests."
+
+      Action/result: Added `view_011_right_clip` and `view_011_bottom_clip` to
+      the base view-batch registry.
+
+1720. Reported: "The local frame type names the raw control byte rather than
+      `transparent_color`, so that quick dimension probe tripped on an
+      attribute name. I’m rerunning it with the actual fields and checking the
+      compose clipping function before adding cases."
+
+      Action/result: Confirmed view 11/group 0/frame 0 dimensions as 20x5 with
+      control byte `0x01`, and reran view-batch tests.
+
+1721. Reported: "The base view batch now includes right and bottom clipping.
+      I’m updating the tests so they assert all four clip directions explicitly
+      and keep the expected base/stress counts honest."
+
+      Action/result: Updated `tests/test_view_batch.py` for four edge case IDs
+      and the new base count.
+
+1722. Reported: "The local coverage tests are updated. I’m running the
+      view-batch tests now, then I’ll decide whether to run a small QEMU
+      snapshot for the two new cases or the full base batch."
+
+      Action/result: Ran `python3 -B -m unittest tests.test_view_batch`; all 5
+      tests passed.
+
+1723. Reported: "The view tests pass. To run just the two new QEMU cases
+      cleanly, I’m adding the same repeated `--case` filter that the other
+      probe harnesses already have, instead of creating an ad hoc JSON fixture
+      file."
+
+      Action/result: Added repeated `--case` filtering to `tools/view_batch.py`.
+
+1724. Reported: "The view harness has the filter now. I’m adding a small unit
+      test for selected-case loading, including the unknown-case error, so the
+      CLI behavior is covered before I use it."
+
+      Action/result: Added view-batch case-filtering tests.
+
+1725. Reported: "The filter test is in place. I’m running the view-batch unit
+      tests again; if they pass, I’ll launch just the two new clipping cases
+      through QEMU snapshot mode."
+
+      Action/result: Ran `python3 -B -m unittest tests.test_view_batch`; all 6
+      tests passed.
+
+1726. Reported: "The view-batch tests pass with the new filter. I’m running a
+      two-case QEMU snapshot batch for `view_011_right_clip` and
+      `view_011_bottom_clip` now, which should give us original-engine evidence
+      without running the whole suite."
+
+      Action/result: Ran `clip_right_bottom_001`; QEMU produced a mismatch for
+      `view_011_right_clip`.
+
+1727. Reported: "The right-edge QEMU case mismatched, so that’s useful rather
+      than bad: our simple local composition model is missing an observable
+      placement rule for this path. I’m inspecting the report and generated
+      capture to see whether this is the same spiral placement behavior already
+      seen in object-overlay probes or a separate view-batch fixture issue."
+
+      Action/result: Inspected the failed report and capture; the mismatch
+      bbox aligned with placement-search behavior rather than a decode failure.
+
+1728. Reported: "The mismatch is the same placement-search rule already
+      documented for `add_to_pic`: a right-edge request for view 11 at left
+      `150`, baseline `80` lands at left `140`, baseline `67`, not at a simple
+      clamped baseline `80`. I’m going to make the view-batch case model allow
+      expected placement overrides, then rerun right and bottom together."
+
+      Action/result: Rechecked object-overlay clip cases and placement-search
+      tests for comparison.
+
+1729. Reported: "The object-overlay helper already has a source-derived
+      fallback for the right-edge placement. I’m reusing that idea in the
+      simpler view batch by adding optional expected position fields, rather
+      than changing the renderer’s direct composition primitive."
+
+      Action/result: Inspected `ObjectOverlayCase` and its
+      `search_object_placement`-based comparison path.
+
+1730. Reported: "Actually the better reuse is the existing
+      `search_object_placement` helper from `agi_graphics`, which already
+      models the bounds-only spiral search. I’m wiring view-batch comparison
+      through that helper by default, with optional overrides for future odd
+      cases."
+
+      Action/result: Re-read the placement-search helper and computed candidate
+      placements for the new view requests.
+
+1731. Reported: "The placement search predicts the new requests as `(150,80)
+      -> (140,71)` and `(20,170) -> (23,167)`. I’m updating `view_batch.py` so
+      QEMU comparisons use this source-derived placement search, matching how
+      object-overlay probes already handle `add_to_pic`."
+
+      Action/result: Added `expected_view_tuple` and source-derived placement
+      comparison to `tools/view_batch.py`.
+
+1732. Reported: "The view comparison now runs requested placements through
+      `search_object_placement` unless a case provides an explicit expected
+      override. I’m adding unit checks for the predicted right and bottom
+      placements so the behavior is pinned locally too."
+
+      Action/result: Added placement expectation tests for the right and bottom
+      view-batch cases.
+
+1733. Reported: "The placement expectations are now explicit in tests. I’m
+      running the view-batch tests, then I’ll rerun the two-case QEMU batch."
+
+      Action/result: Ran `python3 -B -m unittest tests.test_view_batch`; all 7
+      tests passed.
+
+1734. Reported: "The local view tests pass, including the source-derived
+      placement expectations. I’m rerunning the same two QEMU cases now to see
+      whether right and bottom clipping line up with the original engine."
+
+      Action/result: Ran `clip_right_bottom_002`; both right and bottom cases
+      matched with 0 mismatches.
+
+1735. Reported: "The rerun matched both cases: right and bottom clipping are
+      now QEMU-validated in the view batch using the placement-search
+      expectation. I’m updating the docs and tracker with both the failed first
+      run and the corrected source-derived result so the evidence trail stays
+      honest."
+
+      Action/result: Began documentation updates for the view-batch
+      right/bottom placement validation.
+
+1736. Reported: "I’m updating the compatibility chapter now: the base view
+      registry has grown from the original six to eight, and the new
+      right/bottom cases have a focused QEMU report with 2 matches. The older
+      six-case/stress notes stay as historical runs rather than being rewritten
+      as if we reran everything."
+
+      Action/result: Updated `docs/src/compatibility_testing.md` with the
+      focused right/bottom view-batch command, initial mismatch note, and
+      corrected match result.
+
+1737. Reported: "The compatibility notes now record the initial mismatch and
+      the corrected two-case QEMU match. I’m adding the same placement details
+      to the graphics pipeline chapter so the implementation model and test
+      evidence stay connected."
+
+      Action/result: Updated `docs/src/graphics_object_pipeline.md` with the
+      new right/bottom placement-search evidence.
+
+1738. Reported: "The graphics chapter now ties the new view-batch evidence to
+      the existing `0x593a` placement model. I’m narrowing `PROGRESS.md` so
+      right/bottom clipping is no longer listed as an open view-renderer gap."
+
+      Action/result: Updated the view resource tracker in `PROGRESS.md`.
+
+1739. Reported: "The tracker is narrowed. I’m recording the view-batch
+      source/test/QEMU pass in the evidence notes, including the failed first
+      comparison because it explains why the harness now uses placement search."
+
+      Action/result: Added the view-batch right/bottom placement validation
+      section to `docs/src/clean_room_executable_notes.md`.
+
+1740. Reported: "The evidence notes now have the right/bottom view placement
+      pass. I’m catching the progress log up with the save-probe decision and
+      the view-batch work before I run the broader checks."
+
+      Action/result: Updated this progress log through the view-batch
+      right/bottom placement validation pass.
+
+1741. Reported: "Focused checks are clean. I’m staying in picture/view
+      compatibility now, since `PROGRESS.md` still calls out valid-picture edge
+      semantics and broader renderer comparisons as a high-value open area."
+
+      Action/result: Returned to the picture/view compatibility tracker after
+      the view-batch validation pass.
+
+1742. Reported: "The picture fuzz base already has both corner commands and the
+      lower-right edge behavior pinned. I’m looking for the next useful
+      source-backed gap: either a compact real-resource batch or a focused
+      priority/control interaction, and I’ll choose the one with the cleanest
+      evidence path."
+
+      Action/result: Reviewed existing picture fuzz and view/object coverage to
+      avoid duplicating already-covered edge cases.
+
+1743. Reported: "There isn’t a reusable real-picture batch harness yet, only
+      one-off fixture generation and comparison. I’m going to add that first so
+      we can keep growing original-engine parity checks without rebuilding the
+      plumbing each time."
+
+      Action/result: Started a reusable real-picture QEMU batch harness.
+
+1744. Reported: "Before picking real-picture batch seeds, I’m scanning the
+      local picture directory for a couple of useful representatives: first
+      present resource, largest payload, and pattern-command coverage."
+
+      Action/result: Scanned the local SQ2 picture corpus to choose small base
+      cases for the real-picture batch.
+
+1745. Reported: "Picture 45 is still the largest payload in this local corpus,
+      and picture 1 gives us an early resource with pattern plotting. I’m using
+      those as the initial real-picture batch so the first run is meaningful
+      but not huge."
+
+      Action/result: Selected picture 1 and picture 45 as the first reusable
+      real-picture parity cases.
+
+1746. Reported: "The new picture-batch harness is in place. It can run either
+      serially or through the existing QEMU snapshot path, and it writes the
+      same kind of JSON summary we use for the fuzz/view batches."
+
+      Action/result: Added `tools/picture_batch.py`.
+
+1747. Reported: "The picture-batch tests are written for case loading,
+      filtering, DOS directory naming, and report summaries. I’m running them
+      alongside the view-batch tests before using QEMU."
+
+      Action/result: Added `tests/test_picture_batch.py`.
+
+1748. Reported: "The local picture/view batch tests pass. I’m running the
+      two-case real-picture batch in QEMU snapshot mode now."
+
+      Action/result: Ran the local picture/view batch unit tests successfully.
+
+1749. Reported: "The picture batch built its fixtures, but QEMU couldn’t bind
+      the local VNC port from the sandbox, so it failed before the game ran.
+      I’m rerunning that exact harness with the existing escalation path rather
+      than changing the evidence target."
+
+      Action/result: Recorded the unprivileged QEMU/VNC bind failure as a
+      sandbox execution issue, not interpreter behavior.
+
+1750. Reported: "The real-picture QEMU batch passed: picture 1 and picture 45
+      both matched with 0 mismatches. I’m adding this reusable command to
+      `AGENTS.md`, then I’ll update the compatibility docs and progress
+      tracker."
+
+      Action/result: Ran `picture_base_001`; both real-picture cases matched.
+
+1751. Reported: "AGENTS now includes the real-picture batch command. I’m adding
+      the compatibility report details next: the base batch covers the first
+      present picture and the largest valid picture payload, both matched
+      against the original engine."
+
+      Action/result: Added the real-picture batch command to `AGENTS.md`.
+
+1752. Reported: "That doc patch missed on the later provisional paragraph
+      because it has shifted wording. I’m reopening the exact sections and
+      applying the update in smaller pieces."
+
+      Action/result: Re-opened the compatibility sections and applied the
+      real-picture batch documentation in smaller patches.
+
+1753. Reported: "The evidence trail is caught up for the real-picture batch.
+      I’m running the focused unit tests and doc build now; if those are clean,
+      I’ll use `PROGRESS.md` to choose the next reverse-engineering chunk rather
+      than stopping at bookkeeping."
+
+      Action/result: Ran focused picture/view/save tests, mdBook build, and
+      whitespace checks successfully.
+
+1754. Reported: "Focused verification passed: picture/view/save tests, mdBook,
+      and whitespace checks are clean. I’m moving to the next open
+      `PROGRESS.md` item now, with a source-first pass and QEMU only if it gives
+      us a durable compatibility test."
+
+      Action/result: Re-read the high-value remaining-work list and selected
+      picture/view renderer compatibility as the next source-first target.
+
+1755. Reported: "The next tracker items overlap: picture/view parity and
+      implementation-ready object drawing. Since the user has explicitly pushed
+      for source-first work, I’m going to inspect the picture drawing routines
+      around the mask/pattern paths before adding more QEMU cases."
+
+      Action/result: Began a picture pattern/mask disassembly pass.
+
+1756. Reported: "The source map already has labels for the picture command
+      scanner and pattern data tables, so I’m narrowing onto the pattern-plot
+      routine itself. The aim is to turn “odd/even mask interactions” from a
+      tracker phrase into exact behavior we can encode and test."
+
+      Action/result: Re-read the pattern plot documentation, local renderer,
+      and disassembly windows around picture command dispatch and pixel writes.
+
+1757. Reported: "The first disassembly window landed in the middle of adjacent
+      code and table bytes, so I’m realigning from the known scanner entry and
+      following the dispatch target into `0xfa`. This is exactly the sort of
+      place where labels help but raw source still needs a careful re-read."
+
+      Action/result: Realigned disassembly to the command scanner, pattern
+      handler, coordinate readers, and common pixel writer.
+
+1758. Reported: "One useful correction surfaced immediately: the picture
+      routine labels in the docs are loaded-image offsets, while `ndisasm -e`
+      is reading file offsets. For this executable that creates a 0x200-byte
+      difference in this region, so I’m keeping the existing symbolic labels
+      but recording file-offset windows explicitly in the evidence notes."
+
+      Action/result: Kept existing symbolic labels and recorded the file-offset
+      detail in the clean-room notes.
+
+1759. Reported: "The disassembly confirms pattern plotting does not have its
+      own channel semantics: it stores candidate coordinates in the normal
+      picture pixel register and calls the same pixel writer as lines and
+      fills. The odd/even behavior therefore lives in the color-enable commands
+      and `pixel_write`, so I’m reading the color mapper next."
+
+      Action/result: Inspected the common pixel writer and EGA color-mapper
+      path.
+
+1760. Reported: "For full 16-color EGA, the mapper returns the same nibble in
+      `AL` and `AH`, so odd/even masks exist but do not diverge for visual
+      colors. A good next compatibility step is to add valid synthetic pattern
+      cases that cross multiple rows with visual-only, control-only, and
+      visual+control active, proving the shared pixel writer’s channel-mask
+      behavior through QEMU."
+
+      Action/result: Chose three safe pattern-channel fuzz cases based on the
+      source-backed common pixel-writer path.
+
+1761. Reported: "I’m going to add three curated valid picture-fuzz cases:
+      visual+control pattern writes, visual-disabled/control-only pattern
+      writes, and control-disabled/visual-only pattern writes. The local tests
+      will assert both nibbles; the QEMU batch will validate the visible EGA
+      surface for these streams against the original engine."
+
+      Action/result: Added `base_027`, `base_028`, and `base_029` to
+      `tools/picture_fuzz.py`, plus renderer tests for channel-mask behavior.
+
+1762. Reported: "The curated fuzz cases and local channel assertions are in.
+      I’m adding a small harness test too, so the new case IDs stay part of the
+      stable base corpus rather than quietly drifting."
+
+      Action/result: Added a base-case ID assertion to `tests/test_picture_fuzz.py`.
+
+1763. Reported: "The local assertions now distinguish visible and control
+      nibbles for pattern plotting. I’m running the focused renderer/fuzz tests
+      before regenerating the corpus and asking QEMU to confirm the visible
+      surface."
+
+      Action/result: First focused test run failed, revealing that the sample
+      control class used in the both-active case matched the default control
+      nibble and therefore did not show as a control change.
+
+1764. Reported: "The new tests caught something useful before QEMU: my
+      assumptions about the sample payload were off, not the executable. The
+      cell values show the command stream I chose is not isolating the intended
+      channel state, so I’m inspecting the renderer command stepping and then
+      I’ll adjust the fixtures to match the source semantics."
+
+      Action/result: Probed the three sample payloads locally and identified
+      default control nibble `4` as the reason one assertion was wrong.
+
+1765. Reported: "Found the issue: the default control nibble is already `4`, so
+      using control color 4 made “changed control pixels” look unchanged. I’m
+      switching the both-active case to control 5 and adjusting the
+      control-disabled expectation to preserve the default high nibble."
+
+      Action/result: Changed `base_027` to control class `5` and corrected the
+      control-disabled expected cell value.
+
+1766. Reported: "The channel tests now use a non-default control class when
+      they need to observe a control change. I’m rerunning the focused tests and
+      regenerating the small corpus so the manifest matches the patched cases."
+
+      Action/result: Focused renderer/fuzz tests passed; regenerated the small
+      pattern-channel corpus with 38 cases and 36 safe-for-QEMU cases.
+
+1767. Reported: "The local renderer and corpus tests are clean. I’m running the
+      three new valid pattern-channel cases through the original engine now;
+      this only validates the visible EGA output, while the control-nibble part
+      stays source-backed and locally tested."
+
+      Action/result: Started QEMU snapshot batch `pattern_channel_masks_001`.
+
+1768. Reported: "QEMU is running the three-case snapshot batch now. It has
+      built all fixtures and booted the shared snapshot disk; I’m waiting on
+      the captures/comparisons."
+
+      Action/result: Waited for the running QEMU snapshot batch.
+
+1769. Reported: "The QEMU batch matched all three new cases with zero
+      mismatches. I’m documenting the source result and the visible-surface
+      confirmation now, including the caveat that QEMU screenshots do not
+      expose the control buffer directly."
+
+      Action/result: Began updating compatibility, graphics pipeline, progress,
+      and clean-room evidence notes for the pattern channel-mask pass.
+
+1770. Reported: "The old compatibility paragraph still says there are 27
+      curated base cases. With the three new channel-mask cases, that needs to
+      become 30; I’m updating the docs and then I’ll regenerate the standard
+      corpus so the recorded count is true."
+
+      Action/result: Updated compatibility docs and `PROGRESS.md` for the
+      three new pattern-channel cases and the narrowed EGA odd/even-mask gap.
+
+1771. Reported: "The compatibility chapter and tracker now describe the
+      channel-mask cases and narrow the odd/even visual-mask gap to non-EGA
+      behavior. I’m regenerating the standard deterministic corpus next so the
+      docs’ 1,054/1,052 counts match the current base-case set."
+
+      Action/result: Regenerated the standard fuzz corpus; it reported 1,054
+      total cases and 1,052 safe-for-QEMU cases.
+
+1772. Reported: "The regenerated corpus reports 1,054 total cases and 1,052
+      safe-for-QEMU cases, as expected. I’m recording the exact source windows,
+      tests, corpus generation, and QEMU result in the clean-room notes now."
+
+      Action/result: Added the pattern channel-mask source/QEMU evidence section
+      to `docs/src/clean_room_executable_notes.md`.
+
+1773. Reported: "The evidence notes are updated with the source-first
+      channel-mask pass. I’m catching the progress log up now, then I’ll run the
+      relevant checks and decide the next `PROGRESS.md` item."
+
+      Action/result: Updated this progress log through the pattern channel-mask
+      pass.
+
+1774. Reported: "The progress log is caught up through the channel-mask pass.
+      I’m running focused checks now; if they pass, I’ll keep going into the
+      next open item instead of stopping."
+
+      Action/result: Ran focused picture/fuzz/picture-batch/view/save tests,
+      mdBook build, and whitespace checks successfully.
+
+1775. Reported: "Focused checks are clean after the channel-mask work. The next
+      useful picture task is broader real-resource parity, so I’m scanning the
+      local picture corpus for representative resources instead of simply
+      picking room numbers by hand."
+
+      Action/result: Scanned all valid local `PICDIR` payloads and ranked them
+      by payload size, pattern count, fill count, and command-family diversity.
+
+1776. Reported: "The corpus scan gives a better broad-picture set than just
+      “more numbers”: picture 46 is pattern-heavy, 44 is fill-heavy, 17
+      exercises all command families with several pattern-mode changes, and
+      43/45 are large dense resources. I’m extending the real-picture batch
+      harness with `base`, `broad`, and `all` presets, then I’ll run the broad
+      preset in QEMU."
+
+      Action/result: Added `broad_cases`, `all_present_cases`, and preset
+      selection to `tools/picture_batch.py`.
+
+1777. Reported: "The harness now has a dynamic `all` preset plus a curated
+      `broad` preset. I’m running its unit tests before taking the broad set to
+      QEMU."
+
+      Action/result: Added preset/discovery tests and ran
+      `python3 -B -m unittest tests.test_picture_batch`; all 8 tests passed.
+
+1778. Reported: "The picture-batch tests pass. I’m running the broad
+      eight-picture preset through the original engine with one QEMU snapshot
+      now; this should give us a much stronger real-resource parity sample
+      without committing to a full 74-picture run yet."
+
+      Action/result: Started QEMU snapshot batch `picture_broad_001`.
+
+1779. Reported: "The broad real-picture run has built all eight fixtures and
+      is executing from the snapshot disk. I’m waiting for the captures and
+      comparisons; if one fails, the report should stop at the first mismatch
+      because this is a parity run."
+
+      Action/result: Waited for the broad real-picture QEMU batch.
+
+1780. Reported: "Still waiting on the broad QEMU batch; the larger real
+      pictures take longer to render/capture than the tiny synthetic cases. The
+      run is still active, so I’m leaving it alone and polling."
+
+      Action/result: Continued polling the running broad QEMU batch.
+
+1781. Reported: "Five of the eight broad real-picture cases have matched so
+      far, including the dense/fill-heavy ones. I’m waiting on the remaining
+      largest/pattern-heavy cases now."
+
+      Action/result: Observed the first five broad cases matching during the
+      running QEMU batch.
+
+1782. Reported: "The broad real-picture batch passed: all eight representative
+      resources matched the original engine with zero mismatches. I’m adding
+      the preset command/result to the docs and progress tracker now."
+
+      Action/result: Recorded `picture_broad_001` as 8 matches, 0 mismatches,
+      and 0 errors.
+
+1783. Reported: "The broad batch evidence is now in the compatibility chapter
+      and tracker. I’m adding the broad preset command to `AGENTS.md` too, so a
+      future agent can rerun the representative real-resource check directly."
+
+      Action/result: Added the broad picture-batch command to `AGENTS.md`.
+
+1784. Reported: "`AGENTS.md` has the broad real-picture command now. I’m
+      recording the corpus-selection scan, harness preset changes, tests, and
+      QEMU result in the clean-room notes before running the verification suite
+      again."
+
+      Action/result: Added the broad real-picture preset parity section to
+      `docs/src/clean_room_executable_notes.md`.
+
+1785. Reported: "The progress log is current through the broad real-picture
+      batch. I’m running the focused checks plus mdBook and diff whitespace
+      again; after that I’ll move to the next remaining item."
+
+      Action/result: Ran focused picture-batch, graphics-rendering,
+      picture-fuzz, view-batch, and save tests plus mdBook and whitespace
+      checks; all passed.
+
+1786. Reported: "Checks are clean. Since the broad preset passed, the natural
+      next step is a full present-picture parity batch; the harness now
+      supports it, and this would retire most of the remaining “broader
+      real-resource parity” risk if the DOS image has enough room. I’m checking
+      the snapshot-disk constraints before launching a long run."
+
+      Action/result: Inspected snapshot helper behavior, all-present case count,
+      fixture sizes, and current DOS snapshot image size/free space.
+
+1787. Reported: "The full 74-picture run would likely exceed the 64 MB DOS
+      snapshot image because each fixture directory carries a full runnable game
+      copy, and 74 copies would be around 70 MB before filesystem overhead. I’m
+      checking whether we can shrink picture fixtures or whether the practical
+      next step should be a few preset batches rather than one giant disk."
+
+      Action/result: Compared full-tree fixture contents and confirmed repeated
+      original volumes/save files dominated picture-batch fixture size.
+
+1788. Reported: "There’s a better way around the full-corpus disk problem: pack
+      each tested picture payload into that fixture’s `VOL.3` alongside the
+      generated `LOGIC.0`, and copy only the small engine/support files. That
+      should make a 74-picture snapshot feasible while preserving the original
+      picture data being tested. I’m going to implement this as a packed
+      fixture path for `picture_batch.py` and validate it against the
+      already-passing broad preset before attempting all pictures."
+
+      Action/result: Designed the packed picture fixture approach.
+
+1789. Reported: "I’m adding a new packed picture-fixture builder rather than
+      changing the older one-off fixture generator. That keeps historical
+      commands stable while letting batch runs use the smaller, purpose-built
+      layout."
+
+      Action/result: Added `copy_minimal_picture_tree` and
+      `build_packed_picture_fixture` to `tools/qemu_fixture.py`.
+
+1790. Reported: "`picture_batch.py` now uses packed picture fixtures, while
+      `qemu_fixture.py picture` remains the older full-tree generator. I’m
+      adding a unit check that the packed fixture actually omits the big
+      original volumes and repoints `PICDIR` into `VOL.3`."
+
+      Action/result: Updated `tools/picture_batch.py` and added packed-fixture
+      structural coverage to `tests/test_qemu_fixture.py`.
+
+1791. Reported: "There is already a qemu-fixture test module, so I’m putting
+      the packed-fixture structural check there instead of squeezing it into
+      picture-batch tests."
+
+      Action/result: Integrated the packed-fixture test with existing
+      qemu-fixture tests.
+
+1792. Reported: "The packed fixture structure test is in. I’m running the
+      qemu-fixture and picture-batch unit tests now; after that I’ll validate
+      the packed layout with a small QEMU run before considering all 74
+      pictures."
+
+      Action/result: Ran `tests.test_qemu_fixture` and `tests.test_picture_batch`;
+      all 37 tests passed. A local size probe showed packed picture fixtures are
+      about 72 KB of input files.
+
+1793. Reported: "The packed fixture is tiny now, about 72 KB per picture
+      instead of roughly 1.7 MB. Unit tests pass, so I’m running the two-picture
+      base QEMU batch with the packed layout to make sure the original engine
+      is happy with the trimmed fixture set."
+
+      Action/result: Ran `picture_base_packed_001`; pictures 1 and 45 matched
+      with 0 mismatches.
+
+1794. Reported: "The packed base QEMU run matched both pictures, so the
+      trimmed fixture set is valid. I’m launching the full 74-picture present
+      resource batch now with packed fixtures; this may run for a while, but it
+      should fit on the snapshot image."
+
+      Action/result: Started QEMU snapshot batch `picture_all_001` using
+      `--preset all` and packed fixtures.
+
+1795. Reported: "The full-picture batch built all 74 packed fixtures and is now
+      running in QEMU from one snapshot. I’ll keep polling; this is the long
+      parity pass."
+
+      Action/result: Confirmed the full QEMU batch had entered the capture
+      phase.
+
+1796. Reported: "No comparison output yet; QEMU is still active. The first
+      batch output usually appears after the initial cases have rendered and
+      screendumped, so I’m continuing to wait."
+
+      Action/result: Continued polling the active QEMU process.
+
+1797. Reported: "Still no per-case results from the full-picture run, but the
+      QEMU process has not exited. I’m letting it continue; with 74 cases the
+      snapshot setup and early captures can be a little quiet."
+
+      Action/result: Continued waiting on the full-picture QEMU batch.
+
+1798. Reported: "A quick note on the silence: `picture_batch.py` compares only
+      after `run_snapshot_qemu_cases` finishes all captures, so it won’t print
+      per-picture matches during the QEMU phase. This is expected for the full
+      run."
+
+      Action/result: Clarified the batch harness output behavior while the run
+      continued.
+
+1799. Reported: "The full QEMU run is still active. I’m continuing to poll and
+      will report the summary once the capture phase completes."
+
+      Action/result: Continued polling the active QEMU process.
+
+1800. Reported: "This is taking long enough that I’m checking the capture
+      directory from the host side while QEMU continues, just to make sure files
+      are being produced and we’re not waiting on a dead run."
+
+      Action/result: Counted 19 generated captures, proving the full run was
+      progressing.
+
+1801. Reported: "Host-side check shows 19 captures have already been written,
+      so the full-picture batch is progressing normally. I’m letting it keep
+      running."
+
+      Action/result: Continued the full-picture QEMU batch.
+
+1802. Reported: "The full QEMU capture phase is still running. I’m staying with
+      it; once QEMU exits the script will compare all generated screenshots in
+      one pass."
+
+      Action/result: Continued polling the active QEMU process.
+
+1803. Reported: "Another quick progress check from the filesystem side: I’m
+      checking how many captures have landed so far."
+
+      Action/result: Counted 26 generated captures.
+
+1804. Reported: "We’re at 26 captures out of 74, so the run is moving steadily.
+      No action needed beyond waiting."
+
+      Action/result: Continued the full-picture QEMU batch.
+
+1805. Reported: "The full-picture parity run is still in the capture phase. I’m
+      continuing to let QEMU work through the list."
+
+      Action/result: Continued polling the active QEMU process.
+
+1806. Reported: "Polling the capture count again so we have a rough sense of
+      progress."
+
+      Action/result: Counted 33 generated captures.
+
+1807. Reported: "33 of 74 captures are present now. The run is almost halfway
+      through the QEMU phase."
+
+      Action/result: Continued the full-picture QEMU batch.
+
+1808. Reported: "Still running; I’m continuing to poll. The silence from the
+      script is expected until all 74 screenshots have been captured."
+
+      Action/result: Continued polling the active QEMU process.
+
+1809. Reported: "Checking capture count again."
+
+      Action/result: Counted 40 generated captures.
+
+1810. Reported: "40 of 74 captures are in. The packed fixture approach is
+      paying off; the disk is not the bottleneck now, just the per-case
+      draw/capture loop."
+
+      Action/result: Continued the full-picture QEMU batch.
+
+1811. Reported: "The full-picture run is still active. I’m waiting on the
+      remaining capture loop."
+
+      Action/result: Continued polling the active QEMU process.
+
+1812. Reported: "When asked about using input to cycle through resources:
+      \"Yes, absolutely, and it’s a good idea. The current snapshot harness
+      optimizes away DOS boot, but it still starts a fresh engine process per
+      case so every capture is isolated and easy to reason about...\""
+
+      Action/result: Identified carousel-style resource sweeps as a useful
+      future throughput optimization while keeping the current isolated harness
+      as a reference oracle.
+
+1813. Reported: "The current full-picture batch is still running in the slower
+      per-process snapshot style. I’m going to let it finish for this run, then
+      I can add a carousel mode as a follow-up because it fits exactly the
+      bottleneck we’re hitting."
+
+      Action/result: Continued the existing full-picture batch rather than
+      interrupting it to change harness strategy mid-run.
+
+1814. Reported: "Good call. Simply growing the raw file would not help by
+      itself because the DOS partition/FAT geometry inside it would still
+      describe the old 64 MB volume; we’d need a larger formatted/bootable DOS
+      test image or a purpose-built large fixture image. For the current run the
+      packed fixtures avoid the limit, so I’m letting it finish, but I’ll note
+      the larger-image path in the docs and can build one if the carousel/all-
+      in-one fixture starts wanting more room."
+
+      Action/result: Confirmed that packed fixtures solved the current DOS image
+      limit and documented the need for a properly formatted larger image if
+      future batches need more space.
+
+1815. Reported: "The long run is still active, so I’m checking capture progress
+      again while it continues."
+
+      Action/result: Counted 56 generated captures.
+
+1816. Reported: "56 of 74 captures are present. We’re through most of the
+      current batch; after it finishes I’ll document both your carousel idea and
+      the DOS-image-size note, then decide whether to implement carousel mode
+      next."
+
+      Action/result: Continued the full-picture QEMU batch.
+
+1817. Reported: "Agreed. Once this run finishes, I’m going to treat batch
+      throughput as part of the reverse-engineering infrastructure, not just a
+      convenience: carousel-style scripts for picture/view sweeps, larger or
+      purpose-built DOS test images where needed, and keeping the isolated
+      per-case harness as the slow but simple reference path. That will matter
+      a lot when we start comparing interpreter versions across games."
+
+      Action/result: Promoted high-throughput batch infrastructure to an
+      explicit future work item for cross-game/interpreter comparison.
+
+1818. Reported: "The run is still alive. I’m checking the capture count again;
+      if it completes cleanly, the next infrastructure task is clearly a faster
+      in-engine resource sweep mode rather than just adding more one-shot
+      batches."
+
+      Action/result: Counted 64 generated captures.
+
+1819. Reported: "64 of 74 captures are present. We’re on the final stretch of
+      this slower full-picture pass."
+
+      Action/result: Continued the full-picture QEMU batch.
+
+1820. Reported: "Still running; I’m letting QEMU finish the last ten-ish cases."
+
+      Action/result: Continued polling the active QEMU process.
+
+1821. Reported: "Polling capture count one more time as it nears the end."
+
+      Action/result: Counted 71 generated captures.
+
+1822. Reported: "71 of 74 captures are in. The capture phase should finish
+      soon, then the script will compare all 74 against the local renderer."
+
+      Action/result: Continued the full-picture QEMU batch.
+
+1823. Reported: "The capture phase finished and comparisons have started. First
+      two pictures matched; I’m waiting for the full comparison summary."
+
+      Action/result: Observed the first two full-picture comparisons matching.
+
+1824. Reported: "The comparison pass is moving quickly now: the first 30
+      present pictures have matched. Continuing to poll for the rest."
+
+      Action/result: Observed the first 30 full-picture comparisons matching.
+
+1825. Reported: "60 of 74 comparisons have matched. The full corpus parity
+      result is looking very good; waiting on the final fourteen."
+
+      Action/result: Observed 60 full-picture comparisons matching.
+
+1826. Reported: "Full present-picture parity passed: all 74 valid SQ2 pictures
+      matched the original engine with 0 mismatches. I’m going to document that
+      result, plus the packed-fixture optimization and your carousel/larger-
+      image notes, then I’ll run the full checks."
+
+      Action/result: Recorded `picture_all_001` as 74 matches, 0 mismatches, and
+      0 errors.
+
+1827. Reported: "I’m updating the docs now in two layers: first the factual
+      result (74/74 pictures matched), then the infrastructure lesson (packed
+      fixtures solved the 64 MB pressure, and carousel/input-driven sweeps
+      should be added for future multi-game work)."
+
+      Action/result: Updated compatibility docs and the progress tracker with
+      the full present-picture parity result.
+
+1828. Reported: "The report gives us a strong milestone: every valid local SQ2
+      picture resource now matches pixel-for-pixel against the original EGA
+      engine. I’m making sure the tracker reflects that this piece is no longer
+      merely “broader parity pending.”"
+
+      Action/result: Updated `PROGRESS.md` to move full-corpus SQ2 picture
+      parity from remaining work to evidence.
+
+1829. Reported: "I’ve added the full-picture command and the packed-fixture
+      note to the reusable instructions. I’m adding the detailed evidence note
+      next, including the throughput lesson from this long run and the future
+      carousel strategy."
+
+      Action/result: Added `AGENTS.md` commands/notes and the packed
+      picture/full-parity clean-room evidence section.
+
+1830. Reported: "The clean-room evidence now records both the full 74-picture
+      result and the infrastructure lesson. I’m also going to put the carousel
+      recommendation into `AGENTS.md`, because it is exactly the kind of
+      future-agent context that should not be buried only in the long notes."
+
+      Action/result: Added the carousel-style high-throughput recommendation to
+      `AGENTS.md`.
+
+1831. Reported: "`AGENTS.md` now flags carousel-style fixtures as the preferred
+      future direction for high-throughput sweeps. I’m updating the progress log
+      with this longer run and the two throughput discussions, then I’ll verify
+      everything."
+
+      Action/result: Updated the progress log through the full-picture parity
+      run and infrastructure discussion.
+
+1832. Reported: "The log is current through the full parity run and the
+      infrastructure notes. Before starting a new harness feature, I’m running
+      the verification suite once, so any later carousel work starts from a
+      clean baseline."
+
+      Action/result: Ran all 146 tests, opcode evidence check, mdBook build,
+      and whitespace checks successfully.
+
+1833. Reported: "Full verification is clean: all 146 tests, opcode evidence
+      check, mdBook, and diff whitespace. I’m going to prototype the carousel
+      mode now, starting from existing bytecode helpers rather than inventing a
+      separate control path."
+
+      Action/result: Began implementing a picture carousel harness.
+
+1834. Reported: "I’m going to implement the carousel as a separate batch tool
+      rather than modifying the existing picture-batch semantics. That gives us
+      a fast path for sweeps while keeping the one-case-per-engine-run harness
+      intact as the simple reference oracle."
+
+      Action/result: Added carousel bytecode helpers and packed carousel
+      fixture generation to `tools/qemu_fixture.py`.
+
+1835. Reported: "The bytecode side of the carousel is now in
+      `qemu_fixture.py`: it shows the first picture once, advances on raw key
+      events, and discards the previous picture after showing the next one so
+      cache growth doesn’t become the new bottleneck. I’m adding structural
+      tests for that generated fixture now."
+
+      Action/result: Started adding carousel fixture tests.
+
+1836. Reported: "The test file has shifted a little from my expected context,
+      so I’m reopening the import block and helper-test section and applying
+      the carousel tests in smaller patches."
+
+      Action/result: Reopened `tests/test_qemu_fixture.py` and split the test
+      patch into smaller edits.
+
+1837. Reported: "The smaller patches are straightforward: imports first, then
+      the condition helper assertions, then the packed carousel fixture tests
+      near the existing packed-picture test."
+
+      Action/result: Added carousel-related imports, helper assertions, and
+      fixture layout tests.
+
+1838. Reported: "Imports are updated. I’m adding the assertions for the
+      raw-key condition bytes and the carousel fixture layout next."
+
+      Action/result: Added raw-key and carousel fixture assertions.
+
+1839. Reported: "The fixture tests are in. I’m adding the runner tool now:
+      build one packed carousel fixture, start the engine once, capture picture
+      0, send a key to advance, capture picture 1, and so on."
+
+      Action/result: Added `tools/picture_carousel.py`.
+
+1840. Reported: "The carousel runner tool is in place. I’m adding lightweight
+      unit tests around its report and orchestration path with mocks, then I’ll
+      do a short QEMU smoke run to validate the raw-key advance behavior in the
+      actual engine."
+
+      Action/result: Added `tests/test_picture_carousel.py`.
+
+1841. Reported: "The unit tests cover the carousel’s naming/reporting and that
+      it builds one fixture while comparing each capture separately. I’m running
+      these plus the qemu-fixture tests now."
+
+      Action/result: Ran carousel/qemu-fixture tests successfully and confirmed
+      a two-picture carousel fixture is about 77 KB.
+
+1842. Reported: "The carousel unit tests pass and the two-picture carousel
+      fixture is tiny, about 77 KB. I’m running the two-picture carousel against
+      QEMU now; this is the important proof that raw-key advancement works in
+      the original engine."
+
+      Action/result: First unprivileged QEMU carousel attempt failed at VNC
+      bind before the engine ran.
+
+1843. Reported: "As expected, the first carousel QEMU run failed at the sandbox
+      VNC bind, before the engine ran. I’m rerunning the exact command with the
+      same escalation pattern we’ve used for the other QEMU harnesses."
+
+      Action/result: Reran with approved `tools/picture_carousel.py` prefix; the
+      first picture matched but the second mismatched.
+
+1844. Reported: "The carousel ran under QEMU, but only the first picture
+      matched; the second capture mismatched. That means the packed carousel
+      fixture boots and captures correctly, but the raw-key advance either
+      didn’t fire or didn’t settle before capture. I’m inspecting the report and
+      capture rather than treating this as a renderer problem."
+
+      Action/result: Compared the second capture and found it was closest to
+      picture 1 with a visible UI/text damage rectangle.
+
+1845. Reported: "The failed carousel smoke is behaving like the key is being
+      handled by the normal input path, not by our advance condition. There’s
+      already a validated key-mapping/status-byte path for logic probes, so I’m
+      switching the carousel advance trigger from raw key condition to
+      `map_key_event` plus status byte condition. That should consume `x` as a
+      mapped event instead of typed parser input."
+
+      Action/result: Investigated status-byte mapping as a possible carousel
+      trigger.
+
+1846. Reported: "That search command had a quoting mistake. I’m rerunning a
+      simpler search for the status-byte table and then I’ll patch the carousel
+      trigger."
+
+      Action/result: Re-ran the status-byte search successfully.
+
+1847. Reported: "The status-byte path would need either explicit status
+      clearing or many one-shot mapped statuses, so I’m trying the lighter
+      source-backed fix first: disable the normal input line in the carousel
+      setup. The failed capture looked like the typed key was affecting normal
+      input UI, so keeping input-line processing out of the sweep may let the
+      raw-key predicate own the advance event cleanly."
+
+      Action/result: Added input-line disable action to carousel setup.
+
+1848. Reported: "The carousel setup now disables the normal input line before
+      drawing the first picture. I’m rerunning the structural tests and then the
+      QEMU two-picture carousel smoke."
+
+      Action/result: Tests passed; QEMU base carousel still mismatched the
+      second picture.
+
+1849. Reported: "Disabling the input line did not fix the carousel advance:
+      first picture still matches, second still mismatches. I’m checking whether
+      the second capture is still basically picture 1 with UI damage, or
+      whether the advance happened but the display state carried over."
+
+      Action/result: Confirmed the second capture remained closest to picture 1
+      with the same UI/text mismatch area.
+
+1850. Reported: "The second capture is still closest to picture 1, with a
+      mismatch rectangle that looks like UI/text damage. So the raw-key advance
+      is not the right trigger as currently wired. I’m trying a non-printing key
+      next; if it fires the raw-key predicate without typing into the parser UI,
+      it may be enough for carousel advancement."
+
+      Action/result: Tried `f1` as the raw-key advance key; it still mismatched.
+
+1851. Reported: "`f1` also failed to advance. I’m going to stop treating this
+      as a quick harness tweak and inspect the generated bytecode plus the known
+      event/update ordering; the carousel tool can stay, but it needs a better
+      advance mechanism before we mark it validated."
+
+      Action/result: Re-read the earlier validated raw-key logic probe.
+
+1852. Reported: "The first two attempts prove something useful but not
+      complete: “press a key and check raw-key condition” is not enough in this
+      carousel setting, because the normal command/input path is still producing
+      visible UI changes while the picture index stays put. I’m reading the
+      earlier validated raw-key probe to see what setup difference made that one
+      work."
+
+      Action/result: Compared carousel logic against the existing raw-key probe
+      setup.
+
+1853. Reported: "Aha, found the likely bug in my carousel bytecode: raw-key
+      caches at absolute byte `[0x001c]`, while AGI variable actions are offset
+      from `[0x0009]`. I used variable index `0x1c`, which clears `[0x0025]`;
+      the correct variable slot for absolute `[0x001c]` is `0x13`. That would
+      let one key event advance twice in the same logic pass and wrap back to
+      picture 1. I’m patching that now."
+
+      Action/result: Corrected the raw-key cache clear to script variable
+      `v19`.
+
+1854. Reported: "The raw-key cache clear is corrected to variable slot `0x13`.
+      I’m tightening the test so this exact off-by-base mistake is pinned."
+
+      Action/result: Added a regression assertion for `assignn(v19, 0)`.
+
+1855. Reported: "The regression check now looks for `assignn(v19, 0)`, which is
+      the bytecode way to clear absolute `[0x001c]`. I’m rerunning tests and
+      then the QEMU carousel smoke."
+
+      Action/result: Tests passed; QEMU base carousel `picture_carousel_base_003`
+      matched both pictures.
+
+1856. Reported: "The carousel tests pass with the corrected raw-key slot. I’m
+      rerunning the QEMU base carousel; this should tell us whether the fast
+      path is genuinely usable."
+
+      Action/result: Confirmed the corrected two-picture raw-key carousel
+      passed with 2 matches.
+
+1857. Reported: "The corrected carousel smoke passed: one engine process, two
+      pictures, two matches, zero mismatches. I’m going to try the eight-picture
+      broad preset next, which is the real speed comparison against the
+      snapshot-per-case approach."
+
+      Action/result: Started broad raw-key carousel run.
+
+1858. Reported: "The broad carousel run is active. It should complete much
+      faster than the old eight-process-style snapshot batch if the per-key
+      advance remains stable."
+
+      Action/result: Broad raw-key carousel matched first three pictures, then
+      mismatched five later captures.
+
+1859. Reported: "The broad carousel advanced correctly through the first three
+      pictures, then mismatched on the larger resources. That smells like
+      capture timing, not bytecode: the larger pictures need more time to
+      decode/draw after the key. I’m rerunning broad with a longer per-advance
+      wait."
+
+      Action/result: Reran broad raw-key carousel with `--advance-wait 8`.
+
+1860. Reported: "The longer-wait broad carousel run is in progress. If this
+      passes, we’ll have a usable fast mode with an explicit wait-time knob for
+      heavier resources."
+
+      Action/result: Waited on the longer broad carousel run.
+
+1861. Reported: "The longer broad carousel run is still active. It captures and
+      compares after the run finishes, so silence here just means it is stepping
+      through the eight resources."
+
+      Action/result: Longer broad raw-key carousel failed at the same boundary.
+
+1862. Reported: "The longer wait did not change the failure boundary: pictures
+      1, 6, and 17 match, then the larger packed resources fail. I’m checking
+      whether capture 4 is the wrong picture, a partially rendered picture, or
+      a bad resource-load effect."
+
+      Action/result: Found captures 4 onward were exactly picture 17.
+
+1863. Reported: "The broad failure is now clearer: after picture 17, every
+      later capture is still exactly picture 17. So the carousel is not
+      misrendering big pictures; it stops advancing after the third displayed
+      picture. I’m going to probe whether that is tied to picture 17, the third
+      index, or repeated key delivery."
+
+      Action/result: Created and ran a manual four-picture carousel probe.
+
+1864. Reported: "That combined command included a small inline Python
+      file-write before the carousel run, so the approved prefix didn’t cover
+      the QEMU segment cleanly. The case file is written now; I’m rerunning just
+      the carousel command."
+
+      Action/result: Reran the manual four-picture carousel command.
+
+1865. Reported: "The four-picture manual carousel is running now. This should
+      tell us whether the stall is “third advance” generally or something about
+      picture 17/broad ordering."
+
+      Action/result: Manual raw-key carousel also stalled after the third
+      displayed picture.
+
+1866. Reported: "The manual four-picture run also stalls after the third
+      displayed picture, so it’s not picture 17 or large-resource decode. The
+      next likely culprit is my persistent index variable: I used a high
+      scratch-style variable (`v249`), which may be fine for immediate operands
+      but not safe as per-cycle state. I’m moving the carousel index to a lower
+      dedicated variable and retesting."
+
+      Action/result: Changed the carousel index variable from `v249` to `v32`.
+
+1867. Reported: "The carousel index now uses `v32` instead of `v249`. I’m
+      updating the tests to assert the new state variable, then I’ll rerun the
+      manual four-picture carousel."
+
+      Action/result: Updated tests for `v32`.
+
+1868. Reported: "The test now pins the lower carousel index variable. I’m
+      running the structural tests and the same four-picture QEMU probe again."
+
+      Action/result: Tests passed; the four-picture raw-key carousel still
+      stalled after the third displayed picture.
+
+1869. Reported: "The structural tests pass with `v32`. I’m rerunning the
+      four-picture carousel to see whether the third-advance stall disappears."
+
+      Action/result: Confirmed the lower index variable did not fix the stall.
+
+1870. Reported: "The lower index variable didn’t change the stall, so the
+      script state is probably fine. The remaining suspect is QEMU/DOS key
+      delivery for repeated identical monitor keys. I’m teaching the runner to
+      accept a comma-separated key cycle, then I’ll try `x,y,z` so each advance
+      is a distinct key event."
+
+      Action/result: Added comma-separated key cycling to the carousel runner.
+
+1871. Reported: "The runner can now cycle through a comma-separated key list.
+      I’m adding a tiny test for rejecting an empty key list, then I’ll rerun
+      the four-picture QEMU probe with `x,y,z`."
+
+      Action/result: Added empty advance-key validation test.
+
+1872. Reported: "The empty-key guard test is in. I’m running the carousel tests
+      and then the distinct-key four-picture QEMU probe."
+
+      Action/result: Tests passed; distinct printable keys still stalled after
+      the third displayed picture.
+
+1873. Reported: "The distinct-key carousel run is active. If this still stalls
+      after the third capture, the key-repeat theory is out and we’ll need a
+      different advance event source."
+
+      Action/result: Confirmed the key-repeat theory did not explain the stall.
+
+1874. Reported: "The raw-key route is too flaky for long carousels. I’m
+      switching the carousel to the interpreter’s already QEMU-validated
+      mapped-key/status-byte mechanism: setup maps each advance key to a unique
+      status byte, each transition tests “current index and that status,” and
+      the carousel does not wrap. That avoids needing to clear status bytes and
+      fits representative sweeps well."
+
+      Action/result: Reworked carousel bytecode to use mapped keys and status
+      byte conditions.
+
+1875. Reported: "The carousel logic now uses mapped status events and has one
+      transition per key, no wrap. I need to update the tests from “raw key
+      advance” to “mapped key/status advance.”"
+
+      Action/result: Updated qemu-fixture tests for mapped-key carousel logic.
+
+1876. Reported: "The tests now expect mapped-key bytecode. I’m wiring the key
+      list through the runner so the fixture maps the same keys that QEMU
+      sends."
+
+      Action/result: Passed advance key words through `tools/picture_carousel.py`
+      into the generated carousel fixture.
+
+1877. Reported: "The runner now defaults to a long mapped-key list and errors
+      if there are not enough keys for the selected carousel. I’m running the
+      tests, then the four-picture and broad QEMU probes again."
+
+      Action/result: Mapped-key tests passed.
+
+1878. Reported: "Tests pass with mapped-key carousel bytecode. I’m rerunning
+      the four-picture QEMU probe using the default key list."
+
+      Action/result: Four-picture printable-key carousel matched two pictures,
+      then showed picture 20 with UI/text artifact and stalled.
+
+1879. Reported: "The mapped-key four-picture carousel is running. If this
+      passes, I’ll move straight to the broad mapped-key run."
+
+      Action/result: The mapped-key four-picture carousel did not pass.
+
+1880. Reported: "Mapped keys improved the repeated-key issue differently but
+      still stalls, now after the second displayed picture. I’m checking the
+      captured image identity again; this will tell us whether status-byte
+      triggering is only firing once."
+
+      Action/result: Found the third capture was mostly picture 20 with a
+      visible UI/text mismatch, and the fourth capture remained the same.
+
+1881. Reported: "The second transition did draw picture 20, but with a small
+      UI/text mismatch, and then subsequent captures stayed there. So mapped
+      status events are advancing, but the normal input UI still leaves visible
+      damage after the transition. For a fast oracle, we either need to
+      suppress/repair that UI or compare only after a clean picture refresh."
+
+      Action/result: Localized the mismatch rectangle to the same visible
+      text/window area.
+
+1882. Reported: "The mismatch rectangle is the same visible text/window area,
+      so printable mapped keys are still being interpreted by the command
+      parser. I’m adding support for non-printing function keys (`f1`, `f2`,
+      …) as mapped advance keys; those should produce key events without putting
+      text into the input/parser path."
+
+      Action/result: Added function-key BIOS word mapping to
+      `tools/picture_carousel.py`.
+
+1883. Reported: "Function-key names now map to BIOS key words for the fixture
+      and are sent to QEMU as the same key names. I’m fixing the carousel
+      bytecode validation to allow those 16-bit key words."
+
+      Action/result: Updated carousel bytecode validation for 16-bit mapped
+      keys.
+
+1884. Reported: "The fixture generator now accepts 16-bit mapped key words. I’m
+      running the carousel tests, then the four-picture QEMU run with the
+      function-key defaults."
+
+      Action/result: Tests passed; function-key four-picture carousel still
+      stalled after the second displayed picture.
+
+1885. Reported: "Tests pass with function-key support. I’m running the
+      four-picture QEMU carousel with the default `f1,f2,f3,...` advance keys
+      now."
+
+      Action/result: Ran the function-key four-picture carousel.
+
+1886. Reported: "The function-key carousel run is active. This is the cleanest
+      version of the idea so far: mapped non-printing keys, one engine process,
+      no raw-key cache juggling."
+
+      Action/result: The function-key four-picture run still failed after two
+      displayed pictures.
+
+1887. Reported: "Function keys still stall after the second displayed picture,
+      so the problem is not only printable input. I’m going to stop short of
+      marking carousel validated beyond the two-picture smoke and document this
+      as a partially working prototype: useful direction, but it needs a better
+      event/ack strategy before replacing snapshot batches."
+
+      Action/result: Decided to document carousel as prototype infrastructure
+      rather than broad compatibility evidence.
+
+1888. Reported: "Before documenting the limitation, I’m running the two-picture
+      base carousel once more with the current mapped function-key
+      implementation. That gives us a clean “validated for two-step smoke, not
+      yet broad sweep” boundary."
+
+      Action/result: Ran `picture_carousel_base_mapped_fkey_001`; it matched
+      both base pictures with 0 mismatches.
+
+1889. Reported: "The current carousel implementation is validated for the
+      two-picture base smoke: 2 matches, 0 mismatches. The four/broad sweeps
+      still stall after two displayed pictures, so I’m recording it as a
+      prototype with a clear limitation rather than overclaiming it."
+
+      Action/result: Updated compatibility docs, `PROGRESS.md`, and `AGENTS.md`
+      with the carousel smoke status and limitation.
+
+1890. Reported: "I’m updating the docs with the precise carousel status: why it
+      exists, what passed, what failed, and what a future fix needs to solve."
+
+      Action/result: Added carousel status to `docs/src/compatibility_testing.md`.
+
+1891. Reported: "The compatibility chapter and progress tracker now mark
+      carousel as a two-picture smoke prototype, not a broad oracle. I’m
+      updating `AGENTS.md` with the same caveat so future runs don’t
+      accidentally treat it as production-grade."
+
+      Action/result: Added carousel caveat to `AGENTS.md`.
+
+1892. Reported: "`AGENTS.md` now carries the caveat. I’m adding the detailed
+      carousel evidence trail to the clean-room notes, including the raw-key
+      cache bug and the failed broader runs."
+
+      Action/result: Added the picture carousel prototype section to
+      `docs/src/clean_room_executable_notes.md`.
+
+1893. Reported: "Absolutely. I’m going to treat the current carousel work as a
+      throughput prototype rather than a side experiment: first I’ll make sure
+      the docs/log reflect what we learned, then I’ll verify the repo, and if
+      there’s a clean next improvement for resource iteration I’ll make it
+      rather than leaving it as a vague note."
+
+      Action/result: Confirmed the progress log contains the carousel evidence
+      trail through entry 1892 and began promoting cross-game resource
+      iteration throughput into the tracker.
+
+1894. Reported: "Good catch. I’m not currently using the interpreter’s speed
+      setting in the harness; the QEMU waits so far are conservative wall-clock
+      sleeps, and the new timed carousel I’m wiring up uses interpreter cycles
+      but has not yet set the engine speed."
+
+      Action/result: Searched local docs, SQ2 logic messages, and disassembly
+      for speed/cycle handling.
+
+1895. Reported: "Answer to the direct question: no, not yet. I’ve been using
+      conservative `--draw-wait`/`--advance-wait` sleeps and QEMU snapshotting,
+      not an explicit “fastest” interpreter speed setting."
+
+      Action/result: Confirmed no obvious SQ2 script message for speed and
+      moved the investigation to the executable.
+
+1896. Reported: "Found it. The cycle throttle is right at `0x7f78`: it reads
+      byte `[0x0013]`, which is script variable `v10` if variables start at
+      `[0x0009]`, then spins until timer/counter word `[0x1784]` reaches that
+      value and clears `[0x1784]`."
+
+      Action/result: Added a symbolic label and fixture support for setting
+      the speed variable in timed carousel scripts.
+
+1897. Reported: "For the actual timed QEMU run, I’m not going to use speed `0`
+      for the first probe because it can advance all pictures before the first
+      `screendump`; I’ll use `v10 = 1` with a larger cycle hold so each picture
+      remains visible long enough to capture."
+
+      Action/result: Timed two-picture carousel
+      `picture_carousel_base_timed_001` matched 2/2.
+
+1898. Reported: "Nice, the timed two-picture carousel matched 2/2 with one
+      engine process. I’m trying the broad eight-picture version with the same
+      speed/hold settings; this is the real test of whether the timed approach
+      avoids the key-event stall."
+
+      Action/result: The first fixed-sleep broad timed run matched 2/8; identity
+      checks showed wrong-picture cadence misses.
+
+1899. Reported: "The identity check is revealing: after picture 1, the carousel
+      jumped to picture 17 and then stayed there. That means timing alone is
+      not the whole story; the timed script is losing or corrupting its
+      carousel state after the second transition."
+
+      Action/result: Moved carousel state back to high scratch variables and
+      confirmed that did not fix the fixed-sleep broad cadence.
+
+1900. Reported: "The two-picture `17 -> 43` case passes, so picture 43 is fine.
+      The broad stall is likely inside the transition bookkeeping."
+
+      Action/result: Reordered timed/key carousel transition bytecode to update
+      carousel state before discarding the old picture.
+
+1901. Reported: "The reorder changed the failure shape: picture 76 now matches,
+      so state is advancing through the sequence. The remaining broad
+      mismatches are cadence alignment, not a hard stall."
+
+      Action/result: Cached identity check showed captures landing on exact
+      renders for other broad-preset pictures.
+
+1902. Reported: "The identity pass shows clean cadence drift: captures saw
+      `1,17,43,44,46,76,76,76`, so the carousel is advancing roughly twice as
+      fast as the capture interval."
+
+      Action/result: Tried `delay-cycles 240`; this aligned picture 6 but still
+      drifted later.
+
+1903. Reported: "The calibrated run shows why fixed sleeps will be brittle
+      across games: picture load/draw time changes the cadence. I’m going to
+      add a polling mode for timed carousels instead."
+
+      Action/result: Added `--poll`, `--poll-interval`, and `--poll-timeout` to
+      `tools/picture_carousel.py`.
+
+1904. Reported: "Good news: the polling timed carousel has matched the first
+      six broad pictures in sequence. It’s still waiting/capturing the last two,
+      so I’m letting that finish."
+
+      Action/result: `picture_carousel_broad_timed_poll_001` matched all 8
+      broad pictures with `delay-cycles 240`.
+
+1905. Reported: "The faster polling run passed 8/8 in one engine process. I’m
+      trying one more shorter hold (`delay_cycles=60`) to find a practical
+      lower bound; if it passes, that becomes the better recommendation."
+
+      Action/result: `picture_carousel_broad_timed_poll_fast_001` matched all
+      8 broad pictures with `delay-cycles 120`; `delay-cycles 60` missed
+      intermediate pictures and is not recommended.
+
+1906. Reported: "The `60` hold was too short and missed almost everything, so
+      the practical default is `delay_cycles=120`, `speed_value=1`, polling
+      every half-second. I’m making the CLI defaults reflect that stable
+      setting and documenting the faster carousel path now."
+
+      Action/result: Updated CLI defaults, `AGENTS.md`, compatibility docs,
+      `PROGRESS.md`, symbolic labels, logic bytecode notes, and clean-room
+      notes with the timed polling carousel evidence.
