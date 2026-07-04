@@ -155,6 +155,21 @@ image `0x7f78` shows it waits for counter `[0x1784]` to reach byte
 `delay-cycles 60` polling run missed intermediate pictures, so `120` is the
 current practical broad-preset setting.
 
+For all present SQ2 pictures, use chunked timed polling:
+
+```bash
+python3 -B tools/picture_carousel.py --preset all --mode timed --poll --chunk-size 16 --delay-cycles 120 --speed-value 1 --fixture-root build/picture-carousel/timed-all-poll-chunk16-fixtures --dos-dir PICALL --output build/picture-carousel/batches/picture_carousel_all_timed_poll_chunk16_001.json --boot-wait 5 --first-wait 3 --poll-interval 0.5 --poll-timeout 20
+```
+
+The chunked run matched all 74 valid local SQ2 picture resources with
+0 mismatches and 0 errors across five engine launches. A single all-picture
+carousel matched the first 19 pictures, then displayed the original engine's
+disk-insert prompt over picture 19 while polling for picture 20 onward. The
+generated `VOL.3` was present and picture 20's packed header and `PICDIR` entry
+were correct, so this is treated as an original-engine fixture/resource
+lifecycle boundary rather than picture renderer behavior. Chunking keeps the
+fast sweep path inside the observed valid-data model.
+
 Generate a fixture that draws one view cel over a picture:
 
 ```bash
@@ -796,6 +811,23 @@ the save-file container and a fixture-building primitive for later generated
 saves; it does not yet validate a full original-engine save/restore round trip
 from QEMU.
 
+Run a dynamic original-engine save-write probe:
+
+```bash
+python3 -B tools/save_roundtrip_probe.py --output build/save-roundtrip/save_roundtrip_007.json --capture build/save-roundtrip/qemu_capture_007.ppm --snapshot-raw build/save-roundtrip/snapshot/save_roundtrip_007.raw --snapshot-qcow build/save-roundtrip/snapshot/save_roundtrip_007.qcow2 --post-run-raw build/save-roundtrip/snapshot/save_roundtrip_after_007.raw --save-output build/save-roundtrip/SG_007.1 --boot-wait 5 --draw-wait 8 --path-prompt-wait 2 --slot-wait 1 --description-wait 1 --confirmation-wait 1 --key-delay 0.08
+```
+
+The generated fixture removes existing save files, calls action `0x7d`, drives
+the original save UI through path acceptance, slot selection, description entry,
+and final confirmation, then extracts the resulting save from the post-run DOS
+image. The original engine wrote `SG.1` in this synthetic no-existing-saves
+fixture. The extracted file parsed with description `codex probe`, block
+lengths `1505`, `903`, `328`, `100`, and `12`, and the post-save validation
+screen matched the expected blank picture plus view 11 overlay with 0 visual
+mismatches. This proves the save writer can produce a source-envelope-compatible
+file and return to following bytecode in the fixture. A full restore of a
+generated save remains separate work.
+
 Run the focused enabled trace-window case:
 
 ```bash
@@ -1122,6 +1154,12 @@ python3 -B tools/picture_fuzz.py compare-capture base_004_clamped_absolute build
 - Timed polling carousel batch `picture_carousel_broad_timed_poll_fast_001`
   matched the eight-picture broad preset from one engine process with
   8 matches, 0 mismatches, and 0 errors.
+- Chunked timed polling carousel batch
+  `picture_carousel_all_timed_poll_chunk16_001` matched all 74 valid local SQ2
+  picture resources with 74 matches, 0 mismatches, and 0 errors across five
+  chunks. A single all-picture carousel reached an original-engine disk prompt
+  after picture 19 and is not used as renderer parity evidence beyond those
+  first 19 matches.
 
 These tests are still intentionally resource-focused. They protect the parser
 and data model while the picture draw helpers are being matched against the

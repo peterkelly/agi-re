@@ -16,7 +16,13 @@ sys.path.insert(0, str(ROOT / "tools"))
 
 from compare_picture_capture import PictureCaptureComparison  # noqa: E402
 from picture_batch import PictureBatchCase  # noqa: E402
-from picture_carousel import qemu_dos_dir, run_carousel, write_report  # noqa: E402
+from picture_carousel import (  # noqa: E402
+    qemu_chunk_dos_dir,
+    qemu_dos_dir,
+    run_carousel,
+    run_chunked_carousel,
+    write_report,
+)
 from picture_carousel import run_picture_carousel_qemu  # noqa: E402
 
 
@@ -24,6 +30,8 @@ class PictureCarouselTests(unittest.TestCase):
     def test_dos_dir_name_is_stable(self) -> None:
         self.assertEqual(qemu_dos_dir("picture sweep"), "PICTURES")
         self.assertEqual(qemu_dos_dir("!!!"), "PICSWEEP")
+        self.assertEqual(qemu_chunk_dos_dir("picture sweep", 3), "PICTU003")
+        self.assertEqual(qemu_chunk_dos_dir("!!!", 12), "PIC012")
 
     def test_report_summary_counts_statuses(self) -> None:
         with tempfile.TemporaryDirectory() as temp_dir:
@@ -140,6 +148,73 @@ class PictureCarouselTests(unittest.TestCase):
         run_qemu.assert_not_called()
         run_poll.assert_called_once()
         self.assertEqual(run_poll.call_args.args[6:8], (0.25, 3))
+
+    def test_run_chunked_carousel_splits_cases_and_snapshot_paths(self) -> None:
+        cases = [
+            PictureBatchCase(f"case_{index}", index, "case")
+            for index in range(1, 6)
+        ]
+        expected_results = [
+            [
+                mock.Mock(case_id="case_1"),
+                mock.Mock(case_id="case_2"),
+            ],
+            [
+                mock.Mock(case_id="case_3"),
+                mock.Mock(case_id="case_4"),
+            ],
+            [mock.Mock(case_id="case_5")],
+        ]
+        with tempfile.TemporaryDirectory() as temp_dir:
+            root = Path(temp_dir)
+            with mock.patch("picture_carousel.run_carousel", side_effect=expected_results) as run:
+                results = run_chunked_carousel(
+                    cases,
+                    2,
+                    root / "fixtures",
+                    "PICALL",
+                    5,
+                    3,
+                    1,
+                    "x",
+                    "timed",
+                    120,
+                    1,
+                    True,
+                    0.5,
+                    15,
+                    root / "disk.raw",
+                    root / "disk.qcow2",
+                )
+        self.assertEqual(
+            [result.case_id for result in results],
+            [f"case_{index}" for index in range(1, 6)],
+        )
+        self.assertEqual(run.call_count, 3)
+        self.assertEqual(
+            [call.args[0] for call in run.call_args_list],
+            [cases[:2], cases[2:4], cases[4:]],
+        )
+        self.assertEqual(
+            [call.args[2] for call in run.call_args_list],
+            ["PICAL000", "PICAL001", "PICAL002"],
+        )
+        self.assertEqual(
+            [call.args[13].name for call in run.call_args_list],
+            [
+                "disk_chunk_000.raw",
+                "disk_chunk_001.raw",
+                "disk_chunk_002.raw",
+            ],
+        )
+        self.assertEqual(
+            [call.args[14].name for call in run.call_args_list],
+            [
+                "disk_chunk_000.qcow2",
+                "disk_chunk_001.qcow2",
+                "disk_chunk_002.qcow2",
+            ],
+        )
 
 
 if __name__ == "__main__":

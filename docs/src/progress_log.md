@@ -14309,3 +14309,620 @@ Progress updates and outcomes:
       Action/result: Updated CLI defaults, `AGENTS.md`, compatibility docs,
       `PROGRESS.md`, symbolic labels, logic bytecode notes, and clean-room
       notes with the timed polling carousel evidence.
+
+1907. Reported: "The clean tree is just generated artifacts now. I’m going to
+      take the next compatibility-suite step: scale the timed polling carousel
+      from the 8-picture broad preset to the full 74-picture SQ2 picture set,
+      because that directly exercises the faster iteration path we’ll need for
+      more games and interpreter versions."
+
+      Action/result: Began a full-present-picture timed polling carousel run.
+
+1908. Reported: "The full carousel fixture is built and QEMU is running it
+      now. I’m watching for the first reported comparisons; if this becomes
+      too slow or hits an engine lifecycle limit, the next move will be
+      chunking the picture list rather than restarting per picture."
+
+      Action/result: Confirmed the full all-picture timed polling fixture could
+      launch under QEMU, but no per-case output appeared during the polling
+      phase.
+
+1909. Reported: "No per-picture output yet, which means the harness is still
+      inside the QEMU polling phase. That is expected for a large sweep, but
+      I’m noting this as a harness ergonomics issue: future long runs should
+      print poll progress while they are still inside QEMU, not only after
+      QEMU exits."
+
+      Action/result: Identified the need for live per-case polling progress in
+      `tools/picture_carousel.py`.
+
+1910. Reported: "This has now gone past the broad-run timing, which is not
+      surprising for 74 pictures but is exactly why the harness needs internal
+      progress output. I’m letting it finish rather than interrupting, because
+      even a partial failure shape will tell us where the single-process
+      carousel breaks."
+
+      Action/result: Let the single all-picture QEMU run continue to preserve
+      the failure evidence.
+
+1911. Reported: "The all-picture run is still active. Given the current
+      timeout settings, the theoretical ceiling is high if one early picture
+      never appears, so I’m waiting a bit longer and then I’ll either read the
+      report or use the partial captures to see what state the engine reached."
+
+      Action/result: Continued waiting for the report rather than killing the
+      QEMU process.
+
+1912. Reported: "The report is coming back now. The first 19 all-present
+      pictures matched in sequence; I’m reading the rest of the mismatches to
+      see whether this is renderer drift, a timing issue, or an engine prompt
+      state."
+
+      Action/result: Single all-picture timed polling run produced a report
+      with 19 matches and 55 mismatches.
+
+1913. Reported: "The full timed polling run finished: 19 matches, 55 misses.
+      I’m doing an identity pass over the mismatched captures now; that will
+      tell us whether QEMU drew different valid pictures, got stuck on one
+      picture, or produced a UI/error screen."
+
+      Action/result: Started comparing mismatched QEMU captures against all
+      present local picture renders.
+
+1914. Reported: "The identity pass shows a clean stall: every later capture is
+      closest to picture 19. I’m opening one of those captures next, because
+      the most likely explanations are either a disk/resource prompt or the
+      generated script failing to advance after a specific resource."
+
+      Action/result: Determined that captures for picture 20 onward were not
+      renderer mismatches; they stayed visually at picture 19.
+
+1915. Reported: "The picture 20 capture explains the stall: the engine is
+      showing 'Please insert disk 3 and press ENTER.' over picture 19. I’m
+      checking the generated disk contents and packed offsets now before
+      deciding whether this is a fixture bug or an original-engine resource
+      lifecycle limit."
+
+      Action/result: Inspected the picture 20 capture and found the original
+      engine disk-insert prompt.
+
+1916. Reported: "The packed record header for picture 20 is correct, and the
+      `PICDIR` entry points at the right offset. I’m also checking the DOS
+      snapshot directory so we don’t misdiagnose a missing `VOL.3` copy as
+      interpreter behavior."
+
+      Action/result: Confirmed picture 20's generated `PICDIR` entry and
+      packed `VOL.3` record header were correct.
+
+1917. Reported: "The DOS snapshot has the large `VOL.3` intact, so the prompt
+      is not the obvious missing-file case. I’m treating the single huge
+      carousel as crossing an original-engine resource/disk lifecycle boundary,
+      and I’m adding chunking so large sweeps stay inside the behavior we want
+      to model."
+
+      Action/result: Confirmed `VOL.3` was present in the generated DOS
+      fixture and chose chunking for large picture sweeps.
+
+1918. Reported: "I’ve got the shape: one process is good up to 19 pictures,
+      but the all-in-one fixture hits a disk prompt before picture 20 even
+      though the generated volume file is present. I’m adding chunked carousel
+      execution now so the all-picture sweep can still run much faster than
+      one boot per picture."
+
+      Action/result: Began adding chunked carousel execution to
+      `tools/picture_carousel.py`.
+
+1919. Reported: "The code change is small: split the case list, build one
+      carousel fixture per chunk, and suffix the DOS directory plus snapshot
+      paths so each chunk is isolated. I’m adding unit coverage for the split
+      and naming behavior before rerunning QEMU."
+
+      Action/result: Implemented chunk directory/path helpers and chunked
+      carousel orchestration.
+
+1920. Reported: "Chunked execution is wired into the CLI now. I’m updating the
+      tests to assert the exact chunk split and generated snapshot names, since
+      that is the part future agents are most likely to accidentally break."
+
+      Action/result: Added unit coverage for chunk splitting and generated
+      snapshot path names.
+
+1921. Reported: "The main path looks correct, but I’m patching the test import
+      and expectations rather than trusting it by inspection. After that I’ll
+      run the focused carousel tests, then the full 74-picture chunked QEMU
+      sweep."
+
+      Action/result: Completed test import/expectation updates for chunked
+      carousel support.
+
+1922. Reported: "I caught one index mismatch in the expected generated DOS
+      names while reading the tests; fixing that now. This is exactly the kind
+      of tiny harness naming issue that’s cheap to catch before a QEMU run."
+
+      Action/result: Corrected the expected chunked DOS directory names.
+
+1923. Reported: "Now I’m running focused carousel tests before spending time
+      on QEMU. If those pass, the next command will be the all-picture timed
+      polling sweep split into chunks of 16."
+
+      Action/result: `python3 -B -m unittest tests.test_picture_carousel`
+      passed 7 tests.
+
+1924. Reported: "The chunking tests pass. I’m launching the all-picture sweep
+      again with `--chunk-size 16`; that should tell us whether the disk prompt
+      was caused by the oversized single carousel rather than picture 20
+      itself."
+
+      Action/result: Started the chunked all-present-picture timed polling
+      carousel run.
+
+1925. Reported: "Chunk 1 of 5 is running now. This is already a better
+      harness shape: we get bounded engine lifetimes and still avoid paying a
+      boot for every individual picture."
+
+      Action/result: Chunk 1 began under QEMU.
+
+1926. Reported: "Chunk 1 passed all 16 pictures, so the chunked path is past
+      the easy first segment. The important test is chunk 2, because that
+      includes picture 20, where the single all-picture run hit the disk
+      prompt."
+
+      Action/result: Chunk 1 matched 16/16.
+
+1927. Reported: "Chunk 2 passed too, including picture 20. That strongly
+      supports the interpretation that the previous failure was the oversized
+      all-in-one fixture lifecycle, not picture 20 decoding or local rendering."
+
+      Action/result: Chunk 2 matched all expected pictures, including picture
+      20.
+
+1928. Reported: "Chunk 3 also passed. I’m letting the last two chunks finish;
+      if they stay clean, we’ll have full 74-picture carousel evidence with
+      five engine launches instead of 74."
+
+      Action/result: Chunk 3 matched all expected pictures.
+
+1929. Reported: "Chunk 4 passed all 16. One short final chunk remains, and if
+      that passes I’ll document the chunked command as the recommended
+      high-throughput real-picture sweep."
+
+      Action/result: Chunk 4 matched all expected pictures.
+
+1930. Reported: "I’m picking up the harness-scaling thread from
+      `PROGRESS.md`: the all-picture timed carousel now works in chunks, so
+      I’m going to finish the evidence trail around that, tighten the harness a
+      little, and then run the standard docs/tests checks."
+
+      Action/result: Resumed from `PROGRESS.md` and confirmed the uncommitted
+      chunked carousel work and generated QEMU outputs.
+
+1931. Reported: "The chunked all-picture run already proved the big
+      compatibility gain: 74 of 74 SQ2 pictures matched when split into
+      16-picture chunks. I’m going to add the missing evidence notes now, and
+      I’ll also make the polling runner print per-case progress so future long
+      sweeps don’t look frozen."
+
+      Action/result: Prepared documentation updates and a live polling progress
+      improvement for `tools/picture_carousel.py`.
+
+1932. Reported: "One useful limitation surfaced here: the all-in-one run did
+      not reveal a renderer error, it revealed an engine resource/disk prompt
+      boundary after picture 19. The chunked run gives us the practical
+      compatibility path while keeping that boundary documented instead of
+      papered over."
+
+      Action/result: Recorded the all-in-one disk-prompt boundary as a fixture
+      lifecycle observation, not renderer semantics.
+
+1933. Reported: "I’m making one small harness edit before the docs: polling
+      mode will now print each expected picture as it matches or times out.
+      That gives us live feedback during big resource sweeps without changing
+      the comparison semantics."
+
+      Action/result: Added per-case `poll matched` / `poll timed out` progress
+      output to the QEMU polling runner.
+
+1934. Reported: "Now I’m updating the clean-room record: the important detail
+      is that the failed 74-picture single carousel is evidence about
+      original-engine fixture limits, while the chunked version is the reusable
+      high-throughput path."
+
+      Action/result: Updated `AGENTS.md`, compatibility docs, and clean-room
+      executable notes with the all-picture chunking evidence.
+
+1935. Reported: "The docs now say exactly what we learned from the prompt
+      boundary, including the checked `VOL.3` and `PICDIR` bytes. Next I’m
+      updating `PROGRESS.md` so the dashboard reflects that the picture
+      carousel has moved from 'broad smoke' to full 74-picture coverage in
+      chunks."
+
+      Action/result: Updated `PROGRESS.md` to include the chunked all-74-picture
+      timed polling carousel validation.
+
+1936. Reported: "`PROGRESS.md` is updated. I’m adding the progress-log entries
+      now; I’m keeping them concise but preserving each reported step/result so
+      the historical trail remains useful without turning into raw transcript
+      sludge."
+
+      Action/result: Added progress-log entries for the all-picture and
+      chunked-carousel work.
+
+1937. Reported: "The historical log is caught up through the chunked sweep. I
+      still need to log the final result and the documentation pass after
+      verification, but the substantive evidence is now in the project docs."
+
+      Action/result: Reviewed the working diff before final verification.
+
+1938. Reported: "I noticed the new test import and a couple of assertions are
+      a bit wide, so I’m cleaning that up before running the full suite. The
+      behavior stays the same; this is just keeping the harness readable for
+      the next pass."
+
+      Action/result: Wrapped the new `tests/test_picture_carousel.py` import
+      and long assertions, and wrapped a couple of wide lines in
+      `tools/picture_carousel.py`.
+
+1939. Reported: "The code cleanup is done. I’m going to add the last few
+      progress-log entries for this resumed pass, then run the standard
+      verification commands."
+
+      Action/result: Finished progress-log maintenance and moved to
+      verification.
+
+1940. Reported: "Verification time. I’m running the unit suite, opcode
+      evidence check, and mdBook build in parallel; after those finish I’ll do
+      the whitespace diff check and one final status pass."
+
+      Action/result: `python3 -B -m unittest discover -s tests` passed 158
+      tests; `python3 -B tools/logic_opcode_evidence.py --check` passed; and
+      `mdbook build docs` completed successfully.
+
+1941. Reported: "All three main checks passed: 158 unit tests, the opcode
+      evidence check, and the mdBook build. I’m doing the final
+      `git diff --check` and status now."
+
+      Action/result: `git diff --check` passed. The remaining tracked changes
+      are the chunked carousel harness, tests, and documentation updates.
+
+1942. Reported: "The current changes are verified and uncommitted, with only
+      the usual generated `build/` and DOS installer artifacts untracked. I’m
+      going to keep going from the next high-value `PROGRESS.md` item: a
+      representative save/restore or file-error probe, starting from the
+      existing local tools/docs so I can reuse the established clean-room path."
+
+      Action/result: Began inspecting existing save/restore and file-error
+      evidence for the next `PROGRESS.md` task.
+
+1943. Reported: "For the next item I’m looking for the shortest useful dynamic
+      probe: something observable in QEMU, but backed by the existing
+      source/file-format notes instead of freeform poking. First pass is
+      finding the current save/restore tooling and where the docs say the gaps
+      still are."
+
+      Action/result: Searched existing tools, tests, and docs for save/restore
+      coverage and confirmed the remaining dynamic gap.
+
+1944. Reported: "The existing gap is exactly where `PROGRESS.md` says it is:
+      we have static save-file envelope tests and Escape-cancel QEMU checks,
+      but not a real round-trip through the original engine. I’m reading the
+      fixture builder and save-file parser next to see whether we can generate
+      a controlled slot and restore it dynamically."
+
+      Action/result: Re-read `tools/agi_save.py`, `tools/qemu_fixture.py`, and
+      the save-selector notes.
+
+1945. Reported: "A full restore of an arbitrary existing SQ2 save would pull
+      us into actual game-state rendering, which is less controlled. A more
+      useful first dynamic probe is narrower: generate a fixture with no save
+      files, drive the original save selector to create `SQ2SG.1`, then pull
+      that file back through the source-backed parser."
+
+      Action/result: Chose a dynamic save-write probe before attempting a full
+      restore round trip.
+
+1946. Reported: "I’m going to add this as a reusable tool rather than a
+      one-off experiment. The probe will build a synthetic save fixture, drive
+      the real selector, convert the post-run disk back to raw, extract
+      `SQ2SG.1`, and parse it with our save envelope code."
+
+      Action/result: Added the first version of `tools/save_roundtrip_probe.py`.
+
+1947. Reported: "The probe tool is in place. I’m adding lightweight tests for
+      the fixture-building pieces now, then I’ll run it against QEMU and tune
+      the key sequence if the selector needs a different path."
+
+      Action/result: Added `tests/test_save_roundtrip_probe.py`.
+
+1948. Reported: "The unit tests cover the generated bytecode shape, fixture
+      save-file removal, and JSON reporting. I’m running those focused tests
+      now before spending QEMU time."
+
+      Action/result: `python3 -B -m unittest tests.test_save_roundtrip_probe`
+      passed 4 tests.
+
+1949. Reported: "Focused tests pass. I’m launching the new save probe with the
+      simplest likely selector sequence: Enter to select the first empty slot,
+      type `Codex probe`, Enter to accept the description. If that misses, the
+      capture/report should show which selector screen we landed on."
+
+      Action/result: First QEMU run hit the sandbox VNC socket restriction.
+
+1950. Reported: "QEMU hit the sandbox’s VNC socket restriction for this new
+      tool, so I’m rerunning the same probe with escalation. This is the same
+      pattern as the other QEMU harnesses: local emulator, local disk image,
+      local VNC endpoint."
+
+      Action/result: Escalated QEMU run completed, but the probe failed because
+      it tried to compare synthetic picture 0 through the real SQ2 picture
+      comparator.
+
+1951. Reported: "The QEMU run itself completed, but my probe made a bad local
+      comparison assumption: picture 0 is synthetic in the fixture, not a real
+      SQ2 picture, so `compare_picture_capture(0, ...)` quite rightly refused
+      it. I’m fixing the probe to compare against the generated blank-picture
+      plus validation-view frame instead."
+
+      Action/result: Replaced the real-picture comparison with a synthetic
+      blank-picture plus view-11 validation comparison.
+
+1952. Reported: "That comparison fix keeps the probe honest: it now checks the
+      fixture’s own expected post-save screen rather than pretending the
+      synthetic picture is a stock SQ2 resource. I’m rerunning the focused
+      tests, then the QEMU probe again."
+
+      Action/result: Focused tests passed; QEMU ran, but no `SQ2SG.1` file was
+      created.
+
+1953. Reported: "The probe ran through QEMU but no `SQ2SG.1` was created, so
+      the first key sequence didn’t accept the save. I’m inspecting the
+      post-run capture and DOS directory now to see which save-selector state
+      it reached."
+
+      Action/result: DOS directory listing showed no save file after the first
+      key-sequence attempt.
+
+1954. Reported: "The directory listing confirms no save file was written. I
+      converted the capture and I’m going to inspect it visually; that should
+      tell us whether we’re still at the path prompt, the slot list, or a
+      validation screen."
+
+      Action/result: Visual capture showed the save-description prompt with a
+      blank input line.
+
+1955. Reported: "The capture shows the engine is sitting at the
+      save-description prompt with a blank input line. That means the no-save
+      fixture skips straight to description entry; I’m rerunning with a longer
+      wait and without the leading Enter, so the typed description lands in the
+      line editor."
+
+      Action/result: The adjusted command needed escalation because shell
+      newline quoting did not match the approved prefix.
+
+1956. Reported: "That rerun used shell quoting for the newline, so it didn’t
+      match the approved prefix and hit the same local VNC sandbox restriction.
+      I’m rerunning it escalated; if this sequence works I’ll make newline
+      handling less awkward in the tool."
+
+      Action/result: Rerun produced no save file; the capture showed a path
+      error for `\SVRTcodex probe`.
+
+1957. Reported: "Still no save file, so this is not just the leading Enter.
+      I’m opening the second capture; if the text appears there, the missing
+      step is an acceptance/confirmation key after description, otherwise the
+      key delivery needs a staged delay."
+
+      Action/result: Visual capture showed the path prompt had interpreted the
+      description text as part of a directory name.
+
+1958. Reported: "That capture is very helpful: the text landed in the path
+      prompt, producing `\SVRTcodex probe`. So the selector needs staged input:
+      accept the path, wait for the description prompt, then type the
+      description. I’m changing the save probe to own its small QEMU input loop
+      instead of using the generic one-shot post-launch key field."
+
+      Action/result: Reworked the tool to drive staged QEMU input directly.
+
+1959. Reported: "I spotted a variable shadowing bug in that staged-input patch
+      before rerunning: the description argument was being overwritten by the
+      parsed-result field. Fixing that now."
+
+      Action/result: Fixed the save-description argument handling.
+
+1960. Reported: "The staged-input path is fixed. I’m running the focused tests
+      again, then the QEMU save creation probe with the new default staged
+      sequence."
+
+      Action/result: Focused tests passed; QEMU reached the description prompt
+      but still did not write a save file.
+
+1961. Reported: "The staged sequence still did not create the file. I’m
+      checking the capture again; this should distinguish 'still in
+      description prompt' from 'description accepted but another
+      confirmation/error appeared.'"
+
+      Action/result: Capture again showed the blank description prompt.
+
+1962. Reported: "It is consistently reaching the description prompt, but the
+      description text is being sent before that editor is actually accepting
+      keystrokes. I’m increasing the staged wait after the path Enter and
+      slowing the key cadence a little."
+
+      Action/result: Longer description wait still left the prompt blank.
+
+1963. Reported: "Still no file. I’m checking whether the slower run left typed
+      text on the prompt; if it is still blank, the issue may be that this
+      editor is using the raw keyboard path and QEMU `sendkey` timing needs a
+      different staging method."
+
+      Action/result: Capture remained blank, motivating a no-submit debug run.
+
+1964. Reported: "To separate 'letters are ignored' from 'Enter submits and
+      redraws the prompt before capture,' I’m adding a debug switch that types
+      the description without the final Enter. Then a capture can show whether
+      the description line editor is actually receiving characters."
+
+      Action/result: Added `--no-submit-description` for staged-input
+      debugging.
+
+1965. Reported: "The debug switch is in. I’m running a no-submit capture now:
+      it should leave the typed description visible if the editor is accepting
+      input."
+
+      Action/result: No-submit run reached the save-slot selector, proving an
+      intermediate slot-selection stage was missing.
+
+1966. Reported: "As expected, the no-submit run did not create a file. I’m
+      inspecting the capture now; this is purely to see whether `abc` reached
+      the description input line."
+
+      Action/result: Capture showed the numbered save-slot selector rather
+      than the description prompt.
+
+1967. Reported: "Aha. The staged capture shows the missing screen: after
+      accepting the path, the engine displays the numbered slot selector. So
+      the correct sequence is path Enter, slot Enter, then description text. I’m
+      adding that middle stage to the probe."
+
+      Action/result: Added `--slot-keys` and `--slot-wait` staging.
+
+1968. Reported: "The tool now has the three stages the source/UI path needs:
+      path prompt, slot selector, description prompt. I’m rerunning the probe
+      with the new defaults."
+
+      Action/result: Three-stage run accepted the description and reached the
+      final save confirmation screen.
+
+1969. Reported: "Still no save file. I’m inspecting this capture to see
+      whether the staged sequence is now at the description prompt, the slot
+      selector, or a save error message."
+
+      Action/result: Capture showed `About to save the game described as:
+      codex probe`, so a final confirmation Enter was still needed.
+
+1970. Reported: "Good, now the description was accepted and the engine is
+      showing its final 'About to save' confirmation. One more staged Enter is
+      needed after that. I’m adding the confirmation stage."
+
+      Action/result: Added `--confirmation-wait` and `--confirmation-keys`.
+
+1971. Reported: "The confirmation stage is wired in. I’m rerunning the save
+      probe with the default path/slot/description/confirmation sequence; this
+      should be the actual original-engine save-write path now."
+
+      Action/result: Original engine wrote a save, but it was named `SG.1`
+      rather than the probe's expected `SQ2SG.1`.
+
+1972. Reported: "No file yet after confirmation, so I’m checking whether the
+      final Enter was too early, whether a disk/path error appeared, or whether
+      the save wrote to a different directory/name than the extraction assumes."
+
+      Action/result: DOS directory listing showed `SG.1` of size 2889 bytes,
+      and the capture matched the validation screen.
+
+1973. Reported: "The save actually succeeded. The generated file is named
+      `SG.1`, not `SQ2SG.1`, in this synthetic no-save fixture, and the
+      validation view drew after the save returned. I’m updating the extractor
+      to accept the observed save stem instead of hardcoding `SQ2SG`."
+
+      Action/result: Added `--save-stem` and changed the default extracted
+      filename to `SG.1`.
+
+1974. Reported: "The extracted `SG.1` parses cleanly: description
+      `codex probe`, blocks `[1505, 903, 328, 100, 12]`, size 2889 bytes. I’m
+      turning the observed save stem into a CLI option so the probe report goes
+      green instead of failing on the filename assumption."
+
+      Action/result: Confirmed the original-engine save output parses through
+      `tools/agi_save.py`.
+
+1975. Reported: "The extractor now looks for `SG.1` by default, with
+      `--save-stem` available for other interpreter/game launches. I’m
+      rerunning the same probe; this time it should extract, parse, and compare
+      the post-save validation capture."
+
+      Action/result: `save_roundtrip_007` passed with status `match`, parsed
+      description `codex probe`, block lengths `[1505, 903, 328, 100, 12]`, and
+      0 visual mismatches.
+
+1976. Reported: "That’s the dynamic save-write probe we wanted: original engine
+      created `SG.1`, the parsed save envelope is valid, the description
+      matches, and the post-save validation draw matched with zero visual
+      mismatches. I’m documenting it and updating the progress tracker now."
+
+      Action/result: Began updating `AGENTS.md`, compatibility docs,
+      clean-room notes, and `PROGRESS.md`.
+
+1977. Reported: "The compatibility chapter now records the dynamic save-write
+      result and keeps the restore part honest as remaining work. I’m adding
+      the detailed clean-room notes next, including the failed key-sequence
+      discoveries because they explain the final staged UI driver."
+
+      Action/result: Updated `docs/src/compatibility_testing.md` and appended
+      dynamic save-write evidence to `docs/src/clean_room_executable_notes.md`.
+
+1978. Reported: "The clean-room notes now include the full trail: wrong
+      filename assumption, path prompt, slot selector, final confirmation, and
+      the parsed `SG.1` envelope. I’m updating `PROGRESS.md` so the save/write
+      part no longer looks purely static."
+
+      Action/result: Updated `PROGRESS.md` to list dynamic original-engine
+      save-write evidence and leave restore round-trip/file-error UI as
+      remaining work.
+
+1979. Reported: "I’m catching up the progress log for the save probe now.
+      There were several useful failed attempts, and they matter because they
+      map the real save UI sequence: path prompt, slot selector, description
+      prompt, confirmation."
+
+      Action/result: Added progress-log entries for the dynamic save-write
+      probe work.
+
+1980. Reported: "The save-write documentation and tracker updates are done.
+      I’m doing a quick code/readability pass now, then I’ll run the full
+      verification suite again."
+
+      Action/result: Ran a Python syntax check over the new save probe and
+      reviewed the new test file.
+
+1981. Reported: "The new save tool/test are still untracked, so they did not
+      appear in `git diff --stat`; I’m checking status and cleaning any
+      py_compile cache if it appeared."
+
+      Action/result: Found untracked `tools/save_roundtrip_probe.py` and
+      `tests/test_save_roundtrip_probe.py`, plus generated `__pycache__`
+      directories from `py_compile`.
+
+1982. Reported: "`py_compile` left `__pycache__` directories behind. I’m
+      removing only those generated Python cache directories; they aren’t
+      project artifacts."
+
+      Action/result: Removed generated `tools/__pycache__` and
+      `tests/__pycache__`.
+
+1983. Reported: "The generated caches are gone. I’m wrapping the new test
+      imports/long line next so the added test file matches the style of the
+      surrounding suite."
+
+      Action/result: Wrapped long imports and a long generated-save assertion
+      in `tests/test_save_roundtrip_probe.py`.
+
+1984. Reported: "With the style cleanup done, I’m running the full verification
+      set again: all unit tests, opcode evidence, and mdBook. After that I’ll
+      do whitespace/status checks."
+
+      Action/result: `python3 -B -m unittest discover -s tests` passed 162
+      tests; `python3 -B tools/logic_opcode_evidence.py --check` passed; and
+      `mdbook build docs` passed.
+
+1985. Reported: "Full verification passed: 162 tests, opcode evidence check,
+      and mdBook. I’m doing the final diff whitespace and status pass now."
+
+      Action/result: `git diff --check` passed. Tracked changes plus the new
+      save probe/test remain uncommitted; generated `build/` and
+      `002962_ms_dos_622/` remain untracked.
+
+1986. Reported: "The final checks are clean. I’m adding the last
+      verification/status entries to `progress_log.md` so the documentation
+      trail is complete for this turn."
+
+      Action/result: Completed progress-log updates for the verification pass.

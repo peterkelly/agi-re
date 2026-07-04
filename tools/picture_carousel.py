@@ -176,17 +176,26 @@ def run_picture_carousel_qemu_poll(
         time.sleep(0.5)
         monitor_type(proc, "SIERRA\n")
         time.sleep(first_wait)
-        for case, capture in zip(cases, captures):
+        total = len(cases)
+        for index, (case, capture) in enumerate(zip(cases, captures), start=1):
             deadline = time.monotonic() + poll_timeout
+            matched = False
             while True:
                 monitor_command(proc, f"screendump {capture}")
                 time.sleep(0.2)
                 comparison = compare_picture_capture(case.picture_no, capture)
                 if comparison.matches:
+                    matched = True
                     break
                 if time.monotonic() >= deadline:
                     break
                 time.sleep(poll_interval)
+            status = "matched" if matched else "timed out"
+            print(
+                f"poll {status} [{index}/{total}] {case.case_id}",
+                file=sys.stderr,
+                flush=True,
+            )
         monitor_command(proc, "quit")
         proc.wait(timeout=10)
         if proc.returncode != 0:
@@ -206,6 +215,17 @@ def run_picture_carousel_qemu_poll(
 def qemu_dos_dir(name: str) -> str:
     clean = "".join(character for character in name.upper() if character.isalnum()) or "PICSWEEP"
     return clean[:8]
+
+
+def qemu_chunk_dos_dir(name: str, chunk_index: int) -> str:
+    if chunk_index < 0:
+        raise ValueError("chunk index must be non-negative")
+    clean = "".join(character for character in name.upper() if character.isalnum()) or "PIC"
+    return f"{clean[:5]}{chunk_index:03d}"[:8]
+
+
+def numbered_path(path: Path, index: int) -> Path:
+    return path.with_name(f"{path.stem}_chunk_{index:03d}{path.suffix}")
 
 
 def run_carousel(
@@ -291,6 +311,76 @@ def run_carousel(
     return results
 
 
+def run_chunked_carousel(
+    cases: list[PictureBatchCase],
+    chunk_size: int,
+    fixture_root: Path,
+    dos_dir: str,
+    boot_wait: float,
+    first_wait: float,
+    advance_wait: float,
+    advance_key: str,
+    mode: str,
+    delay_cycles: int,
+    speed_value: int,
+    poll: bool,
+    poll_interval: float,
+    poll_timeout: float,
+    snapshot_raw: Path,
+    snapshot_qcow: Path,
+) -> list[PictureCarouselResult]:
+    if chunk_size <= 0:
+        return run_carousel(
+            cases,
+            fixture_root,
+            dos_dir,
+            boot_wait,
+            first_wait,
+            advance_wait,
+            advance_key,
+            mode,
+            delay_cycles,
+            speed_value,
+            poll,
+            poll_interval,
+            poll_timeout,
+            snapshot_raw,
+            snapshot_qcow,
+        )
+
+    results: list[PictureCarouselResult] = []
+    chunks = [
+        cases[index : index + chunk_size]
+        for index in range(0, len(cases), chunk_size)
+    ]
+    for chunk_index, chunk in enumerate(chunks):
+        print(
+            f"running carousel chunk {chunk_index + 1}/{len(chunks)} with {len(chunk)} pictures",
+            file=sys.stderr,
+            flush=True,
+        )
+        results.extend(
+            run_carousel(
+                chunk,
+                fixture_root / f"chunk_{chunk_index:03d}",
+                qemu_chunk_dos_dir(dos_dir, chunk_index),
+                boot_wait,
+                first_wait,
+                advance_wait,
+                advance_key,
+                mode,
+                delay_cycles,
+                speed_value,
+                poll,
+                poll_interval,
+                poll_timeout,
+                numbered_path(snapshot_raw, chunk_index),
+                numbered_path(snapshot_qcow, chunk_index),
+            )
+        )
+    return results
+
+
 def write_report(results: list[PictureCarouselResult], output: Path) -> dict[str, object]:
     output.parent.mkdir(parents=True, exist_ok=True)
     report = {
@@ -324,13 +414,15 @@ def main() -> None:
     parser.add_argument("--poll", action="store_true")
     parser.add_argument("--poll-interval", type=float, default=1.0)
     parser.add_argument("--poll-timeout", type=float, default=20.0)
+    parser.add_argument("--chunk-size", type=int, default=0)
     parser.add_argument("--snapshot-raw", type=Path, default=DEFAULT_SNAPSHOT_RAW)
     parser.add_argument("--snapshot-qcow", type=Path, default=DEFAULT_SNAPSHOT_QCOW)
     args = parser.parse_args()
 
     cases = load_cases(args.cases, args.case_ids, args.preset)
-    results = run_carousel(
+    results = run_chunked_carousel(
         cases,
+        args.chunk_size,
         args.fixture_root,
         qemu_dos_dir(args.dos_dir),
         args.boot_wait,

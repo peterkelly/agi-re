@@ -6780,3 +6780,98 @@ Documented result:
 - `delay-cycles 60` was too short for reliable polling and missed all
   intermediate broad pictures except the final picture 76. Do not use that as
   a default for broad resource sweeps.
+
+## 2026-07-04: all-picture timed polling carousel chunking
+
+Commands run from `/Users/peter/ai/agi/reverse`:
+
+- `python3 -B tools/picture_carousel.py --preset all --mode timed --poll --delay-cycles 120 --speed-value 1 --fixture-root build/picture-carousel/timed-all-poll-fixtures --dos-dir PICALL --output build/picture-carousel/batches/picture_carousel_all_timed_poll_001.json --boot-wait 5 --first-wait 3 --poll-interval 0.5 --poll-timeout 20 --snapshot-raw build/picture-carousel/snapshot/picture_carousel_all_poll.raw --snapshot-qcow build/picture-carousel/snapshot/picture_carousel_all_poll.qcow2`
+- Local identity comparison of mismatched captures against all present local SQ2
+  picture renders.
+- `magick build/picture-carousel/timed-all-poll-fixtures/carousel/qemu_picture_020.ppm build/picture-carousel/timed-all-poll-fixtures/carousel/qemu_picture_020.png`
+- `mdir -i build/picture-carousel/snapshot/picture_carousel_all_poll.raw@@32256 ::/PICALL`
+- `xxd -g 1 -s 61353 -l 32 build/picture-carousel/timed-all-poll-fixtures/carousel/VOL.3`
+- `xxd -g 1 -s 60 -l 9 build/picture-carousel/timed-all-poll-fixtures/carousel/PICDIR`
+- Added `--chunk-size` support and per-case polling progress to
+  `tools/picture_carousel.py`.
+- Added chunking coverage to `tests/test_picture_carousel.py`.
+- `python3 -B -m unittest tests.test_picture_carousel`
+- `python3 -B tools/picture_carousel.py --preset all --mode timed --poll --chunk-size 16 --delay-cycles 120 --speed-value 1 --fixture-root build/picture-carousel/timed-all-poll-chunk16-fixtures --dos-dir PICALL --output build/picture-carousel/batches/picture_carousel_all_timed_poll_chunk16_001.json --boot-wait 5 --first-wait 3 --poll-interval 0.5 --poll-timeout 20 --snapshot-raw build/picture-carousel/snapshot/picture_carousel_all_poll_chunk16.raw --snapshot-qcow build/picture-carousel/snapshot/picture_carousel_all_poll_chunk16.qcow2`
+
+Documented result:
+
+- A single all-present-picture timed polling carousel matched the first 19
+  pictures, then all later expected captures were closest to picture 19.
+- Inspecting the picture 20 capture showed the original engine's disk prompt:
+  `Please insert disk 3 and press ENTER.` The prompt was drawn over picture 19.
+- The generated fixture disk still contained `VOL.3` in `C:\PICALL`, and that
+  file size was 180,430 bytes. The packed picture 20 record at offset `0xefa9`
+  began with the expected record header bytes `12 34 03 86 0e`, and the
+  `PICDIR` entry for picture 20 was `30 ef a9`. This rules out the simple
+  fixture-copy/header explanation for the prompt.
+- Treat this as an original-engine resource lifecycle or disk-prompt boundary
+  for oversized generated carousel fixtures, not as renderer behavior to model
+  in the clean-room spec.
+- The chunked all-present-picture timed polling run used chunks of 16 pictures
+  and matched all 74 valid local SQ2 pictures with 74 matches, 0 mismatches,
+  and 0 errors across five engine launches.
+- Chunking is the current recommended path for larger real-resource carousel
+  sweeps: it preserves the faster timed polling workflow while avoiding the
+  oversized single-fixture prompt boundary.
+
+## 2026-07-04: dynamic save-write probe
+
+Commands run from `/Users/peter/ai/agi/reverse`:
+
+- `rg -n "save|restore|file-error|file error|0x7d|0x7e|save_game|restore_game|SAVE" tools tests docs/src PROGRESS.md`
+- `sed -n '740,825p' docs/src/compatibility_testing.md`
+- `sed -n '1,260p' tools/agi_save.py`
+- `sed -n '1,320p' tools/qemu_fixture.py`
+- `sed -n '1,320p' tools/qemu_snapshot.py`
+- Added `tools/save_roundtrip_probe.py`.
+- Added `tests/test_save_roundtrip_probe.py`.
+- `python3 -B -m unittest tests.test_save_roundtrip_probe`
+- `python3 -B tools/save_roundtrip_probe.py --output build/save-roundtrip/save_roundtrip_001.json --boot-wait 5 --draw-wait 8 --post-launch-wait 2 --post-launch-after-text-wait 1 --key-delay 0.08`
+- `python3 -B tools/save_roundtrip_probe.py --keys $'codex probe\n' --output build/save-roundtrip/save_roundtrip_002.json --capture build/save-roundtrip/qemu_capture_002.ppm --snapshot-raw build/save-roundtrip/snapshot/save_roundtrip_002.raw --snapshot-qcow build/save-roundtrip/snapshot/save_roundtrip_002.qcow2 --post-run-raw build/save-roundtrip/snapshot/save_roundtrip_after_002.raw --save-output build/save-roundtrip/SQ2SG_002.1 --boot-wait 5 --draw-wait 8 --post-launch-wait 5 --post-launch-after-text-wait 1 --key-delay 0.08`
+- `magick build/save-roundtrip/qemu_capture_002.ppm build/save-roundtrip/qemu_capture_002.png`
+- `mdir -i build/save-roundtrip/snapshot/save_roundtrip_after_002.raw@@32256 ::/SVRT`
+- `python3 -B tools/save_roundtrip_probe.py --description abc --no-submit-description --output build/save-roundtrip/save_roundtrip_debug_no_submit.json --capture build/save-roundtrip/qemu_capture_no_submit.ppm --snapshot-raw build/save-roundtrip/snapshot/save_roundtrip_no_submit.raw --snapshot-qcow build/save-roundtrip/snapshot/save_roundtrip_no_submit.qcow2 --post-run-raw build/save-roundtrip/snapshot/save_roundtrip_after_no_submit.raw --save-output build/save-roundtrip/SQ2SG_no_submit.1 --boot-wait 5 --draw-wait 4 --path-prompt-wait 2 --description-wait 3 --key-delay 0.12`
+- `python3 -B tools/save_roundtrip_probe.py --output build/save-roundtrip/save_roundtrip_005.json --capture build/save-roundtrip/qemu_capture_005.ppm --snapshot-raw build/save-roundtrip/snapshot/save_roundtrip_005.raw --snapshot-qcow build/save-roundtrip/snapshot/save_roundtrip_005.qcow2 --post-run-raw build/save-roundtrip/snapshot/save_roundtrip_after_005.raw --save-output build/save-roundtrip/SQ2SG_005.1 --boot-wait 5 --draw-wait 8 --path-prompt-wait 2 --slot-wait 1 --description-wait 1 --key-delay 0.08`
+- `python3 -B tools/save_roundtrip_probe.py --output build/save-roundtrip/save_roundtrip_006.json --capture build/save-roundtrip/qemu_capture_006.ppm --snapshot-raw build/save-roundtrip/snapshot/save_roundtrip_006.raw --snapshot-qcow build/save-roundtrip/snapshot/save_roundtrip_006.qcow2 --post-run-raw build/save-roundtrip/snapshot/save_roundtrip_after_006.raw --save-output build/save-roundtrip/SQ2SG_006.1 --boot-wait 5 --draw-wait 8 --path-prompt-wait 2 --slot-wait 1 --description-wait 1 --confirmation-wait 1 --key-delay 0.08`
+- `mdir -i build/save-roundtrip/snapshot/save_roundtrip_after_006.raw@@32256 ::/SVRT`
+- `mcopy -o -i build/save-roundtrip/snapshot/save_roundtrip_after_006.raw@@32256 ::/SVRT/SG.1 build/save-roundtrip/SG_006.1`
+- `python3 -B -c "import sys; from pathlib import Path; sys.path.insert(0, 'tools'); from agi_save import load_save; s=load_save(Path('build/save-roundtrip/SG_006.1')); print(s.description); print([b.length for b in s.blocks]); print(Path('build/save-roundtrip/SG_006.1').stat().st_size)"`
+- `python3 -B tools/save_roundtrip_probe.py --output build/save-roundtrip/save_roundtrip_007.json --capture build/save-roundtrip/qemu_capture_007.ppm --snapshot-raw build/save-roundtrip/snapshot/save_roundtrip_007.raw --snapshot-qcow build/save-roundtrip/snapshot/save_roundtrip_007.qcow2 --post-run-raw build/save-roundtrip/snapshot/save_roundtrip_after_007.raw --save-output build/save-roundtrip/SG_007.1 --boot-wait 5 --draw-wait 8 --path-prompt-wait 2 --slot-wait 1 --description-wait 1 --confirmation-wait 1 --key-delay 0.08`
+
+Documented result:
+
+- The new probe builds a synthetic fixture that removes existing save files,
+  displays a blank picture, loads view 11, calls action `0x7d`, redraws the
+  picture, draws view 11 at X 50 after the save action returns, and loops.
+- The first one-shot key sequence did not write a save. Its capture showed the
+  save-description prompt with a blank input line, proving the original action
+  had reached the save UI but the typed description had not landed in the
+  correct editor.
+- A no-leading-Enter sequence appended `codex probe` to the path prompt and
+  produced the visible message `There is no directory named \SVRTcodex probe.`
+  This established that the first save UI stage is path acceptance.
+- A no-submit debug run after accepting the path showed the numbered save-slot
+  selector. This established the second UI stage: select a slot before typing
+  the description.
+- After adding path, slot, description, and final confirmation stages, the
+  original engine wrote `SG.1` in the synthetic `C:\SVRT` fixture directory.
+  The name lacks the `SQ2` prefix seen in the checked-in `SQ2/SQ2SG.*` files;
+  the probe therefore exposes `--save-stem` for future game/interpreter runs.
+- The extracted dynamic save file parsed through `tools/agi_save.py` with
+  description `codex probe`, block lengths `1505`, `903`, `328`, `100`, and
+  `12`, and total size 2889 bytes.
+- The fourth block length differs from the checked-in local SQ2 saves'
+  observed `200` byte fourth block. The source-backed writer uses
+  `[0x0141] * 2`, so this dynamic fixture's shorter object/list state implies
+  a runtime count of 50 entries for the generated no-save scenario.
+- The post-save QEMU capture matched the expected validation screen with
+  0 visual mismatches, proving that the save action returned to following
+  bytecode after the original engine wrote the file.
+- This is dynamic save-write evidence, not yet a full restore round trip. A
+  future probe can feed the generated `SG.1` back to action `0x7e` once the
+  desired restored observable state is specified.
