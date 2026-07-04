@@ -1040,7 +1040,7 @@ run the final position was `(140,112)`.
 | `0x58` | `set_object_bit_0002` | `0x7b9c` | Sets bit `0x0002` in object word field `[+0x25]`. QEMU validates that this bypasses the rectangle-boundary crossing stop configured by `0x5a`; the object reaches `(50,80)` instead of stopping at `(30,80)`. |
 | `0x59` | `clear_object_bit_0002` | `0x7bc1` | Clears bit `0x0002` in object word field `[+0x25]`. QEMU validates that clearing after `0x58` restores the rectangle-boundary crossing stop at `(30,80)`. |
 | `0x83` | `clear_global_0139` | `0x702f` | Sets global word `[0x0139] = 0`. |
-| `0x84` | `set_global_0139_and_clear_object0_field_22` | `0x7041` | Sets global word `[0x0139] = 1` and clears byte `[+0x22]` on the first object entry. |
+| `0x84` | `set_global_0139_and_clear_object0_field_22` | `0x7041` | Sets global word `[0x0139] = 1` and clears byte `[+0x22]` on the first object entry. A QEMU movement probe validates the byte `[+0x22]` effect by starting random motion on object 0 with `0x54`, immediately executing `0x84`, and observing that the object remains at its starting position. |
 | `0x85` | `display_object_diagnostics_var` | `0x72b5` | Reads an object index from `var[arg0]`, gathers object fields `[+0x03]`, `[+0x05]`, `[+0x1a]`, `[+0x1c]`, `[+0x24]`, and `[+0x1e]`, formats them with string template `DS:0x1713` through helper `0x2374`, and displays the result through `0x1ce8`. |
 
 In local SQ2 data, the template at `DS:0x1713` is:
@@ -1221,9 +1221,10 @@ and sets the mapped status byte.
 
 QEMU fixture `diagnostics_system_001` validates that `0x87`, `0x88`, and `0x8d`
 display their diagnostic/pause/version messages, accept Enter, and return to
-following bytecode. The same batch dispatch-smokes `0x83`, `0x84`, `0x8e`,
-`0xaa`, `0xab`, `0xac`, `0xad`, `0xa3`, and `0xa4` as low-risk global/system
-state handlers that execute and return.
+following bytecode. The same batch dispatch-smokes `0x83`, `0x8e`, `0xaa`,
+`0xab`, `0xac`, `0xad`, `0xa3`, and `0xa4` as low-risk global/system state
+handlers that execute and return. A separate movement fixture promotes the
+object-0 motion-byte effect of `0x84` beyond dispatch-smoke.
 
 Resource/table actions outside the main object table:
 

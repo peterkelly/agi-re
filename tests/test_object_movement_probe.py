@@ -73,6 +73,7 @@ class ObjectMovementProbeTests(unittest.TestCase):
         self.assertIn("move_to_once_countdown_gated_completion", case_ids)
         self.assertIn("random_motion_visible_somewhere", case_ids)
         self.assertIn("clear_field_22_after_random_motion_stops_motion", case_ids)
+        self.assertIn("action_84_after_random_motion_stops_motion", case_ids)
 
     def test_json_case_loading(self) -> None:
         case = base_cases()[0]

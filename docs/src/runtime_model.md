@@ -244,6 +244,17 @@ Motion and animation lifecycle:
 | Accepted or restored | Control/collision tests complete | Next cycle | Accepted moves keep the candidate coordinates. Rejected moves restore saved coordinates, clear boundary code, and run placement search. |
 | Frame callback | Bit `0x0020` set and frame timer reaches zero | Frame mode handler | Mode byte `+0x23` advances or wraps frames, with one-callback startup delay bit `0x1000` where applicable. |
 
+Text/input UI lifecycle:
+
+| State | Entered by | Exited by | Observable contract |
+| --- | --- | --- | --- |
+| Input line hidden/disabled | `0x77` or display/text cleanup paths | `0x78` | Word `[0x05d3]` is zero; refresh helpers should not redraw the normal input line. |
+| Input line enabled | `0x78` | `0x77`, modal prompts, or text-window cleanup | Word `[0x05d3]` is one; `0x89` may redraw the input buffer and `0x8a` may erase visible input characters. |
+| Prompt/status configured | `0x6c`, `0x6f`, `0x70`, `0x71` | Later configuration or cleanup | Prompt character, row/column-like globals, status-line enable word `[0x05d9]`, and display offset `[0x1379]` determine where text helpers draw and erase. |
+| Modal text window active | Message display, prompt/edit, menu, or diagnostic helpers | `0xa9` or the helper's own close path | Display helpers may save a backing rectangle and set text-window words around `[0x0d1d]`; close restores the rectangle and clears `[0x0d0f]`/`[0x0d1d]`. |
+| Alternate text mode | `0x6a` and related display-mode helpers | `0x6b` or `0xa4`/cleanup paths | Byte `[0x1757]` and word `[0x0d0f]` alter text/input drawing helpers. Current evidence is source-backed plus dispatch-smoke, except for the visible `0x6f` display-offset probe. |
+| Event/edit loop | `code.input.edit_string`, menus, inventory selection, confirmation dialogs | Enter, Escape, or a selected mapped/status event | The shared event queue feeds raw key predicates, line editors, menu status-byte events, and confirmation exits. |
+
 ## Diagnostic and Trace Services
 
 Several action opcodes are developer-facing or VM-facing services rather than

@@ -8164,3 +8164,199 @@ Progress updates and outcomes:
 
       Action/result: Added the final commit-prep progress note before
       re-running mdBook and whitespace checks.
+
+1069. Reported: "I’ll take the next slice from `PROGRESS.md`: first I’ll read
+      the current remaining-work list and partial opcode rows, then pick a
+      source-backed target that can be turned into concrete probes or
+      implementation-ready docs without overclaiming."
+
+      Action/result: Started the next PROGRESS-driven work pass.
+
+1070. Reported: "The tracker is pointing pretty clearly at text/input UI now:
+      most remaining partial opcodes are in that cluster, and the current
+      screenshot harness is weak for text-plane state. I’m checking the QEMU
+      harness shape to see whether a small memory-observation probe would let
+      us validate those globals directly instead of only 'it returned.'"
+
+      Action/result: Read `PROGRESS.md`, QEMU snapshot helpers, text/input docs,
+      and partial opcode evidence.
+
+1071. Reported: "There’s one good quick win in the remaining list: `0xaa`
+      copies the save-description buffer into a string slot, and we can validate
+      it cleanly by patching only the fixture’s `AGIDATA.OVL` buffer to `look`
+      and comparing it against a normal message-backed string slot. I’m going
+      to add that probe, then use this same pass to add a text/input UI
+      state-machine summary."
+
+      Action/result: Selected an initial `0xaa` probe candidate and a
+      text/input state-machine documentation target.
+
+1072. Reported: "The `0xaa` case is nice because it exercises
+      saved-state-adjacent behavior without needing a memory probe or BIOS text
+      rendering. I’m making it a normal draw-if fixture so it can live in the
+      reusable compatibility suite."
+
+      Action/result: Added a provisional `0xaa` draw-if fixture and evidence
+      mapping.
+
+1073. Reported: "The new `0xaa` fixture and evidence mapping are in place. I’m
+      running the focused unit test and regenerating the opcode matrix before
+      booting QEMU for the new case."
+
+      Action/result: Focused logic-probe tests passed and the opcode matrix was
+      regenerated.
+
+1074. Reported: "The focused test passes and the evidence matrix regenerated
+      cleanly. I’m running the original-engine QEMU case now to check that
+      `0xaa` really copies the patched save-description buffer into the script
+      string slot."
+
+      Action/result: Ran the provisional `0xaa` QEMU fixture; it mismatched.
+
+1075. Reported: "The first `0xaa` run did not match, so I’m treating that as
+      useful evidence rather than forcing the promotion. I’m going back to the
+      disassembled handler and the generated fixture bytes to find whether the
+      source buffer address, slot operand, or string terminator assumption is
+      off."
+
+      Action/result: Inspected the QEMU report, generated `AGIDATA.OVL` bytes
+      around `0x0e72`, and the `0xaa` handler disassembly.
+
+1076. Reported: "That mismatch is actually informative: the validation view
+      did not draw, so the runtime `0x0e72` buffer was not equal to the patched
+      file bytes by the time the script ran. I’m not going to promote `0xaa` on
+      that. I’m looking for another remaining opcode whose state change can be
+      observed through existing object or logic behavior, and I’ll either pivot
+      or keep this as an attempted-but-not-promoted note."
+
+      Action/result: Removed the `0xaa` promotion plan and searched for a
+      better visible-state target among remaining partial opcodes.
+
+1077. Reported: "I’m pivoting to `0x84` instead: the handler’s source says it
+      clears object 0’s motion mode, and the movement harness already has a
+      clean random-motion stop oracle for the sibling `0x4e`. I’ll add a
+      parallel movement case for `0x84`, and remove the unpromoted `0xaa`
+      fixture from the reusable base set."
+
+      Action/result: Removed the provisional `0xaa` base case/evidence and
+      added the `0x84` movement-probe plan.
+
+1078. Reported: "The helper insert missed the exact location because the action
+      helpers are packed a little differently than I remembered. I’m locating
+      that block and applying the small helper patch against the actual file
+      shape."
+
+      Action/result: Located the object-action helper block in
+      `tools/qemu_fixture.py`.
+
+1079. Reported: "Found it. I’m inserting the `0x84` helper alongside the nearby
+      object-motion helpers now."
+
+      Action/result: Added
+      `set_global_0139_and_clear_object0_field_22_action()`.
+
+1080. Reported: "The movement case is added. It starts random motion on object
+      0, immediately runs action `0x84`, and expects the object to remain at
+      its starting position, matching the source claim that `0x84` clears
+      object 0’s motion byte."
+
+      Action/result: Added
+      `action_84_after_random_motion_stops_motion` to the movement harness and
+      tests.
+
+1081. Reported: "Local tests pass for the movement and fixture changes, and the
+      evidence chapter is regenerated. I’m running the focused QEMU movement
+      case now; this should either promote `0x84` or give us another boundary
+      note."
+
+      Action/result: Focused movement/logic/fixture tests passed and the
+      `0x84` QEMU batch started.
+
+1082. Reported: "The `0x84` QEMU case matched, so that one can move from
+      dispatch-smoke to behavior evidence. I’m updating the docs/tracker now,
+      and I’ll record the `0xaa` attempt as deliberately not promoted because
+      the runtime buffer did not retain the fixture-file patch."
+
+      Action/result: QEMU batch `action_84_motion_001` matched with 1 match and
+      0 mismatches.
+
+1083. Reported: "I’m updating the human docs around `0x84` in three places: the
+      opcode chapter, the movement compatibility commands, and the runtime
+      model. The key wording is that QEMU validates the object-0 motion-byte
+      effect; the broader `[0x0139]` role remains source-backed."
+
+      Action/result: Updated `logic_bytecode.md` and
+      `graphics_object_pipeline.md` for the `0x84` movement effect.
+
+1084. Reported: "I found the compatibility movement section; I’ll add `0x84`
+      beside the existing `0x4e` single-case stop probe because they share the
+      same observable motion-byte contract."
+
+      Action/result: Added the `action_84_motion_001` command and result to
+      `compatibility_testing.md`.
+
+1085. Reported: "`PROGRESS.md` now reflects the one-opcode promotion. I’m also
+      adding the failed `0xaa` experiment to the 'attempted but not promoted'
+      record, because it tells future us not to assume file-patching that buffer
+      is enough."
+
+      Action/result: Updated action coverage to 154 of 176 and recorded the
+      unpromoted `0xaa` probe in compatibility docs.
+
+1086. Reported: "The compatibility docs now keep the failed `0xaa` probe out of
+      the registry while preserving why it failed. I’m appending the clean-room
+      command/results section next."
+
+      Action/result: Added the clean-room notes section for the `0xaa` attempt,
+      `0x84` movement probe, and text/input lifecycle model.
+
+1087. Reported: "The clean-room notes have the new command trail. I’m adding
+      this turn’s progress updates to `progress_log.md`, then I’ll run the full
+      test/book checks."
+
+      Action/result: Appended this progress-log batch before validation.
+
+1088. Reported: "The progress log is caught up. I’m running the full unit
+      suite, evidence-matrix check, mdBook build, and whitespace check now."
+
+      Action/result: Ran `python3 -B -m unittest discover -s tests`,
+      `python3 -B tools/logic_opcode_evidence.py --check`, `mdbook build docs`,
+      and `git diff --check`.
+
+1089. Reported: "All four validations passed: 102 tests, opcode evidence
+      `--check`, mdBook, and whitespace. I’m recording that result in the
+      progress log, then I’ll do the final status/diff pass."
+
+      Action/result: Recorded the validation result before final status and
+      diff checks.
+
+1090. Reported: "One final mdBook/whitespace check is needed because I just
+      updated the progress log with the validation result. After that I’ll give
+      you the short handoff."
+
+      Action/result: Added the final validation-log note before rerunning
+      mdBook and whitespace checks.
+
+1091. Reported: "I added that last update to the log; now I’m doing the actual
+      final check without more commentary unless something fails."
+
+      Action/result: Added the final progress-log bookkeeping note before the
+      final check.
+
+1092. Reported: "That was the last bookkeeping loop; running final checks now."
+
+      Action/result: Added the final short bookkeeping note before final
+      mdBook, whitespace, status, and diff checks.
+
+1093. Reported: "I’ll commit the current PROGRESS-driven batch now, staging the
+      tracked docs/tools/tests changes and leaving generated `build/` plus
+      installer images untracked."
+
+      Action/result: Began the requested commit pass and confirmed the intended
+      tracked change set.
+
+1094. Reported: "The docs still build and whitespace is clean after the
+      commit-log note. The tracked change set is staged; I’m creating the
+      commit now."
+
+      Action/result: Recorded the final commit-status update before committing.

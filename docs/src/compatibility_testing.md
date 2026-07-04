@@ -718,6 +718,17 @@ python3 -B tools/picture_fuzz.py compare-capture base_004_clamped_absolute build
   ```
 
   The batch matched QEMU with 0 mismatches.
+- A targeted single-case movement batch validates the same object-0
+  motion-byte effect for `0x84` (`set_global_0139_and_clear_object0_field_22`)
+  by starting random motion, immediately executing `0x84`, and observing that
+  the object remains at its starting position:
+
+  ```bash
+  python3 -B tools/object_movement_probe.py --dos-prefix G84 --output build/object-movement-probes/batches/action_84_motion_001.json --boot-wait 5 --draw-wait 8 --stop-on-failure --case action_84_after_random_motion_stops_motion
+  ```
+
+  The batch matched QEMU with 0 mismatches. The global `[0x0139]` write remains
+  source-backed; this capture proves the object motion-byte side effect.
 - Targeted frame-timer probes validate visible effects of actions `0x46`,
   `0x47`, and `0x4c`:
 
@@ -810,6 +821,7 @@ Recent attempted-but-not-promoted logic fixtures:
 python3 -B tools/logic_interpreter_probe.py --dos-prefix RV --output build/logic-interpreter-probes/batches/room_reentry_002.json --boot-wait 5 --draw-wait 8 --stop-on-failure --case switch_room_immediate_sets_new_room_flag --case switch_room_var_sets_new_room_flag
 python3 -B tools/logic_interpreter_probe.py --dos-prefix RD --output build/logic-interpreter-probes/batches/room_dispatch_001.json --boot-wait 5 --draw-wait 8 --stop-on-failure --case switch_room_immediate_then_logic0_calls_current_room --case switch_room_var_then_logic0_calls_current_room
 python3 -B tools/logic_interpreter_probe.py --dos-prefix DK --output build/logic-interpreter-probes/batches/down_key_001.json --boot-wait 5 --draw-wait 8 --stop-on-failure --case mapped_down_arrow_sets_status_byte
+python3 -B tools/logic_interpreter_probe.py --dos-prefix SD --output build/logic-interpreter-probes/batches/save_description_copy_001.json --boot-wait 5 --draw-wait 8 --stop-on-failure --case copy_save_description_to_string_slot_copies_buffer
 ```
 
 The early room re-entry cases used synthetic logic-0 validation around
@@ -823,6 +835,12 @@ post-switch picture/view setup under flag 5. The down-arrow case attempted to
 map raw key word `0x5000` with `0x79` and drive QEMU monitor `sendkey down`; it
 did not set the target status byte. That case remains a useful harness
 experiment but is intentionally absent from the reusable probe registry.
+The save-description copy attempt patched the fixture's `AGIDATA.OVL` bytes at
+`0x0e72` to `look` and then tried to validate action `0xaa` by comparing the
+copied string slot against a message-backed `look` string. The validation draw
+did not occur, so the case remains absent from the reusable probe registry;
+runtime initialization or selector behavior appears to control that buffer more
+strongly than a static fixture-file patch.
 
 Current QEMU screenshots captured through `screendump` use full VGA-sized PPM
 frames. A generated picture-only SQ2 fixture produced a 640 by 400 capture.

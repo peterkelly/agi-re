@@ -5121,3 +5121,52 @@ Results:
 - Added implementation-facing state-machine summaries for resource lifecycle,
   object drawing lifecycle, and motion/animation lifecycle to
   `docs/src/runtime_model.md`.
+
+## 2026-07-04: action 0x84 movement effect and text/input lifecycle model
+
+Commands run from `/Users/peter/ai/agi/reverse`:
+
+- `sed -n '1,380p' PROGRESS.md`
+- `rg -n "QEMU dispatch-smoke|source-backed|0x69|0x6a|0x6b|0x6c|0x6d|0x6e|0x70|0x71|0x77|0x78|0x83|0x84|0x89|0x8a|0x8e|0x95|0x96|0x9a|0xa3|0xa4|0xa9|0xaa|0xad" docs/src/logic_opcode_evidence.md PROGRESS.md docs/src/logic_bytecode.md`
+- `sed -n` reads of `tools/qemu_snapshot.py`,
+  `tools/logic_interpreter_probe.py`, `tools/object_movement_probe.py`,
+  `tools/qemu_fixture.py`, `tests/test_logic_interpreter_probe.py`,
+  `tests/test_object_movement_probe.py`, and the relevant docs sections.
+- Attempted `0xaa` probe:
+  `python3 -B tools/logic_interpreter_probe.py --dos-prefix SD --output build/logic-interpreter-probes/batches/save_description_copy_001.json --boot-wait 5 --draw-wait 8 --stop-on-failure --case copy_save_description_to_string_slot_copies_buffer`
+- `cat build/logic-interpreter-probes/batches/save_description_copy_001.json`
+- `xxd -g 1 -s 0x0e60 -l 0x60 build/logic-interpreter-probes/fixtures/copy_save_description_to_string_slot_copies_buffer/AGIDATA.OVL`
+- `ndisasm -b 16 -o 0x2720 -e 0x2920 build/cleanroom/AGI.decrypted.exe`
+- `python3 -B -m unittest tests.test_object_movement_probe tests.test_logic_interpreter_probe tests.test_qemu_fixture`
+- `python3 -B tools/logic_opcode_evidence.py`
+- `python3 -B tools/object_movement_probe.py --dos-prefix G84 --output build/object-movement-probes/batches/action_84_motion_001.json --boot-wait 5 --draw-wait 8 --stop-on-failure --case action_84_after_random_motion_stops_motion`
+
+Results:
+
+- Attempted to promote action `0xaa`
+  (`copy_save_description_to_string_slot`) with a fixture-local patch that put
+  `look` at `AGIDATA.OVL:0x0e72`, the source pointer used by the handler at
+  image `0x2726`. The QEMU run did not reach the validation draw: the capture
+  mismatched exactly where the expected view would have been, indicating the
+  string comparison failed. The fixture file did contain `look` at offset
+  `0x0e72`, so this attempt suggests runtime initialization or save-selector
+  state controls that buffer. The case was removed from the reusable base-case
+  registry and `0xaa` remains dispatch-smoke only.
+- Added helper `set_global_0139_and_clear_object0_field_22_action()` for action
+  `0x84` and object movement case
+  `action_84_after_random_motion_stops_motion`. The fixture starts random
+  motion on object 0, immediately executes `0x84`, and expects the object to
+  remain at `(60,80)`.
+- QEMU batch `action_84_motion_001` matched with 1 match, 0 mismatches, and 0
+  errors. This promotes the object-0 motion-byte effect of action `0x84` to
+  QEMU-validated; the global `[0x0139] = 1` side effect remains documented from
+  source.
+- Updated `tools/logic_opcode_evidence.py` and regenerated
+  `docs/src/logic_opcode_evidence.md`, promoting `0x84` out of dispatch-smoke.
+- Added an implementation-facing text/input UI lifecycle state machine to
+  `docs/src/runtime_model.md`, tying input-line enable/disable, prompt/status
+  configuration, modal text windows, alternate text mode, and event/edit loops
+  to the current opcode evidence.
+- Updated `PROGRESS.md`: logic action opcode coverage is now 154 of 176 at
+  `[x]` level (`153` QEMU-validated plus structural `0x00`), with 22 partial
+  action opcodes remaining.

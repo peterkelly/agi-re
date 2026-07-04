@@ -19,8 +19,8 @@ better understood, or a new remaining-work item is discovered.
 
 ## Current Snapshot
 
-- Logic action opcodes: 153 of 176 are covered at `[x]` level
-  (`152` QEMU-validated plus `0x00` structural); 23 remain `[~]`.
+- Logic action opcodes: 154 of 176 are covered at `[x]` level
+  (`153` QEMU-validated plus `0x00` structural); 22 remain `[~]`.
 - Logic condition opcodes: all 19 of 19 are QEMU-validated.
 - Main remaining risk areas: full picture/view renderer edge behavior, text and
   input UI details, sound/audio semantics, final compatibility suite breadth,
@@ -175,7 +175,7 @@ better understood, or a new remaining-work item is discovered.
 - [x] `0x81` `display_view_resource_text_like` - QEMU-validated
 - [x] `0x82` `random_range_to_var` - QEMU-validated
 - [~] `0x83` `clear_global_0139` - QEMU dispatch-smoke
-- [~] `0x84` `set_global_0139_and_clear_object0_field_22` - QEMU dispatch-smoke
+- [x] `0x84` `set_global_0139_and_clear_object0_field_22` - QEMU-validated
 - [x] `0x85` `display_object_diagnostics_var` - QEMU-validated
 - [x] `0x86` `confirm_and_restart_like` - QEMU-validated
 - [x] `0x87` `show_heap_status` - QEMU-validated
@@ -292,7 +292,8 @@ better understood, or a new remaining-work item is discovered.
   - Remaining: deepen save-file path/selection semantics and restore/restart
     state transitions.
 - [~] Text windows, status line, prompts, and interactive input
-  - Evidence: message/string/numeric input probes and dispatch-smoke coverage.
+  - Evidence: message/string/numeric input probes, dispatch-smoke coverage, and
+    implementation-facing UI lifecycle state machine.
   - Remaining: promote dispatch-smoke rows to behavior coverage where visible
     state matters.
 - [~] Menus and inventory UI

@@ -320,6 +320,10 @@ def clear_object_field_22_and_global_action(object_no: int) -> bytes:
     return bytes([0x4E, object_no])
 
 
+def set_global_0139_and_clear_object0_field_22_action() -> bytes:
+    return bytes([0x84])
+
+
 def picture_logic_payload(picture_no: int, scratch_var: int = SCRATCH_VAR) -> bytes:
     return logic_resource(load_show_picture_actions(picture_no, scratch_var) + self_loop())
 

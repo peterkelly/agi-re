@@ -177,7 +177,7 @@ Evidence levels:
 | `0x81` | `display_view_resource_text_like` | imm0 | display view resource text like | QEMU-validated | logic_interpreter_probe: view_resource_display_immediate_returns |
 | `0x82` | `random_range_to_var` | imm0, imm1, var2 | random range to var | QEMU-validated | logic_interpreter_probe: random_equal_bounds_stores_bound |
 | `0x83` | `clear_global_0139` | - | clear global 0139 | QEMU dispatch-smoke | logic_interpreter_probe: diagnostic_global_actions_dispatch_smoke |
-| `0x84` | `set_global_0139_and_clear_object0_field_22` | - | set global 0139 and clear object0 field 22 | QEMU dispatch-smoke | logic_interpreter_probe: diagnostic_global_actions_dispatch_smoke |
+| `0x84` | `set_global_0139_and_clear_object0_field_22` | - | set global 0139 and clear object0 field 22 | QEMU-validated | object_movement_probe: action_84_after_random_motion_stops_motion |
 | `0x85` | `display_object_diagnostics_var` | var0 | display object diagnostics var | QEMU-validated | logic_interpreter_probe: object_diagnostics_var_enter_returns |
 | `0x86` | `confirm_and_restart_like` | imm0 | confirm and restart like | QEMU-validated | logic_interpreter_probe: confirm_restart_like_escape_continues_to_draw |
 | `0x87` | `show_heap_status` | - | show heap status | QEMU-validated | logic_interpreter_probe: heap_status_then_ack_continues_to_draw |
@@ -215,7 +215,7 @@ Evidence levels:
 | `0xa7` | `divn` | var0, imm1 | divn | QEMU-validated | logic_interpreter_probe: divn_stores_quotient_byte |
 | `0xa8` | `divv` | var0, var1 | divv | QEMU-validated | logic_interpreter_probe: divv_stores_quotient_byte |
 | `0xa9` | `close_text_window_state` | - | close text window state | QEMU dispatch-smoke | logic_interpreter_probe: close_text_window_state_dispatch_smoke |
-| `0xaa` | `copy_save_description_to_string_slot` | imm0 | copy save description to string slot | QEMU dispatch-smoke | logic_interpreter_probe: diagnostic_global_actions_dispatch_smoke |
+| `0xaa` | `copy_save_description_to_string_slot` | imm0 | copy save description to string slot | source-backed | Handler disassembly and local SQ2 bytecode scan; see logic_bytecode.md. |
 | `0xab` | `save_event_buffer_count` | - | save event buffer count | QEMU-validated | logic_interpreter_probe: display_mode_replay_uses_rolled_back_event_count |
 | `0xac` | `restore_event_buffer_count` | - | restore event buffer count | QEMU-validated | logic_interpreter_probe: display_mode_replay_uses_rolled_back_event_count |
 | `0xad` | `increment_global_1530` | - | increment global 1530 | QEMU dispatch-smoke | logic_interpreter_probe: diagnostic_global_actions_dispatch_smoke |

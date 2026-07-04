@@ -138,6 +138,7 @@ QEMU_ACTIONS = {
     0x86: "logic_interpreter_probe: confirm_restart_like_escape_continues_to_draw",
     0x87: "logic_interpreter_probe: heap_status_then_ack_continues_to_draw",
     0x88: "logic_interpreter_probe: pause_message_then_ack_continues_to_draw",
+    0x84: "object_movement_probe: action_84_after_random_motion_stops_motion",
     0x8B: "logic_interpreter_probe: joystick_calibration_no_joystick_returns",
     0x8C: "logic_interpreter_probe: display_mode_toggle_guarded_noop_continues",
     0x8D: "logic_interpreter_probe: interpreter_version_then_ack_continues_to_draw",
@@ -181,7 +182,6 @@ QEMU_SMOKE_ACTIONS = {
     0x77: "logic_interpreter_probe: input_line_toggle_refresh_erase_dispatch_smoke",
     0x78: "logic_interpreter_probe: input_line_toggle_refresh_erase_dispatch_smoke",
     0x83: "logic_interpreter_probe: diagnostic_global_actions_dispatch_smoke",
-    0x84: "logic_interpreter_probe: diagnostic_global_actions_dispatch_smoke",
     0x89: "logic_interpreter_probe: input_line_toggle_refresh_erase_dispatch_smoke",
     0x8A: "logic_interpreter_probe: input_line_toggle_refresh_erase_dispatch_smoke",
     0x8E: "logic_interpreter_probe: diagnostic_global_actions_dispatch_smoke",
@@ -191,7 +191,6 @@ QEMU_SMOKE_ACTIONS = {
     0xA3: "logic_interpreter_probe: diagnostic_global_actions_dispatch_smoke",
     0xA4: "logic_interpreter_probe: diagnostic_global_actions_dispatch_smoke",
     0xA9: "logic_interpreter_probe: close_text_window_state_dispatch_smoke",
-    0xAA: "logic_interpreter_probe: diagnostic_global_actions_dispatch_smoke",
     0xAD: "logic_interpreter_probe: diagnostic_global_actions_dispatch_smoke",
 }
 

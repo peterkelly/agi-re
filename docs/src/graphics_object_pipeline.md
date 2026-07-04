@@ -912,6 +912,12 @@ immediately executes `0x4e`. During the subsequent update cycles, the object
 remains at its starting position `(60,80)`, confirming that clearing `+0x22`
 prevents the autonomous random-motion dispatcher from continuing.
 
+Action `0x84` has the same visible clearing effect for object 0. A follow-up
+movement fixture starts random motion with `0x54`, immediately executes `0x84`,
+and again observes the object remaining at `(60,80)`. This validates the
+object-0 `+0x22` part of the handler; the broader global `[0x0139] = 1` effect
+is still described from the source path.
+
 The expanded movement probe set also confirms leftward and upward movement,
 diagonal movement, already-at-target completion, and within-step completion. A
 target X of `52` from starting X `20` with step `5` completes at X `50`, not

@@ -39,6 +39,7 @@ from qemu_fixture import (
     set_rect_bounds_action,
     set_object_step_from_var_action,
     set_object_tick_from_var_action,
+    set_global_0139_and_clear_object0_field_22_action,
     setup_persistent_object_actions,
     start_random_motion_action,
     var_eq_imm_condition,
@@ -870,6 +871,25 @@ def base_cases() -> list[ObjectMovementCase]:
             80,
             motion_kind="random_motion_then_clear_4e",
         ),
+        ObjectMovementCase(
+            "action_84_after_random_motion_stops_motion",
+            "Action 0x84 clears object 0 byte +0x22 after random motion setup, so the object does not continue moving.",
+            b"\xff".hex(),
+            0,
+            11,
+            0,
+            0,
+            60,
+            80,
+            15,
+            0,
+            0,
+            5,
+            235,
+            60,
+            80,
+            motion_kind="random_motion_then_action_84",
+        ),
     ]
 
 
@@ -1119,7 +1139,7 @@ def post_activate_actions(case: ObjectMovementCase) -> bytes:
             case.step_size,
             case.completion_flag,
         )
-    if case.motion_kind in {"random_motion", "random_motion_then_clear_4e"}:
+    if case.motion_kind in {"random_motion", "random_motion_then_clear_4e", "random_motion_then_action_84"}:
         actions += assignn_action(MOTION_VALUE_VAR, case.step_size)
         actions += set_object_step_from_var_action(case.object_no, MOTION_VALUE_VAR)
         actions += assignn_action(MOTION_TICK_VAR, 1)
@@ -1127,6 +1147,10 @@ def post_activate_actions(case: ObjectMovementCase) -> bytes:
         actions += start_random_motion_action(case.object_no)
         if case.motion_kind == "random_motion_then_clear_4e":
             actions += clear_object_field_22_and_global_action(case.object_no)
+        if case.motion_kind == "random_motion_then_action_84":
+            if case.object_no != 0:
+                raise ValueError("action 0x84 only clears object 0 motion state")
+            actions += set_global_0139_and_clear_object0_field_22_action()
     return actions
 
 
@@ -1149,6 +1173,7 @@ def per_cycle_actions(case: ObjectMovementCase) -> bytes:
         "move_to_once_autonomous",
         "random_motion",
         "random_motion_then_clear_4e",
+        "random_motion_then_action_84",
         "animation_only",
     }:
         return b""
