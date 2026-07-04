@@ -150,7 +150,7 @@ Evidence levels:
 | `0x66` | `display_message_var` | var0 | display message var | QEMU-validated | logic_interpreter_probe: display_message_var_then_ack_continues_to_draw |
 | `0x67` | `display_formatted_message` | imm0, imm1, imm2 | display formatted message | QEMU-validated | logic_interpreter_probe: display_formatted_message_then_ack_continues_to_draw |
 | `0x68` | `display_formatted_message_var` | var0, var1, var2 | display formatted message var | QEMU-validated | logic_interpreter_probe: display_formatted_message_var_then_ack_continues_to_draw |
-| `0x69` | `clear_text_rect` | imm0, imm1, imm2 | clear text rect | QEMU dispatch-smoke | logic_interpreter_probe: text_rect_clear_dispatch_smoke |
+| `0x69` | `clear_text_rect` | imm0, imm1, imm2 | clear text rect | QEMU-validated | logic_interpreter_probe: text_rect_clear_rows_removes_formatted_text |
 | `0x6a` | `enable_text_attr_mode_1757` | - | enable text attr mode 1757 | QEMU dispatch-smoke | logic_interpreter_probe: text_attribute_mode_dispatch_smoke |
 | `0x6b` | `disable_text_attr_mode_1757` | - | disable text attr mode 1757 | QEMU dispatch-smoke | logic_interpreter_probe: text_attribute_mode_dispatch_smoke |
 | `0x6c` | `set_input_prompt_char` | imm0 | set input prompt char | QEMU dispatch-smoke | logic_interpreter_probe: input_prompt_config_dispatch_smoke |
@@ -199,7 +199,7 @@ Evidence levels:
 | `0x97` | `display_message_configured` | imm0, imm1, imm2, imm3 | display message configured | QEMU-validated | logic_interpreter_probe: display_message_configured_then_ack_continues_to_draw |
 | `0x98` | `display_message_configured_var` | var0, imm1, imm2, imm3 | display message configured var | QEMU-validated | logic_interpreter_probe: display_message_configured_var_then_ack_continues_to_draw |
 | `0x99` | `discard_view_var` | var0 | discard view var | QEMU-validated | logic_interpreter_probe: discard_view_var_allows_reload_and_draw |
-| `0x9a` | `clear_text_rect_bounds` | imm0, imm1, imm2, imm3, imm4 | clear text rect bounds | QEMU dispatch-smoke | logic_interpreter_probe: text_rect_clear_dispatch_smoke |
+| `0x9a` | `clear_text_rect_bounds` | imm0, imm1, imm2, imm3, imm4 | clear text rect bounds | QEMU-validated | logic_interpreter_probe: text_rect_clear_bounds_removes_formatted_text |
 | `0x9b` | `noop_2` | imm0, imm1 | noop 2 | QEMU-validated | logic_interpreter_probe: noop_9b_consumes_two_operands_then_draws |
 | `0x9c` | `add_menu_heading_like` | imm0 | add menu heading like | QEMU-validated | logic_interpreter_probe: menu_interactive/menu_edges setup cases |
 | `0x9d` | `add_menu_item_like` | imm0, imm1 | add menu item like | QEMU-validated | logic_interpreter_probe: menu_interactive/menu_edges setup cases |

@@ -5170,3 +5170,64 @@ Results:
 - Updated `PROGRESS.md`: logic action opcode coverage is now 154 of 176 at
   `[x]` level (`153` QEMU-validated plus structural `0x00`), with 22 partial
   action opcodes remaining.
+
+## 2026-07-04: text rectangle clear behavior probes
+
+Commands run from `/Users/peter/ai/agi/reverse`:
+
+- `sed -n '1,260p' PROGRESS.md`
+- `sed -n '240,380p' PROGRESS.md`
+- `rg -n "0x69|0x6a|0x6b|0x6c|0x6d|0x70|0x71|0x77|0x78|0x83|0x89|0x8a|0x8e|0x95|0x96|0x9a|0xa3|0xa4|0xa9|0xaa|0xad" docs/src/logic_bytecode.md docs/src/runtime_model.md docs/src/compatibility_testing.md docs/src/clean_room_executable_notes.md tools tests`
+- `sed -n` reads of `tools/logic_interpreter_probe.py`,
+  `tools/qemu_fixture.py`, `tests/test_logic_interpreter_probe.py`,
+  `docs/src/logic_bytecode.md`, and `docs/src/runtime_model.md`.
+- `ndisasm -b 16 -o 0x34bd -e 0x36bd build/cleanroom/AGI.decrypted.exe`
+- `ndisasm -b 16 -o 0x3726 -e 0x3926 build/cleanroom/AGI.decrypted.exe`
+- `ndisasm -b 16 -o 0x76ca -e 0x78ca build/cleanroom/AGI.decrypted.exe`
+- `ndisasm -b 16 -o 0x78cb -e 0x7acb build/cleanroom/AGI.decrypted.exe`
+- `ndisasm -b 16 -o 0x2bc4 -e 0x2dc4 build/cleanroom/AGI.decrypted.exe | sed -n '1,90p'`
+- `ndisasm -b 16 -o 0x2b78 -e 0x2d78 build/cleanroom/AGI.decrypted.exe | sed -n '1,80p'`
+- `python3 -B -m unittest tests.test_logic_interpreter_probe`
+- `python3 -B -m py_compile tools/logic_interpreter_probe.py`
+- First attempted QEMU run:
+  `python3 -B tools/logic_interpreter_probe.py --dos-prefix TC --output build/logic-interpreter-probes/batches/text_rect_clear_behaviour_001.json --boot-wait 5 --draw-wait 8 --stop-on-failure --case text_rect_clear_rows_removes_formatted_text --case text_rect_clear_bounds_removes_formatted_text`
+- Corrected QEMU runs:
+  `python3 -B tools/logic_interpreter_probe.py --dos-prefix TC --output build/logic-interpreter-probes/batches/text_rect_clear_behaviour_002.json --boot-wait 5 --draw-wait 8 --stop-on-failure --case text_rect_clear_rows_removes_formatted_text --case text_rect_clear_bounds_removes_formatted_text`
+  and
+  `python3 -B tools/logic_interpreter_probe.py --dos-prefix TC --output build/logic-interpreter-probes/batches/text_rect_clear_behaviour_003.json --boot-wait 5 --draw-wait 8 --stop-on-failure --case text_rect_clear_rows_removes_formatted_text --case text_rect_clear_bounds_removes_formatted_text`
+- `cat build/logic-interpreter-probes/batches/text_rect_clear_behaviour_001.json`
+- `cat build/logic-interpreter-probes/batches/text_rect_clear_behaviour_002.json`
+- `python3 -B tools/inspect_ppm.py build/logic-interpreter-probes/fixtures/text_rect_clear_bounds_removes_formatted_text/qemu_capture.ppm`
+- Local one-off PPM measurement of black pixel ranges in rows 60..75 of
+  `build/logic-interpreter-probes/fixtures/text_rect_clear_bounds_removes_formatted_text/qemu_capture.ppm`.
+- `python3 -B tools/logic_opcode_evidence.py`
+
+Results:
+
+- Added `LogicInterpreterCase.expected_visual_rects` to model display-surface
+  effects that are not picture-resource mutations. The comparator applies these
+  rectangles to the low visual nibble before composing any expected view cels,
+  preserving the priority/control nibble.
+- Added QEMU cases `text_rect_clear_rows_removes_formatted_text` and
+  `text_rect_clear_bounds_removes_formatted_text`. Each displays formatted
+  message text, accepts Enter, runs the clear action, and compares the capture
+  without using `0x1a` to repaint the picture.
+- The first row-clear attempt mismatched because the expected screen assumed
+  the original white picture remained. The actual capture had a black band at
+  logical Y 40..55, proving that `0x69(5, 6, 0)` clears the visible display
+  surface rather than restoring picture pixels.
+- After adding an expected black rectangle, `text_rect_clear_behaviour_002`
+  matched the `0x69` case but mismatched the bounded `0x9a` case. Measuring the
+  capture showed that `0x9a(8, 5, 8, 20, 0)` clears logical X 20..83/Y 64..71.
+  This validates the EGA target's text grid as four logical pixels per text
+  column and eight logical pixels per text row.
+- Final QEMU batch `text_rect_clear_behaviour_003` matched with 2 matches, 0
+  mismatches, and 0 errors. Actions `0x69` (`clear_text_rect`) and `0x9a`
+  (`clear_text_rect_bounds`) were promoted from dispatch-smoke to
+  QEMU-validated behavior coverage.
+- Added symbolic labels `code.text.clear_rows` (`0x2b78`) and
+  `code.text.clear_bounds` (`0x2bc4`), updated the opcode/runtime docs, and
+  regenerated `docs/src/logic_opcode_evidence.md`.
+- Updated `PROGRESS.md`: logic action opcode coverage is now 156 of 176 at
+  `[x]` level (`155` QEMU-validated plus structural `0x00`), with 20 partial
+  action opcodes remaining.

@@ -85,6 +85,8 @@ class LogicInterpreterProbeTests(unittest.TestCase):
         self.assertIn("prompt_number_to_var_accepts_digits", case_ids)
         self.assertIn("input_line_toggle_refresh_erase_dispatch_smoke", case_ids)
         self.assertIn("text_rect_clear_dispatch_smoke", case_ids)
+        self.assertIn("text_rect_clear_rows_removes_formatted_text", case_ids)
+        self.assertIn("text_rect_clear_bounds_removes_formatted_text", case_ids)
         self.assertIn("close_text_window_state_dispatch_smoke", case_ids)
         self.assertIn("text_attribute_mode_dispatch_smoke", case_ids)
         self.assertIn("screen_shake_dispatch_smoke", case_ids)
@@ -226,6 +228,17 @@ class LogicInterpreterProbeTests(unittest.TestCase):
             picture = PictureRenderer(case.expected_picture_payload).render(case.picture_no)
             self.assertEqual(set(picture.visual_nibbles[0:WIDTH]), {0x06})
             self.assertEqual(set(picture.visual_nibbles[WIDTH : WIDTH * 2]), {0x04})
+
+    def test_text_rect_clear_cases_expect_display_surface_rectangles(self) -> None:
+        cases = {case.case_id: case for case in base_cases()}
+        self.assertEqual(
+            cases["text_rect_clear_rows_removes_formatted_text"].expected_visual_rects,
+            [{"left": 0, "top": 40, "right": WIDTH - 1, "bottom": 55, "color": 0}],
+        )
+        self.assertEqual(
+            cases["text_rect_clear_bounds_removes_formatted_text"].expected_visual_rects,
+            [{"left": 20, "top": 64, "right": 83, "bottom": 71, "color": 0}],
+        )
 
     def test_report_summary_counts_statuses(self) -> None:
         with tempfile.TemporaryDirectory() as temp_dir:

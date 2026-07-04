@@ -464,6 +464,26 @@ formatted/positioned display return path for `0x67`, `0x68`, and `0x98`, and
 dispatch-smokes the input-line and text-window operations `0x77`, `0x78`,
 `0x89`, `0x8a`, `0x69`, `0x9a`, and `0xa9`.
 
+Run the text-rectangle clear behavior batch:
+
+```bash
+python3 -B tools/logic_interpreter_probe.py --dos-prefix TC --output build/logic-interpreter-probes/batches/text_rect_clear_behaviour_003.json --boot-wait 5 --draw-wait 8 --stop-on-failure --case text_rect_clear_rows_removes_formatted_text --case text_rect_clear_bounds_removes_formatted_text
+```
+
+This two-case batch matched QEMU with 0 mismatches. It promotes `0x69`
+(`clear_text_rect`) and `0x9a` (`clear_text_rect_bounds`) from dispatch-smoke to
+behavior-level coverage. The probes display formatted text, acknowledge it,
+then clear the affected text cells without refreshing the picture resource.
+The expected display surface includes the black clear rectangles validated by
+QEMU: `0x69(5, 6, 0)` clears logical rows Y 40..55 across the screen, and
+`0x9a(8, 5, 8, 20, 0)` clears logical X 20..83/Y 64..71.
+
+An earlier run, `text_rect_clear_behaviour_002`, matched the `0x69` case but
+mismatched the bounded case because the expected rectangle assumed text columns
+were eight logical pixels wide. Measuring the capture showed that the EGA text
+grid maps one text column to four logical pixels and one text row to eight
+logical pixels.
+
 Run the text/status configuration batch:
 
 ```bash

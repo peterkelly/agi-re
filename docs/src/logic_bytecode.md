@@ -1148,8 +1148,8 @@ Text-window and input-line actions:
 
 | Opcode | Label | Handler | Observed action |
 | ---: | --- | ---: | --- |
-| `0x69` | `clear_text_rect` | `0x7714` | Reads immediates `arg0`, `arg1`, and `arg2`; transforms `arg2` through helper `0x78ad`; then calls helper `0x2b78(arg0, arg1, transformed_arg2)`. Helper `0x2b78` is a wrapper around BIOS `int 10h` scroll/clear-window service `AH=0x06`, using row/column bounds and an attribute byte. |
-| `0x9a` | `clear_text_rect_bounds` | `0x7753` | Reads five immediates. The first four are passed as the top row, left column, bottom row, and right column to helper `0x2bc4`; the fifth is transformed through helper `0x78ad` and passed as the text attribute. Helper `0x2bc4` saves the current cursor, calls BIOS `int 10h` scroll/clear-window service `AH=0x06` with those bounds, then restores the cursor. |
+| `0x69` | `clear_text_rect` | `0x7714` | Reads immediates `arg0`, `arg1`, and `arg2`; transforms `arg2` through helper `0x78ad`; then calls `code.text.clear_rows` (`0x2b78`) with top row `arg0`, bottom row `arg1`, left column 0, right column `0x27`, and the transformed attribute. QEMU validates that rows 5..6 clear logical Y 40..55 to visual color 0 without repainting the picture. |
+| `0x9a` | `clear_text_rect_bounds` | `0x7753` | Reads five immediates. The first four are passed as top row, left column, bottom row, and right column to `code.text.clear_bounds` (`0x2bc4`); the fifth is transformed through helper `0x78ad` and passed as the text attribute. Helper `0x2bc4` saves the current cursor, calls BIOS `int 10h` scroll/clear-window service `AH=0x06` with those bounds, then restores the cursor. In the EGA target, QEMU validates text columns as four logical pixels wide and text rows as eight logical pixels tall. |
 | `0x6a` | `enable_text_attr_mode_1757` | `0x76ca` | Calls prompt/input cleanup helper `0x382e`, sets byte `[0x1757] = 1`, derives text attributes through `0x77d5` using globals `[0x05cd]` and `[0x05cf]`, calls helper `0x9803`, then clears or fills a text rectangle through `0x2b78`. This appears to enable an alternate text-attribute mode. |
 | `0x6b` | `disable_text_attr_mode_1757` | `0x7702` | Calls prompt/input cleanup helper `0x382e`, then helper `0x78cb`, which clears byte `[0x1757]`, recomputes text attributes from `[0x05cd]` and `[0x05cf]`, calls helper `0x9806`, redraws the status-line-like area through `0x34bd`, and refreshes the input-line-like area through `0x38d7`. |
 | `0x6c` | `set_input_prompt_char` | `0x38b4` | Resolves current-logic message `arg0` through `0x21f0` and stores the first byte of that message in `[0x05d7]`. Helpers `0x37f7`, `0x382e`, and `0x38d7` test `[0x05d7]` while drawing or erasing the prompt/input marker, so this appears to configure the input prompt character. |
@@ -1191,10 +1191,12 @@ the fixture refreshes the picture with `0x1a` before the validation draw because
 the text overlay can otherwise remain visible in the captured display.
 
 QEMU fixture `text_ui_003` dispatch-smokes `0x77`, `0x78`, `0x89`, and `0x8a`
-as an input-line toggle/refresh/erase group, and `0x69`, `0x9a`, and `0xa9` as
-text-window or text-rectangle state operations. The rectangle-clear cases are
-still display-surface evidence rather than a full specification of BIOS text
-attribute behavior.
+as an input-line toggle/refresh/erase group, and `0xa9` as text-window cleanup.
+Follow-up fixture `text_rect_clear_behaviour_003` validates the display-surface
+effect of `0x69` and `0x9a` without relying on a picture refresh: formatted
+message text is acknowledged, the clear action runs, and the captured screen
+matches only when the expected display surface includes the black text-cell
+rectangle written by the BIOS clear helper.
 
 QEMU fixture `text_status_002` dispatch-smokes the remaining low-risk
 text/status/input handlers in this cluster: `0x6d`, `0x6a`, and `0x6b` for

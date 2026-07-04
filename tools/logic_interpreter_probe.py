@@ -62,6 +62,7 @@ class LogicInterpreterCase:
     agidata_patches: list[dict[str, object]] | None = None
     launch_command: str = "SIERRA"
     compare_view: bool = True
+    expected_visual_rects: list[dict[str, int]] | None = None
 
     @property
     def code(self) -> bytes:
@@ -610,6 +611,7 @@ def _custom_case(
     post_launch_after_text_wait: float = 0.0,
     post_launch_key_names: list[str] | None = None,
     agidata_patches: list[dict[str, object]] | None = None,
+    expected_visual_rects: list[dict[str, int]] | None = None,
 ) -> LogicInterpreterCase:
     if init_once_flag is not None and per_cycle_body:
         code = one_time_with_per_cycle_code(
@@ -649,6 +651,9 @@ def _custom_case(
         post_launch_after_text_wait,
         post_launch_key_names,
         agidata_patches,
+        "SIERRA",
+        True,
+        expected_visual_rects,
     )
 
 
@@ -1393,6 +1398,34 @@ def base_cases() -> list[LogicInterpreterCase]:
             + byte_action(0x1A)
             + draw_view11_at(50),
             50,
+        ),
+        _custom_case(
+            "text_rect_clear_rows_removes_formatted_text",
+            "Action 0x69 clears the rows containing formatted text without requiring a picture refresh.",
+            byte_action(0x67, 5, 5, 1)
+            + byte_action(0x69, 5, 6, 0)
+            + draw_view11_at(50),
+            50,
+            messages=["HELLO"],
+            post_launch_keys="\n",
+            post_launch_wait=1.0,
+            expected_visual_rects=[
+                {"left": 0, "top": 40, "right": WIDTH - 1, "bottom": 55, "color": 0}
+            ],
+        ),
+        _custom_case(
+            "text_rect_clear_bounds_removes_formatted_text",
+            "Action 0x9a clears a bounded rectangle containing formatted text without requiring a picture refresh.",
+            byte_action(0x67, 8, 5, 1)
+            + byte_action(0x9A, 8, 5, 8, 20, 0)
+            + draw_view11_at(50),
+            50,
+            messages=["HELLO"],
+            post_launch_keys="\n",
+            post_launch_wait=1.0,
+            expected_visual_rects=[
+                {"left": 20, "top": 64, "right": 83, "bottom": 71, "color": 0}
+            ],
         ),
         _custom_case(
             "close_text_window_state_dispatch_smoke",
@@ -2250,10 +2283,31 @@ def build_logic_fixture(case: LogicInterpreterCase, destination: Path) -> Path:
     return destination
 
 
+def apply_expected_visual_rects(picture, rects: list[dict[str, int]] | None):
+    if not rects:
+        return picture
+    cells = bytearray(picture.cells)
+    for rect in rects:
+        left = max(0, int(rect["left"]))
+        top = max(0, int(rect["top"]))
+        right = min(WIDTH - 1, int(rect["right"]))
+        bottom = min(HEIGHT - 1, int(rect["bottom"]))
+        color = int(rect["color"]) & 0x0F
+        if right < left or bottom < top:
+            continue
+        for y in range(top, bottom + 1):
+            row = y * WIDTH
+            for x in range(left, right + 1):
+                idx = row + x
+                cells[idx] = (cells[idx] & 0xF0) | color
+    return type(picture)(picture.picture_no, bytes(cells))
+
+
 def compare_capture(case: LogicInterpreterCase, capture: Path) -> LogicComparison:
     try:
         captured = downsample_qemu_picture_nibbles(read_ppm(capture))
         picture = PictureRenderer(case.expected_picture_payload).render(case.picture_no)
+        picture = apply_expected_visual_rects(picture, case.expected_visual_rects)
         expected_picture = picture
         for sprite in case.expected_extra_sprites or []:
             extra_frame = render_view_frame(sprite["view_no"], sprite["group_no"], sprite["frame_no"])

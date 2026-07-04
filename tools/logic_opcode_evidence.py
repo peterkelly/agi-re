@@ -118,6 +118,7 @@ QEMU_ACTIONS = {
     0x66: "logic_interpreter_probe: display_message_var_then_ack_continues_to_draw",
     0x67: "logic_interpreter_probe: display_formatted_message_then_ack_continues_to_draw",
     0x68: "logic_interpreter_probe: display_formatted_message_var_then_ack_continues_to_draw",
+    0x69: "logic_interpreter_probe: text_rect_clear_rows_removes_formatted_text",
     0x6F: "logic_interpreter_probe: input_line_config_operand1_offsets_display_by_8",
     0x72: "logic_interpreter_probe: set_string_from_message_equal_normalized and parse_string_slot_sets_input_word_sequence",
     0x73: "logic_interpreter_probe: prompt_string_to_slot_stores_typed_word",
@@ -151,6 +152,7 @@ QEMU_ACTIONS = {
     0x97: "logic_interpreter_probe: display_message_configured_then_ack_continues_to_draw",
     0x98: "logic_interpreter_probe: display_message_configured_var_then_ack_continues_to_draw",
     0x99: "logic_interpreter_probe: discard_view_var_allows_reload_and_draw",
+    0x9A: "logic_interpreter_probe: text_rect_clear_bounds_removes_formatted_text",
     0x9B: "logic_interpreter_probe: noop_9b_consumes_two_operands_then_draws",
     0x9C: "logic_interpreter_probe: menu_interactive/menu_edges setup cases",
     0x9D: "logic_interpreter_probe: menu_interactive/menu_edges setup cases",
@@ -171,7 +173,6 @@ QEMU_ACTIONS = {
 
 
 QEMU_SMOKE_ACTIONS = {
-    0x69: "logic_interpreter_probe: text_rect_clear_dispatch_smoke",
     0x6A: "logic_interpreter_probe: text_attribute_mode_dispatch_smoke",
     0x6B: "logic_interpreter_probe: text_attribute_mode_dispatch_smoke",
     0x6C: "logic_interpreter_probe: input_prompt_config_dispatch_smoke",
@@ -187,7 +188,6 @@ QEMU_SMOKE_ACTIONS = {
     0x8E: "logic_interpreter_probe: diagnostic_global_actions_dispatch_smoke",
     0x95: "logic_interpreter_probe: trace_window_config_enable_dispatch_smoke",
     0x96: "logic_interpreter_probe: trace_window_config_enable_dispatch_smoke",
-    0x9A: "logic_interpreter_probe: text_rect_clear_dispatch_smoke",
     0xA3: "logic_interpreter_probe: diagnostic_global_actions_dispatch_smoke",
     0xA4: "logic_interpreter_probe: diagnostic_global_actions_dispatch_smoke",
     0xA9: "logic_interpreter_probe: close_text_window_state_dispatch_smoke",

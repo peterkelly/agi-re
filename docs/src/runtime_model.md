@@ -255,6 +255,12 @@ Text/input UI lifecycle:
 | Alternate text mode | `0x6a` and related display-mode helpers | `0x6b` or `0xa4`/cleanup paths | Byte `[0x1757]` and word `[0x0d0f]` alter text/input drawing helpers. Current evidence is source-backed plus dispatch-smoke, except for the visible `0x6f` display-offset probe. |
 | Event/edit loop | `code.input.edit_string`, menus, inventory selection, confirmation dialogs | Enter, Escape, or a selected mapped/status event | The shared event queue feeds raw key predicates, line editors, menu status-byte events, and confirmation exits. |
 
+Text rectangle clears (`0x69` and `0x9a`) are display-surface operations. They
+do not decode or mutate a picture resource; they overwrite the visible text-cell
+rectangle with the requested attribute/background. In the EGA target validated
+so far, text columns are four logical pixels wide and text rows are eight
+logical pixels tall.
+
 ## Diagnostic and Trace Services
 
 Several action opcodes are developer-facing or VM-facing services rather than

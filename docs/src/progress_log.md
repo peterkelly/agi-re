@@ -8360,3 +8360,382 @@ Progress updates and outcomes:
       commit now."
 
       Action/result: Recorded the final commit-status update before committing.
+
+1095. Reported: "I’ll pick up from `PROGRESS.md`, find the next highest-value
+      open items, and keep the trail in the docs as I go. First I’m going to
+      re-read the current progress map and status so I don’t step on anything
+      already changed."
+
+      Action/result: Read `PROGRESS.md`, current git status, recent progress
+      log entries, and searched the remaining-work markers.
+
+1096. Reported: "The tracker is clean after the last commit, and the open work
+      is concentrated in the remaining partial action opcodes plus subsystem
+      writeups. I’m going to read the rest of `PROGRESS.md` and then choose a
+      small batch that can be grounded in disassembly first, with QEMU only as
+      confirmation."
+
+      Action/result: Read the engine coverage and highest-value remaining work
+      sections, then searched the partial text/input/system opcodes.
+
+1097. Reported: "There are 22 partial actions left. The quickest useful batch
+      looks like the text/input cluster: several opcodes already have
+      source-backed handlers, and we can turn at least the geometry/status/prompt
+      cases into observable QEMU probes instead of mere 'it returned' checks."
+
+      Action/result: Inspected existing text/input logic probe cases and
+      fixture helpers.
+
+1098. Reported: "The current harness compares rendered pixels, so behavior-level
+      promotion is easiest when an opcode changes where or whether a known
+      object appears. I’m checking how the comparator derives expected frames
+      before I add cases, because a sloppy probe here would only look stronger
+      than it is."
+
+      Action/result: Read the logic probe comparator and existing runtime text
+      model.
+
+1099. Reported: "Before editing probes, I’m re-reading the actual handler
+      disassembly for the candidate opcodes and nearby helpers. The goal is to
+      make each new fixture test one source-derived state transition, not just
+      discover behavior by poking at the executable."
+
+      Action/result: Re-read disassembly around text/status/input handlers,
+      including `0x34bd`, `0x3726`, `0x76ca`, and `0x78cb`.
+
+1100. Reported: "One promising non-UI target is `0x8e`: the disassembly says it
+      changes the resource-event pair capacity, which should have visible
+      consequences during display-mode replay. I’m reading that event buffer
+      code now because it may give us a cleaner QEMU validation than trying to
+      model BIOS text glyphs first."
+
+      Action/result: Re-read resource-event helpers around `0x705e` and
+      `0x716a`, plus existing replay docs and tests.
+
+1101. Reported: "`0x8e` does reset capacity, but overflowing the pair buffer
+      calls the interpreter’s error path, so I’m treating that as a risky
+      validation target for now. I’m looking for cases where changing the
+      capacity resets or narrows a replay log without causing the original
+      engine to walk off into error handling."
+
+      Action/result: Reviewed existing display-mode replay fixtures and kept
+      `0x8e` as a later target.
+
+1102. Reported: "A better first promotion is the rectangle-clear pair
+      `0x69`/`0x9a`: the source says they clear text regions through BIOS
+      scroll/clear helpers, and existing message probes already show formatted
+      text can remain on the captured surface unless we refresh the picture.
+      I’m going to add cases that display text, clear only via those actions,
+      and then compare the clean graphics result."
+
+      Action/result: Chose the text rectangle clear pair as the focused
+      behavior-promotion target.
+
+1103. Reported: "I’m making the probe change now: two cases, one for the
+      row-clear wrapper and one for explicit rectangle bounds. Both start from
+      source-derived operands and deliberately avoid the `0x1a` picture refresh
+      that would mask leftover text."
+
+      Action/result: Added initial `text_rect_clear_rows_removes_formatted_text`
+      and `text_rect_clear_bounds_removes_formatted_text` probe cases.
+
+1104. Reported: "The fixture cases are in place. I’m adding small unit coverage
+      so the case catalog keeps these behavior probes from silently disappearing
+      during later refactors."
+
+      Action/result: Inspected and prepared updates to
+      `tests/test_logic_interpreter_probe.py`.
+
+1105. Reported: "The catalog test already has a good 'known case ids' check, so
+      I’m just extending that list for the two new behavior probes."
+
+      Action/result: Added the two text-rectangle behavior case ids to the
+      probe catalog test.
+
+1106. Reported: "Next I’m running the local unit check for the probe catalog,
+      then I’ll run just the two new cases under QEMU. If either case mismatches,
+      I’ll treat that as feedback on my operand assumptions rather than forcing
+      the docs to fit."
+
+      Action/result: Ran `python3 -B -m unittest tests.test_logic_interpreter_probe`
+      successfully and reviewed the focused diff.
+
+1107. Reported: "The local probe tests pass. I’m starting a two-case QEMU batch
+      now; this should tell us whether the row and bounded clears really remove
+      the formatted-message residue in the original engine."
+
+      Action/result: Started `text_rect_clear_behaviour_001`; the first command
+      used an invalid bare `--snapshot` option.
+
+1108. Reported: "Small harness wrinkle: this probe runner does not have a bare
+      `--snapshot` flag, only explicit snapshot image paths. I’m rerunning the
+      same two cases through the normal batch path."
+
+      Action/result: Reran the two-case text rectangle batch without the invalid
+      option.
+
+1109. Reported: "QEMU is running both cases from a generated snapshot disk now.
+      I’ll wait for the captures and then inspect any mismatch instead of
+      assuming the rectangle operands are right."
+
+      Action/result: Waited for the QEMU snapshot batch.
+
+1110. Reported: "The row-clear case mismatched, so I’m treating that as a useful
+      correction. I’m inspecting the report and capture now to see whether the
+      clear bounds were wrong, the formatted helper draws somewhere else, or the
+      action is clearing in text coordinates that don’t line up with the
+      assumed row."
+
+      Action/result: Inspected `text_rect_clear_behaviour_001`; the mismatch
+      showed a black band at logical Y 40..55.
+
+1111. Reported: "The mismatch is actually informative: `0x69` did clear exactly
+      rows 5-6, but to black text-background pixels, while my expected image
+      assumed the white picture remained. I’m updating the comparator to let a
+      probe declare expected screen rectangles, which is the right model for
+      text clears that alter the display surface rather than the picture
+      resource."
+
+      Action/result: Decided to model expected display-surface rectangles in
+      the logic probe comparator.
+
+1112. Reported: "I’ll keep the rectangle expectation local to the fixture
+      comparator: it changes only the low visual nibble over an expected
+      text-cell rectangle, preserving the picture/control half of the cell.
+      That matches the source-level split between text display effects and the
+      picture/control buffers."
+
+      Action/result: Inspected `agi_graphics.py` structures to patch the
+      expected visual nibbles without changing picture decoding.
+
+1113. Reported: "The case schema now carries optional expected rectangles. I’m
+      wiring those rectangles into comparison and setting the two text-clear
+      cases to the source-derived text-cell coordinates."
+
+      Action/result: Added `expected_visual_rects` to the logic probe case
+      schema and initial expected rectangles.
+
+1114. Reported: "I’m patching the probe model now so the expected image can
+      include 'display-only' visual rectangles. This keeps the picture renderer
+      itself clean while letting text/UI probes assert the observable screen
+      state."
+
+      Action/result: Began adding the display-rectangle application helper.
+
+1115. Reported: "The patch anchor was off by a function name, so I’m locating
+      the fixture builder and applying the comparison helper at the actual
+      spot."
+
+      Action/result: Located `build_logic_fixture` and `compare_capture`.
+
+1116. Reported: "Found it. I’m inserting the rectangle helper just before
+      `compare_capture` and then rerunning the local tests."
+
+      Action/result: Added `apply_expected_visual_rects()` and called it from
+      `compare_capture`.
+
+1117. Reported: "The expected-rectangle support is wired in. I’m running the
+      unit tests again, then the QEMU batch with the corrected expectations."
+
+      Action/result: Ran the focused unit tests and py_compile successfully.
+
+1118. Reported: "The probe code still compiles and the catalog tests pass. I’m
+      rerunning the two original-engine captures now; this time the expected
+      image includes the black text-clear rectangles."
+
+      Action/result: Started `text_rect_clear_behaviour_002`.
+
+1119. Reported: "QEMU is through fixture build and running the snapshot batch.
+      I’m waiting on the two captures now."
+
+      Action/result: Waited for the second QEMU text rectangle batch.
+
+1120. Reported: "The row-clear case now matches; the bounded-rectangle case
+      still mismatches, so I’m narrowing that one. The first result already
+      gives us a solid `0x69` behavior probe."
+
+      Action/result: Inspected `text_rect_clear_behaviour_002` and saw the
+      bounded case expected X range was wrong.
+
+1121. Reported: "The bounded clear did run, but the X mapping corrected my
+      assumption: column 5 maps to logical X 20, not 40. I’m checking the BIOS
+      wrapper helper before updating the expected rectangle so the docs describe
+      the coordinate scale correctly."
+
+      Action/result: Re-read `code.text.clear_bounds` and `code.text.clear_rows`
+      disassembly.
+
+1122. Reported: "The helper confirms the documented argument order: top, left,
+      bottom, right, attribute. The remaining surprise is how QEMU’s graphics
+      text grid maps columns onto logical pixels, so I’m measuring the capture
+      row directly rather than guessing from the mismatch summary."
+
+      Action/result: Measured the bounded-clear capture directly and found black
+      ranges X 20..83 for rows 64..71.
+
+1123. Reported: "Measured directly: `0x9a(8,5,8,20,0)` clears logical X 20-83
+      over Y 64-71. That matches a 40-column text grid: column units are four
+      logical pixels wide and row units are eight logical pixels tall. I’m
+      correcting the expected rectangle."
+
+      Action/result: Corrected the bounded expected rectangle to X 20..83/Y
+      64..71.
+
+1124. Reported: "The bounded case expectation is fixed. I’m adding a test
+      assertion for those exact expected rectangles so this coordinate mapping
+      stays visible in the test suite."
+
+      Action/result: Added test assertions for the expected display-surface
+      rectangles.
+
+1125. Reported: "The unit test now pins the text-clear rectangle mapping. I’m
+      running the focused tests and then the two-case QEMU batch one more time."
+
+      Action/result: Ran the focused unit tests and py_compile successfully.
+
+1126. Reported: "The focused local tests pass with the new rectangle
+      expectations. I’m rerunning the original-engine comparison now."
+
+      Action/result: Started `text_rect_clear_behaviour_003`.
+
+1127. Reported: "The QEMU batch is running from its snapshot disk again;
+      waiting for both comparisons to finish."
+
+      Action/result: Waited for the final two-case QEMU text rectangle batch.
+
+1128. Reported: "Both text-clear probes now match the original engine. I’m
+      promoting `0x69` and `0x9a` in the evidence matrix, then I’ll regenerate
+      the generated opcode evidence chapter and update the human docs/progress
+      trail."
+
+      Action/result: Confirmed `text_rect_clear_behaviour_003` matched 2/2 and
+      prepared evidence promotion.
+
+1129. Reported: "With the generated evidence refreshed, I’m updating the
+      human-facing docs: progress counts, opcode descriptions, compatibility
+      command/results, and the clean-room notes about the source helper plus
+      the QEMU correction from the first mismatch."
+
+      Action/result: Inspected the relevant docs and symbolic labels before
+      documentation updates.
+
+1130. Reported: "I’m updating `tools/logic_opcode_evidence.py` so the generated
+      matrix treats `0x69` and `0x9a` as QEMU-validated by the new behavior
+      probes instead of smoke-only."
+
+      Action/result: Promoted `0x69` and `0x9a` in the evidence registry and
+      removed them from smoke-only actions.
+
+1131. Reported: "The evidence registry is updated. I’m checking the generator
+      options and then regenerating the opcode evidence chapter from the
+      registry."
+
+      Action/result: Checked `tools/logic_opcode_evidence.py --help` and script
+      behavior.
+
+1132. Reported: "The generator writes the mdBook chapter by default. I’m
+      regenerating that file now."
+
+      Action/result: Regenerated `docs/src/logic_opcode_evidence.md`.
+
+1133. Reported: "I don’t see stable labels for the clear helpers yet, so I’m
+      adding them to `symbolic_labels.md` while I’m touching this subsystem.
+      That will make later cross-version comparisons easier than referring to
+      raw `0x2b78`/`0x2bc4` everywhere."
+
+      Action/result: Checked existing text labels in `symbolic_labels.md`.
+
+1134. Reported: "I’m adding the helper labels right beside the other text
+      labels, with the observed QEMU coordinate mapping in the notes."
+
+      Action/result: Added `code.text.clear_rows` and
+      `code.text.clear_bounds` symbolic labels.
+
+1135. Reported: "Now I’m updating `PROGRESS.md`: two more action opcodes are
+      covered at behavior level, so the covered count moves from 154 to 156 and
+      partial actions drop from 22 to 20."
+
+      Action/result: Updated `PROGRESS.md` counts and marked `0x69`/`0x9a` as
+      QEMU-validated.
+
+1136. Reported: "I’m tightening the opcode chapter next: the handler rows now
+      mention the display-surface coordinate mapping, and the QEMU paragraph
+      changes from smoke-only to behavior-level evidence for the two clear
+      operations."
+
+      Action/result: Updated `docs/src/logic_bytecode.md` for `0x69`, `0x9a`,
+      and the new behavior fixture.
+
+1137. Reported: "I’m also adding a short implementation-facing note in the
+      runtime model: these clears are display-surface operations, not
+      picture-resource edits. That distinction matters for a clean-room engine."
+
+      Action/result: Added text-rectangle clear semantics to
+      `docs/src/runtime_model.md`.
+
+1138. Reported: "Next I’m adding the exact QEMU command/result to
+      `compatibility_testing.md`, including the corrected first failed run so
+      the evidence trail shows why the expected rectangles were added."
+
+      Action/result: Added `text_rect_clear_behaviour_003` command/results and
+      the earlier mismatch correction to compatibility docs.
+
+1139. Reported: "I’m appending the clean-room notes section now with the
+      disassembly commands, QEMU commands, the mismatch correction, and the
+      exact behavior promoted."
+
+      Action/result: Prepared the clean-room executable notes update.
+
+1140. Reported: "I’m adding the new section after the `0x84` section, so the
+      chronology stays intact."
+
+      Action/result: Appended the 2026-07-04 text rectangle clear behavior
+      section to `clean_room_executable_notes.md`.
+
+1141. Reported: "I’ve got the substantive docs updated. I’m doing the
+      progress-log bookkeeping now, then I’ll run the full validation suite for
+      the changed probe/tool/docs set."
+
+      Action/result: Began appending this progress-log batch before final
+      validation.
+
+1142. Reported: "The progress log is caught up through the documentation pass.
+      I’m running the full validation set now: unit tests, generated evidence
+      check, mdBook build, whitespace, and status."
+
+      Action/result: Ran `python3 -B -m unittest discover -s tests`,
+      `python3 -B tools/logic_opcode_evidence.py --check`, `mdbook build docs`,
+      and `git diff --check`.
+
+1143. Reported: "All four validations passed: 103 unit tests, evidence
+      `--check`, mdBook, and whitespace. I’m adding that validation result to
+      the progress log and then doing a final status/diff pass."
+
+      Action/result: Recorded the successful validation result before final
+      status and diff checks.
+
+1144. Reported: "Because the progress log changed after validation, I’m
+      rerunning the lightweight doc/whitespace checks and then I’ll give you the
+      concise handoff."
+
+      Action/result: Reran `mdbook build docs`, `git diff --check`, status, and
+      diff-stat checks.
+
+1145. Reported: "The final checks are clean, and I spotted a generated
+      `tools/__pycache__/` from the Python runs. I’m removing that disposable
+      cache and recording this last validation/status update so the handoff is
+      tidy."
+
+      Action/result: Removed generated `tools/__pycache__/` and confirmed the
+      tracked change set plus existing untracked generated/input directories.
+
+1146. Reported: "Last log entry is in. I’ll do one quiet final check now."
+
+      Action/result: Reran mdBook, whitespace, and status checks; this note was
+      added because that status update itself is part of the historical log.
+
+1147. Reported: "One final bookkeeping note got added by my own update, so I’m
+      recording that too and then I’ll stop the commentary loop."
+
+      Action/result: Recorded the final bookkeeping note before the truly quiet
+      final mdBook, whitespace, and status checks.

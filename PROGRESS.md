@@ -19,8 +19,8 @@ better understood, or a new remaining-work item is discovered.
 
 ## Current Snapshot
 
-- Logic action opcodes: 154 of 176 are covered at `[x]` level
-  (`153` QEMU-validated plus `0x00` structural); 22 remain `[~]`.
+- Logic action opcodes: 156 of 176 are covered at `[x]` level
+  (`155` QEMU-validated plus `0x00` structural); 20 remain `[~]`.
 - Logic condition opcodes: all 19 of 19 are QEMU-validated.
 - Main remaining risk areas: full picture/view renderer edge behavior, text and
   input UI details, sound/audio semantics, final compatibility suite breadth,
@@ -148,7 +148,7 @@ better understood, or a new remaining-work item is discovered.
 - [x] `0x66` `display_message_var` - QEMU-validated
 - [x] `0x67` `display_formatted_message` - QEMU-validated
 - [x] `0x68` `display_formatted_message_var` - QEMU-validated
-- [~] `0x69` `clear_text_rect` - QEMU dispatch-smoke
+- [x] `0x69` `clear_text_rect` - QEMU-validated
 - [~] `0x6a` `enable_text_attr_mode_1757` - QEMU dispatch-smoke
 - [~] `0x6b` `disable_text_attr_mode_1757` - QEMU dispatch-smoke
 - [~] `0x6c` `set_input_prompt_char` - QEMU dispatch-smoke
@@ -197,7 +197,7 @@ better understood, or a new remaining-work item is discovered.
 - [x] `0x97` `display_message_configured` - QEMU-validated
 - [x] `0x98` `display_message_configured_var` - QEMU-validated
 - [x] `0x99` `discard_view_var` - QEMU-validated
-- [~] `0x9a` `clear_text_rect_bounds` - QEMU dispatch-smoke
+- [x] `0x9a` `clear_text_rect_bounds` - QEMU-validated
 - [x] `0x9b` `noop_2` - QEMU-validated
 - [x] `0x9c` `add_menu_heading_like` - QEMU-validated
 - [x] `0x9d` `add_menu_item_like` - QEMU-validated
