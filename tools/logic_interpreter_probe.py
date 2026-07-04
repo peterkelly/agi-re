@@ -185,6 +185,10 @@ def status_byte_condition(index: int) -> bytes:
     return bytes([0x0C, index])
 
 
+def raw_key_event_available_condition() -> bytes:
+    return bytes([0x0D])
+
+
 def object_rect_condition(opcode: int, object_no: int, left: int, top: int, right: int, bottom: int) -> bytes:
     return bytes([opcode, object_no, left, top, right, bottom])
 
@@ -1445,6 +1449,17 @@ def base_cases() -> list[LogicInterpreterCase]:
             50,
             init_once_flag=85,
             per_cycle_body=if_then(status_byte_condition(7), draw_view11_at(50)),
+            post_launch_keys="x",
+            post_launch_wait=1.0,
+            post_launch_key_delay=0.12,
+        ),
+        _custom_case(
+            "raw_key_event_available_draws_after_typed_key",
+            "Condition 0x0d observes a raw type-1 key event without using the script key-mapping table.",
+            b"",
+            50,
+            init_once_flag=90,
+            per_cycle_body=if_then(raw_key_event_available_condition(), draw_view11_at(50)),
             post_launch_keys="x",
             post_launch_wait=1.0,
             post_launch_key_delay=0.12,

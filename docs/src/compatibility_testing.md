@@ -204,6 +204,17 @@ variants, `0xae` priority-table rebuild effects, and persistent object-table
 setup/drawing. It now also covers selected view 11 group/frame offsets: group
 0 frame 1, group 1 frame 0, and group 1 frame 1.
 
+The object overlay harness now supports repeated `--case CASE_ID` filters for
+focused runs. The follow-up edge-placement batch matched the original engine
+with 2 matches and 0 mismatches:
+
+```bash
+python3 -B tools/object_overlay_probe.py --dos-prefix OC --output build/object-overlay-probes/batches/clip_edges_001.json --boot-wait 5 --draw-wait 8 --stop-on-failure --case left_clip_view11_priority15 --case top_clip_view11_priority15
+```
+
+Together with the earlier 22-case report, the current object-overlay registry
+has original-engine evidence for 24 valid synthetic cases.
+
 Run the core logic-interpreter control-flow probes:
 
 ```bash
@@ -478,6 +489,16 @@ byte condition `0x0c`, and `0x74` string-table copy semantics using a
 fixture-local `AGIDATA.OVL` patch that makes table entry 0 point at a synthetic
 `look` string.
 
+Run the focused raw-key condition probe:
+
+```bash
+python3 -B tools/logic_interpreter_probe.py --dos-prefix RK --output build/logic-interpreter-probes/batches/raw_key_condition_001.json --boot-wait 5 --draw-wait 8 --stop-on-failure --case raw_key_event_available_draws_after_typed_key
+```
+
+This one-case batch matched QEMU with 0 mismatches. It sends plain key `x`
+without installing any `0x79` mapping and draws only when condition `0x0d`
+(`raw_key_event_available`) observes the raw event.
+
 Run the diagnostics/system batch:
 
 ```bash
@@ -516,7 +537,9 @@ Enter selection through status byte 7, immediate and variable view-resource
 display, signature acceptance, restart/confirmation Escape cancellation,
 no-joystick calibration return, guarded display-mode no-op, gated trace-window
 configuration dispatch, save/restore Escape cancellation, log append dispatch,
-and sound load/start/stop dispatch.
+and sound load/start/stop behavior. The sound case loads sound 1, starts it
+with completion flag 77, stops it, and reaches the validation draw only after
+that flag is set.
 
 Run the display-mode replay cases:
 
@@ -534,7 +557,8 @@ the background only, avoiding unrelated object-color effects in the toggled
 display mode. A paired manual QEMU memory probe, documented in the clean-room
 notes, is the stronger evidence for internal replay semantics: the event log
 excludes the second picture when flag 7 blocks recording or when `0xab`/`0xac`
-rolls the count back. Follow-up source inspection also found the post-loop
+rolls the count back. The rollback case is the behavior-level evidence for
+actions `0xab` and `0xac`. Follow-up source inspection also found the post-loop
 re-enable at replay finish target `0x6927`, correcting the earlier unresolved
 recording-gate note. The current automated harness does not yet read
 interpreter memory, so treat these cases as CGA-only display checks plus

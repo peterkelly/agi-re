@@ -593,7 +593,9 @@ QEMU validation of `add_to_pic` top-edge placement showed one extra adjustment:
 if `top` is negative, the overlay path adds that negative value to `left`, adds
 its absolute value to `baseline_y`, and draws with `top = 0`. In the observed
 case, view 11/group 0/frame 0 requested at left `20`, baseline `2` matched a
-local draw at left `18`, baseline `4`.
+local draw at left `18`, baseline `4`. Focused QEMU batch `clip_edges_001`
+revalidates this case and also confirms that the same view flush with the left
+edge at left `0`, baseline `80` draws at the requested in-bounds placement.
 Right-edge placement is not a simple pixel clip. A transient view 11/group 0/
 frame 0 probe requested at left `154`, baseline `80`; QEMU matched a local draw
 at left `140`, baseline `67`. This records the current observed result of

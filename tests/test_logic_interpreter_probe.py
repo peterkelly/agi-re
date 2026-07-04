@@ -93,6 +93,7 @@ class LogicInterpreterProbeTests(unittest.TestCase):
         self.assertIn("key_event_mapping_dispatch_smoke", case_ids)
         self.assertIn("input_line_config_operand1_offsets_display_by_8", case_ids)
         self.assertIn("mapped_key_sets_status_byte", case_ids)
+        self.assertIn("raw_key_event_available_draws_after_typed_key", case_ids)
         self.assertIn("set_string_from_table_copies_patched_pointer", case_ids)
         self.assertIn("menu_setup_dispatch_smoke", case_ids)
         self.assertIn("menu_flag_dispatch_smoke", case_ids)

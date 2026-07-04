@@ -5066,3 +5066,58 @@ Documentation result:
   remove the stale unresolved re-enable note.
 - Added symbolic labels for `table.restore.replay_event_dispatch` and
   `code.restore.finish_replay_and_reenable_recording`.
+
+## 2026-07-04: raw-key predicate and focused edge-render probes
+
+Commands run from `/Users/peter/ai/agi/reverse`:
+
+- `sed -n` reads of `PROGRESS.md`, `tools/logic_interpreter_probe.py`,
+  `tests/test_logic_interpreter_probe.py`, `tools/logic_opcode_evidence.py`,
+  `tools/object_overlay_probe.py`, `tests/test_object_overlay_probe.py`,
+  `docs/src/logic_bytecode.md`, `docs/src/compatibility_testing.md`,
+  `docs/src/graphics_object_pipeline.md`, and `docs/src/runtime_model.md`
+- `rg -n "raw_key|0x0d|0D|key event|keyboard|status byte|condition 0x0d|key_event|last key" docs/src/logic_bytecode.md docs/src/clean_room_executable_notes.md docs/src/symbolic_labels.md tools/logic_interpreter_probe.py`
+- `rg -n "def load_cases|--case|args.case|case_id" tools/logic_interpreter_probe.py`
+- `python3 -B -m unittest tests.test_logic_interpreter_probe tests.test_object_overlay_probe`
+- `python3 -B tools/logic_interpreter_probe.py --dos-prefix RK --output build/logic-interpreter-probes/batches/raw_key_condition_001.json --boot-wait 5 --draw-wait 8 --stop-on-failure --case raw_key_event_available_draws_after_typed_key`
+- Sandboxed attempt:
+  `python3 -B tools/object_overlay_probe.py --dos-prefix OC --output build/object-overlay-probes/batches/clip_edges_001.json --boot-wait 5 --draw-wait 8 --stop-on-failure --case left_clip_view11_priority15 --case top_clip_view11_priority15`
+- Escalated rerun of the same object-overlay command, after QEMU reported
+  `Failed to bind socket: Operation not permitted` for its local VNC display.
+- `python3 -B tools/logic_opcode_evidence.py`
+
+Results:
+
+- Added logic probe case `raw_key_event_available_draws_after_typed_key`. It
+  installs no `0x79` key mapping, sends plain key `x`, and draws only when
+  condition `0x0d` succeeds. Batch `raw_key_condition_001` matched QEMU with
+  1 match, 0 mismatches, and 0 errors, promoting condition `0x0d`
+  (`raw_key_event_available`) from source-backed to QEMU-validated.
+- Promoted actions `0x62` (`load_sound`) and `0x63`
+  (`start_sound_with_flag`) from dispatch-smoke to QEMU-validated opcode-level
+  evidence because existing QEMU case `sound_stop_sets_completion_flag` loads
+  sound 1, starts it with completion flag 77, stops it with `0x64`, and reaches
+  the validation draw only after flag 77 is set. Actual audio playback and
+  asynchronous timing remain partial.
+- Promoted actions `0xab` (`save_event_buffer_count`) and `0xac`
+  (`restore_event_buffer_count`) from dispatch-smoke to QEMU-validated
+  replay-log evidence through
+  `display_mode_replay_uses_rolled_back_event_count`. The automated capture
+  and paired memory notes show the rolled-back picture is excluded from the
+  active pair buffer used by replay.
+- Added `--case CASE_ID` filtering to `tools/object_overlay_probe.py`, matching
+  the existing logic-probe workflow for focused QEMU runs.
+- Added object overlay cases `left_clip_view11_priority15` and
+  `top_clip_view11_priority15`. The first validates view 11 flush with the left
+  edge at left `0`, baseline `80`; the second revalidates the top-edge
+  placement adjustment where requested left `20`, baseline `2` matches local
+  output at left `18`, baseline `4`.
+- Focused object overlay batch `clip_edges_001` matched QEMU with 2 matches, 0
+  mismatches, and 0 errors after rerunning with permission for QEMU's VNC bind.
+- Regenerated `docs/src/logic_opcode_evidence.md` from the local evidence
+  generator. `PROGRESS.md` now counts 153 covered action opcodes (`152`
+  QEMU-validated plus structural `0x00`), 23 partial action opcodes, and all 19
+  condition opcodes QEMU-validated.
+- Added implementation-facing state-machine summaries for resource lifecycle,
+  object drawing lifecycle, and motion/animation lifecycle to
+  `docs/src/runtime_model.md`.

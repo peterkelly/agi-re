@@ -111,6 +111,8 @@ QEMU_ACTIONS = {
     0x5F: "logic_interpreter_probe: inventory_marker_from_var",
     0x60: "logic_interpreter_probe: inventory_marker_from_var_var",
     0x61: "logic_interpreter_probe: inventory marker getter probes",
+    0x62: "logic_interpreter_probe: sound_stop_sets_completion_flag",
+    0x63: "logic_interpreter_probe: sound_stop_sets_completion_flag",
     0x64: "logic_interpreter_probe: sound_stop_sets_completion_flag",
     0x65: "logic_interpreter_probe: display_message_then_ack_continues_to_draw",
     0x66: "logic_interpreter_probe: display_message_var_then_ack_continues_to_draw",
@@ -160,14 +162,14 @@ QEMU_ACTIONS = {
     0xA6: "logic_interpreter_probe: mulv_keeps_low_product_byte",
     0xA7: "logic_interpreter_probe: divn_stores_quotient_byte",
     0xA8: "logic_interpreter_probe: divv_stores_quotient_byte",
+    0xAB: "logic_interpreter_probe: display_mode_replay_uses_rolled_back_event_count",
+    0xAC: "logic_interpreter_probe: display_mode_replay_uses_rolled_back_event_count",
     0xAE: "object_overlay_probe: priority-table rebuild effects",
     0xAF: "logic_interpreter_probe: noop_af_runtime_consumes_no_operand",
 }
 
 
 QEMU_SMOKE_ACTIONS = {
-    0x62: "logic_interpreter_probe: sound_load_stop_dispatch_smoke",
-    0x63: "logic_interpreter_probe: sound_start_stop_dispatch_smoke",
     0x69: "logic_interpreter_probe: text_rect_clear_dispatch_smoke",
     0x6A: "logic_interpreter_probe: text_attribute_mode_dispatch_smoke",
     0x6B: "logic_interpreter_probe: text_attribute_mode_dispatch_smoke",
@@ -190,8 +192,6 @@ QEMU_SMOKE_ACTIONS = {
     0xA4: "logic_interpreter_probe: diagnostic_global_actions_dispatch_smoke",
     0xA9: "logic_interpreter_probe: close_text_window_state_dispatch_smoke",
     0xAA: "logic_interpreter_probe: diagnostic_global_actions_dispatch_smoke",
-    0xAB: "logic_interpreter_probe: diagnostic_global_actions_dispatch_smoke",
-    0xAC: "logic_interpreter_probe: diagnostic_global_actions_dispatch_smoke",
     0xAD: "logic_interpreter_probe: diagnostic_global_actions_dispatch_smoke",
 }
 
@@ -210,6 +210,7 @@ QEMU_CONDITIONS = {
     0x0A: "logic_interpreter_probe: inventory_marker_eq_var_condition_true",
     0x0B: "logic_interpreter_probe: object_left_rect_condition_true",
     0x0C: "logic_interpreter_probe: mapped_key_sets_status_byte",
+    0x0D: "logic_interpreter_probe: raw_key_event_available_draws_after_typed_key",
     0x0E: "logic_interpreter_probe: parse_string_slot_sets_input_word_sequence",
     0x0F: "logic_interpreter_probe: set_string_from_message_equal_normalized",
     0x10: "logic_interpreter_probe: object_width_rect_condition_true",

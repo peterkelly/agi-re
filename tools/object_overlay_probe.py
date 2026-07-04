@@ -196,6 +196,24 @@ def base_cases() -> list[ObjectOverlayCase]:
             6,
         ),
         _case(
+            "left_clip_view11_priority15",
+            "View 11 flush with the left edge should draw at the requested in-bounds placement.",
+            b"\xff",
+            15,
+            x=0,
+            baseline_y=80,
+        ),
+        _case(
+            "top_clip_view11_priority15",
+            "View 11 crossing the top edge should clip/search to the observed in-bounds placement.",
+            b"\xff",
+            15,
+            x=20,
+            baseline_y=2,
+            expected_x=18,
+            expected_baseline_y=4,
+        ),
+        _case(
             "right_clip_view11_priority15",
             "View 11 crossing the right edge should clip cleanly.",
             b"\xff",
@@ -314,11 +332,19 @@ def base_cases() -> list[ObjectOverlayCase]:
     ]
 
 
-def load_cases(path: Path | None) -> list[ObjectOverlayCase]:
+def load_cases(path: Path | None, selected_ids: list[str] | None = None) -> list[ObjectOverlayCase]:
     if path is None:
-        return base_cases()
-    data = json.loads(path.read_text(encoding="ascii"))
-    return [ObjectOverlayCase(**item) for item in data]
+        cases = base_cases()
+    else:
+        data = json.loads(path.read_text(encoding="ascii"))
+        cases = [ObjectOverlayCase(**item) for item in data]
+    if selected_ids:
+        selected = set(selected_ids)
+        cases = [case for case in cases if case.case_id in selected]
+        missing = selected - {case.case_id for case in cases}
+        if missing:
+            raise ValueError(f"unknown case id(s): {', '.join(sorted(missing))}")
+    return cases
 
 
 def qemu_batch_dos_dir(prefix: str, index: int) -> str:
@@ -470,6 +496,7 @@ def write_report(results: list[OverlayBatchResult], output: Path) -> dict[str, o
 def main() -> None:
     parser = argparse.ArgumentParser()
     parser.add_argument("--cases", type=Path)
+    parser.add_argument("--case", action="append", dest="case_ids")
     parser.add_argument("--fixture-root", type=Path, default=DEFAULT_FIXTURES)
     parser.add_argument("--output", type=Path, default=DEFAULT_RESULTS / "object_overlay_base.json")
     parser.add_argument("--dos-prefix", default="OP")
@@ -481,7 +508,7 @@ def main() -> None:
     args = parser.parse_args()
 
     results = run_snapshot_batch(
-        load_cases(args.cases),
+        load_cases(args.cases, args.case_ids),
         args.fixture_root,
         args.boot_wait,
         args.draw_wait,

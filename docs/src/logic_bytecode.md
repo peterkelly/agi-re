@@ -421,6 +421,12 @@ byte in `[0x001c]` and returns true. A zero return means no available event and
 the condition returns false. A `0xffff` return means a non-key event was
 discarded and polling should continue.
 
+QEMU fixture `raw_key_condition_001` validates this predicate dynamically. The
+generated logic draws only when condition `0x0d` succeeds, does not install any
+script key mapping with `0x79`, and then sends a plain `x` key through the QEMU
+monitor. The original interpreter capture matched the validation draw, proving
+that the raw type-1 event path can satisfy `0x0d` directly.
+
 The queue itself is a 20-entry circular buffer of 4-byte records:
 
 ```text
@@ -659,17 +665,19 @@ paths with synthetic resources:
 
 QEMU fixture `menu_sound_001` dispatch-smokes `0x62` (`load_sound`) followed by
 `0x64` (`stop_sound_or_clear_sound_state`) with sound resource 1. QEMU fixture
-`sound_completion_001` adds `0x63` coverage by first loading sound 1 with
-`0x62`, starting it with completion flag operand 77 through `0x63`, then
-clearing sound state with `0x64`. These prove the load/start/clear handlers
-execute and return to following bytecode; they do not yet model audio output or
-the exact completion-flag lifetime after asynchronous playback.
+`sound_completion_001` adds a behavior assertion across `0x62`, `0x63`, and
+`0x64`: it first loads sound 1 with `0x62`, starts it with completion flag
+operand 77 through `0x63`, then clears sound state with `0x64` and draws only
+after flag 77 is set. This validates the load/start/stop completion-flag
+contract for those opcodes, but it does not yet model audio output or
+asynchronous playback timing.
 
-QEMU fixture `priority_diag_sound_001` adds a narrower behavior assertion for
-`0x64`: after `0x63` has associated completion flag 77 with sound 1, `0x64`
-sets that flag while clearing sound state. The same batch validates `0x1d` as a
-blocking priority/control display that returns after Enter and `0x85` as an
-object-diagnostics display action that returns after Enter.
+QEMU fixture `priority_diag_sound_001` validates the same stop-flag behavior in
+the narrower priority/diagnostic batch: after `0x63` has associated completion
+flag 77 with sound 1, `0x64` sets that flag while clearing sound state. The same
+batch validates `0x1d` as a blocking priority/control display that returns
+after Enter and `0x85` as an object-diagnostics display action that returns
+after Enter.
 
 Source mapping clarifies the sound state transition. Action `0x63` first calls
 the same stop helper used by `0x64`, then reads the sound resource number and
@@ -1324,6 +1332,13 @@ Remaining table entries:
 | `0xad` | `increment_global_1530` | `0x602f` | Increments byte `[0x1530]` and returns the current bytecode pointer. Nearby interrupt-hook code tests `[0x1530]` before calling display/input helper `0x44a9` on selected key release paths, but the exact user-facing purpose remains open. |
 | `0xae` | `rebuild_priority_table_from_y` | `0x4d10` | Reads immediate row/value `arg0`, clears word `[0x124a]`, and rebuilds the 168-byte priority/control table at `0x127a`. Entries below `arg0` are set to `4`; entries from `arg0` upward are assigned a rising value starting at `5`, using a scale derived from `(0xa8 - arg0) * 0xa8 / 10`, and capped at `0x0f`. Helper `0x4cbb` later maps priority/control values back through this table when `[0x124a] == 0`. |
 | `0xaf` | `noop_1_table_count` | `0x5051` | Uses the same no-op handler as action `0x7f`, returning the bytecode pointer it was given. The action table gives this opcode one fixed operand byte, so table-driven static scans skip one byte, but the handler itself does not read or advance past that operand. This opcode was not encountered in the local SQ2 logic scan. |
+
+QEMU fixture `display_mode_replay_uses_rolled_back_event_count` validates the
+observable pair-log effect of `0xab` and `0xac`. The script saves the current
+pair count, records a later picture operation, restores the saved count, then
+enters display-mode replay. The memory-backed replay notes show the rolled-back
+picture is absent from the active pair buffer, and the automated capture matches
+the expected replayed-picture state.
 
 ## Local SQ2 scan
 

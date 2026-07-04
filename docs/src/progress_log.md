@@ -7910,3 +7910,257 @@ Progress updates and outcomes:
 
       Action/result: Recorded the final cleanup note before the last status and
       mdBook checks.
+
+1036. Reported: "I’ll treat this as a real work batch: first I’ll read the
+      current tracker and harnesses, then I’ll promote only the opcode coverage
+      that the probes or disassembly actually justify, add the raw-key
+      condition probe, and update the docs/test suite as evidence lands."
+
+      Action/result: Began the `Highest-Value Remaining Work` pass and set the
+      active checklist for tracker, opcode, raw-key, graphics, state-machine,
+      and verification work.
+
+1037. Reported: "I’m reading the tracker and the probe/evidence scripts now so
+      I can distinguish already-tested behavior from smoke coverage. That
+      should keep the next edits from accidentally overstating what we know."
+
+      Action/result: Read `PROGRESS.md`, `tools/logic_interpreter_probe.py`,
+      `tests/test_logic_interpreter_probe.py`, and git status.
+
+1038. Reported: "The tracker is current and the harness already has many cases;
+      the fastest useful path is to add a raw-key condition case and promote
+      only opcodes with existing behavior probes behind them. I’m narrowing in
+      on the event/input helpers and the overlay cases now."
+
+      Action/result: Searched the logic, picture, view, overlay, and docs
+      harnesses for raw-key, dispatch-smoke, replay, sound, and graphics edge
+      evidence.
+
+1039. Reported: "I’m picking up exactly where the last pass left off: first I’m
+      checking the existing opcode evidence mappings and the focused probe
+      definitions so I can promote only things the disassembly/probes really
+      support."
+
+      Action/result: Re-read the relevant logic probe case definitions and
+      opcode evidence maps.
+
+1040. Reported: "The existing suite already has one strong replay case for
+      `0xab`/`0xac`, and a sound completion case that observes the 0x63/0x64
+      flag path rather than just 'it returned.' I’m checking the disassembly
+      notes around the raw-key predicate before I add a probe for it."
+
+      Action/result: Reviewed raw-event queue documentation, symbolic labels,
+      and source-backed notes for condition `0x0d`.
+
+1041. Reported: "The raw-key predicate is source-mapped well enough to make a
+      tight test: it calls the raw event helper directly, so the probe should
+      press a plain key and draw only after `0x0d` sees the nonzero low byte.
+      Next I’m making that case and adding a couple of valid edge-render cases
+      that are cheap to keep in the compatibility suite."
+
+      Action/result: Identified the raw-key probe shape and the view/object
+      edge cases to add.
+
+1042. Reported: "I have enough context to edit now. I’m going to keep the code
+      changes narrow: one raw-key condition helper/case, a small `--case`
+      filter for the overlay batch so focused QEMU runs are practical, two clip
+      cases, and then the evidence/docs tracker updates that tie those to the
+      clean-room record."
+
+      Action/result: Began code edits in the logic and object overlay probe
+      harnesses.
+
+1043. Reported: "Before editing, I also found that the overlay harness always
+      ran its entire base set. I’m adding the same repeated `--case` filtering
+      the logic harness already has, because it will make future
+      original-engine graphics checks much faster and less noisy."
+
+      Action/result: Added selected-case loading and CLI filtering to
+      `tools/object_overlay_probe.py`.
+
+1044. Reported: "One subtle evidence point: I’m not going to claim the whole
+      sound system is specified. The existing `sound_stop_sets_completion_flag`
+      case does validate the opcode-level contract for `load sound`, `start
+      sound with completion flag`, and `stop sound sets that flag`, so I’ll
+      promote those opcode rows while leaving audio playback semantics as
+      partial."
+
+      Action/result: Scoped the sound opcode promotion to load/start/stop
+      completion-flag behavior only.
+
+1045. Reported: "I’m applying the code edits now. After this I’ll run the
+      focused raw-key probe under QEMU; if it matches, the last condition opcode
+      can move from source-backed to QEMU-validated."
+
+      Action/result: Added `raw_key_event_available_condition()` and the
+      `raw_key_event_available_draws_after_typed_key` logic probe case.
+
+1046. Reported: "The raw-key probe is in place. I’m adding the focused overlay
+      filtering and the missing left/top clip cases next, so graphics
+      compatibility can grow without needing a full 20-plus-case run every
+      time."
+
+      Action/result: Added focused overlay cases for left-edge and top-edge
+      placement.
+
+1047. Reported: "The overlay harness now has `--case`, matching the logic
+      harness. I’m tightening the tests around those new IDs and the filter
+      behavior before I do any emulator runs."
+
+      Action/result: Added unit assertions for the raw-key case, overlay case
+      IDs, overlay filtering, and top-edge expected-position override.
+
+1048. Reported: "The logic test now tracks the new raw-key case. Next I’m
+      adding overlay test assertions for left/top clipping and proving the new
+      case filter keeps its ordering and rejects unknown IDs."
+
+      Action/result: Completed overlay test updates.
+
+1049. Reported: "The tests now cover the new fixture selectors. I’m updating
+      the opcode evidence generator next so the docs and `PROGRESS.md` don’t
+      drift from the actual harness cases."
+
+      Action/result: Promoted `0x62`, `0x63`, `0xab`, `0xac`, and condition
+      `0x0d` in `tools/logic_opcode_evidence.py`, pending dynamic validation of
+      the new raw-key case.
+
+1050. Reported: "The focused unit tests pass. I’m running the raw-key case in
+      the original interpreter now; this is the piece that decides whether
+      condition `0x0d` can be promoted rather than just source-described."
+
+      Action/result: Ran
+      `python3 -B tools/logic_interpreter_probe.py --dos-prefix RK ... --case raw_key_event_available_draws_after_typed_key`;
+      it matched QEMU with 1 match and 0 mismatches.
+
+1051. Reported: "The raw-key probe matched under QEMU: one typed `x` was enough
+      for condition `0x0d` to trigger the validation draw, without any key
+      mapping. I’m doing the small overlay clip run now so the new graphics
+      cases have original-engine evidence too."
+
+      Action/result: Started the two-case object overlay QEMU batch.
+
+1052. Reported: "The overlay run hit the sandbox’s VNC socket restriction, the
+      same one we’ve seen before. I’m rerunning the identical command with
+      escalation so QEMU can bind its local VNC display."
+
+      Action/result: The first overlay run failed with QEMU VNC bind permission
+      error; the escalated rerun matched QEMU with 2 matches and 0 mismatches.
+
+1053. Reported: "The clip batch matched both cases in the original interpreter.
+      I’m regenerating the opcode evidence chapter now, then I’ll fold the new
+      QEMU results into the spec, tracker, and progress log."
+
+      Action/result: Ran `python3 -B tools/logic_opcode_evidence.py`.
+
+1054. Reported: "The generated evidence matrix is current. I’m editing the
+      human-readable chapters next: raw-key behavior, the promoted sound/replay
+      opcodes, the graphics clip captures, and concise state machines for
+      implementation work."
+
+      Action/result: Began documentation updates across bytecode,
+      compatibility, graphics, runtime model, clean-room notes, and tracker.
+
+1055. Reported: "One small cleanup before documenting: the new left-edge
+      fixture is really 'flush against the left edge,' not a negative-X clip,
+      because script operands are bytes. I’m correcting that wording so the
+      case name doesn’t smuggle in a false interpretation."
+
+      Action/result: Corrected the `left_clip_view11_priority15` description.
+
+1056. Reported: "I’m converting the results into implementation-facing docs
+      now. The key change is to separate 'validated observable contract' from
+      'everything about the subsystem': sound load/start/stop has opcode-level
+      flag evidence, while actual playback/audio timing remains explicitly
+      partial."
+
+      Action/result: Updated `logic_bytecode.md` with raw-key, sound, and
+      replay rollback evidence.
+
+1057. Reported: "The bytecode chapter now records the raw-key match and the
+      sound/replay promotions. I’m adding the graphics edge-capture notes and
+      the state-machine summaries next."
+
+      Action/result: Updated `graphics_object_pipeline.md` with the
+      `clip_edges_001` result.
+
+1058. Reported: "The graphics chapter now names the new clip batch. I’m putting
+      the subsystem state machines in `runtime_model.md`, where future
+      implementers or agents will naturally look for the language-neutral
+      model."
+
+      Action/result: Added resource lifecycle, object drawing lifecycle, and
+      motion/animation state-machine tables to `runtime_model.md`.
+
+1059. Reported: "The state-machine section is in place. I’m updating the
+      compatibility chapter so the commands somebody reruns later include the
+      new raw-key and overlay-filter cases, not just the older broad batches."
+
+      Action/result: Updated `compatibility_testing.md` with raw-key,
+      clip-edge, sound, and replay-rollback validation notes.
+
+1060. Reported: "The compatibility docs now point at the focused replayable
+      commands. I’m updating `PROGRESS.md` to reflect what actually moved: four
+      action opcodes promoted, the final condition opcode validated, and the
+      high-value list revised to the next frontier."
+
+      Action/result: Updated opcode counts, condition status, subsystem
+      evidence, and highest-value remaining work in `PROGRESS.md`.
+
+1061. Reported: "`PROGRESS.md` is updated. I’m adding the clean-room evidence
+      trail now, including the failed sandboxed QEMU attempt and the successful
+      escalated rerun so the history stays reproducible."
+
+      Action/result: Added the raw-key/edge-render evidence section to
+      `docs/src/clean_room_executable_notes.md`.
+
+1062. Reported: "The clean-room notes have the new command evidence. I’m
+      appending the user-facing progress updates now, then I’ll run the full
+      test and book checks."
+
+      Action/result: Appended this progress-log batch before validation.
+
+1063. Reported: "The documentation pass is complete. I’m running the full local
+      suite, the generated evidence check, the mdBook build, and whitespace
+      checks now."
+
+      Action/result: Ran `python3 -B -m unittest discover -s tests`,
+      `python3 -B tools/logic_opcode_evidence.py --check`, `mdbook build docs`,
+      and `git diff --check`.
+
+1064. Reported: "All four checks passed: 102 unit tests, evidence matrix
+      `--check`, mdBook, and `git diff --check`. I’m recording that validation
+      in the progress log and then I’ll do a final lightweight status/whitespace
+      check because the log changed."
+
+      Action/result: Recorded the successful validation result before final
+      status and whitespace checks.
+
+1065. Reported: "Final mdBook and whitespace checks still pass after the
+      validation log entry. I’m doing the last internal wrap-up now: marking the
+      checklist complete and preparing the concise summary with the exact QEMU
+      batches and checks that passed."
+
+      Action/result: Final mdBook and whitespace checks had passed; the plan
+      was marked complete before this final log correction.
+
+1066. Reported: "I just sent one more status update, so I’m adding that to the
+      progress log too before the final checks. Tiny bookkeeping, but it keeps
+      the historical trail honest."
+
+      Action/result: Added this final progress-log correction before rerunning
+      final mdBook and whitespace checks.
+
+1067. Reported: "I’ll commit the finished reverse-engineering batch now,
+      staging only the tracked source/docs/test changes and leaving the
+      generated `build/` and DOS installer images alone."
+
+      Action/result: Began the requested commit pass and confirmed only tracked
+      source/docs/test files would be staged.
+
+1068. Reported: "I added the commit-prep update to the progress log, so the
+      evidence trail still matches what you saw. I’m doing the quick
+      doc/whitespace check for that tiny log change and then I’ll create the
+      commit."
+
+      Action/result: Added the final commit-prep progress note before
+      re-running mdBook and whitespace checks.

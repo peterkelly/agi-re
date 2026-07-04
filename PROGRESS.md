@@ -19,10 +19,9 @@ better understood, or a new remaining-work item is discovered.
 
 ## Current Snapshot
 
-- Logic action opcodes: 149 of 176 are covered at `[x]` level
-  (`148` QEMU-validated plus `0x00` structural); 27 remain `[~]`.
-- Logic condition opcodes: 18 of 19 are QEMU-validated; `0x0d`
-  (`raw_key_event_available`) remains source-backed.
+- Logic action opcodes: 153 of 176 are covered at `[x]` level
+  (`152` QEMU-validated plus `0x00` structural); 23 remain `[~]`.
+- Logic condition opcodes: all 19 of 19 are QEMU-validated.
 - Main remaining risk areas: full picture/view renderer edge behavior, text and
   input UI details, sound/audio semantics, final compatibility suite breadth,
   and turning the accumulated notes into implementation-ready subsystem specs.
@@ -142,8 +141,8 @@ better understood, or a new remaining-work item is discovered.
 - [x] `0x5f` `set_entry_0971_marker_from_var` - QEMU-validated
 - [x] `0x60` `set_entry_0971_marker_from_var_var` - QEMU-validated
 - [x] `0x61` `get_entry_0971_marker_to_var` - QEMU-validated
-- [~] `0x62` `load_sound` - QEMU dispatch-smoke
-- [~] `0x63` `start_sound_with_flag` - QEMU dispatch-smoke
+- [x] `0x62` `load_sound` - QEMU-validated
+- [x] `0x63` `start_sound_with_flag` - QEMU-validated
 - [x] `0x64` `stop_sound_or_clear_sound_state` - QEMU-validated
 - [x] `0x65` `display_message` - QEMU-validated
 - [x] `0x66` `display_message_var` - QEMU-validated
@@ -215,8 +214,8 @@ better understood, or a new remaining-work item is discovered.
 - [x] `0xa8` `divv` - QEMU-validated
 - [~] `0xa9` `close_text_window_state` - QEMU dispatch-smoke
 - [~] `0xaa` `copy_save_description_to_string_slot` - QEMU dispatch-smoke
-- [~] `0xab` `save_event_buffer_count` - QEMU dispatch-smoke
-- [~] `0xac` `restore_event_buffer_count` - QEMU dispatch-smoke
+- [x] `0xab` `save_event_buffer_count` - QEMU-validated
+- [x] `0xac` `restore_event_buffer_count` - QEMU-validated
 - [~] `0xad` `increment_global_1530` - QEMU dispatch-smoke
 - [x] `0xae` `rebuild_priority_table_from_y` - QEMU-validated
 - [x] `0xaf` `noop_1_table_count` - QEMU-validated
@@ -236,7 +235,7 @@ better understood, or a new remaining-work item is discovered.
 - [x] `0x0a` `obj_table_room_eq_var` - QEMU-validated
 - [x] `0x0b` `object_left_baseline_in_rect` - QEMU-validated
 - [x] `0x0c` `status_byte_1218` - QEMU-validated
-- [~] `0x0d` `raw_key_event_available` - source-backed
+- [x] `0x0d` `raw_key_event_available` - QEMU-validated
 - [x] `0x0e` `input_word_sequence` - QEMU-validated
 - [x] `0x0f` `string_slots_equal_normalized` - QEMU-validated
 - [x] `0x10` `object_width_baseline_in_rect` - QEMU-validated
@@ -265,28 +264,31 @@ better understood, or a new remaining-work item is discovered.
   - Remaining: keep opcode tracker aligned with new findings.
 - [~] Variables, flags, strings, parser words, and input buffers
   - Evidence: string/message/input probes and local parser notes.
-  - Remaining: QEMU-validate condition `0x0d` and broaden parser/vocabulary
-    edge cases.
+  - Remaining: broaden parser/vocabulary edge cases and promote remaining
+    visible input-line/text actions beyond dispatch-smoke.
 - [~] Picture resource decoding and drawing
   - Evidence: picture decoder notes, Python renderer, fuzz corpus, QEMU
     comparison harness.
   - Remaining: finish edge-case semantics for valid EGA picture streams and
     expand comparison fixtures.
 - [~] View resource decoding and cel drawing
-  - Evidence: view layout notes, view/object snapshot batches.
+  - Evidence: view layout notes, view/object snapshot batches, focused edge
+    placement captures.
   - Remaining: broaden cel corpus coverage, mirroring/transparent-color edge
     cases, and formal implementation text.
 - [~] Object records, priority/control screens, and drawing pipeline
-  - Evidence: object overlay probes, priority/control bit probes, labels.
-  - Remaining: finish high-level spec for draw ordering, dirty rectangles, and
-    priority/control interaction.
+  - Evidence: object overlay probes, priority/control bit probes, labels, and
+    implementation-facing drawing lifecycle state machine.
+  - Remaining: finish draw ordering, dirty-rectangle, and placement-search edge
+    semantics.
 - [~] Object movement, collision, animation, and boundary handling
-  - Evidence: object movement QEMU batches and disassembly-backed scheduler.
-  - Remaining: consolidate into a concise state-machine spec and add any
-    missing edge probes for valid behavior.
+  - Evidence: object movement QEMU batches, disassembly-backed scheduler, and
+    implementation-facing motion state machine.
+  - Remaining: add any missing edge probes for valid movement and collision
+    behavior.
 - [~] Room switching, restart, save/restore, and resource-event replay
   - Evidence: room-switch probes, save/restore source map, replay re-enable
-    correction at `0x6927`.
+    correction at `0x6927`, and rollback probe for `0xab`/`0xac`.
   - Remaining: deepen save-file path/selection semantics and restore/restart
     state transitions.
 - [~] Text windows, status line, prompts, and interactive input
@@ -298,7 +300,7 @@ better understood, or a new remaining-work item is discovered.
   - Remaining: validate movement/navigation events with direct event injection
     or a more precise QEMU input path.
 - [~] Sound and audio
-  - Evidence: load/start/stop dispatch and stop-flag behavior.
+  - Evidence: load/start/stop completion-flag behavior.
   - Remaining: actual sound resource format, playback timing, driver/hardware
     behavior, and completion semantics beyond current stop helper evidence.
 - [~] DOS file I/O, logging, save descriptions, and path selection
@@ -326,10 +328,13 @@ better understood, or a new remaining-work item is discovered.
 ## Highest-Value Remaining Work
 
 1. Promote the remaining QEMU dispatch-smoke action opcodes to behavior-level
-   coverage where they affect visible state or saved state.
-2. Add a focused QEMU probe for condition `0x0d` (`raw_key_event_available`).
+   coverage where they affect visible state, saved state, or input/UI state.
+2. Deepen text/input UI semantics now that condition `0x0d` is validated:
+   input-line enable/refresh/erase, prompt/status-line state, and menu
+   navigation events are the most useful next targets.
 3. Continue the picture/view renderer compatibility work with valid synthetic
    resources and original-engine captures.
-4. Convert object movement/drawing and resource lifecycle notes into concise
-   implementation-ready state machines.
+4. Continue turning the remaining subsystem notes into implementation-ready
+   state machines, especially text windows, save/file selection, sound, and
+   heap/allocation.
 5. Keep expanding the final compatibility suite as each subsystem solidifies.

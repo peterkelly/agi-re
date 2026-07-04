@@ -44,6 +44,8 @@ class ObjectOverlayProbeTests(unittest.TestCase):
         self.assertIn("priority6_control3_uses_low_draws", case_ids)
         self.assertIn("scan_down_control6_priority5_hidden", case_ids)
         self.assertIn("scan_down_control6_priority6_draws", case_ids)
+        self.assertIn("left_clip_view11_priority15", case_ids)
+        self.assertIn("top_clip_view11_priority15", case_ids)
         self.assertIn("right_clip_view11_priority15", case_ids)
         self.assertIn("bottom_clip_view11_priority15", case_ids)
         self.assertIn("transparent8_large_view29_priority15", case_ids)
@@ -63,6 +65,15 @@ class ObjectOverlayProbeTests(unittest.TestCase):
             path.write_text(json.dumps([case.__dict__]) + "\n", encoding="ascii")
             loaded = load_cases(path)
         self.assertEqual(loaded, [case])
+
+    def test_case_filtering(self) -> None:
+        loaded = load_cases(None, ["top_clip_view11_priority15", "left_clip_view11_priority15"])
+        self.assertEqual(
+            [case.case_id for case in loaded],
+            ["left_clip_view11_priority15", "top_clip_view11_priority15"],
+        )
+        with self.assertRaises(ValueError):
+            load_cases(None, ["missing_case"])
 
     def test_dos_dir_name_is_stable(self) -> None:
         self.assertEqual(qemu_batch_dos_dir("overlay", 2), "OVE00002")
@@ -93,6 +104,23 @@ class ObjectOverlayProbeTests(unittest.TestCase):
 
     def test_compare_capture_uses_expected_position_override(self) -> None:
         case = next(item for item in base_cases() if item.case_id == "right_clip_view11_priority15")
+        picture = PictureRenderer(case.picture_payload).render(case.picture_no)
+        frame = render_view_frame(case.view_no, case.group_no, case.frame_no)
+        expected = compose_frame_on_picture(
+            picture,
+            frame,
+            case.expected_x,
+            case.expected_baseline_y,
+            case.expected_priority if case.expected_priority is not None else case.priority,
+        )
+        with tempfile.TemporaryDirectory() as temp_dir:
+            capture = Path(temp_dir) / "capture.ppm"
+            write_scaled_capture(capture, expected.visual_nibbles)
+            comparison = compare_capture(case, capture)
+        self.assertTrue(comparison.matches)
+
+    def test_compare_capture_uses_top_clip_position_override(self) -> None:
+        case = next(item for item in base_cases() if item.case_id == "top_clip_view11_priority15")
         picture = PictureRenderer(case.picture_payload).render(case.picture_no)
         frame = render_view_frame(case.view_no, case.group_no, case.frame_no)
         expected = compose_frame_on_picture(

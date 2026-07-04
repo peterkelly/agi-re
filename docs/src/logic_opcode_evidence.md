@@ -143,8 +143,8 @@ Evidence levels:
 | `0x5f` | `set_entry_0971_marker_from_var` | imm0, imm1 | set entry 0971 marker from var | QEMU-validated | logic_interpreter_probe: inventory_marker_from_var |
 | `0x60` | `set_entry_0971_marker_from_var_var` | imm0, var1 | set entry 0971 marker from var var | QEMU-validated | logic_interpreter_probe: inventory_marker_from_var_var |
 | `0x61` | `get_entry_0971_marker_to_var` | var0, var1 | get entry 0971 marker to var | QEMU-validated | logic_interpreter_probe: inventory marker getter probes |
-| `0x62` | `load_sound` | imm0 | load sound | QEMU dispatch-smoke | logic_interpreter_probe: sound_load_stop_dispatch_smoke |
-| `0x63` | `start_sound_with_flag` | imm0, imm1 | start sound with flag | QEMU dispatch-smoke | logic_interpreter_probe: sound_start_stop_dispatch_smoke |
+| `0x62` | `load_sound` | imm0 | load sound | QEMU-validated | logic_interpreter_probe: sound_stop_sets_completion_flag |
+| `0x63` | `start_sound_with_flag` | imm0, imm1 | start sound with flag | QEMU-validated | logic_interpreter_probe: sound_stop_sets_completion_flag |
 | `0x64` | `stop_sound_or_clear_sound_state` | - | stop sound or clear sound state | QEMU-validated | logic_interpreter_probe: sound_stop_sets_completion_flag |
 | `0x65` | `display_message` | imm0 | display message | QEMU-validated | logic_interpreter_probe: display_message_then_ack_continues_to_draw |
 | `0x66` | `display_message_var` | var0 | display message var | QEMU-validated | logic_interpreter_probe: display_message_var_then_ack_continues_to_draw |
@@ -216,8 +216,8 @@ Evidence levels:
 | `0xa8` | `divv` | var0, var1 | divv | QEMU-validated | logic_interpreter_probe: divv_stores_quotient_byte |
 | `0xa9` | `close_text_window_state` | - | close text window state | QEMU dispatch-smoke | logic_interpreter_probe: close_text_window_state_dispatch_smoke |
 | `0xaa` | `copy_save_description_to_string_slot` | imm0 | copy save description to string slot | QEMU dispatch-smoke | logic_interpreter_probe: diagnostic_global_actions_dispatch_smoke |
-| `0xab` | `save_event_buffer_count` | - | save event buffer count | QEMU dispatch-smoke | logic_interpreter_probe: diagnostic_global_actions_dispatch_smoke |
-| `0xac` | `restore_event_buffer_count` | - | restore event buffer count | QEMU dispatch-smoke | logic_interpreter_probe: diagnostic_global_actions_dispatch_smoke |
+| `0xab` | `save_event_buffer_count` | - | save event buffer count | QEMU-validated | logic_interpreter_probe: display_mode_replay_uses_rolled_back_event_count |
+| `0xac` | `restore_event_buffer_count` | - | restore event buffer count | QEMU-validated | logic_interpreter_probe: display_mode_replay_uses_rolled_back_event_count |
 | `0xad` | `increment_global_1530` | - | increment global 1530 | QEMU dispatch-smoke | logic_interpreter_probe: diagnostic_global_actions_dispatch_smoke |
 | `0xae` | `rebuild_priority_table_from_y` | imm0 | rebuild priority table from y | QEMU-validated | object_overlay_probe: priority-table rebuild effects |
 | `0xaf` | `noop_1_table_count` | imm0 | noop 1 table count | QEMU-validated | logic_interpreter_probe: noop_af_runtime_consumes_no_operand |
@@ -239,7 +239,7 @@ Evidence levels:
 | `0x0a` | `obj_table_room_eq_var` | imm0, var1 | obj table room eq var | QEMU-validated | logic_interpreter_probe: inventory_marker_eq_var_condition_true |
 | `0x0b` | `object_left_baseline_in_rect` | imm0, imm1, imm2, imm3, imm4 | object left baseline in rect | QEMU-validated | logic_interpreter_probe: object_left_rect_condition_true |
 | `0x0c` | `status_byte_1218` | imm0 | status byte 1218 | QEMU-validated | logic_interpreter_probe: mapped_key_sets_status_byte |
-| `0x0d` | `raw_key_event_available` | - | raw key event available | source-backed | Handler disassembly and local SQ2 bytecode scan; see logic_bytecode.md. |
+| `0x0d` | `raw_key_event_available` | - | raw key event available | QEMU-validated | logic_interpreter_probe: raw_key_event_available_draws_after_typed_key |
 | `0x0e` | `input_word_sequence` | varlen word sequence | input word sequence | QEMU-validated | logic_interpreter_probe: parse_string_slot_sets_input_word_sequence |
 | `0x0f` | `string_slots_equal_normalized` | imm0, imm1 | string slots equal normalized | QEMU-validated | logic_interpreter_probe: set_string_from_message_equal_normalized |
 | `0x10` | `object_width_baseline_in_rect` | imm0, imm1, imm2, imm3, imm4 | object width baseline in rect | QEMU-validated | logic_interpreter_probe: object_width_rect_condition_true |

@@ -206,6 +206,44 @@ ResourceStore -> LogicVM -> ObjectTable -> PictureBuffer
 The original interpreter interleaves these concerns through global helpers, but
 the observed side effects line up with those separable components.
 
+## Implementation state machines
+
+The source names and addresses are useful evidence, but a clean-room
+implementation should model the main runtime objects as small state machines.
+These states are implementation-facing summaries of the observed transitions;
+they are not claims about the exact original memory layout.
+
+Resource lifecycle:
+
+| State | Entered by | Exited by | Observable contract |
+| --- | --- | --- | --- |
+| Uncached | Room reset, explicit discard, or startup | Load action/cache miss | No payload pointer should be usable by object, picture, logic, or sound consumers. |
+| Cached raw payload | `load_logic`, `load_view`, `load_picture_var`, `load_sound`, and variable forms | Discard action or room reset | Directory and volume lookup has succeeded; cache identity is the resource number. Load-on-miss records a resource-event pair when recording is enabled. |
+| Selected for use | Logic call, view binding, picture prepare/overlay, sound start | Return from operation or later selection | A cached payload is attached to a consumer: logic activation, object record, picture decoder global, or sound state. |
+| Mutated/displayed | Picture decode/show, transient object draw, active object refresh, sound start/stop | Next refresh, discard, room switch, replay | User-visible or saved-state side effects occur. Picture/view/transient operations append replay pairs unless flag 7 or the recording gate suppresses recording. |
+| Replay/restored | Restore or display-mode replay | Replay finish at `code.restore.finish_replay_and_reenable_recording` | Event recording is disabled while saved pairs are consumed, then re-enabled before normal execution continues. |
+
+Object drawing lifecycle:
+
+| State | Entered by | Exited by | Observable contract |
+| --- | --- | --- | --- |
+| Empty/reset record | `reset_object_state`, room reset, startup | View bind and field setup | Active flag is clear; drawing and movement passes ignore the record. |
+| Bound frame | `set_object_resource*`, group/frame selectors | Position/activation changes or discard/reset | Record has a view payload, selected group/frame pointer, width, and height. |
+| Placed | Position setters and placement helper `0x593a` | Activation, movement, or another position setter | Coordinates have been clamped/searched against bounds, horizon, collision, and control-buffer acceptance. Dirty bit `0x0400` suppresses one movement delta and is then cleared. |
+| Active/listed | `activate_object` | `deactivate_object`, reset, room switch | Active/update bits include `0x0001`; update-list roots are flushed/rebuilt and render nodes may save backing rectangles. |
+| Rendered | Update-list processing or transient draw helper | List flush/rectangle restore or redraw | The selected frame's run data is composited into the logical buffer using transparent-color skip and priority/control gating. |
+
+Motion and animation lifecycle:
+
+| State | Entered by | Exited by | Observable contract |
+| --- | --- | --- | --- |
+| Stationary | Motion mode `+0x22` is zero or direction `+0x21` is zero | Script motion action or autonomous mode dispatch | Per-cycle movement writes no new position. Frame animation may still run when bit `0x0020` is set. |
+| Countdown gated | Object byte `+0x01` is nonzero | Countdown reaches zero | Movement is skipped until due; the countdown reloads from `+0x00` after a due cycle. |
+| Autonomous mode step | Mode `1`, `2`, or `3` with due countdown | Direction computed or completion helper | Mode `1` picks/randomizes direction, mode `2` approaches object 0 with stuck recovery, and mode `3` recomputes direction toward target X/Y. Completion restores step size, sets the configured flag, and clears mode. |
+| Proposed move | Direction and step produce candidate X/Y | Accept/reject tests | Candidate is clamped to screen/horizon bounds; boundary globals are recorded when a clamp survives. |
+| Accepted or restored | Control/collision tests complete | Next cycle | Accepted moves keep the candidate coordinates. Rejected moves restore saved coordinates, clear boundary code, and run placement search. |
+| Frame callback | Bit `0x0020` set and frame timer reaches zero | Frame mode handler | Mode byte `+0x23` advances or wraps frames, with one-callback startup delay bit `0x1000` where applicable. |
+
 ## Diagnostic and Trace Services
 
 Several action opcodes are developer-facing or VM-facing services rather than
