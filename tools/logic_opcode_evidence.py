@@ -120,6 +120,8 @@ QEMU_ACTIONS = {
     0x68: "logic_interpreter_probe: display_formatted_message_var_then_ack_continues_to_draw",
     0x69: "logic_interpreter_probe: text_rect_clear_rows_removes_formatted_text",
     0x6A: "logic_interpreter_probe: text_attribute_enable_clears_visible_surface",
+    0x6B: "logic_interpreter_probe: text_attribute_disable_restores_picture_draw",
+    0x6C: "logic_interpreter_probe: input_prompt_empty_message_suppresses_marker",
     0x6F: "logic_interpreter_probe: input_line_config_operand1_offsets_display_by_8",
     0x71: "logic_interpreter_probe: status_line_hide_clears_configured_row",
     0x72: "logic_interpreter_probe: set_string_from_message_equal_normalized and parse_string_slot_sets_input_word_sequence",
@@ -177,8 +179,6 @@ QEMU_ACTIONS = {
 
 
 QEMU_SMOKE_ACTIONS = {
-    0x6B: "logic_interpreter_probe: text_attribute_mode_dispatch_smoke",
-    0x6C: "logic_interpreter_probe: input_prompt_config_dispatch_smoke",
     0x6D: "logic_interpreter_probe: text_attribute_mode_dispatch_smoke",
     0x6E: "logic_interpreter_probe: screen_shake_dispatch_smoke",
     0x70: "logic_interpreter_probe: status_line_show_hide_dispatch_smoke",

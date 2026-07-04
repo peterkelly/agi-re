@@ -5335,3 +5335,47 @@ Results:
 - Updated `PROGRESS.md`: logic action opcode coverage is now 160 of 176 at
   `[x]` level (`159` QEMU-validated plus structural `0x00`), with 16 partial
   action opcodes remaining.
+
+## 2026-07-04: prompt-marker suppression and text-attribute exit probes
+
+Commands run from `/Users/peter/ai/agi/reverse`:
+
+- `git status --short`
+- `sed -n` reads of `PROGRESS.md`, `tools/logic_interpreter_probe.py`,
+  `tests/test_logic_interpreter_probe.py`, `tools/logic_opcode_evidence.py`,
+  `docs/src/logic_bytecode.md`, `docs/src/compatibility_testing.md`,
+  `docs/src/runtime_model.md`, `docs/src/symbolic_labels.md`, and this notes
+  file.
+- `rg -n "0xfce|0FA4|0ff8|parse_string|set_string|input buffer|prompt_marker|0x6C|0x89|0x8A" tools/logic_interpreter_probe.py docs/src/logic_bytecode.md docs/src/clean_room_executable_notes.md docs/src/runtime_model.md tests/test_logic_interpreter_probe.py`
+- `ndisasm -b 16 -o 0x38b4 -e 0x39b4 build/cleanroom/AGI.decrypted.exe | sed -n '1,80p'`
+- `ndisasm -b 16 -o 0x37f7 -e 0x38b4 build/cleanroom/AGI.decrypted.exe | sed -n '1,95p'`
+- `python3 -B -m unittest tests.test_logic_interpreter_probe.LogicInterpreterProbeTests.test_base_cases_cover_core_control_flow tests.test_logic_interpreter_probe.LogicInterpreterProbeTests.test_text_rect_clear_cases_expect_display_surface_rectangles`
+- `python3 -B tools/logic_interpreter_probe.py --dos-prefix TP --output build/logic-interpreter-probes/batches/text_prompt_attr_behaviour_001.json --boot-wait 5 --draw-wait 8 --stop-on-failure --case text_attribute_disable_restores_picture_draw --case input_prompt_empty_message_suppresses_marker`
+- `python3 -B tools/logic_opcode_evidence.py`
+
+Results:
+
+- Added QEMU case `text_attribute_disable_restores_picture_draw`. The fixture
+  runs `0x6a`, then `0x6b`, then refreshes the picture and draws the validation
+  object. The original-engine capture matched the normal composed object view,
+  validating that `0x6b` leaves the alternate text-attribute mode and restores
+  ordinary picture/object drawing.
+- Added QEMU case `input_prompt_empty_message_suppresses_marker`. The fixture
+  first runs `0x6c` with a nonempty message, displays and acknowledges text on
+  row 5, then runs `0x6c` with an empty message before `0x6f(0, 5, 22)` and
+  `0x78`. The capture matches only when the input row is black with no prompt
+  marker glyph, validating the source-backed behavior that `0x6c` stores the
+  first byte of the resolved message and that byte zero suppresses marker
+  drawing.
+- QEMU batch `text_prompt_attr_behaviour_001` matched with 2 matches, 0
+  mismatches, and 0 errors.
+- Actions `0x6b` (`disable_text_attr_mode_1757`) and `0x6c`
+  (`set_input_prompt_char`) are now behavior-level QEMU-validated for the
+  focused visible effects above. Nonempty prompt-marker glyph shape remains a
+  text-rendering detail not yet modeled.
+- Updated `tools/logic_opcode_evidence.py`, regenerated
+  `docs/src/logic_opcode_evidence.md`, and updated opcode, runtime,
+  compatibility, and symbolic-label docs.
+- Updated `PROGRESS.md`: logic action opcode coverage is now 162 of 176 at
+  `[x]` level (`161` QEMU-validated plus structural `0x00`), with 14 partial
+  action opcodes remaining.

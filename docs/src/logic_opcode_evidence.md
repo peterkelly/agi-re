@@ -152,8 +152,8 @@ Evidence levels:
 | `0x68` | `display_formatted_message_var` | var0, var1, var2 | display formatted message var | QEMU-validated | logic_interpreter_probe: display_formatted_message_var_then_ack_continues_to_draw |
 | `0x69` | `clear_text_rect` | imm0, imm1, imm2 | clear text rect | QEMU-validated | logic_interpreter_probe: text_rect_clear_rows_removes_formatted_text |
 | `0x6a` | `enable_text_attr_mode_1757` | - | enable text attr mode 1757 | QEMU-validated | logic_interpreter_probe: text_attribute_enable_clears_visible_surface |
-| `0x6b` | `disable_text_attr_mode_1757` | - | disable text attr mode 1757 | QEMU dispatch-smoke | logic_interpreter_probe: text_attribute_mode_dispatch_smoke |
-| `0x6c` | `set_input_prompt_char` | imm0 | set input prompt char | QEMU dispatch-smoke | logic_interpreter_probe: input_prompt_config_dispatch_smoke |
+| `0x6b` | `disable_text_attr_mode_1757` | - | disable text attr mode 1757 | QEMU-validated | logic_interpreter_probe: text_attribute_disable_restores_picture_draw |
+| `0x6c` | `set_input_prompt_char` | imm0 | set input prompt char | QEMU-validated | logic_interpreter_probe: input_prompt_empty_message_suppresses_marker |
 | `0x6d` | `set_text_window_pair` | imm0, imm1 | set text window pair | QEMU dispatch-smoke | logic_interpreter_probe: text_attribute_mode_dispatch_smoke |
 | `0x6e` | `shake_screen_like` | imm0 | shake screen like | QEMU dispatch-smoke | logic_interpreter_probe: screen_shake_dispatch_smoke |
 | `0x6f` | `set_input_line_config` | imm0, imm1, imm2 | set input line config | QEMU-validated | logic_interpreter_probe: input_line_config_operand1_offsets_display_by_8 |

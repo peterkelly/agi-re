@@ -1151,8 +1151,8 @@ Text-window and input-line actions:
 | `0x69` | `clear_text_rect` | `0x7714` | Reads immediates `arg0`, `arg1`, and `arg2`; transforms `arg2` through helper `0x78ad`; then calls `code.text.clear_rows` (`0x2b78`) with top row `arg0`, bottom row `arg1`, left column 0, right column `0x27`, and the transformed attribute. QEMU validates that rows 5..6 clear logical Y 40..55 to visual color 0 without repainting the picture. |
 | `0x9a` | `clear_text_rect_bounds` | `0x7753` | Reads five immediates. The first four are passed as top row, left column, bottom row, and right column to `code.text.clear_bounds` (`0x2bc4`); the fifth is transformed through helper `0x78ad` and passed as the text attribute. Helper `0x2bc4` saves the current cursor, calls BIOS `int 10h` scroll/clear-window service `AH=0x06` with those bounds, then restores the cursor. In the EGA target, QEMU validates text columns as four logical pixels wide and text rows as eight logical pixels tall. |
 | `0x6a` | `enable_text_attr_mode_1757` | `0x76ca` | Calls prompt/input cleanup helper `0x382e`, sets byte `[0x1757] = 1`, derives text attributes through `0x77d5` using globals `[0x05cd]` and `[0x05cf]`, calls helper `0x9803`, then clears or fills a text rectangle through `0x2b78`. QEMU validates that in the normal EGA path this leaves the visible logical surface cleared to black, and a following transient-object validation draw is not visible while this alternate text-attribute mode remains active. |
-| `0x6b` | `disable_text_attr_mode_1757` | `0x7702` | Calls prompt/input cleanup helper `0x382e`, then helper `0x78cb`, which clears byte `[0x1757]`, recomputes text attributes from `[0x05cd]` and `[0x05cf]`, calls helper `0x9806`, redraws the status-line-like area through `0x34bd`, and refreshes the input-line-like area through `0x38d7`. |
-| `0x6c` | `set_input_prompt_char` | `0x38b4` | Resolves current-logic message `arg0` through `0x21f0` and stores the first byte of that message in `[0x05d7]`. Helpers `0x37f7`, `0x382e`, and `0x38d7` test `[0x05d7]` while drawing or erasing the prompt/input marker, so this appears to configure the input prompt character. |
+| `0x6b` | `disable_text_attr_mode_1757` | `0x7702` | Calls prompt/input cleanup helper `0x382e`, then helper `0x78cb`, which clears byte `[0x1757]`, recomputes text attributes from `[0x05cd]` and `[0x05cf]`, calls helper `0x9806`, redraws the status-line-like area through `0x34bd`, and refreshes the input-line-like area through `0x38d7`. QEMU validates that after `0x6a`, running `0x6b` and then refreshing the picture allows the normal transient-object validation draw to appear again. |
+| `0x6c` | `set_input_prompt_char` | `0x38b4` | Resolves current-logic message `arg0` through `0x21f0` and stores the first byte of that message in `[0x05d7]`. Helpers `0x37f7`, `0x382e`, and `0x38d7` test `[0x05d7]` while drawing or erasing the prompt/input marker. QEMU validates the empty-message case by first setting a nonempty marker, then setting an empty message; a following input-line redraw stays black with no prompt marker glyph. |
 | `0x6d` | `set_text_window_pair` | `0x77af` | Reads immediates `arg0` and `arg1`, then calls helper `0x77d5(arg0, arg1)`. That helper stores derived values in globals `[0x05d1]`, `[0x05cd]`, and `[0x05cf]` using helpers `0x7803`, `0x78a1`, and `0x78ad`. |
 | `0x6e` | `shake_screen_like` | `0x7a00` | Reads an immediate count into `CL` and performs a display-shake-like loop. Depending on display-mode globals `[0x1130]` and `[0x112e]`, it either dispatches to helpers `0x99b8`, `0x9be3`, or `0x9916`, or directly writes CRT controller registers at ports `0x3d4/0x3d5`, using bytes at `0x177a` and global offset bytes `[0x1365]` and `[0x1779]`. |
 | `0x6f` | `set_input_line_config` | `0x78f0` | Reads immediates `arg0`, `arg1`, and `arg2`; stores `arg0` in `[0x05dd]`, `arg0 + 0x15` in `[0x05df]`, `arg1` in `[0x05d5]`, and `arg2` in `[0x05db]`. It also computes `[0x1379]` from `arg0`: normally `arg0 << 3`, but in display mode `[0x1130] == 2` it stores `arg0 * 6` for values 0 or 1, and clamps larger values to 6. Nearby redraw helpers use these globals for the input-line/status text areas, so the user-level name remains provisional. |
@@ -1217,10 +1217,18 @@ fully black logical surface, so the case compares only the visible surface and
 does not compose the validation object. This is evidence for the alternate
 text-attribute mode surface clear, not for ordinary graphics drawing.
 
+QEMU fixture `text_prompt_attr_behaviour_001` promotes two neighboring
+handlers. Case `text_attribute_disable_restores_picture_draw` runs `0x6a`,
+then `0x6b`, then refreshes the picture and draws the validation object; the
+match confirms that leaving alternate text-attribute mode restores the normal
+graphics path. Case `input_prompt_empty_message_suppresses_marker` first sets a
+nonempty prompt marker, displays/acknowledges formatted text on row 5, sets the
+prompt marker from an empty message, and runs `0x78`; the capture matches only
+when the configured input row is black with no prompt-marker glyph.
+
 QEMU fixture `text_status_002` dispatch-smokes the remaining low-risk
-text/status/input handlers in this cluster: `0x6d` and `0x6b` for
-text-attribute mode setup/teardown; `0x6e` for a one-count screen-shake return;
-`0x6c` and `0x6f` for prompt marker and input-line configuration; `0x70` for
+text/status/input handlers in this cluster: `0x6d` for text-attribute
+configuration; `0x6e` for a one-count screen-shake return; `0x70` for
 status-line show; and `0x79` for key-event mapping table
 insertion. The source-backed details still matter: `0x6f` stores its first
 operand in `[0x05dd]`, stores operand + `0x15` in `[0x05df]`, and derives

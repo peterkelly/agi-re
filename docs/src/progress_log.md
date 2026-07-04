@@ -9208,3 +9208,191 @@ Progress updates and outcomes:
 
       Action/result: Recorded the final bookkeeping note before quiet final
       validation and status checks.
+
+1213. Reported: "I’ll commit the current `0x6a`/`0x78` behavior work first,
+      keeping `build/` and the DOS installer images untracked. Then I’ll
+      continue with the next partial opcodes from `PROGRESS.md`, again starting
+      from the disassembled source and using QEMU only to validate a concrete
+      hypothesis."
+
+      Action/result: Re-read status, diff stat, and the remaining partial
+      opcode list in `PROGRESS.md`.
+
+1214. Reported: "The uncommitted set is the expected 11 tracked files from the
+      `0x6a`/`0x78` pass. I’m staging just those tracked files now and leaving
+      generated inputs alone."
+
+      Action/result: Staged the tracked `0x6a`/`0x78` behavior-validation
+      files.
+
+1215. Reported: "Staging succeeded. I’m committing the
+      input-enable/text-attribute behavior validation now; commit writes to
+      `.git`, so I’m using escalation for that part."
+
+      Action/result: Created commit `1229d68` (`Validate input enable and text
+      attribute mode`).
+
+1216. Reported: "Commit `1229d68` is in. I’m continuing from the remaining 16
+      partial action opcodes; next I’m looking for another source-backed
+      visible text/input behavior, especially status redraw `0x70`, prompt
+      marker `0x6c`, and the `0x89`/`0x8a` refresh/erase pair."
+
+      Action/result: Confirmed the post-commit status and re-read the remaining
+      text/input partial opcode notes and disassembly.
+
+1217. Reported: "The disassembly suggests a clean way to validate `0x6c`
+      without implementing font glyphs: set a non-empty prompt marker, then set
+      it to an empty message and redraw the input row. If `0x6c` really stores
+      the first message byte, the redraw stays all black; otherwise a marker
+      glyph appears and the capture mismatches."
+
+      Action/result: Re-read prompt-marker and input-line helper notes,
+      existing cases, and focused disassembly around `0x38b4` and `0x37f7`.
+
+1218. Reported: "I’m adding two targeted cases now: one for `0x6c` clearing a
+      previously non-empty prompt marker by loading an empty message, and one
+      for `0x6b` leaving alternate text mode so the normal picture/object draw
+      becomes visible again. Both are small enough to be decisive."
+
+      Action/result: Added `text_attribute_disable_restores_picture_draw` and
+      `input_prompt_empty_message_suppresses_marker` to the probe catalog.
+
+1219. Reported: "The two new probe cases are in the catalog. I’m adding unit
+      assertions for their presence and the `0x6c` expected row-clear
+      rectangle."
+
+      Action/result: Updated `tests/test_logic_interpreter_probe.py` for the
+      two new case ids and expected rectangle.
+
+1220. Reported: "The unit assertions are updated. I’m running the focused
+      catalog tests, then I’ll run the two new cases through QEMU if those
+      pass."
+
+      Action/result: Ran the two focused logic-interpreter probe unit tests;
+      both passed.
+
+1221. Reported: "The focused tests passed. I’m running these two cases against
+      the original interpreter now; if they match, they should promote `0x6b`
+      and `0x6c` from smoke to behavior-level coverage."
+
+      Action/result: Started QEMU batch `text_prompt_attr_behaviour_001`.
+
+1222. Reported: "The `0x6b` case matched: leaving alternate text mode restores
+      the normal picture/object draw path. I’m waiting on the `0x6c`
+      prompt-marker suppression case now."
+
+      Action/result: Waited for the second case in
+      `text_prompt_attr_behaviour_001`.
+
+1223. Reported: "Both cases matched in QEMU, so `0x6b` and `0x6c` can move up
+      to behavior-level evidence. I’m updating the generated evidence map and
+      the tracker, then I’ll add the source/QEMU notes."
+
+      Action/result: Re-read evidence, opcode, compatibility, runtime, and
+      symbolic-label context before promotion.
+
+1224. Reported: "I’m promoting `0x6b` and `0x6c` in the evidence source now.
+      The docs will distinguish the `0x6c` evidence as an empty-message
+      prompt-marker behavior, not a full glyph-rendering spec."
+
+      Action/result: Updated `tools/logic_opcode_evidence.py`.
+
+1225. Reported: "The evidence source is updated. I’m regenerating the evidence
+      chapter and moving the tracker to 162 covered action opcodes."
+
+      Action/result: Regenerated `docs/src/logic_opcode_evidence.md` and
+      updated `PROGRESS.md` to 162/176 action opcodes at `[x]` level.
+
+1226. Reported: "`PROGRESS.md` now reflects 162 covered actions and 14
+      partials. I’m updating the opcode chapter and runtime docs with the
+      specific contracts we just validated."
+
+      Action/result: Updated `docs/src/logic_bytecode.md`.
+
+1227. Reported: "The opcode chapter now names the new QEMU fixture and narrows
+      the remaining smoke list. I’m adding the compatibility command/result and
+      then updating the runtime/symbolic summaries."
+
+      Action/result: Updated `docs/src/compatibility_testing.md`.
+
+1228. Reported: "The compatibility chapter has the new
+      `text_prompt_attr_behaviour_001` batch. I’m adding the
+      implementation-facing notes now."
+
+      Action/result: Updated `docs/src/runtime_model.md`.
+
+1229. Reported: "The runtime model now captures prompt-marker suppression and
+      text-mode exit. I’m attaching the same evidence to the stable
+      symbolic-label map."
+
+      Action/result: Updated `docs/src/symbolic_labels.md`.
+
+1230. Reported: "I’m appending the clean-room notes for the prompt-marker and
+      text-mode-exit probes, including the source commands and the exact QEMU
+      batch."
+
+      Action/result: Added the dated clean-room notes section for
+      `text_prompt_attr_behaviour_001`.
+
+1231. Reported: "The clean-room notes are updated. I’m adding the progress-log
+      batch for this turn now, covering the commit, the two new probes, the
+      QEMU results, and the documentation updates."
+
+      Action/result: Began appending this progress-log batch.
+
+1232. Reported: "I’m keeping the log concise but complete: every progress
+      update gets an entry, while command details live in the clean-room notes.
+      After this I’ll run the full validation suite."
+
+      Action/result: Appended this progress-log batch before final validation.
+
+1233. Reported: "The progress log is caught up through the `0x6b`/`0x6c` work.
+      I’m running the full validation pass now: unit suite, generated evidence
+      check, mdBook, and whitespace."
+
+      Action/result: Ran `python3 -B -m unittest discover -s tests`,
+      `python3 -B tools/logic_opcode_evidence.py --check`, `mdbook build docs`,
+      and `git diff --check`.
+
+1234. Reported: "All four validations passed: 103 unit tests, evidence
+      `--check`, mdBook, and whitespace. I’m recording that result and then
+      doing the final status/diff pass."
+
+      Action/result: Recorded the successful validation result before final
+      status and diff inspection.
+
+1235. Reported: "The progress log changed after validation, so I’m rerunning
+      the lightweight checks and collecting the final status summary."
+
+      Action/result: Reran `mdbook build docs`,
+      `python3 -B tools/logic_opcode_evidence.py --check`, `git diff --check`,
+      `git status --short`, `git diff --stat`, and `git log -2 --oneline`.
+
+1236. Reported: "The lightweight checks are clean and the final status shows
+      the expected uncommitted `0x6b`/`0x6c` work plus the existing untracked
+      generated/input directories. I’m recording that last status note and
+      doing one quiet final check."
+
+      Action/result: Recorded the final status note before quiet final
+      validation and status checks.
+
+1237. Reported: "One last note was appended, so I’ll run the final quiet check
+      now and then hand this back without another progress-log loop."
+
+      Action/result: Recorded the final bookkeeping note before quiet final
+      validation and status checks.
+
+1238. Reported: "I’ll commit the current `0x6b`/`0x6c` validation work, keeping
+      the generated `build/` artifacts and DOS installer images untracked. I’ll
+      add a tiny progress-log note for this commit turn, then stage only the
+      tracked project files."
+
+      Action/result: Re-read status, diff stat, and the tail of this progress
+      log before staging the commit.
+
+1239. Reported: "The commit candidate is the expected 11 tracked files, and the
+      previous validation is already recorded. I’m appending the commit-turn log
+      entry, then I’ll do a lightweight check and commit."
+
+      Action/result: Appended the commit-turn progress-log entries before
+      final lightweight checks and staging.

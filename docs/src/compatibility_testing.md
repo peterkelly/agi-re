@@ -516,6 +516,21 @@ clears the visible logical surface to black. A prior attempt in
 draw to appear after `0x6a`, but the original capture remained black, so the
 promoted case treats the visible surface itself as the observable contract.
 
+Run the prompt-marker/text-attribute-exit behavior batch:
+
+```bash
+python3 -B tools/logic_interpreter_probe.py --dos-prefix TP --output build/logic-interpreter-probes/batches/text_prompt_attr_behaviour_001.json --boot-wait 5 --draw-wait 8 --stop-on-failure --case text_attribute_disable_restores_picture_draw --case input_prompt_empty_message_suppresses_marker
+```
+
+This two-case batch matched QEMU with 0 mismatches. It promotes `0x6b`
+(`disable_text_attr_mode_1757`) and `0x6c` (`set_input_prompt_char`) to
+behavior-level coverage for focused observable effects. The `0x6b` case
+confirms that leaving alternate text-attribute mode restores the ordinary
+picture refresh and transient-object draw path. The `0x6c` case confirms the
+empty-message prompt-marker behavior by first setting a nonempty marker, then
+setting an empty message and redrawing the input line; the captured row remains
+black, with no prompt-marker glyph.
+
 Run the text/status configuration batch:
 
 ```bash
@@ -525,8 +540,8 @@ python3 -B tools/logic_interpreter_probe.py --dos-prefix TS --output build/logic
 This five-case batch matched QEMU with 0 mismatches. It originally
 dispatch-smoked `0x6a`, `0x6b`, `0x6c`, `0x6d`, `0x6e`, `0x6f`, `0x70`,
 `0x71`, and `0x79`; later behavior batches supersede the smoke-only status for
-`0x6a` and `0x71`, while `0x6f` and `0x79` have their own behavior probes. The
-earlier batch `text_status_001` used first operand `1` for `0x6f` and
+`0x6a`, `0x6b`, `0x6c`, and `0x71`, while `0x6f` and `0x79` have their own
+behavior probes. The earlier batch `text_status_001` used first operand `1` for `0x6f` and
 mismatched because the interpreter shifted the later validation draw relative
 to the local renderer; the clean smoke fixture uses operand `0` and leaves that
 non-default display-offset behavior for a dedicated probe.

@@ -1486,6 +1486,12 @@ def base_cases() -> list[LogicInterpreterCase]:
             compare_view=False,
         ),
         _custom_case(
+            "text_attribute_disable_restores_picture_draw",
+            "Action 0x6b leaves alternate text-attribute mode so a following picture refresh and object draw are visible.",
+            byte_action(0x6A) + byte_action(0x6B) + byte_action(0x1A) + draw_view11_at(50),
+            50,
+        ),
+        _custom_case(
             "screen_shake_dispatch_smoke",
             "Action 0x6e performs one display-shake iteration and returns to following bytecode.",
             byte_action(0x6E, 1) + byte_action(0x1A) + draw_view11_at(50),
@@ -1497,6 +1503,23 @@ def base_cases() -> list[LogicInterpreterCase]:
             byte_action(0x6C, 1) + byte_action(0x6F, 0, 0, 22) + byte_action(0x1A) + draw_view11_at(50),
             50,
             messages=["?"],
+        ),
+        _custom_case(
+            "input_prompt_empty_message_suppresses_marker",
+            "Action 0x6c stores the first byte of a message as the prompt marker; an empty message suppresses prompt drawing.",
+            byte_action(0x6C, 2)
+            + byte_action(0x67, 5, 5, 3)
+            + byte_action(0x6C, 1)
+            + byte_action(0x6F, 0, 5, 22)
+            + byte_action(0x78)
+            + draw_view11_at(50),
+            50,
+            messages=["", "?", "HELLO"],
+            post_launch_keys="\n",
+            post_launch_wait=1.0,
+            expected_visual_rects=[
+                {"left": 0, "top": 40, "right": WIDTH - 1, "bottom": 47, "color": 0}
+            ],
         ),
         _custom_case(
             "status_line_show_hide_dispatch_smoke",

@@ -250,9 +250,9 @@ Text/input UI lifecycle:
 | --- | --- | --- | --- |
 | Input line hidden/disabled | `0x77` or display/text cleanup paths | `0x78` | Word `[0x05d3]` is zero; refresh helpers should not redraw the normal input line. |
 | Input line enabled | `0x78` | `0x77`, modal prompts, or text-window cleanup | Word `[0x05d3]` is one; `0x78` redraws/clears the configured input row in the normal EGA path, `0x89` may redraw the input buffer, and `0x8a` may erase visible input characters. |
-| Prompt/status configured | `0x6c`, `0x6f`, `0x70`, `0x71` | Later configuration or cleanup | Prompt character, row/column-like globals, status-line enable word `[0x05d9]`, and display offset `[0x1379]` determine where text helpers draw and erase. |
+| Prompt/status configured | `0x6c`, `0x6f`, `0x70`, `0x71` | Later configuration or cleanup | Prompt character, row/column-like globals, status-line enable word `[0x05d9]`, and display offset `[0x1379]` determine where text helpers draw and erase. QEMU validates that setting the prompt marker from an empty message suppresses marker drawing on the next input-line redraw. |
 | Modal text window active | Message display, prompt/edit, menu, or diagnostic helpers | `0xa9` or the helper's own close path | Display helpers may save a backing rectangle and set text-window words around `[0x0d1d]`; close restores the rectangle and clears `[0x0d0f]`/`[0x0d1d]`. |
-| Alternate text mode | `0x6a` and related display-mode helpers | `0x6b` or `0xa4`/cleanup paths | Byte `[0x1757]` and word `[0x0d0f]` alter text/input drawing helpers. QEMU validates that `0x6a` clears the visible logical surface to black in the observed EGA path. |
+| Alternate text mode | `0x6a` and related display-mode helpers | `0x6b` or `0xa4`/cleanup paths | Byte `[0x1757]` and word `[0x0d0f]` alter text/input drawing helpers. QEMU validates that `0x6a` clears the visible logical surface to black in the observed EGA path and that `0x6b` restores ordinary picture/object drawing. |
 | Event/edit loop | `code.input.edit_string`, menus, inventory selection, confirmation dialogs | Enter, Escape, or a selected mapped/status event | The shared event queue feeds raw key predicates, line editors, menu status-byte events, and confirmation exits. |
 
 Text rectangle clears (`0x69` and `0x9a`) are display-surface operations. They
@@ -274,6 +274,12 @@ single eight-pixel-tall black row. Entering alternate text-attribute mode
 through `0x6a` is broader: the observed EGA result clears the full logical
 surface to black and ordinary transient-object composition is not visible while
 that mode remains active in the probe.
+
+The prompt marker configured by `0x6c` is a single byte copied from the start of
+the resolved message. When that byte is zero, input-line redraw skips marker
+drawing. The current QEMU evidence covers the empty-message suppression path;
+nonempty prompt glyph shape is still a font/text-rendering detail rather than a
+fully modeled compatibility contract.
 
 ## Diagnostic and Trace Services
 

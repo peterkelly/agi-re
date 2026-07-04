@@ -92,8 +92,10 @@ class LogicInterpreterProbeTests(unittest.TestCase):
         self.assertIn("close_text_window_state_dispatch_smoke", case_ids)
         self.assertIn("text_attribute_mode_dispatch_smoke", case_ids)
         self.assertIn("text_attribute_enable_clears_visible_surface", case_ids)
+        self.assertIn("text_attribute_disable_restores_picture_draw", case_ids)
         self.assertIn("screen_shake_dispatch_smoke", case_ids)
         self.assertIn("input_prompt_config_dispatch_smoke", case_ids)
+        self.assertIn("input_prompt_empty_message_suppresses_marker", case_ids)
         self.assertIn("status_line_show_hide_dispatch_smoke", case_ids)
         self.assertIn("status_line_hide_clears_configured_row", case_ids)
         self.assertIn("key_event_mapping_dispatch_smoke", case_ids)
@@ -260,6 +262,10 @@ class LogicInterpreterProbeTests(unittest.TestCase):
             [{"left": 0, "top": 0, "right": WIDTH - 1, "bottom": HEIGHT - 1, "color": 0}],
         )
         self.assertFalse(cases["text_attribute_enable_clears_visible_surface"].compare_view)
+        self.assertEqual(
+            cases["input_prompt_empty_message_suppresses_marker"].expected_visual_rects,
+            [{"left": 0, "top": 40, "right": WIDTH - 1, "bottom": 47, "color": 0}],
+        )
 
     def test_report_summary_counts_statuses(self) -> None:
         with tempfile.TemporaryDirectory() as temp_dir:
