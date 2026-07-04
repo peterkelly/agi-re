@@ -814,19 +814,38 @@ from QEMU.
 Run a dynamic original-engine save-write probe:
 
 ```bash
-python3 -B tools/save_roundtrip_probe.py --output build/save-roundtrip/save_roundtrip_007.json --capture build/save-roundtrip/qemu_capture_007.ppm --snapshot-raw build/save-roundtrip/snapshot/save_roundtrip_007.raw --snapshot-qcow build/save-roundtrip/snapshot/save_roundtrip_007.qcow2 --post-run-raw build/save-roundtrip/snapshot/save_roundtrip_after_007.raw --save-output build/save-roundtrip/SG_007.1 --boot-wait 5 --draw-wait 8 --path-prompt-wait 2 --slot-wait 1 --description-wait 1 --confirmation-wait 1 --key-delay 0.08
+python3 -B tools/save_roundtrip_probe.py --output build/save-roundtrip/save_roundtrip_010.json --capture build/save-roundtrip/qemu_capture_010.ppm --snapshot-raw build/save-roundtrip/snapshot/save_roundtrip_010.raw --snapshot-qcow build/save-roundtrip/snapshot/save_roundtrip_010.qcow2 --post-run-raw build/save-roundtrip/snapshot/save_roundtrip_after_010.raw --save-output build/save-roundtrip/SQ2SG_010.1 --boot-wait 5 --draw-wait 8 --path-prompt-wait 2 --slot-wait 1 --description-wait 1 --confirmation-wait 1 --key-delay 0.08
 ```
 
-The generated fixture removes existing save files, calls action `0x7d`, drives
-the original save UI through path acceptance, slot selection, description entry,
-and final confirmation, then extracts the resulting save from the post-run DOS
-image. The original engine wrote `SG.1` in this synthetic no-existing-saves
-fixture. The extracted file parsed with description `codex probe`, block
-lengths `1505`, `903`, `328`, `100`, and `12`, and the post-save validation
-screen matched the expected blank picture plus view 11 overlay with 0 visual
-mismatches. This proves the save writer can produce a source-envelope-compatible
-file and return to following bytecode in the fixture. A full restore of a
-generated save remains separate work.
+The generated fixture removes existing save files, calls `0x8f
+verify_game_signature` with message `SQ2`, calls action `0x7d`, drives the
+original save UI through path acceptance, slot selection, description entry, and
+final confirmation, then extracts the resulting save from the post-run DOS
+image. The signature action initializes the `DS:0x0002` string used both as the
+save-name prefix and as the saved-state signature, so the original engine wrote
+`SQ2SG.1`. The extracted file parsed with description `codex probe`, block
+lengths `1505`, `903`, `328`, `100`, and `12`; its first state block begins
+`SQ2\0`; and the post-save validation screen matched the expected blank picture
+plus view 11 overlay with 0 visual mismatches. This proves the save writer can
+produce a source-envelope-compatible file and return to following bytecode in
+the fixture.
+
+Validate restore from that generated save:
+
+```bash
+python3 -B tools/save_roundtrip_probe.py --mode restore --save-input build/save-roundtrip/SQ2SG_010.1 --output build/save-roundtrip/restore_roundtrip_sq2stem_006.json --fixture build/save-roundtrip/restore-fixture-signed --dos-dir RST6 --capture build/save-roundtrip/restore_capture_sq2stem_006.ppm --snapshot-raw build/save-roundtrip/snapshot/restore_roundtrip_sq2stem_006.raw --snapshot-qcow build/save-roundtrip/snapshot/restore_roundtrip_sq2stem_006.qcow2 --boot-wait 5 --draw-wait 8 --path-prompt-wait 8 --path-keys $'\n\n' --slot-wait 2 --slot-keys $'\n\n' --confirmation-wait 1 --confirmation-keys $'\n\n' --key-delay 0.12
+```
+
+The restore fixture starts with the validation X variable set to 90 and calls
+`0x7e`. Code immediately after `0x7e` is therefore the failure/cancel path,
+because the source shows a successful restore returns zero and ends the current
+logic stream. To make success observable, the save fixture sets a packed flag
+and X=50 before saving, and the restore fixture begins with a branch that draws
+from the restored variables only when that flag is present on a later cycle.
+Earlier restore probes that merely matched code after `0x7e` were therefore
+ambiguous; the stronger `restore_roundtrip_sq2stem_006` probe matched X=50 with
+0 visual mismatches, while the failure path draws X=90. This validates an
+actual original-engine restore of the generated save state.
 
 Run the focused enabled trace-window case:
 

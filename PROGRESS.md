@@ -307,10 +307,11 @@ better understood, or a new remaining-work item is discovered.
     file envelope including byte-for-byte serialization, replay re-enable
     correction at `0x6927`, rollback probe for `0xab`/`0xac`, and
     source-backed restart/termination and save/restore file-error lifecycles,
-    plus a dynamic original-engine save-write probe that creates and parses a
-    generated `SG.1` file.
-  - Remaining: dynamic original-engine restore round-trip behavior,
-    representative observable file-error probes, and any observable
+    plus dynamic original-engine save-write and restore probes over the
+    generated save envelope. The generated fixture now calls `0x8f("SQ2")`, so
+    `DS:0x0002` supplies both the `SQ2SG.N` filename prefix and the saved-state
+    signature checked by the restore selector.
+  - Remaining: representative observable file-error probes and any observable
     restore/restart edge cases needed by compatibility tests.
 - [~] Text windows, status line, prompts, and interactive input
   - Evidence: message/string/numeric input probes, visible status/input-line
@@ -341,10 +342,11 @@ better understood, or a new remaining-work item is discovered.
     DOS wrapper symbolic-label map, source-backed file-error continuation
     behavior, structural parse/serialize tests over the present local SQ2 save
     files, and a dynamic save-write QEMU probe whose output parses through the
-    source-backed envelope.
-  - Remaining: dynamic restore round trip, representative file-error UI probes,
-    and any path-validation edge cases needed for the final compatibility
-    suite.
+    source-backed envelope plus a dynamic restore QEMU probe using those bytes.
+    Source now explains the filename stem: `code.save.format_slot_filename`
+    uses `data.save.signature_prefix_0002`.
+  - Remaining: representative file-error UI probes and any path-validation edge
+    cases needed for the final compatibility suite.
 - [~] Memory, heap, allocation, and diagnostics
   - Evidence: source-backed bump-heap helper map, room/reset and temporary mark
     semantics, allocation failure path, high-water tracking, free-memory byte
@@ -379,9 +381,9 @@ better understood, or a new remaining-work item is discovered.
    where the fixture would be representative rather than brittle (`0x6e`,
    `0x83`, `0x8e`, `0xaa`, `0xad` are otherwise covered for the current spec
    target).
-2. Add a representative dynamic restore round-trip or file-error UI probe,
-   building on the new dynamic save-write fixture and using QEMU only for
-   observable outputs or compatibility cases.
+2. Add a representative file-error UI probe for one source-backed save/restore
+   failure path, now that the save/restore filename stem is source-explained and
+   dynamically covered by the signed-prefix round trip.
 3. Continue the picture/view renderer compatibility work with valid synthetic
    resources and original-engine captures.
 4. Continue turning the remaining subsystem notes into implementation-ready

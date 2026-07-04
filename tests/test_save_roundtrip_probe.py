@@ -15,7 +15,19 @@ sys.path.insert(0, str(ROOT / "tools"))
 from agi_save import SAVE_HEADER_LENGTH, SaveBlock, SaveGame  # noqa: E402
 from save_roundtrip_probe import SaveRoundTripResult  # noqa: E402
 from save_roundtrip_probe import (  # noqa: E402
+    SAVED_MARKER_X,
+    RESTORED_MARKER_FLAG,
+    UNRESTORED_MARKER_X,
+    VALIDATION_CONTROL_VAR,
+    VALIDATION_FRAME_VAR,
+    VALIDATION_GROUP_VAR,
+    VALIDATION_PRIORITY_VAR,
+    VALIDATION_VIEW_VAR,
+    VALIDATION_X_VAR,
+    VALIDATION_Y_VAR,
+    build_restore_fixture,
     build_save_fixture,
+    restore_fixture_logic_payload,
     save_fixture_logic_payload,
     write_report,
 )
@@ -27,13 +39,67 @@ class SaveRoundTripProbeTests(unittest.TestCase):
         code_length = payload[0] | (payload[1] << 8)
         code = payload[2 : 2 + code_length]
         self.assertIn(b"\x7d", code)
-        self.assertIn(b"\x1a\x7a\x0b\x00\x00\x32\x50\x0f\x0f", code)
+        self.assertIn(b"\x8f\x01", code)
+        self.assertIn(bytes([0x0C, RESTORED_MARKER_FLAG]), code)
+        self.assertIn(bytes([0x03, VALIDATION_X_VAR, SAVED_MARKER_X]), code)
+        self.assertIn(
+            bytes(
+                [
+                    0x1A,
+                    0x7B,
+                    VALIDATION_VIEW_VAR,
+                    VALIDATION_GROUP_VAR,
+                    VALIDATION_FRAME_VAR,
+                    VALIDATION_X_VAR,
+                    VALIDATION_Y_VAR,
+                    VALIDATION_PRIORITY_VAR,
+                    VALIDATION_CONTROL_VAR,
+                ]
+            ),
+            code,
+        )
+
+    def test_restore_fixture_logic_has_matching_restore_action_shape(self) -> None:
+        restore_payload = restore_fixture_logic_payload()
+        code_length = restore_payload[0] | (restore_payload[1] << 8)
+        code = restore_payload[2 : 2 + code_length]
+        self.assertIn(b"\x7e", code)
+        self.assertIn(b"\x8f\x01", code)
+        self.assertIn(bytes([0xFF, 0x07, RESTORED_MARKER_FLAG, 0xFF]), code)
+        self.assertIn(bytes([0x03, VALIDATION_X_VAR, UNRESTORED_MARKER_X]), code)
+        self.assertIn(
+            bytes(
+                [
+                    0x1A,
+                    0x7B,
+                    VALIDATION_VIEW_VAR,
+                    VALIDATION_GROUP_VAR,
+                    VALIDATION_FRAME_VAR,
+                    VALIDATION_X_VAR,
+                    VALIDATION_Y_VAR,
+                    VALIDATION_PRIORITY_VAR,
+                    VALIDATION_CONTROL_VAR,
+                ]
+            ),
+            code,
+        )
 
     def test_build_save_fixture_removes_existing_sq2_save_files(self) -> None:
         with tempfile.TemporaryDirectory() as temp_dir:
-            fixture = build_save_fixture(Path(temp_dir))
+            root = Path(temp_dir)
+            (root / "SG.2").write_bytes(b"stale")
+            fixture = build_save_fixture(root)
             self.assertTrue((fixture / "VOL.3").is_file())
             self.assertFalse(list(fixture.glob("SQ2SG.*")))
+            self.assertFalse(list(fixture.glob("SG.*")))
+
+    def test_build_restore_fixture_copies_selected_save_stem_and_slot(self) -> None:
+        with tempfile.TemporaryDirectory() as temp_dir:
+            root = Path(temp_dir)
+            save = root / "input.sav"
+            save.write_bytes(b"save bytes")
+            fixture = build_restore_fixture(root / "fixture", save, save_stem="SG", slot=3)
+            self.assertEqual((fixture / "SG.3").read_bytes(), b"save bytes")
 
     def test_write_report_serializes_probe_result(self) -> None:
         result = SaveRoundTripResult(

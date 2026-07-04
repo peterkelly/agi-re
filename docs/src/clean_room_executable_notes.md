@@ -6872,6 +6872,61 @@ Documented result:
 - The post-save QEMU capture matched the expected validation screen with
   0 visual mismatches, proving that the save action returned to following
   bytecode after the original engine wrote the file.
-- This is dynamic save-write evidence, not yet a full restore round trip. A
-  future probe can feed the generated `SG.1` back to action `0x7e` once the
-  desired restored observable state is specified.
+- This section establishes dynamic save-write evidence. The following section
+  records the restore probe built from the generated save bytes.
+
+## 2026-07-04: dynamic restore probe from generated save
+
+Commands run from `/Users/peter/ai/agi/reverse`:
+
+- Extended `tools/save_roundtrip_probe.py` with restore fixture generation and
+  `--mode restore`.
+- Added restore fixture coverage to `tests/test_save_roundtrip_probe.py`.
+- `python3 -B -m unittest tests.test_save_roundtrip_probe`
+- `python3 -B tools/save_roundtrip_probe.py --mode restore --save-input build/save-roundtrip/SG_007.1 --output build/save-roundtrip/restore_roundtrip_001.json --fixture build/save-roundtrip/restore-fixture --dos-dir RSVT --capture build/save-roundtrip/restore_capture_001.ppm --snapshot-raw build/save-roundtrip/snapshot/restore_roundtrip_001.raw --snapshot-qcow build/save-roundtrip/snapshot/restore_roundtrip_001.qcow2 --boot-wait 5 --draw-wait 8 --path-prompt-wait 2 --slot-wait 1 --confirmation-wait 1 --key-delay 0.08`
+- `magick build/save-roundtrip/restore_capture_001.ppm build/save-roundtrip/restore_capture_001.png`
+- `python3 -B tools/save_roundtrip_probe.py --mode restore --save-input build/save-roundtrip/SG_007.1 --output build/save-roundtrip/restore_roundtrip_002.json --fixture build/save-roundtrip/restore-fixture --dos-dir RSVT --capture build/save-roundtrip/restore_capture_002.ppm --snapshot-raw build/save-roundtrip/snapshot/restore_roundtrip_002.raw --snapshot-qcow build/save-roundtrip/snapshot/restore_roundtrip_002.qcow2 --boot-wait 5 --draw-wait 8 --path-prompt-wait 5 --slot-wait 1 --confirmation-wait 1 --key-delay 0.08`
+- `mdir -i build/save-roundtrip/snapshot/restore_roundtrip_002.raw@@32256 ::/RSVT`
+- `python3 -B tools/save_roundtrip_probe.py --mode restore --save-input build/save-roundtrip/SG_007.1 --save-stem SQ2SG --output build/save-roundtrip/restore_roundtrip_sq2stem_001.json --fixture build/save-roundtrip/restore-fixture-sq2stem --dos-dir RSV2 --capture build/save-roundtrip/restore_capture_sq2stem_001.ppm --snapshot-raw build/save-roundtrip/snapshot/restore_roundtrip_sq2stem_001.raw --snapshot-qcow build/save-roundtrip/snapshot/restore_roundtrip_sq2stem_001.qcow2 --boot-wait 5 --draw-wait 8 --path-prompt-wait 5 --slot-wait 1 --confirmation-wait 1 --key-delay 0.08`
+- Source rereads around `0x5b73`, `0x8b9f`, `0x85e5`, and `0x2512` showed
+  that `DS:0x0002` supplies both the filename prefix in `%s%s%ssg.%d` and the
+  saved-state signature checked by the slot summary reader.
+- Updated `tools/save_roundtrip_probe.py` so generated fixtures call
+  `0x8f verify_game_signature` with message `SQ2` before save/restore, then
+  reran:
+  `python3 -B tools/save_roundtrip_probe.py --output build/save-roundtrip/save_roundtrip_010.json --capture build/save-roundtrip/qemu_capture_010.ppm --snapshot-raw build/save-roundtrip/snapshot/save_roundtrip_010.raw --snapshot-qcow build/save-roundtrip/snapshot/save_roundtrip_010.qcow2 --post-run-raw build/save-roundtrip/snapshot/save_roundtrip_after_010.raw --save-output build/save-roundtrip/SQ2SG_010.1 --boot-wait 5 --draw-wait 8 --path-prompt-wait 2 --slot-wait 1 --description-wait 1 --confirmation-wait 1 --key-delay 0.08`
+- Updated the restore fixture oracle so success is distinguished from ordinary
+  continuation after `0x7e`: the save fixture sets a packed flag and validation
+  variables with X=50, while the restore fixture starts with X=90 and draws
+  from restored variables only when the saved flag is present. Reran:
+  `python3 -B tools/save_roundtrip_probe.py --mode restore --save-input build/save-roundtrip/SQ2SG_010.1 --output build/save-roundtrip/restore_roundtrip_sq2stem_006.json --fixture build/save-roundtrip/restore-fixture-signed --dos-dir RST6 --capture build/save-roundtrip/restore_capture_sq2stem_006.ppm --snapshot-raw build/save-roundtrip/snapshot/restore_roundtrip_sq2stem_006.raw --snapshot-qcow build/save-roundtrip/snapshot/restore_roundtrip_sq2stem_006.qcow2 --boot-wait 5 --draw-wait 8 --path-prompt-wait 8 --path-keys $'\n\n' --slot-wait 2 --slot-keys $'\n\n' --confirmation-wait 1 --confirmation-keys $'\n\n' --key-delay 0.12`
+
+Documented result:
+
+- The first restore fixture logic used the same byte layout as the save fixture,
+  but the action byte was `0x7e` instead of `0x7d`. That proved too weak as a
+  restore oracle: source at `0x2512..0x26af` shows a successful restore returns
+  zero and ends the current logic stream, while cancel/open-failure paths can
+  continue after `0x7e`.
+- The first restore run copied the generated save bytes into the fixture as
+  `SG.1`, matching the filename that the synthetic save action wrote. The
+  capture stayed at the restore path prompt and mismatched the validation
+  screen.
+- Increasing the path prompt wait did not change that result. The fixture disk
+  did contain `SG.1`, so the likely failure was filename selection rather than
+  missing copied data.
+- Copying the same generated save bytes into the restore fixture as `SQ2SG.1`
+  made the old restore selector advance, but the later X=90/X=50 oracle showed
+  that this was still just the continuation path, not a proven restore.
+- Source explains the filename-stem behavior: action `0x8f` copies a logic
+  message into `DS:0x0002` and verifies it against the embedded `SQ2` string;
+  formatter `0x5b73` then uses `DS:0x0002` as the third `%s` in
+  `%s%s%ssg.%d`; slot summary reader `0x8b9f` also compares the first payload
+  bytes of a candidate save against the same string. The early synthetic
+  fixture skipped `0x8f`, so it saved a blank-prefix `SG.1` whose state block
+  started with zeroes. The corrected fixture calls `0x8f("SQ2")`, writes
+  `SQ2SG.1`, and the first state block starts `53 51 32 00`.
+- `restore_roundtrip_sq2stem_006` is the first restore probe in this sequence
+  that proves actual restored state: it matched the X=50 branch gated by the
+  restored flag/variables with 0 visual mismatches. A failure/cancel return
+  after `0x7e` draws X=90 and mismatches the X=50 oracle.

@@ -5,6 +5,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import shutil
 import subprocess
 import time
 from dataclasses import asdict, dataclass
@@ -16,12 +17,13 @@ from compare_picture_capture import downsample_qemu_picture_nibbles
 from ppm_tools import read_ppm
 from qemu_fixture import (
     copy_sq2_tree,
+    if_then,
     load_show_picture_actions,
     logic_resource,
     patch_dir_entry,
     patch_logdir_entry_zero,
     self_loop,
-    setup_transient_object_action,
+    set_flag_action,
     volume_record,
 )
 from qemu_snapshot import (
@@ -40,7 +42,20 @@ DEFAULT_CAPTURE = Path("build/save-roundtrip/qemu_capture.ppm")
 DEFAULT_SNAPSHOT_RAW = Path("build/save-roundtrip/snapshot/save_roundtrip.raw")
 DEFAULT_SNAPSHOT_QCOW = Path("build/save-roundtrip/snapshot/save_roundtrip.qcow2")
 DEFAULT_POST_RUN_RAW = Path("build/save-roundtrip/snapshot/save_roundtrip_after.raw")
-DEFAULT_SAVE_OUTPUT = Path("build/save-roundtrip/SG.1")
+DEFAULT_SAVE_OUTPUT = Path("build/save-roundtrip/SQ2SG.1")
+SAVE_ACTION = 0x7D
+RESTORE_ACTION = 0x7E
+SIGNATURE_MESSAGE = "SQ2"
+SAVED_MARKER_X = 50
+UNRESTORED_MARKER_X = 90
+VALIDATION_VIEW_VAR = 0xE0
+VALIDATION_GROUP_VAR = 0xE1
+VALIDATION_FRAME_VAR = 0xE2
+VALIDATION_X_VAR = 0xE3
+VALIDATION_Y_VAR = 0xE4
+VALIDATION_PRIORITY_VAR = 0xE5
+VALIDATION_CONTROL_VAR = 0xE6
+RESTORED_MARKER_FLAG = 0xC6
 
 
 @dataclass(frozen=True)
@@ -64,30 +79,101 @@ def byte_action(opcode: int, *operands: int) -> bytes:
     return bytes(values)
 
 
+def validation_var_setup(marker_x: int) -> bytes:
+    return (
+        byte_action(0x03, VALIDATION_VIEW_VAR, 11)
+        + byte_action(0x03, VALIDATION_GROUP_VAR, 0)
+        + byte_action(0x03, VALIDATION_FRAME_VAR, 0)
+        + byte_action(0x03, VALIDATION_X_VAR, marker_x)
+        + byte_action(0x03, VALIDATION_Y_VAR, 80)
+        + byte_action(0x03, VALIDATION_PRIORITY_VAR, 15)
+        + byte_action(0x03, VALIDATION_CONTROL_VAR, 15)
+    )
+
+
+def validation_draw_from_vars() -> bytes:
+    return byte_action(
+        0x7B,
+        VALIDATION_VIEW_VAR,
+        VALIDATION_GROUP_VAR,
+        VALIDATION_FRAME_VAR,
+        VALIDATION_X_VAR,
+        VALIDATION_Y_VAR,
+        VALIDATION_PRIORITY_VAR,
+        VALIDATION_CONTROL_VAR,
+    )
+
+
+def flag_set_condition(flag_no: int) -> bytes:
+    if not 0 <= flag_no <= 0xFF:
+        raise ValueError("flag number must fit in one byte")
+    return bytes([0x07, flag_no])
+
+
+def restore_success_branch() -> bytes:
+    return (
+        load_show_picture_actions(0)
+        + byte_action(0x1E, 11)
+        + byte_action(0x1A)
+        + validation_draw_from_vars()
+        + self_loop()
+    )
+
+
 def save_fixture_logic_payload() -> bytes:
     code = (
         load_show_picture_actions(0)
         + byte_action(0x1E, 11)
-        + byte_action(0x7D)
+        + byte_action(0x8F, 1)
+        + set_flag_action(RESTORED_MARKER_FLAG)
+        + validation_var_setup(SAVED_MARKER_X)
+        + byte_action(SAVE_ACTION)
         + byte_action(0x1A)
-        + setup_transient_object_action(11, 0, 0, 50, 80, 15, 15)
+        + validation_draw_from_vars()
         + self_loop()
     )
-    return logic_resource(code)
+    return logic_resource(code, messages=[SIGNATURE_MESSAGE])
+
+
+def restore_fixture_logic_payload() -> bytes:
+    code = (
+        if_then(flag_set_condition(RESTORED_MARKER_FLAG), restore_success_branch())
+        + load_show_picture_actions(0)
+        + byte_action(0x1E, 11)
+        + byte_action(0x8F, 1)
+        + validation_var_setup(UNRESTORED_MARKER_X)
+        + byte_action(RESTORE_ACTION)
+        + byte_action(0x1A)
+        + validation_draw_from_vars()
+        + self_loop()
+    )
+    return logic_resource(code, messages=[SIGNATURE_MESSAGE])
 
 
 def remove_existing_save_files(fixture: Path) -> None:
-    for path in fixture.glob("SQ2SG.*"):
-        if path.is_file():
-            path.unlink()
+    for pattern in ("SQ2SG.*", "SG.*"):
+        for path in fixture.glob(pattern):
+            if path.is_file():
+                path.unlink()
 
 
-def build_save_fixture(destination: Path, *, remove_saves: bool = True) -> Path:
+def build_state_fixture(
+    destination: Path,
+    action_opcode: int,
+    *,
+    remove_saves: bool = True,
+    save_input: Path | None = None,
+    save_stem: str = "SQ2SG",
+    slot: int = 1,
+) -> Path:
     copy_sq2_tree(destination)
     if remove_saves:
         remove_existing_save_files(destination)
+    if save_input is not None:
+        shutil.copy2(save_input, destination / f"{save_stem}.{slot}")
 
-    logic_record = volume_record(save_fixture_logic_payload(), volume=3)
+    payload = save_fixture_logic_payload() if action_opcode == SAVE_ACTION else restore_fixture_logic_payload()
+    logic_record = volume_record(payload, volume=3)
     picture_offset = len(logic_record)
     picture_record = volume_record(b"\xff", volume=3)
     (destination / "VOL.3").write_bytes(logic_record + picture_record)
@@ -98,6 +184,28 @@ def build_save_fixture(destination: Path, *, remove_saves: bool = True) -> Path:
     picdir = (destination / "PICDIR").read_bytes()
     (destination / "PICDIR").write_bytes(patch_dir_entry(picdir, 0, volume=3, offset=picture_offset))
     return destination
+
+
+def build_save_fixture(destination: Path, *, remove_saves: bool = True) -> Path:
+    return build_state_fixture(destination, SAVE_ACTION, remove_saves=remove_saves)
+
+
+def build_restore_fixture(
+    destination: Path,
+    save_input: Path,
+    *,
+    remove_saves: bool = True,
+    save_stem: str = "SQ2SG",
+    slot: int = 1,
+) -> Path:
+    return build_state_fixture(
+        destination,
+        RESTORE_ACTION,
+        remove_saves=remove_saves,
+        save_input=save_input,
+        save_stem=save_stem,
+        slot=slot,
+    )
 
 
 def convert_qcow_to_raw(qcow: Path, raw: Path) -> None:
@@ -180,6 +288,73 @@ def run_save_qemu_case(
             proc.wait(timeout=10)
 
 
+def run_restore_qemu_case(
+    disk_image: Path,
+    dos_dir: str,
+    capture: Path,
+    boot_wait: float,
+    path_prompt_wait: float,
+    path_keys: str,
+    slot_wait: float,
+    slot_keys: str,
+    confirmation_wait: float,
+    confirmation_keys: str,
+    key_delay: float,
+    draw_wait: float,
+    vnc_display: str = "127.0.0.1:5",
+) -> None:
+    capture.parent.mkdir(parents=True, exist_ok=True)
+    command = [
+        "qemu-system-i386",
+        "-m",
+        "16",
+        "-boot",
+        "c",
+        "-drive",
+        f"file={disk_image},format=qcow2,if=ide,index=0,media=disk",
+        "-display",
+        f"vnc={vnc_display}",
+        "-monitor",
+        "stdio",
+    ]
+    proc = subprocess.Popen(
+        command,
+        stdin=subprocess.PIPE,
+        stdout=subprocess.PIPE,
+        stderr=subprocess.STDOUT,
+        text=True,
+    )
+    try:
+        time.sleep(boot_wait)
+        monitor_type(proc, f"cd \\{dos_dir}\n")
+        time.sleep(0.5)
+        monitor_type(proc, "SIERRA\n")
+        time.sleep(path_prompt_wait)
+        monitor_type(proc, path_keys, delay=key_delay)
+        time.sleep(slot_wait)
+        monitor_type(proc, slot_keys, delay=key_delay)
+        if confirmation_keys:
+            time.sleep(confirmation_wait)
+            monitor_type(proc, confirmation_keys, delay=key_delay)
+        time.sleep(draw_wait)
+        monitor_command(proc, f"screendump {capture}")
+        time.sleep(1.0)
+        monitor_command(proc, "quit")
+        proc.wait(timeout=10)
+        if proc.returncode != 0:
+            output = proc.stdout.read() if proc.stdout is not None else ""
+            raise RuntimeError(f"qemu exited with {proc.returncode}:\n{output}")
+    except Exception as exc:
+        output = proc.stdout.read() if proc.stdout is not None else ""
+        if output:
+            raise RuntimeError(f"{exc}\nqemu output:\n{output}") from exc
+        raise
+    finally:
+        if proc.poll() is None:
+            proc.terminate()
+            proc.wait(timeout=10)
+
+
 def extract_save(raw_image: Path, dos_dir: str, save_stem: str, slot: int, output: Path) -> Path:
     output.parent.mkdir(parents=True, exist_ok=True)
     if output.exists():
@@ -202,7 +377,7 @@ def compare_validation_capture(capture: Path) -> tuple[str, int]:
     captured = downsample_qemu_picture_nibbles(read_ppm(capture))
     picture = PictureRenderer(b"\xff").render(0)
     frame = render_view_frame(11, 0, 0)
-    expected = compose_frame_on_picture(picture, frame, 50, 80, 15).visual_nibbles
+    expected = compose_frame_on_picture(picture, frame, SAVED_MARKER_X, 80, 15).visual_nibbles
     mismatches = sum(1 for left, right in zip(captured, expected) if left != right)
     return ("match" if mismatches == 0 else "mismatch", mismatches)
 
@@ -297,8 +472,85 @@ def run_probe(
     return result
 
 
+def run_restore_probe(
+    fixture: Path,
+    dos_dir: str,
+    path_keys: str,
+    slot_keys: str,
+    save_input: Path,
+    capture: Path,
+    snapshot_raw: Path,
+    snapshot_qcow: Path,
+    report_output: Path,
+    boot_wait: float,
+    draw_wait: float,
+    path_prompt_wait: float,
+    slot_wait: float,
+    confirmation_wait: float,
+    confirmation_keys: str,
+    key_delay: float,
+    save_stem: str,
+    slot: int,
+) -> SaveRoundTripResult:
+    started = time.monotonic()
+    error: str | None = None
+    parsed_description: str | None = None
+    block_lengths: list[int] | None = None
+    visual_status: str | None = None
+    visual_mismatches: int | None = None
+    status = "error"
+
+    try:
+        parsed = load_save(save_input)
+        parsed_description = parsed.description
+        block_lengths = [block.length for block in parsed.blocks]
+        build_restore_fixture(
+            fixture,
+            save_input,
+            remove_saves=True,
+            save_stem=save_stem,
+            slot=slot,
+        )
+        case = SnapshotFixtureCase(dos_dir, fixture, capture)
+        build_snapshot_boot_disk([case], snapshot_raw, snapshot_qcow)
+        run_restore_qemu_case(
+            snapshot_qcow,
+            dos_dir,
+            capture,
+            boot_wait,
+            path_prompt_wait,
+            path_keys,
+            slot_wait,
+            slot_keys,
+            confirmation_wait,
+            confirmation_keys,
+            key_delay,
+            draw_wait,
+        )
+        visual_status, visual_mismatches = compare_validation_capture(capture)
+        status = "match" if visual_status == "match" else "mismatch"
+    except Exception as exc:  # noqa: BLE001 - probe records exact local failure.
+        error = f"{type(exc).__name__}: {exc}"
+
+    result = SaveRoundTripResult(
+        status,
+        dos_dir,
+        str(capture),
+        str(save_input),
+        parsed_description,
+        block_lengths,
+        visual_status,
+        visual_mismatches,
+        round(time.monotonic() - started, 3),
+        error,
+    )
+    write_report(result, report_output)
+    return result
+
+
 def main() -> None:
     parser = argparse.ArgumentParser()
+    parser.add_argument("--mode", choices=["save", "restore"], default="save")
     parser.add_argument("--fixture", type=Path, default=DEFAULT_FIXTURE)
     parser.add_argument("--dos-dir", default="SVRT")
     parser.add_argument("--path-keys", default="\n")
@@ -309,6 +561,7 @@ def main() -> None:
     parser.add_argument("--snapshot-qcow", type=Path, default=DEFAULT_SNAPSHOT_QCOW)
     parser.add_argument("--post-run-raw", type=Path, default=DEFAULT_POST_RUN_RAW)
     parser.add_argument("--save-output", type=Path, default=DEFAULT_SAVE_OUTPUT)
+    parser.add_argument("--save-input", type=Path)
     parser.add_argument("--output", type=Path, default=DEFAULT_OUTPUT)
     parser.add_argument("--boot-wait", type=float, default=5.0)
     parser.add_argument("--draw-wait", type=float, default=8.0)
@@ -319,36 +572,60 @@ def main() -> None:
     parser.add_argument("--confirmation-wait", type=float, default=1.0)
     parser.add_argument("--confirmation-keys", default="\n")
     parser.add_argument("--key-delay", type=float, default=0.08)
-    parser.add_argument("--save-stem", default="SG")
+    parser.add_argument("--save-stem", default="SQ2SG")
     parser.add_argument("--slot", type=int, default=1)
     parser.add_argument("--keep-existing-saves", action="store_true")
     args = parser.parse_args()
 
-    result = run_probe(
-        args.fixture,
-        args.dos_dir,
-        args.path_keys,
-        args.slot_keys,
-        args.description,
-        args.capture,
-        args.snapshot_raw,
-        args.snapshot_qcow,
-        args.post_run_raw,
-        args.save_output,
-        args.output,
-        args.boot_wait,
-        args.draw_wait,
-        args.path_prompt_wait,
-        args.slot_wait,
-        args.description_wait,
-        not args.no_submit_description,
-        args.confirmation_wait,
-        args.confirmation_keys,
-        args.key_delay,
-        args.save_stem,
-        args.slot,
-        args.keep_existing_saves,
-    )
+    if args.mode == "save":
+        result = run_probe(
+            args.fixture,
+            args.dos_dir,
+            args.path_keys,
+            args.slot_keys,
+            args.description,
+            args.capture,
+            args.snapshot_raw,
+            args.snapshot_qcow,
+            args.post_run_raw,
+            args.save_output,
+            args.output,
+            args.boot_wait,
+            args.draw_wait,
+            args.path_prompt_wait,
+            args.slot_wait,
+            args.description_wait,
+            not args.no_submit_description,
+            args.confirmation_wait,
+            args.confirmation_keys,
+            args.key_delay,
+            args.save_stem,
+            args.slot,
+            args.keep_existing_saves,
+        )
+    else:
+        if args.save_input is None:
+            parser.error("--mode restore requires --save-input")
+        result = run_restore_probe(
+            args.fixture,
+            args.dos_dir,
+            args.path_keys,
+            args.slot_keys,
+            args.save_input,
+            args.capture,
+            args.snapshot_raw,
+            args.snapshot_qcow,
+            args.output,
+            args.boot_wait,
+            args.draw_wait,
+            args.path_prompt_wait,
+            args.slot_wait,
+            args.confirmation_wait,
+            args.confirmation_keys,
+            args.key_delay,
+            args.save_stem,
+            args.slot,
+        )
     print(json.dumps(asdict(result), indent=2, sort_keys=True))
     if result.status != "match":
         raise SystemExit(1)

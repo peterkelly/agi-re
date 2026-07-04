@@ -232,12 +232,13 @@ Address columns use these meanings:
 | `code.save.copy_description_to_string_action` | image `0x2726` | Action handler for `0xaa`; copies up to `0x1f` bytes from runtime save-description buffer `[0x0e72]` into string slot `0x020d + arg0 * 0x28`. |
 | `code.save.read_length_prefixed_block` | image `0x26b0` | Reads a length-prefixed memory block from a save file. |
 | `code.save.write_length_prefixed_block` | image `0x28c6` | Writes a length-prefixed memory block to a save file. |
+| `code.save.format_slot_filename` | image `0x5b73` | Formats a numbered save filename with `%s%s%ssg.%d`, using `data.save.path_buffer_1962`, a chosen slash/backslash separator, `data.save.signature_prefix_0002`, and the slot number. |
 | `code.save.select_slot_or_path` | image `0x85e5` | Shared save/restore slot/path selection helper. Saves/restores text state, stops sound, delegates path prompting, scans selectable save slots, formats the selected filename, and returns zero for cancel/no selection. |
 | `code.save.check_drive_or_path_available` | image `0x86a3` | Selector helper that compares the selected drive/path state and displays the insert-disk style message when the target is unavailable. |
 | `code.save.prompt_path_if_needed` | image `0x8705` | Selector helper that fills a default path when needed, displays the save/restore path prompt, edits `data.save.path_buffer_1962`, validates it through the path validator at `0x5bdd`, and returns zero on cancel/failure. |
 | `code.save.edit_modal_text_field` | image `0x8794` | Modal edit helper used by the save selector. Draws a prompt window, clears the edit row, calls the line editor with a 31-character cap, closes the window, and returns one only when Enter accepted the edit. |
 | `code.save.select_numbered_slot` | image `0x8814` | Scans up to 12 numbered save files, displays description rows, handles Enter/Escape/up/down selection, and returns the selected slot number or zero. In save mode it prompts for a new description before accepting an empty-description slot. |
-| `code.save.read_slot_summary` | image `0x8b9f` | Formats a numbered save filename, opens it, records the file timestamp, reads the 31-byte description, seeks/reads a short signature fragment, and returns whether the slot is a valid candidate. |
+| `code.save.read_slot_summary` | image `0x8b9f` | Formats a numbered save filename, opens it, records the file timestamp, reads the 31-byte description, seeks past the first block length prefix, compares a short signature fragment with `data.save.signature_prefix_0002`, and returns whether the slot is a valid candidate. |
 | `code.restore.replay_resource_events` | image `0x681c` | Restore/display-mode state rebuild. Stops sound, clears resource caches, disables resource-event recording while replaying saved resource/event pairs, then reaches `code.restore.finish_replay_and_reenable_recording` at `0x6927` to re-enable recording, rebind active object views, and refresh display/input/status state. |
 
 ## Inventory and Menus
@@ -342,6 +343,7 @@ Address columns use these meanings:
 | `data.resource.picture_cache_root` | pointer/global record `[0x120e]` | Picture-like cache root/static first record used by picture loading. Cleared by `code.picture.clear_cache_root` during room-switch cache reset. |
 | `data.resource.sound_cache_root` | pointer/global record `[0x125a]` | Sound-like cache root/static first record used by sound loading. Cleared by `code.sound.clear_cache_root` during room-switch cache reset. |
 | `data.save.description_buffer` | data `0x0e72` | Runtime save-description/path buffer consumed by `0xaa` and tested by save/restore handlers after slot/path selection. |
+| `data.save.signature_prefix_0002` | data `0x0002` | Runtime game signature/save filename prefix. Action `0x8f` copies a logic message here and verifies it against the embedded `SQ2` signature; save filename formatting and slot summary filtering also consume this string. |
 | `data.save.path_buffer_1962` | data `0x1962` | Path buffer edited by `code.save.prompt_path_if_needed` and validated by the generic path helper. |
 | `data.save.header_description_buffer_1c6c` | data `0x1c6c` | 31-byte save-file description/header buffer written before the length-prefixed state blocks. Filled by the empty-slot save-description prompt when needed. |
 | `data.save.filename_buffer_1c8c` | data `0x1c8c` | Fully formatted save filename/path used by the save and restore DOS file wrappers after slot selection. |

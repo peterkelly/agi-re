@@ -73,12 +73,19 @@ is still open.
 
 The helper at image offset `0x5b49` compares absolute buffer `0x0002` against
 the embedded string `SQ2\0` at image offset `0x5b6c`, calling helper `0x02ae`
-on mismatch. It is reached by logic action handler `0x0e7e`.
+on mismatch. It is reached by logic action handler `0x0e7e`, which copies a
+resolved logic message into `0x0002` before the check. In SQ2 this buffer is
+both a runtime game signature and the save-file stem prefix used by the
+filename formatter below.
 
 The helper at image offset `0x5b73` formats savegame-like names with the local
-format string at data offset `0x132c`, `%s%s%ssg.%d`. Nearby local strings
-include slash/backslash separators at `0x1327`, `0x1328`, and `0x135f`, plus
-the user-facing example `(For example, "B:" or "C:\savegame")` at `0x1339`.
+format string at data offset `0x132c`, `%s%s%ssg.%d`. Its arguments are the
+path buffer at `0x1962`, a separator string chosen from the current path
+contents, the signature/prefix string at `0x0002`, and the numbered slot.
+Nearby local strings include slash/backslash separators at `0x1327`, `0x1328`,
+and `0x135f`, plus the user-facing example `(For example, "B:" or
+"C:\savegame")` at `0x1339`. If `0x0002` contains `SQ2`, slot 1 formats as
+`SQ2SG.1`; if that buffer is blank, the same helper formats `SG.1`.
 
 The helper at image offset `0x5bdd` validates or probes a user-supplied path:
 it trims leading spaces, fills an empty path with the current directory helper
@@ -154,6 +161,11 @@ closes the handle, displays message `0x0d87`, and enters
 `code.system.exit_with_cleanup`; this path terminates the DOS process rather
 than returning to the current logic stream.
 
+On successful restore, the handler refreshes display/resource state and writes
+zero into its saved return pointer before leaving. The action therefore ends the
+current logic stream instead of continuing after `0x7e`; compatibility probes
+must distinguish this from ordinary cancel/open-failure continuation.
+
 The observed restore destinations mirror the saved blocks:
 
 ```text
@@ -188,16 +200,18 @@ style message when the selected drive/path is unavailable.
 
 Slot helper `0x8814` scans up to 12 numbered save files through summary reader
 `0x8b9f`. Reader `0x8b9f` formats a slot filename, opens it, reads the 31-byte
-description into the slot summary record, seeks and reads a short signature
-fragment used to filter candidates, and records the DOS timestamp returned by
-`0x5e73`. The selector displays the available descriptions, marks the current
-row with a right-arrow glyph (`0x1a`), clears the old row with a space, and
-loops on normalized events: Enter accepts, Escape cancels, and movement events
-1 and 5 move the current row up and down with wrap. In save mode, accepting an
-empty-description slot opens a second modal edit prompt rooted at `0x1baa` and
-fills the 31-byte header buffer at `0x1c6c` before the handler creates the
-file. On any exit, `0x85e5` restores text state and redraws the prompt marker
-if it was visible before entry.
+description into the slot summary record, seeks two bytes forward from the
+current position to skip the first length prefix, reads seven bytes from the
+first saved state block, and compares those bytes with the string at `0x0002`.
+This filters candidate saves to the current game signature/prefix. It also
+records the DOS timestamp returned by `0x5e73`. The selector displays the
+available descriptions, marks the current row with a right-arrow glyph (`0x1a`),
+clears the old row with a space, and loops on normalized events: Enter accepts,
+Escape cancels, and movement events 1 and 5 move the current row up and down
+with wrap. In save mode, accepting an empty-description slot opens a second
+modal edit prompt rooted at `0x1baa` and fills the 31-byte header buffer at
+`0x1c6c` before the handler creates the file. On any exit, `0x85e5` restores
+text state and redraws the prompt marker if it was visible before entry.
 
 ## Overlay loader
 
