@@ -8739,3 +8739,217 @@ Progress updates and outcomes:
 
       Action/result: Recorded the final bookkeeping note before the truly quiet
       final mdBook, whitespace, and status checks.
+
+1148. Reported: "I’ll continue from the current PROGRESS.md map and keep the
+      work focused on the remaining partial opcodes. I’m going to re-check the
+      tracker, evidence matrix, and working tree first so the next probe batch
+      lands cleanly."
+
+      Action/result: Re-read `PROGRESS.md`, `git status --short`, the end of
+      this progress log, and the opcode evidence/current tracker references.
+
+1149. Reported: "The remaining partial list is still mostly text/input and a
+      few VM-global toggles. I’m going to look for the next source-backed state
+      change that can be made observable without inventing a glyph renderer;
+      status/input clears and global motion/input gates look like the best
+      candidates."
+
+      Action/result: Re-read the text/input opcode notes, disassembled around
+      action `0x83`, and inspected existing logic-interpreter probe cases.
+
+1150. Reported: "I’m resuming at the partial text/status/input opcodes and
+      will start with the ones whose source clearly funnels into row-clearing
+      code. That should let us promote a couple of opcodes with source-backed,
+      QEMU-validated behavior instead of just dispatch smoke."
+
+      Action/result: Re-read the probe catalog, unit tests, evidence mapping,
+      and text opcode chapter around the input/status handlers.
+
+1151. Reported: "The source path is lining up: both status-hide and
+      input-disable appear to use the same cleared text-row primitive that we
+      already validated for rectangle clears. I’m checking the exact dispatch
+      targets now so the new probes can cite the code path rather than just the
+      visual outcome."
+
+      Action/result: Searched docs for `0x70`, `0x71`, `0x77`, and input/status
+      labels; inspected the relevant probe cases and disassembly ranges.
+
+1152. Reported: "One minor wrinkle: direct `ndisasm` with manual skips landed
+      midstream in one range, so I’m switching to the existing full disassembly
+      artifact for address-aligned evidence. That keeps the notes tied to the
+      same address map the rest of the project uses."
+
+      Action/result: Checked the full disassembly artifact and existing notes
+      for the status/input helper address map.
+
+1153. Reported: "The previous notes already captured the core handlers; I’m
+      adding narrowly-scoped probes now. The fixture will configure the target
+      row, run the hide/disable opcode, then draw the usual validation object,
+      so any leftover text-row state shows up as a capture mismatch."
+
+      Action/result: Inspected the aligned source snippets and test helper
+      assertions before editing.
+
+1154. Reported: "I’m going to make the row clears visible by first drawing a
+      short formatted message on the same text row, then running the opcode
+      under test. That turns a global/UI side effect into an ordinary screen
+      comparison: if the source interpretation is wrong, the text remnants
+      should remain."
+
+      Action/result: Confirmed existing text clear evidence and planned the two
+      row-clear fixtures.
+
+1155. Reported: "I’m about to edit the probe catalog and its unit assertions.
+      I’ll keep the new cases small: one for `0x71` clearing the configured
+      status row, one for `0x77` clearing the configured input row."
+
+      Action/result: Added `input_line_disable_clears_configured_row` and
+      `status_line_hide_clears_configured_row` to
+      `tools/logic_interpreter_probe.py`.
+
+1156. Reported: "The two probe cases are in place. I’m wiring the catalog
+      tests next so future edits don’t silently drop the behavior coverage."
+
+      Action/result: Added unit assertions for the two new case ids and their
+      expected visual clear rectangles.
+
+1157. Reported: "The static catalog checks are updated. I’m running the
+      focused unit test before invoking QEMU, since that catches bad fixture
+      metadata cheaply."
+
+      Action/result: Ran the two focused
+      `tests.test_logic_interpreter_probe.LogicInterpreterProbeTests` methods;
+      both passed.
+
+1158. Reported: "The unit checks passed. I’m running the two new cases through
+      the original interpreter now; this is the point where the clean-room
+      hypothesis either earns behavior-level evidence or gets revised."
+
+      Action/result: Started QEMU snapshot batch
+      `text_hide_clear_behaviour_001` with the two new cases.
+
+1159. Reported: "QEMU is running both fixtures from a snapshot batch now. The
+      build phase completed and the interpreter is executing the cases, so I’m
+      waiting on the captures/comparisons."
+
+      Action/result: Waited for the running QEMU batch to finish.
+
+1160. Reported: "Both QEMU cases matched:
+      `0x77` and `0x71` now have visible row-clear behavior, not just
+      'returns safely.' I’m updating the evidence matrix and docs so the
+      tracker reflects that promotion."
+
+      Action/result: Promoted action opcodes `0x71` and `0x77` from smoke to
+      QEMU-validated in `tools/logic_opcode_evidence.py`.
+
+1161. Reported: "The evidence script supports direct regeneration, so I’m
+      letting it rewrite the opcode evidence chapter from the source-of-truth
+      mapping rather than hand-editing the table."
+
+      Action/result: Ran `python3 -B tools/logic_opcode_evidence.py` to
+      regenerate `docs/src/logic_opcode_evidence.md`.
+
+1162. Reported: "The generated evidence table is refreshed. I’m updating
+      `PROGRESS.md` next: the action coverage count moves up by two, and the
+      remaining partial list loses `0x71` and `0x77`."
+
+      Action/result: Updated `PROGRESS.md` to 158/176 action opcodes at `[x]`
+      level, with 18 partial action opcodes remaining.
+
+1163. Reported: "`PROGRESS.md` is updated. I’m scanning for stale counts or
+      old 'dispatch-smoke' references before touching the narrative docs."
+
+      Action/result: Started a stale-reference scan; the first command failed
+      because a literal backtick confused the shell quoting.
+
+1164. Reported: "That scan tripped on a shell quote in the literal backtick
+      pattern, so I’m rerunning it with simpler text patterns. No state
+      changed."
+
+      Action/result: Reran the stale-reference scan and found only historical
+      notes from earlier work.
+
+1165. Reported: "The stale hits are historical notes from earlier runs, not
+      current trackers. I’m adding a new dated notes section rather than
+      rewriting that history."
+
+      Action/result: Re-read symbolic labels, opcode docs, runtime model, and
+      compatibility text to prepare focused updates.
+
+1166. Reported: "I’m also adding a symbolic label for the single-row clear
+      helper used by both handlers. That gives later cross-version comparisons
+      a stable name instead of just another absolute address."
+
+      Action/result: Disassembled `code.text.clear_row` at image `0x2ba6` and
+      added it to `docs/src/symbolic_labels.md`.
+
+1167. Reported: "The symbolic label is added. I’m tightening the opcode chapter
+      now, with the implementation detail that `0x2ba6` is the single-row
+      wrapper around the broader text-row clear helper."
+
+      Action/result: Updated opcode rows for `0x71` and `0x77` in
+      `docs/src/logic_bytecode.md`.
+
+1168. Reported: "The opcode rows now carry the behavioral evidence. I’m adding
+      the batch summary near the other text/UI QEMU notes so readers see
+      exactly how those two opcodes were promoted."
+
+      Action/result: Added the `text_hide_clear_behaviour_001` narrative to the
+      logic bytecode chapter.
+
+1169. Reported: "I’m adding the higher-level runtime contract too: these
+      handlers are 'visible text surface' operations, not changes to the
+      picture resource. That distinction is useful for a future
+      implementation."
+
+      Action/result: Added status/input single-row clear semantics to
+      `docs/src/runtime_model.md`.
+
+1170. Reported: "The runtime model has the visible-surface contract now. I’m
+      adding the exact QEMU command and result to the compatibility chapter."
+
+      Action/result: Added the `text_hide_clear_behaviour_001` command and
+      result to `docs/src/compatibility_testing.md`.
+
+1171. Reported: "The compatibility chapter has the new batch. I’m appending the
+      clean-room notes section with the disassembly command, fixture changes,
+      QEMU result, and tracker updates."
+
+      Action/result: Added the dated clean-room notes section for the
+      status/input single-row clear behavior probes.
+
+1172. Reported: "The main docs are updated. I’m doing the progress-log
+      bookkeeping now, including the short status messages from before and
+      after the context handoff so the historical trail stays continuous."
+
+      Action/result: Appended this progress-log batch before final validation.
+
+1173. Reported: "The progress log is caught up through the doc edits. I’m
+      running the full validation pass now: unit suite, generated evidence
+      check, mdBook build, and whitespace check."
+
+      Action/result: Ran `python3 -B -m unittest discover -s tests`,
+      `python3 -B tools/logic_opcode_evidence.py --check`, `mdbook build docs`,
+      and `git diff --check`.
+
+1174. Reported: "All four validations passed: 103 unit tests, evidence
+      `--check`, mdBook, and whitespace. I’m recording that validation result
+      and then I’ll do a final diff/status pass."
+
+      Action/result: Recorded the successful validation result before final
+      diff and status inspection.
+
+1175. Reported: "Because the progress log changed after validation, I’m
+      rerunning the lightweight doc/whitespace checks and grabbing the final
+      status/diff summary."
+
+      Action/result: Reran `mdbook build docs`,
+      `python3 -B tools/logic_opcode_evidence.py --check`, `git diff --check`,
+      `git status --short`, and `git diff --stat`.
+
+1176. Reported: "The second mdBook/evidence/whitespace pass is clean. Final
+      status shows the expected tracked edits plus the existing untracked DOS
+      installer/images under `002962_ms_dos_622/` and generated `build/`."
+
+      Action/result: Recorded the final validation/status summary after the
+      second lightweight check pass.

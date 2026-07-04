@@ -158,13 +158,13 @@ Evidence levels:
 | `0x6e` | `shake_screen_like` | imm0 | shake screen like | QEMU dispatch-smoke | logic_interpreter_probe: screen_shake_dispatch_smoke |
 | `0x6f` | `set_input_line_config` | imm0, imm1, imm2 | set input line config | QEMU-validated | logic_interpreter_probe: input_line_config_operand1_offsets_display_by_8 |
 | `0x70` | `show_status_line_like` | - | show status line like | QEMU dispatch-smoke | logic_interpreter_probe: status_line_show_hide_dispatch_smoke |
-| `0x71` | `hide_status_line_like` | - | hide status line like | QEMU dispatch-smoke | logic_interpreter_probe: status_line_show_hide_dispatch_smoke |
+| `0x71` | `hide_status_line_like` | - | hide status line like | QEMU-validated | logic_interpreter_probe: status_line_hide_clears_configured_row |
 | `0x72` | `set_string_slot_from_message` | imm0, imm1 | set string slot from message | QEMU-validated | logic_interpreter_probe: set_string_from_message_equal_normalized and parse_string_slot_sets_input_word_sequence |
 | `0x73` | `prompt_string_to_slot` | imm0, imm1, imm2, imm3, imm4 | prompt string to slot | QEMU-validated | logic_interpreter_probe: prompt_string_to_slot_stores_typed_word |
 | `0x74` | `set_string_slot_from_table` | imm0, imm1 | set string slot from table | QEMU-validated | logic_interpreter_probe: set_string_from_table_copies_patched_pointer |
 | `0x75` | `parse_string_slot` | imm0 | parse string slot | QEMU-validated | logic_interpreter_probe: parse_string_slot_sets_input_word_sequence |
 | `0x76` | `prompt_number_to_var` | imm0, var1 | prompt number to var | QEMU-validated | logic_interpreter_probe: prompt_number_to_var_accepts_digits |
-| `0x77` | `disable_input_line_like` | - | disable input line like | QEMU dispatch-smoke | logic_interpreter_probe: input_line_toggle_refresh_erase_dispatch_smoke |
+| `0x77` | `disable_input_line_like` | - | disable input line like | QEMU-validated | logic_interpreter_probe: input_line_disable_clears_configured_row |
 | `0x78` | `enable_input_line_like` | - | enable input line like | QEMU dispatch-smoke | logic_interpreter_probe: input_line_toggle_refresh_erase_dispatch_smoke |
 | `0x79` | `map_key_event` | imm0, imm1, imm2 | map key event | QEMU-validated | logic_interpreter_probe: mapped_key_sets_status_byte |
 | `0x7a` | `setup_transient_object` | imm0, imm1, imm2, imm3, imm4, imm5, imm6 | setup transient object | QEMU-validated | logic_interpreter_probe and object_overlay_probe transient drawing |

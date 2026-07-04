@@ -19,8 +19,8 @@ better understood, or a new remaining-work item is discovered.
 
 ## Current Snapshot
 
-- Logic action opcodes: 156 of 176 are covered at `[x]` level
-  (`155` QEMU-validated plus `0x00` structural); 20 remain `[~]`.
+- Logic action opcodes: 158 of 176 are covered at `[x]` level
+  (`157` QEMU-validated plus `0x00` structural); 18 remain `[~]`.
 - Logic condition opcodes: all 19 of 19 are QEMU-validated.
 - Main remaining risk areas: full picture/view renderer edge behavior, text and
   input UI details, sound/audio semantics, final compatibility suite breadth,
@@ -156,13 +156,13 @@ better understood, or a new remaining-work item is discovered.
 - [~] `0x6e` `shake_screen_like` - QEMU dispatch-smoke
 - [x] `0x6f` `set_input_line_config` - QEMU-validated
 - [~] `0x70` `show_status_line_like` - QEMU dispatch-smoke
-- [~] `0x71` `hide_status_line_like` - QEMU dispatch-smoke
+- [x] `0x71` `hide_status_line_like` - QEMU-validated
 - [x] `0x72` `set_string_slot_from_message` - QEMU-validated
 - [x] `0x73` `prompt_string_to_slot` - QEMU-validated
 - [x] `0x74` `set_string_slot_from_table` - QEMU-validated
 - [x] `0x75` `parse_string_slot` - QEMU-validated
 - [x] `0x76` `prompt_number_to_var` - QEMU-validated
-- [~] `0x77` `disable_input_line_like` - QEMU dispatch-smoke
+- [x] `0x77` `disable_input_line_like` - QEMU-validated
 - [~] `0x78` `enable_input_line_like` - QEMU dispatch-smoke
 - [x] `0x79` `map_key_event` - QEMU-validated
 - [x] `0x7a` `setup_transient_object` - QEMU-validated

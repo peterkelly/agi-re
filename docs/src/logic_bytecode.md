@@ -1157,13 +1157,13 @@ Text-window and input-line actions:
 | `0x6e` | `shake_screen_like` | `0x7a00` | Reads an immediate count into `CL` and performs a display-shake-like loop. Depending on display-mode globals `[0x1130]` and `[0x112e]`, it either dispatches to helpers `0x99b8`, `0x9be3`, or `0x9916`, or directly writes CRT controller registers at ports `0x3d4/0x3d5`, using bytes at `0x177a` and global offset bytes `[0x1365]` and `[0x1779]`. |
 | `0x6f` | `set_input_line_config` | `0x78f0` | Reads immediates `arg0`, `arg1`, and `arg2`; stores `arg0` in `[0x05dd]`, `arg0 + 0x15` in `[0x05df]`, `arg1` in `[0x05d5]`, and `arg2` in `[0x05db]`. It also computes `[0x1379]` from `arg0`: normally `arg0 << 3`, but in display mode `[0x1130] == 2` it stores `arg0 * 6` for values 0 or 1, and clamps larger values to 6. Nearby redraw helpers use these globals for the input-line/status text areas, so the user-level name remains provisional. |
 | `0x70` | `show_status_line_like` | `0x3547` | Sets word `[0x05d9] = 1` and calls helper `0x34bd`, which redraws a status-line-like text area using helpers `0x2b28`, `0x7989`, `0x2ba6`, `0x2b0d`, `0x2390`, `0x79c3`, and `0x2b4f`. |
-| `0x71` | `hide_status_line_like` | `0x355c` | Sets word `[0x05d9] = 0`, then calls helper `0x2ba6([0x05db], 0)` to clear the associated text area. |
+| `0x71` | `hide_status_line_like` | `0x355c` | Sets word `[0x05d9] = 0`, then calls `code.text.clear_row` (`0x2ba6`) with row `[0x05db]` and attribute `0`, clearing the associated text row. QEMU validates that after `0x6f(0, 0, 5)`, hiding the status line clears logical Y 40..47 to visual color 0 without repainting the picture. |
 | `0x72` | `set_string_slot_from_message` | `0x0d37` | Computes destination `0x020d + arg0 * 0x28`, resolves current-logic message `arg1`, and copies up to `0x28` bytes into that fixed-size string slot through helper `0x4de8`. |
 | `0x73` | `prompt_string_to_slot` | `0x0c44` | Reads fixed string slot `arg0`, message number `arg1`, row-like byte `arg2`, column-like byte `arg3`, and max-length byte `arg4`. It clears the destination string slot, optionally positions text with `0x2b0d(arg2, arg3)` when `arg2 < 0x19`, displays the resolved current-logic message, accepts edited input through `code.input.edit_string` (`0x0da9`), then restores the input-line/status display as needed. The accepted length is `min(arg4 + 1, 0x28)`. |
 | `0x74` | `set_string_slot_from_table` | `0x0d70` | Computes destination `0x020d + arg0 * 0x28`, reads a word pointer from `DS:0x0c8f + arg1 * 2`, and copies up to `0x28` bytes from that pointer into the string slot through helper `0x4de8`. In the static SQ2 `AGIDATA.OVL`, the sampled table entries at `0x0c8f` are zero-filled and this opcode was not encountered in the current local logic scan. QEMU fixture `input_key_string_behaviour_001` validates the copy semantics by patching only the generated fixture's `AGIDATA.OVL` so table entry 0 points to a synthetic `look` string. |
 | `0x75` | `parse_string_slot` | `0x1958` | Clears flags 2 and 4, reads a string-slot index `arg0`, and if `arg0 < 12` parses fixed string slot `0x020d + arg0 * 0x28` through helper `0x18ac`. The parser normalizes the string, looks words up in `WORDS.TOK`, and fills parsed-word tables used by condition `0x0e` (`input_word_sequence`). |
 | `0x76` | `prompt_number_to_var` | `0x71ed` | Displays current-logic message `arg0` as a prompt, accepts/edits up to four characters through helper `0x0da9`, parses the resulting buffer as a decimal number through helper `0x4e8d`, and stores the low byte in `var[arg1]`. It has two display paths: one using text helpers `0x2b0d`, `0x1f54`, `0x2390`, `0x37f7`, and `0x38d7`, and another using helpers `0x9c52` and `0x9d93` when display mode `[0x1130] == 2` and `[0x0d0f] == 0`. |
-| `0x77` | `disable_input_line_like` | `0x386f` | Sets word `[0x05d3] = 0`; unless display mode `[0x1130] == 2`, it calls helper `0x382e` and clears a text area through `0x2ba6([0x05d5], 0)`. This disables or hides an input-line-like display. |
+| `0x77` | `disable_input_line_like` | `0x386f` | Sets word `[0x05d3] = 0`; unless display mode `[0x1130] == 2`, it calls helper `0x382e` and clears a text area through `code.text.clear_row` (`0x2ba6`) with row `[0x05d5]` and attribute `0`. QEMU validates that after `0x6f(0, 5, 22)`, disabling the input line clears logical Y 40..47 to visual color 0 without repainting the picture. |
 | `0x78` | `enable_input_line_like` | `0x3898` | Sets word `[0x05d3] = 1`; unless display mode `[0x1130] == 2`, calls helper `0x38d7` to redraw the input-line-like display. |
 | `0x89` | `refresh_input_line` | `0x3753` | If the input line is enabled through word `[0x05d3]`, refreshes the input-line display. In display mode `[0x1130] == 2` with word `[0x0d0f] == 0`, it displays the string at `0x1e2e` ("ENTER COMMAND") through the alternate display helpers, clears or rewrites the current input character byte `[0x001c]`, and passes that byte to helper `0x3652`. In other modes it calls helper `0x37a5`, which appends bytes from the buffer/string at `0x0fce` into the visible input buffer `0x0fa4` until the input length word `[0x0ff8]` reaches that string's length. |
 | `0x8a` | `erase_input_line` | `0x3726` | Erases the visible input-line buffer by repeatedly passing byte `0x08` to helper `0x3652` while word `[0x0ff8]` is nonzero. In display mode `[0x1130] == 2`, it skips the erase loop when word `[0x0d0f] == 0`. |
@@ -1198,11 +1198,19 @@ message text is acknowledged, the clear action runs, and the captured screen
 matches only when the expected display surface includes the black text-cell
 rectangle written by the BIOS clear helper.
 
+QEMU fixture `text_hide_clear_behaviour_001` extends that display-surface
+coverage to the single-row text clear used by the status and input line
+handlers. The two cases first display formatted text on row 5, configure the
+row globals through `0x6f`, run either `0x71` or `0x77`, and then validate that
+logical Y 40..47 is black before the final object draw. This promotes
+`0x71` (`hide_status_line_like`) and `0x77` (`disable_input_line_like`) beyond
+dispatch-smoke coverage for the normal EGA display path.
+
 QEMU fixture `text_status_002` dispatch-smokes the remaining low-risk
 text/status/input handlers in this cluster: `0x6d`, `0x6a`, and `0x6b` for
 text-attribute mode setup/teardown; `0x6e` for a one-count screen-shake return;
-`0x6c` and `0x6f` for prompt marker and input-line configuration; `0x70` and
-`0x71` for status-line show/hide; and `0x79` for key-event mapping table
+`0x6c` and `0x6f` for prompt marker and input-line configuration; `0x70` for
+status-line show; and `0x79` for key-event mapping table
 insertion. The source-backed details still matter: `0x6f` stores its first
 operand in `[0x05dd]`, stores operand + `0x15` in `[0x05df]`, and derives
 display offset global `[0x1379]` from that first operand. An intermediate QEMU

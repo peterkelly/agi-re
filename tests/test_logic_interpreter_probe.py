@@ -84,6 +84,7 @@ class LogicInterpreterProbeTests(unittest.TestCase):
         self.assertIn("prompt_string_to_slot_stores_typed_word", case_ids)
         self.assertIn("prompt_number_to_var_accepts_digits", case_ids)
         self.assertIn("input_line_toggle_refresh_erase_dispatch_smoke", case_ids)
+        self.assertIn("input_line_disable_clears_configured_row", case_ids)
         self.assertIn("text_rect_clear_dispatch_smoke", case_ids)
         self.assertIn("text_rect_clear_rows_removes_formatted_text", case_ids)
         self.assertIn("text_rect_clear_bounds_removes_formatted_text", case_ids)
@@ -92,6 +93,7 @@ class LogicInterpreterProbeTests(unittest.TestCase):
         self.assertIn("screen_shake_dispatch_smoke", case_ids)
         self.assertIn("input_prompt_config_dispatch_smoke", case_ids)
         self.assertIn("status_line_show_hide_dispatch_smoke", case_ids)
+        self.assertIn("status_line_hide_clears_configured_row", case_ids)
         self.assertIn("key_event_mapping_dispatch_smoke", case_ids)
         self.assertIn("input_line_config_operand1_offsets_display_by_8", case_ids)
         self.assertIn("mapped_key_sets_status_byte", case_ids)
@@ -238,6 +240,14 @@ class LogicInterpreterProbeTests(unittest.TestCase):
         self.assertEqual(
             cases["text_rect_clear_bounds_removes_formatted_text"].expected_visual_rects,
             [{"left": 20, "top": 64, "right": 83, "bottom": 71, "color": 0}],
+        )
+        self.assertEqual(
+            cases["input_line_disable_clears_configured_row"].expected_visual_rects,
+            [{"left": 0, "top": 40, "right": WIDTH - 1, "bottom": 47, "color": 0}],
+        )
+        self.assertEqual(
+            cases["status_line_hide_clears_configured_row"].expected_visual_rects,
+            [{"left": 0, "top": 40, "right": WIDTH - 1, "bottom": 47, "color": 0}],
         )
 
     def test_report_summary_counts_statuses(self) -> None:

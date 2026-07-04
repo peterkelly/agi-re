@@ -5231,3 +5231,44 @@ Results:
 - Updated `PROGRESS.md`: logic action opcode coverage is now 156 of 176 at
   `[x]` level (`155` QEMU-validated plus structural `0x00`), with 20 partial
   action opcodes remaining.
+
+## 2026-07-04: status/input single-row clear behavior probes
+
+Commands run from `/Users/peter/ai/agi/reverse`:
+
+- `sed -n` reads of `PROGRESS.md`, `docs/src/progress_log.md`,
+  `docs/src/logic_bytecode.md`, `docs/src/runtime_model.md`,
+  `docs/src/logic_opcode_evidence.md`, `docs/src/compatibility_testing.md`,
+  `docs/src/symbolic_labels.md`, `tools/logic_interpreter_probe.py`,
+  `tools/logic_opcode_evidence.py`, and `tests/test_logic_interpreter_probe.py`.
+- `rg -n "0x70|0x71|0x77|disable_input|show_status|hide_status|status_line|input_line" docs/src/clean_room_executable_notes.md docs/src/logic_bytecode.md docs/src/runtime_model.md docs/src/logic_opcode_evidence.md`
+- `ndisasm -b 16 -o 0x2ba6 -e 0x2da6 build/cleanroom/AGI.decrypted.exe | sed -n '1,60p'`
+- `python3 -B -m unittest tests.test_logic_interpreter_probe.LogicInterpreterProbeTests.test_base_cases_cover_core_control_flow tests.test_logic_interpreter_probe.LogicInterpreterProbeTests.test_text_rect_clear_cases_expect_display_surface_rectangles`
+- `python3 -B tools/logic_interpreter_probe.py --dos-prefix TH --output build/logic-interpreter-probes/batches/text_hide_clear_behaviour_001.json --boot-wait 5 --draw-wait 8 --stop-on-failure --case input_line_disable_clears_configured_row --case status_line_hide_clears_configured_row`
+- `python3 -B tools/logic_opcode_evidence.py`
+
+Results:
+
+- Re-read `code.text.clear_row` at image `0x2ba6`. The helper pushes
+  `[bp+0xa]`, `[bp+0x8]`, and `[bp+0x8]`, then calls `code.text.clear_rows`
+  (`0x2b78`). This makes it a single-row wrapper: top row and bottom row are
+  identical, and the second argument is the clear attribute.
+- Added QEMU case `input_line_disable_clears_configured_row`. The fixture
+  displays formatted text on row 5, acknowledges it, runs `0x6f(0, 5, 22)` to
+  set the input-row global `[0x05d5]`, then runs `0x77`. The original-engine
+  capture matches only when logical Y 40..47 is modeled as cleared to visual
+  color 0 before the final object draw.
+- Added QEMU case `status_line_hide_clears_configured_row`. The fixture
+  displays formatted text on row 5, acknowledges it, runs `0x6f(0, 0, 5)` to
+  set the status-row global `[0x05db]`, then runs `0x71`. The capture likewise
+  matches with logical Y 40..47 cleared to visual color 0.
+- QEMU batch `text_hide_clear_behaviour_001` matched with 2 matches, 0
+  mismatches, and 0 errors. Actions `0x71` (`hide_status_line_like`) and
+  `0x77` (`disable_input_line_like`) are now behavior-level QEMU-validated for
+  the normal EGA display path.
+- Added symbolic label `code.text.clear_row` (`0x2ba6`), updated the
+  opcode/runtime/compatibility docs, and regenerated
+  `docs/src/logic_opcode_evidence.md`.
+- Updated `PROGRESS.md`: logic action opcode coverage is now 158 of 176 at
+  `[x]` level (`157` QEMU-validated plus structural `0x00`), with 18 partial
+  action opcodes remaining.

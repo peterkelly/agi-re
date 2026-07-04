@@ -261,6 +261,12 @@ rectangle with the requested attribute/background. In the EGA target validated
 so far, text columns are four logical pixels wide and text rows are eight
 logical pixels tall.
 
+Status-line hide (`0x71`) and input-line disable (`0x77`) use the same visible
+text surface rather than the decoded picture buffer. In the normal EGA path,
+`0x71` clears the single row configured as the status row by `0x6f` operand 2,
+and `0x77` clears the single row configured as the input row by `0x6f` operand
+1. The validated row geometry is eight logical pixels tall.
+
 ## Diagnostic and Trace Services
 
 Several action opcodes are developer-facing or VM-facing services rather than

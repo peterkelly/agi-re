@@ -1391,6 +1391,21 @@ def base_cases() -> list[LogicInterpreterCase]:
             50,
         ),
         _custom_case(
+            "input_line_disable_clears_configured_row",
+            "Action 0x77 disables the input line and clears the row configured by action 0x6f operand 1.",
+            byte_action(0x67, 5, 5, 1)
+            + byte_action(0x6F, 0, 5, 22)
+            + byte_action(0x77)
+            + draw_view11_at(50),
+            50,
+            messages=["HELLO"],
+            post_launch_keys="\n",
+            post_launch_wait=1.0,
+            expected_visual_rects=[
+                {"left": 0, "top": 40, "right": WIDTH - 1, "bottom": 47, "color": 0}
+            ],
+        ),
+        _custom_case(
             "text_rect_clear_dispatch_smoke",
             "Actions 0x69 and 0x9a clear text rectangles and return to following bytecode.",
             byte_action(0x69, 0, 0, 0)
@@ -1461,6 +1476,21 @@ def base_cases() -> list[LogicInterpreterCase]:
             "Actions 0x70 and 0x71 show and hide the status-line-like area and return to following bytecode.",
             byte_action(0x70) + byte_action(0x71) + byte_action(0x1A) + draw_view11_at(50),
             50,
+        ),
+        _custom_case(
+            "status_line_hide_clears_configured_row",
+            "Action 0x71 hides the status line and clears the row configured by action 0x6f operand 2.",
+            byte_action(0x67, 5, 5, 1)
+            + byte_action(0x6F, 0, 0, 5)
+            + byte_action(0x71)
+            + draw_view11_at(50),
+            50,
+            messages=["HELLO"],
+            post_launch_keys="\n",
+            post_launch_wait=1.0,
+            expected_visual_rects=[
+                {"left": 0, "top": 40, "right": WIDTH - 1, "bottom": 47, "color": 0}
+            ],
         ),
         _custom_case(
             "key_event_mapping_dispatch_smoke",

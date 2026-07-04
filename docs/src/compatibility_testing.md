@@ -484,6 +484,21 @@ were eight logical pixels wide. Measuring the capture showed that the EGA text
 grid maps one text column to four logical pixels and one text row to eight
 logical pixels.
 
+Run the status/input single-row hide behavior batch:
+
+```bash
+python3 -B tools/logic_interpreter_probe.py --dos-prefix TH --output build/logic-interpreter-probes/batches/text_hide_clear_behaviour_001.json --boot-wait 5 --draw-wait 8 --stop-on-failure --case input_line_disable_clears_configured_row --case status_line_hide_clears_configured_row
+```
+
+This two-case batch matched QEMU with 0 mismatches. It promotes `0x77`
+(`disable_input_line_like`) and `0x71` (`hide_status_line_like`) from
+dispatch-smoke to behavior-level coverage for the normal EGA display path. The
+probes display formatted text on row 5, acknowledge it, configure the relevant
+row through `0x6f`, then run the hide/disable action. The expected display
+surface includes logical Y 40..47 cleared to black, confirming that
+`code.text.clear_row` (`0x2ba6`) clears one configured text row without
+refreshing the picture resource.
+
 Run the text/status configuration batch:
 
 ```bash

@@ -167,6 +167,7 @@ Address columns use these meanings:
 | `code.text.format_string` | image `0x2374` | Formats text into caller-provided buffers. |
 | `code.text.format_message_to_buffer` | image `0x1f54` | Formats/copies a resolved logic message into a stack buffer. |
 | `code.text.clear_rows` | image `0x2b78` | Helper used by action `0x69`; wraps `code.text.clear_bounds` with left column 0 and right column `0x27`. QEMU `text_rect_clear_rows_removes_formatted_text` validates rows 5..6 clearing logical Y 40..55 to visual color 0. |
+| `code.text.clear_row` | image `0x2ba6` | Wraps `code.text.clear_rows` with top row equal to bottom row. Used by status-line hide (`0x71`) and input-line disable (`0x77`); QEMU `text_hide_clear_behaviour_001` validates a configured row clearing to visual color 0. |
 | `code.text.clear_bounds` | image `0x2bc4` | BIOS `int 10h` scroll/clear wrapper used by action `0x9a`; arguments map to top, left, bottom, right, attribute. QEMU validates text columns as four logical pixels wide and rows as eight logical pixels tall in the EGA target. |
 | `code.text.redraw_status_line` | image `0x34bd` | Redraws the status-line-like area when `data.text.status_line_enabled` is nonzero, using the current text attribute globals and the status row global. |
 | `code.text.show_status_line` | image `0x3547` | Action handler for `0x70`; sets `data.text.status_line_enabled` and calls `code.text.redraw_status_line`. |
