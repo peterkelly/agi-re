@@ -124,6 +124,24 @@ by storing raw payload pointers in object records, but the object contracts
 depend on decoded fields such as group counts, frame pointers, width, and
 height.
 
+Sound resources have a small typed structure on top of the raw payload. The
+loader reads the first four little-endian words and stores four payload-relative
+channel stream pointers in the sound cache record. The playback start helper
+copies those pointers into the runtime channel pointer table and initializes
+per-channel countdown, active, and attenuation words. The tick routine then
+consumes each channel as a sequence of records:
+
+| Field | Size | Meaning |
+| --- | --- | --- |
+| Duration | 16-bit little-endian | Countdown value for the next sound event; `0xffff` terminates that channel. |
+| Tone/control word | 16-bit little-endian | Driver-facing tone/control value. The exact pitch/hardware interpretation remains provisional. |
+| Control byte | 8-bit | Low nibble is copied as the observed attenuation/control value; `0x0f` is used for silent/terminated channels. |
+
+The local SQ2 corpus scan found 49 present sound resources. All present
+resources have four sorted, in-bounds channel offsets, and the first offset is
+8, immediately after the four-word header. The current clean-room model covers
+the resource container and event stream shape, not full audio synthesis.
+
 ## Object records
 
 Persistent objects live in a table of 43-byte records from `[0x096b]` to
@@ -154,6 +172,7 @@ The implementation-facing object operations are:
 | Position | `0x25` (`set_object_pos`), `0x26` (`set_object_pos_var`), `0x28` (`add_object_pos_from_vars`), `0x93` (`set_object_pos_dirty`), `0x94` (`set_object_pos_dirty_var`) | Write current and/or saved coordinates; dirty-position forms set object flag `0x0400` and call placement. |
 | Activate/deactivate | `0x23` (`activate_object`), `0x24` (`deactivate_object`) | Add/remove the object from graphics/update participation and refresh the update lists. |
 | Motion control | `0x48..0x55`, `0x51` (`move_object_to`), `0x52` (`move_object_to_var`), `0x53` (`approach_first_object_until_near`), `0x54` (`start_random_motion`) | Configure object direction/motion modes, completion flags, and target/step parameters. `0x51/0x52` target an object at X/Y and set a completion flag when it arrives; `0x53` approaches the first object entry until within a threshold and sets a completion flag; `0x54` starts random autonomous direction changes. |
+| Object0/global direction mirror | `0x83` (`clear_global_0139`), `0x84` (`set_global_0139_and_clear_object0_field_22`), `code.engine.main_cycle` | At the pre-logic mirror point, `[0x0139] == 0` copies object 0 direction byte `+0x21` to global byte `[0x000f]`; nonzero copies `[0x000f]` back to object 0. After logic returns, object 0 `+0x21` is restored from `[0x000f]`, so script writes to object 0 direction occur after the branch point and do not seed the next cycle by themselves. |
 | Collision/control flags | `0x3d` (`set_object_bit_0008`), `0x43` (`set_object_bit_0200`), `0x58` (`set_object_bit_0002`), and companions | Toggle bits that affect horizon clamp, collision tests, and control-buffer acceptance. |
 | Diagnostics | `0x85` (`display_object_diagnostics_var`) | Display object number, X/Y, width/height, priority/control, and step size using the interpreter's built-in diagnostic template. |
 
@@ -223,6 +242,19 @@ Resource lifecycle:
 | Mutated/displayed | Picture decode/show, transient object draw, active object refresh, sound start/stop | Next refresh, discard, room switch, replay | User-visible or saved-state side effects occur. Picture/view/transient operations append replay pairs unless flag 7 or the recording gate suppresses recording. |
 | Replay/restored | Restore or display-mode replay | Replay finish at `code.restore.finish_replay_and_reenable_recording` | Event recording is disabled while saved pairs are consumed, then re-enabled before normal execution continues. |
 
+Action `0x8e` configures the replay log capacity. It writes
+`data.event.pair_capacity`, flushes update-list state, resets/allocates the
+pair buffer through `code.event.reset_pair_buffer`, clears the active pair
+count, and rebuilds update-list state.
+
+Save/restore data model:
+
+| Element | Producers | Consumers | Contract |
+| --- | --- | --- | --- |
+| Save description buffer | Save/restore selector helper | `0x7d`, `0x7e`, `0xaa` | Runtime buffer `[0x0e72]` holds the selected or entered save description/path text. `0xaa` copies up to `0x1f` bytes from this buffer into a fixed 40-byte logic string slot. |
+| Save file state blocks | `0x7d` | `0x7e` | Files store a 31-byte description/header followed by length-prefixed blocks for string/config state, object records, inventory metadata, resource-event pairs, and logic/cache state. |
+| Replay pair block | `0x8e`, resource load/display/discard actions, `0xab`/`0xac` | Restore/display-mode replay | The saved pair block length is `data.event.pair_capacity * 2`; active count controls how much of the buffer replay consumes. |
+
 Object drawing lifecycle:
 
 | State | Entered by | Exited by | Observable contract |
@@ -249,11 +281,11 @@ Text/input UI lifecycle:
 | State | Entered by | Exited by | Observable contract |
 | --- | --- | --- | --- |
 | Input line hidden/disabled | `0x77` or display/text cleanup paths | `0x78` | Word `[0x05d3]` is zero; refresh helpers should not redraw the normal input line. |
-| Input line enabled | `0x78` | `0x77`, modal prompts, or text-window cleanup | Word `[0x05d3]` is one; `0x78` redraws/clears the configured input row in the normal EGA path, `0x89` may redraw the input buffer, and `0x8a` may erase visible input characters. |
-| Prompt/status configured | `0x6c`, `0x6f`, `0x70`, `0x71` | Later configuration or cleanup | Prompt character, row/column-like globals, status-line enable word `[0x05d9]`, and display offset `[0x1379]` determine where text helpers draw and erase. QEMU validates that setting the prompt marker from an empty message suppresses marker drawing on the next input-line redraw. |
+| Input line enabled | `0x78` | `0x77`, modal prompts, or text-window cleanup | Word `[0x05d3]` is one; `0x78` redraws/clears the configured input row in the normal EGA path, `0x89` redraws from the entered source input buffer, and `0x8a` erases visible input characters. |
+| Prompt/status configured | `0x6c`, `0x6f`, `0x70`, `0x71` | Later configuration or cleanup | Prompt character, row/column-like globals, status-line enable word `[0x05d9]`, and display offset `[0x1379]` determine where text helpers draw and erase. QEMU validates that setting the prompt marker from an empty message suppresses marker drawing on the next input-line redraw, and that `0x70` visibly redraws the configured status row. |
 | Modal text window active | Message display, prompt/edit, menu, or diagnostic helpers | `0xa9` or the helper's own close path | Display helpers may save a backing rectangle and set text-window words around `[0x0d1d]`; close restores the rectangle and clears `[0x0d0f]`/`[0x0d1d]`. |
-| Alternate text mode | `0x6a` and related display-mode helpers | `0x6b` or `0xa4`/cleanup paths | Byte `[0x1757]` and word `[0x0d0f]` alter text/input drawing helpers. QEMU validates that `0x6a` clears the visible logical surface to black in the observed EGA path and that `0x6b` restores ordinary picture/object drawing. |
-| Event/edit loop | `code.input.edit_string`, menus, inventory selection, confirmation dialogs | Enter, Escape, or a selected mapped/status event | The shared event queue feeds raw key predicates, line editors, menu status-byte events, and confirmation exits. |
+| Alternate text/input-width mode | `0x6a`, `0xa3`, and related display-mode helpers | `0x6b`, `0xa4`, or `0xa9`/cleanup paths | Byte `[0x1757]` alters text drawing, while word `[0x0d0f]` changes input-character width limits in helper `0x3652`. QEMU validates that `0x6a` clears the visible logical surface using the current text attribute pair in the observed EGA path, that `0x6b` restores ordinary picture/object drawing, that `0xa3` permits wrapped live input with a long blank string slot 0, and that both `0xa4` and inactive `0xa9` clear the width flag. |
+| Event/edit loop | `code.input.edit_string`, menus, inventory selection, confirmation dialogs, keyboard IRQ hook | Enter, Escape, selected mapped/status event, or tracked key release | The shared event queue feeds raw key predicates, line editors, menu status-byte events, and confirmation exits. Action `0xad` increments `[0x1530]`, a source-backed nonzero gate that lets the keyboard IRQ hook enqueue type-2 zero events on selected tracked-key releases. |
 
 Text rectangle clears (`0x69` and `0x9a`) are display-surface operations. They
 do not decode or mutate a picture resource; they overwrite the visible text-cell
@@ -270,16 +302,38 @@ and `0x77` clears the single row configured as the input row by `0x6f` operand
 Input-line enable (`0x78`) also redraws the configured input row through the
 text surface before it writes any configured prompt/input strings. With an empty
 prompt marker and empty input buffers, the validated visible result is the same
-single eight-pixel-tall black row. Entering alternate text-attribute mode
+single eight-pixel-tall black row. Input-line erase (`0x8a`) uses repeated
+backspace handling to reduce visible input length `[0x0ff8]` to zero; QEMU
+validates that typed live-edit glyphs disappear from the configured input row.
+Input-line refresh (`0x89`) does not replay unaccepted live-edit characters in
+the observed path. After Enter copies accepted text into the source input
+buffer at `0x0fce`, `0x89` repaints visible glyphs by copying that source into
+visible buffer `0x0fa4`. Entering alternate text-attribute mode
 through `0x6a` is broader: the observed EGA result clears the full logical
-surface to black and ordinary transient-object composition is not visible while
-that mode remains active in the probe.
+surface using the current attribute pair and ordinary transient-object
+composition is not visible while that mode remains active in the probe. With
+the default pair this is a black clear. After `0x6d(0, 1)`, the disassembly
+shows the stored pair is reinterpreted by `0x6a` with `[0x1757] = 1` as packed
+text attribute `0xf0`; QEMU validates a full-screen visual color 15 clear for
+that case.
 
 The prompt marker configured by `0x6c` is a single byte copied from the start of
 the resolved message. When that byte is zero, input-line redraw skips marker
 drawing. The current QEMU evidence covers the empty-message suppression path;
 nonempty prompt glyph shape is still a font/text-rendering detail rather than a
 fully modeled compatibility contract.
+
+Menu interaction is another consumer of the shared event queue. Menu setup
+builds circular heading and item lists; each node's word at offset `+0x00` is
+the next pointer and `+0x02` is the previous pointer. A heading's item root is
+at `+0x0c`, its remembered/current item is at `+0x0e`, and its active/enabled
+word is at `+0x0a`. Item nodes store their enabled word at `+0x0a` and their
+script-visible selection id at `+0x0c`. Enter enqueues a type-3 event carrying
+that id only when the current item is enabled. Movement events use values
+`1..8`: up/previous item, page-up/first item, right/next enabled heading,
+page-down/last item, down/next item, end/last heading, left/previous enabled
+heading, and home/root heading. After each movement, the engine persists the
+current heading and item in `[0x1d2e]` and `[0x1d30]`.
 
 ## Diagnostic and Trace Services
 
@@ -294,9 +348,10 @@ ordinary game-world operations:
   priority/control inspection view.
 - `0x95` (`enable_action_trace_window`) and `0x96`
   (`configure_action_trace_window`) manage an action-trace window. When enabled,
-  the dispatcher calls the trace formatter before each action handler. A new
-  implementation can expose this as optional VM tracing rather than coupling it
-  to normal game semantics.
+  the dispatcher calls the trace formatter before each action handler. QEMU
+  validates the enabled path as a red-bordered, white-filled trace window with
+  black opcode/operand text. A new implementation can expose this as optional
+  VM tracing rather than coupling it to normal game semantics.
 - `0x8f` (`verify_game_signature`) resolves a short message string and compares
   it against the interpreter's embedded `SQ2` signature. A mismatch calls the
   same restart/exit helper used by confirmation-gated exit paths.
@@ -307,13 +362,19 @@ Several actions are better modeled as services around the VM rather than as
 game-world operations:
 
 - The input line has an enabled flag at `[0x05d3]`, a visible/input buffer at
-  `0x0fa4`, and a length word at `[0x0ff8]`. Actions `0x77`, `0x78`, `0x89`,
-  and `0x8a` disable, enable, refresh, and erase that line.
+  `0x0fa4`, an entered source buffer at `0x0fce`, and a length word at
+  `[0x0ff8]`. Actions `0x77`, `0x78`, `0x89`, and `0x8a` disable, enable,
+  refresh, and erase that line.
 - Action `0x88` is a pause dialog. It stops sound, displays a fixed pause
   message, and returns to the script after the display helper completes.
 - Action `0x87` is a heap/status diagnostic. It formats heap and script-budget
   globals into a message, so a replacement implementation can expose it as a
   diagnostic overlay without tying it to game state.
+- Action `0x6e` is a transient display shake. In the normal path it does not
+  mutate the logical picture/object buffers; it writes CRT/display-register
+  offsets from a small table and waits on timer ticks. A portable
+  implementation can model the observable contract as a short camera/display
+  offset animation with no persistent surface change.
 - Action `0x8b` is joystick calibration. It presents a centered-joystick prompt,
   samples joystick state through helpers around `0x63be` and `0x6425`, and
   stores calibrated bounds in globals near `0x15c9..0x15cf`.

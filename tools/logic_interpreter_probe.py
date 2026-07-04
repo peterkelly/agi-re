@@ -63,6 +63,7 @@ class LogicInterpreterCase:
     launch_command: str = "SIERRA"
     compare_view: bool = True
     expected_visual_rects: list[dict[str, int]] | None = None
+    expected_rect_checks: list[dict[str, object]] | None = None
 
     @property
     def code(self) -> bytes:
@@ -612,6 +613,7 @@ def _custom_case(
     post_launch_key_names: list[str] | None = None,
     agidata_patches: list[dict[str, object]] | None = None,
     expected_visual_rects: list[dict[str, int]] | None = None,
+    expected_rect_checks: list[dict[str, object]] | None = None,
     compare_view: bool = True,
 ) -> LogicInterpreterCase:
     if init_once_flag is not None and per_cycle_body:
@@ -655,6 +657,7 @@ def _custom_case(
         "SIERRA",
         compare_view,
         expected_visual_rects,
+        expected_rect_checks,
     )
 
 
@@ -1423,6 +1426,69 @@ def base_cases() -> list[LogicInterpreterCase]:
             ],
         ),
         _custom_case(
+            "input_line_typed_text_visible_baseline",
+            "Typed input is visible on the configured input row when no erase action runs.",
+            byte_action(0x6C, 1) + byte_action(0x6F, 0, 5, 22) + byte_action(0x78),
+            50,
+            init_once_flag=91,
+            per_cycle_body=draw_view11_at(50),
+            messages=[""],
+            post_launch_keys="look",
+            post_launch_wait=1.0,
+            post_launch_key_delay=0.12,
+            expected_rect_checks=[
+                {
+                    "mode": "contains_color",
+                    "left": 0,
+                    "top": 40,
+                    "right": WIDTH - 1,
+                    "bottom": 47,
+                    "color": 15,
+                    "min_count": 8,
+                }
+            ],
+            compare_view=False,
+        ),
+        _custom_case(
+            "input_line_erase_clears_typed_buffer",
+            "Action 0x8a erases typed visible input by sending backspace until the visible length reaches zero.",
+            byte_action(0x6C, 1) + byte_action(0x6F, 0, 5, 22) + byte_action(0x78),
+            50,
+            init_once_flag=92,
+            per_cycle_body=byte_action(0x8A) + draw_view11_at(50),
+            messages=[""],
+            post_launch_keys="look",
+            post_launch_wait=1.0,
+            post_launch_key_delay=0.12,
+            expected_visual_rects=[
+                {"left": 0, "top": 40, "right": WIDTH - 1, "bottom": 47, "color": 0}
+            ],
+        ),
+        _custom_case(
+            "input_line_refresh_repaints_entered_buffer",
+            "Action 0x89 refreshes the visible input buffer from the entered source input string.",
+            byte_action(0x6C, 1) + byte_action(0x6F, 0, 5, 22) + byte_action(0x78),
+            50,
+            init_once_flag=93,
+            per_cycle_body=byte_action(0x89) + draw_view11_at(50),
+            messages=[""],
+            post_launch_keys="look\n",
+            post_launch_wait=1.0,
+            post_launch_key_delay=0.12,
+            expected_rect_checks=[
+                {
+                    "mode": "contains_color",
+                    "left": 0,
+                    "top": 40,
+                    "right": WIDTH - 1,
+                    "bottom": 47,
+                    "color": 15,
+                    "min_count": 8,
+                }
+            ],
+            compare_view=False,
+        ),
+        _custom_case(
             "text_rect_clear_dispatch_smoke",
             "Actions 0x69 and 0x9a clear text rectangles and return to following bytecode.",
             byte_action(0x69, 0, 0, 0)
@@ -1466,6 +1532,92 @@ def base_cases() -> list[LogicInterpreterCase]:
             50,
         ),
         _custom_case(
+            "input_width_flag_a3_allows_long_live_input",
+            "Action 0xa3 sets the input-width flag; helper 0x3652 then allows long live input despite a long blank string slot 0.",
+            byte_action(0x72, 0, 1)
+            + byte_action(0x6C, 2)
+            + byte_action(0x6F, 0, 5, 22)
+            + byte_action(0x78)
+            + byte_action(0xA3),
+            50,
+            init_once_flag=95,
+            per_cycle_body=draw_view11_at(50),
+            messages=["                                      ", ""],
+            post_launch_keys="abcdefghijklmnopqrstuvwx",
+            post_launch_wait=1.0,
+            post_launch_key_delay=0.08,
+            expected_rect_checks=[
+                {
+                    "mode": "contains_color",
+                    "left": 0,
+                    "top": 48,
+                    "right": WIDTH - 1,
+                    "bottom": 55,
+                    "color": 0,
+                    "min_count": 100,
+                }
+            ],
+            compare_view=False,
+        ),
+        _custom_case(
+            "input_width_flag_a4_restores_long_slot_limit",
+            "Action 0xa4 clears the input-width flag; helper 0x3652 returns to the shorter limit derived from blank string slot 0.",
+            byte_action(0x72, 0, 1)
+            + byte_action(0x6C, 2)
+            + byte_action(0x6F, 0, 5, 22)
+            + byte_action(0x78)
+            + byte_action(0xA3)
+            + byte_action(0xA4),
+            50,
+            init_once_flag=96,
+            per_cycle_body=draw_view11_at(50),
+            messages=["                                      ", ""],
+            post_launch_keys="abcdefghijklmnopqrstuvwx",
+            post_launch_wait=1.0,
+            post_launch_key_delay=0.08,
+            expected_rect_checks=[
+                {
+                    "mode": "no_color",
+                    "left": 0,
+                    "top": 48,
+                    "right": WIDTH - 1,
+                    "bottom": 55,
+                    "color": 0,
+                    "max_count": 20,
+                }
+            ],
+            compare_view=False,
+        ),
+        _custom_case(
+            "close_text_window_state_clears_input_width_flag",
+            "Action 0xa9 clears the input-width flag even when no saved text window is active.",
+            byte_action(0x72, 0, 1)
+            + byte_action(0x6C, 2)
+            + byte_action(0x6F, 0, 5, 22)
+            + byte_action(0x78)
+            + byte_action(0xA3)
+            + byte_action(0xA9),
+            50,
+            init_once_flag=97,
+            per_cycle_body=draw_view11_at(50),
+            messages=["                                      ", ""],
+            post_launch_keys="abcdefghijklmnopqrstuvwx",
+            post_launch_wait=1.0,
+            post_launch_key_delay=0.08,
+            expected_rect_checks=[
+                {
+                    "mode": "no_color",
+                    "left": 0,
+                    "top": 48,
+                    "right": WIDTH - 1,
+                    "bottom": 55,
+                    "color": 0,
+                    "max_count": 20,
+                }
+            ],
+            compare_view=False,
+        ),
+        _custom_case(
             "text_attribute_mode_dispatch_smoke",
             "Actions 0x6d, 0x6a, and 0x6b configure text attributes, enter/leave the alternate text mode, and return.",
             byte_action(0x6D, 15, 0)
@@ -1482,6 +1634,16 @@ def base_cases() -> list[LogicInterpreterCase]:
             50,
             expected_visual_rects=[
                 {"left": 0, "top": 0, "right": WIDTH - 1, "bottom": HEIGHT - 1, "color": 0}
+            ],
+            compare_view=False,
+        ),
+        _custom_case(
+            "text_attribute_pair_changes_attr_mode_clear_color",
+            "Action 0x6d stores a text attribute pair that action 0x6a reuses when clearing the alternate text surface.",
+            byte_action(0x6D, 0, 1) + byte_action(0x6A) + draw_view11_at(50),
+            50,
+            expected_visual_rects=[
+                {"left": 0, "top": 0, "right": WIDTH - 1, "bottom": HEIGHT - 1, "color": 15}
             ],
             compare_view=False,
         ),
@@ -1526,6 +1688,24 @@ def base_cases() -> list[LogicInterpreterCase]:
             "Actions 0x70 and 0x71 show and hide the status-line-like area and return to following bytecode.",
             byte_action(0x70) + byte_action(0x71) + byte_action(0x1A) + draw_view11_at(50),
             50,
+        ),
+        _custom_case(
+            "status_line_show_draws_configured_row",
+            "Action 0x70 enables and redraws the status-line-like area on the row configured by action 0x6f operand 2.",
+            byte_action(0x6F, 0, 0, 5) + byte_action(0x70) + draw_view11_at(50),
+            50,
+            expected_rect_checks=[
+                {
+                    "mode": "contains_color",
+                    "left": 0,
+                    "top": 40,
+                    "right": WIDTH - 1,
+                    "bottom": 47,
+                    "color": 15,
+                    "min_count": 8,
+                }
+            ],
+            compare_view=False,
         ),
         _custom_case(
             "status_line_hide_clears_configured_row",
@@ -2231,6 +2411,47 @@ def base_cases() -> list[LogicInterpreterCase]:
             50,
         ),
         _custom_case(
+            "trace_window_enable_draws_box_when_flag10_set",
+            "Actions 0x96 and 0x95 draw the configured trace window when flag 10 is set.",
+            byte_action(0x6F, 0, 0, 5)
+            + byte_action(0x96, 0, 1, 2)
+            + set_flag_action(10)
+            + byte_action(0x95),
+            50,
+            init_once_flag=94,
+            preload_view_no=None,
+            expected_rect_checks=[
+                {
+                    "mode": "contains_color",
+                    "left": 0,
+                    "top": 5,
+                    "right": WIDTH - 1,
+                    "bottom": 28,
+                    "color": 4,
+                    "min_count": 180,
+                },
+                {
+                    "mode": "contains_color",
+                    "left": 0,
+                    "top": 6,
+                    "right": WIDTH - 1,
+                    "bottom": 31,
+                    "color": 15,
+                    "min_count": 3000,
+                },
+                {
+                    "mode": "contains_color",
+                    "left": 8,
+                    "top": 18,
+                    "right": 110,
+                    "bottom": 30,
+                    "color": 0,
+                    "min_count": 80,
+                },
+            ],
+            compare_view=False,
+        ),
+        _custom_case(
             "log_file_append_dispatch_smoke",
             "Action 0x90 appends a formatted room/input/message record to logfile and returns.",
             byte_action(0x90, 1) + draw_view11_at(50),
@@ -2383,9 +2604,81 @@ def apply_expected_visual_rects(picture, rects: list[dict[str, int]] | None):
     return type(picture)(picture.picture_no, bytes(cells))
 
 
+def compare_rect_checks(case: LogicInterpreterCase, captured: bytes) -> LogicComparison | None:
+    if not case.expected_rect_checks:
+        return None
+
+    failures: list[str] = []
+    samples: list[tuple[int, int, int, int]] = []
+    min_x = WIDTH
+    min_y = HEIGHT
+    max_x = -1
+    max_y = -1
+    for index, check in enumerate(case.expected_rect_checks):
+        left = max(0, int(check["left"]))
+        top = max(0, int(check["top"]))
+        right = min(WIDTH - 1, int(check["right"]))
+        bottom = min(HEIGHT - 1, int(check["bottom"]))
+        if right < left or bottom < top:
+            failures.append(f"check {index}: empty rectangle")
+            continue
+        color = int(check.get("color", 0)) & 0x0F
+        mode = str(check.get("mode", "contains_color"))
+        count = 0
+        total = (right - left + 1) * (bottom - top + 1)
+        for y in range(top, bottom + 1):
+            row = y * WIDTH
+            for x in range(left, right + 1):
+                if captured[row + x] == color:
+                    count += 1
+
+        passed = False
+        if mode == "contains_color":
+            passed = count >= int(check.get("min_count", 1))
+        elif mode == "no_color":
+            passed = count <= int(check.get("max_count", 0))
+        elif mode == "all_color":
+            passed = count == total
+        else:
+            failures.append(f"check {index}: unknown mode {mode!r}")
+
+        if passed:
+            continue
+        min_x = min(min_x, left)
+        min_y = min(min_y, top)
+        max_x = max(max_x, right)
+        max_y = max(max_y, bottom)
+        if len(samples) < 16:
+            samples.append((left, top, count, total))
+        if mode == "contains_color":
+            failures.append(
+                f"check {index}: color {color} count {count} below {int(check.get('min_count', 1))}"
+            )
+        elif mode == "no_color":
+            failures.append(
+                f"check {index}: color {color} count {count} above {int(check.get('max_count', 0))}"
+            )
+        elif mode == "all_color":
+            failures.append(f"check {index}: color {color} count {count} of {total}")
+
+    bbox = None if not failures else (min_x, min_y, max_x, max_y)
+    return LogicComparison(
+        case.case_id,
+        "match" if not failures else "mismatch",
+        len(failures),
+        len(case.expected_rect_checks),
+        bbox,
+        samples,
+        None if not failures else "; ".join(failures),
+    )
+
+
 def compare_capture(case: LogicInterpreterCase, capture: Path) -> LogicComparison:
     try:
         captured = downsample_qemu_picture_nibbles(read_ppm(capture))
+        rect_result = compare_rect_checks(case, captured)
+        if rect_result is not None:
+            return rect_result
         picture = PictureRenderer(case.expected_picture_payload).render(case.picture_no)
         picture = apply_expected_visual_rects(picture, case.expected_visual_rects)
         expected_picture = picture

@@ -57,9 +57,28 @@ def base_cases() -> list[ViewBatchCase]:
     ]
 
 
-def load_cases(path: Path | None) -> list[ViewBatchCase]:
+def stress_cases() -> list[ViewBatchCase]:
+    return [
+        ViewBatchCase("view_117_tall_transparent0", 1, 117, 0, 0, 20, 140, 15),
+        ViewBatchCase("view_029_group3_transparent1", 1, 29, 3, 0, 20, 120, 15),
+        ViewBatchCase("view_092_large_transparent2", 1, 92, 0, 0, 20, 130, 15),
+        ViewBatchCase("view_224_transparent5", 1, 224, 0, 0, 20, 120, 15),
+        ViewBatchCase("view_103_transparent6", 1, 103, 0, 0, 20, 100, 15),
+        ViewBatchCase("view_037_tall_transparent7", 1, 37, 0, 0, 20, 150, 15),
+        ViewBatchCase("view_029_large_transparent8", 1, 29, 0, 0, 20, 120, 15),
+        ViewBatchCase("view_010_bit80_transparent10", 1, 10, 0, 0, 20, 80, 15),
+        ViewBatchCase("view_157_transparent13", 1, 157, 0, 2, 20, 110, 15),
+        ViewBatchCase("view_175_large_transparent14", 1, 175, 0, 0, 20, 130, 15),
+        ViewBatchCase("view_093_large_transparent15", 1, 93, 0, 2, 20, 130, 15),
+    ]
+
+
+def load_cases(path: Path | None, include_stress: bool = False) -> list[ViewBatchCase]:
     if path is None:
-        return base_cases()
+        cases = base_cases()
+        if include_stress:
+            cases.extend(stress_cases())
+        return cases
     data = json.loads(path.read_text(encoding="ascii"))
     return [ViewBatchCase(**item) for item in data]
 
@@ -202,12 +221,13 @@ def main() -> None:
     parser.add_argument("--boot-wait", type=float, default=5.0)
     parser.add_argument("--draw-wait", type=float, default=8.0)
     parser.add_argument("--stop-on-failure", action="store_true")
+    parser.add_argument("--include-stress", action="store_true")
     parser.add_argument("--snapshot", action="store_true")
     parser.add_argument("--snapshot-raw", type=Path, default=DEFAULT_SNAPSHOT_RAW)
     parser.add_argument("--snapshot-qcow", type=Path, default=DEFAULT_SNAPSHOT_QCOW)
     args = parser.parse_args()
 
-    cases = load_cases(args.cases)
+    cases = load_cases(args.cases, args.include_stress)
     if args.snapshot:
         results = run_snapshot_batch(
             cases,

@@ -9396,3 +9396,2778 @@ Progress updates and outcomes:
 
       Action/result: Appended the commit-turn progress-log entries before
       final lightweight checks and staging.
+
+1240. Reported: "I’ll continue from the freshly committed state and target the
+      remaining partial opcodes in PROGRESS.md. I’ll start by rereading the
+      tracker and source notes, then look for the next behavior that can be
+      proven from disassembly and validated with a narrow QEMU fixture."
+
+      Action/result: Re-read repository status, `PROGRESS.md`, and current
+      opcode/probe references.
+
+1241. Reported: "I’m going to take the next partial opcode that looks most
+      tractable from the disassembly: `0x6d`, the text attribute pair setter.
+      The goal is to turn it from “dispatch-smoked” into a small behavior spec
+      with an original-engine confirmation, then update the tracker and docs."
+
+      Action/result: Selected `0x6d` as the next promotion target.
+
+1242. Reported: "The first pass confirms the remaining tracker entries are
+      mostly “partial because we only proved dispatch.” I’m drilling into the
+      existing probe harness now so the next test is shaped like the engine
+      code, not just a random observation."
+
+      Action/result: Re-read the logic interpreter probe harness and existing
+      text-attribute cases.
+
+1243. Reported: "The existing notes already identify the helper chain
+      (`0x77d5` -> `0x7803`/`0x78a1`/`0x78ad`). I’m going back to that
+      disassembly now to pin down which operand combinations should produce a
+      visible, stable EGA result."
+
+      Action/result: Re-read disassembly around `0x76ca`, `0x77af`, and
+      `0x77d5`.
+
+1244. Reported: "The disassembly supports a good controlled case: set the pair
+      to foreground `0`, background-ish operand `1`, then enter attribute mode.
+      Because `0x6a` recomputes with `[0x1757] = 1`, the fill attribute should
+      become `0xf0`, which ought to show as a full white background in the EGA
+      capture."
+
+      Action/result: Added planned case
+      `text_attribute_pair_changes_attr_mode_clear_color`.
+
+1245. Reported: "I’ve added that as a real fixture case rather than a one-off
+      script. Now I’m wiring the unit expectations around it, then I’ll let
+      QEMU tell us whether the source-derived `0xf0` prediction matches the
+      original engine."
+
+      Action/result: Updated `tools/logic_interpreter_probe.py` and
+      `tests/test_logic_interpreter_probe.py`.
+
+1246. Reported: "The fixture is in place with an explicit “no sprite expected”
+      comparison, since active attribute mode hides the normal validation draw.
+      I’m running the local probe tests before spending a QEMU boot on it."
+
+      Action/result: Ran the focused unit tests for case coverage and expected
+      visual rectangles; both passed.
+
+1247. Reported: "The harness tests are clean. Next I’m running just this new
+      `0x6d` case through the original interpreter; if it matches, we can
+      promote the opcode’s evidence level instead of leaving it as
+      dispatch-only."
+
+      Action/result: Ran the one-case QEMU batch
+      `text_attr_pair_behaviour_001`.
+
+1248. Reported: "QEMU matched exactly: the original engine clears the whole
+      visible surface to color `15` after `0x6d(0,1)` followed by `0x6a`. I’m
+      updating the evidence tables and prose now so the source-derived helper
+      behavior and the dynamic confirmation line up."
+
+      Action/result: Confirmed the original-engine capture matched the local
+      expected full-screen color-15 surface.
+
+1249. Reported: "The match gives us a nice high-level rule: `0x6d` stores the
+      logical pair, and `0x6a` reinterprets that saved pair as a packed text
+      attribute once attr mode is enabled. I’m promoting `0x6d` in the
+      generated evidence source, then I’ll regenerate the mdBook page from it."
+
+      Action/result: Moved `0x6d` from dispatch-smoke to behavior-level
+      evidence in `tools/logic_opcode_evidence.py` and regenerated the
+      evidence chapter.
+
+1250. Reported: "The generated opcode matrix now marks `0x6d` as
+      behavior-level QEMU evidence. I’m folding the same result into PROGRESS
+      and the implementation-oriented text sections so the tracker, opcode
+      chapter, and compatibility notes all tell the same story."
+
+      Action/result: Began updating tracker and documentation prose.
+
+1251. Reported: "One small bookkeeping wrinkle: `docs/src/progress_log.md` is
+      long enough that a narrow `sed` range landed in an older section, so I’m
+      using the tail for the current append point. The substantive `0x6d`
+      changes are straightforward."
+
+      Action/result: Located the current progress-log append point.
+
+1252. Reported: "I found the append point. Before final validation I’ll add
+      the current-turn progress entries there, including the QEMU result and
+      the docs updates, so the historical log stays complete."
+
+      Action/result: Prepared to append the current-turn progress-log entries.
+
+1253. Reported: "`PROGRESS.md` is bumped to 163/176 action opcodes at full
+      coverage, with 13 partials left. I’m updating the opcode prose next so
+      implementers can see the exact pair-to-attribute behavior we proved."
+
+      Action/result: Updated `PROGRESS.md` and `docs/src/logic_bytecode.md`.
+
+1254. Reported: "The opcode row now carries both the storage globals and the
+      visible consequence. I’m adding the same rule to the runtime model
+      because this is really part of the text-surface state machine, not just a
+      bytecode footnote."
+
+      Action/result: Updated `docs/src/runtime_model.md`.
+
+1255. Reported: "Runtime prose is updated. I’m attaching the new case name and
+      the `0xf0` observation to the symbolic label map, since that file is the
+      cross-version anchor we’ll need when addresses move in other AGI builds."
+
+      Action/result: Updated `docs/src/symbolic_labels.md`.
+
+1256. Reported: "The symbolic map now links `code.text.set_attribute_pair` to
+      the new validation case. I’m adding the reproducible QEMU command/result
+      to the compatibility chapter so future runs can replay this exact check."
+
+      Action/result: Updated `docs/src/compatibility_testing.md`.
+
+1257. Reported: "Compatibility docs have the exact `TA` batch command and
+      result. I’m appending the clean-room notes section now with the
+      disassembly evidence, unit/QEMU commands, and what changed in the model."
+
+      Action/result: Updated `docs/src/clean_room_executable_notes.md`.
+
+1258. Reported: "The notes already have the previous text-mode batches, so I’m
+      appending this as a small follow-on section rather than rewriting
+      history. That keeps the trail readable: source helper, new fixture, QEMU
+      match, tracker promotion."
+
+      Action/result: Appended the dated clean-room notes section for the
+      `0x6d` text-attribute-pair behavior probe.
+
+1259. Reported: "The clean-room notes now include the `0x6d` pass. I’m
+      catching the progress log up through this point before validation; after
+      the checks run, I’ll append a short validation-result entry too."
+
+      Action/result: Appended the current progress-log batch before validation.
+
+1260. Reported: "The progress log is caught up through the documentation work.
+      I’m running the full validation pass now: unit suite, generated evidence
+      check, mdBook build, and whitespace check."
+
+      Action/result: Ran `python3 -B -m unittest discover -s tests`,
+      `python3 -B tools/logic_opcode_evidence.py --check`, `mdbook build docs`,
+      and `git diff --check`.
+
+1261. Reported: "All four validations passed: 103 unit tests, evidence
+      `--check`, mdBook, and whitespace. Because I’m adding that validation
+      note to the log, I’ll rerun the lightweight docs/evidence checks
+      afterward so the final state is clean."
+
+      Action/result: Recorded the successful validation result before
+      lightweight final checks.
+
+1262. Reported: "The validation result is recorded. I’m doing the final
+      lightweight pass now: rebuild the book after the log edit, confirm
+      generated evidence is still current, and inspect the final diff/status."
+
+      Action/result: Ran final lightweight checks and inspected the uncommitted
+      diff/status.
+
+1263. Reported: "I spotted one more user-facing update from this validation
+      loop that needs to be logged. I’m adding that final progress-log entry
+      and rerunning the docs/evidence/whitespace checks once more, quietly
+      after this."
+
+      Action/result: Recorded the final progress-log update before quiet
+      validation checks.
+
+1264. Reported: "I’ll keep moving from the current uncommitted `0x6d` state
+      and choose the next partial opcode(s) from `PROGRESS.md`. I’ll keep the
+      updates concise, but I’ll work in a longer continuous pass and only stop
+      if validation fails in a way that needs a decision."
+
+      Action/result: Resumed from the uncommitted text-attribute state and
+      selected the next partial opcodes from `PROGRESS.md`.
+
+1265. Reported: "I’m looking at the remaining partial list now. The next best
+      candidate looks like the input-line pair `0x89`/`0x8a`, because the
+      disassembly already exposes visible buffer globals and there may be a
+      narrow display-surface probe hiding in the existing text harness."
+
+      Action/result: Chose `0x89`/`0x8a` as the next behavior-level probe
+      target.
+
+1266. Reported: "The input-line path is a little more awkward than `0x6d`:
+      proving it exactly would require either text glyph rendering or a
+      targeted predicate comparison. I’m checking the helper code first to
+      avoid building a test that merely “sees something changed” without
+      knowing why."
+
+      Action/result: Re-read input-line helpers before designing a fixture.
+
+1267. Reported: "The helper confirms a useful exact sequence: `0x8a`
+      repeatedly sends backspace through the same input character helper until
+      visible length reaches zero, while `0x89` repopulates visible buffer
+      `0x0fa4` from source buffer `0x0fce`. I’m going to add focused
+      typed-input cases plus a small rectangle-signal comparator for the one
+      path where exact glyph pixels are not yet modeled."
+
+      Action/result: Planned typed-input probes and a bounded rectangle
+      comparator for UI text rows.
+
+1268. Reported: "I’m editing the probe harness in a contained way: exact
+      full-frame comparisons stay the default, and the new rectangle checks are
+      only for UI text rows where the source behavior is known but glyph
+      rendering is not part of the local expected renderer yet."
+
+      Action/result: Added optional rectangle checks without changing default
+      exact frame comparison behavior.
+
+1269. Reported: "The new cases separate three things: a baseline that typed
+      input really appears, `0x8a` making that row black again, and `0x8a`
+      followed by `0x89` bringing the typed buffer back. I’m adding the
+      rectangle-check evaluator now so only the baseline/refresh glyph-bearing
+      cases use it."
+
+      Action/result: Added typed-input baseline, erase, and refresh candidate
+      cases.
+
+1270. Reported: "Rectangle checks are now a narrow alternate comparison path:
+      they count specific colors inside a bounded logical row and return a
+      normal match/mismatch report. I’m wiring unit tests around the new cases
+      and the comparator before running QEMU."
+
+      Action/result: Implemented `compare_rect_checks` and began focused unit
+      coverage.
+
+1271. Reported: "The unit tests now assert the new cases exist and that
+      rectangle checks both match and fail when they should. I’m running the
+      focused probe tests before the original-engine batch."
+
+      Action/result: Added unit assertions for the new cases and comparator.
+
+1272. Reported: "Focused tests pass. Next I’m running a four-case QEMU batch:
+      status show, typed-input baseline, `0x8a` erase, and `0x8a` plus `0x89`
+      refresh."
+
+      Action/result: Focused unit tests passed and the first mixed QEMU batch
+      was launched.
+
+1273. Reported: "The batch is running from a single DOS snapshot now. It built
+      the selected cases in base-case order, which is fine; I’m waiting for
+      QEMU to finish and then I’ll inspect any mismatch rather than guessing."
+
+      Action/result: Waited for the snapshot-based input/status QEMU run.
+
+1274. Reported: "QEMU matched the typed-input baseline and the `0x8a` erase
+      case, so that part is solid. The `0x8a`+`0x89` refresh case mismatched,
+      which likely means my assumed source-buffer persistence is wrong or the
+      refresh timing/path differs; I’m inspecting the report and capture before
+      changing the model."
+
+      Action/result: First QEMU run matched baseline/erase and exposed a
+      refresh mismatch.
+
+1275. Reported: "The mismatch is informative: `0x8a` and `0x8a`+`0x89`
+      produce the same black-row capture, so the refresh did not restore from
+      the source buffer as I predicted. I’m doing a small pixel-count check on
+      the captured rows now to distinguish “text glyph” from “whole-row/
+      background color.”"
+
+      Action/result: Inspected the failed refresh capture and began row color
+      counts.
+
+1276. Reported: "That quick row-count script is still running a moment longer
+      than expected, so I’m polling it instead of starting another image read."
+
+      Action/result: Waited for the row-count inspection to complete.
+
+1277. Reported: "The row counts explain the failure: before Enter, typed
+      characters live in the visible/edit buffer, not the source string that
+      `0x89` replays from. I’m correcting the `0x89` case to type `look` plus
+      Enter first, so the source buffer at `0x0fce` should be populated before
+      refresh."
+
+      Action/result: Corrected the refresh fixture to use accepted input rather
+      than unaccepted live-edit text.
+
+1278. Reported: "The case is corrected to use the entered-command path instead
+      of the live edit buffer. I’m rerunning the focused tests and then a
+      smaller QEMU batch for the three input-line cases."
+
+      Action/result: Renamed/corrected the `0x89` case and reran focused tests.
+
+1279. Reported: "The corrected input batch is running. If it passes, `0x8a` is
+      exact-row validated and `0x89` is validated as a source-buffer repaint,
+      with the entered-command detail documented."
+
+      Action/result: Launched the corrected input-line QEMU batch.
+
+1280. Reported: "The corrected input batch passed: baseline visible typed text,
+      `0x8a` erasing to a black row, and `0x89` repainting after Enter all
+      matched. I’m running the status-line show case separately now, since the
+      first mixed batch stopped before it."
+
+      Action/result: Corrected input-line batch matched and the status-line
+      QEMU case was launched.
+
+1281. Reported: "With those matches, I can promote `0x70`, `0x89`, and
+      `0x8a`: `0x70` as a status-row draw signal, `0x8a` as an exact typed-row
+      erase, and `0x89` as repainting from the entered source buffer. I’m
+      updating the evidence generator and tracker first."
+
+      Action/result: Promoted `0x70`, `0x89`, and `0x8a` in the evidence plan.
+
+1282. Reported: "The generator now points those opcodes at their behavior cases
+      instead of smoke cases. I’m regenerating the opcode evidence page and
+      then updating `PROGRESS.md` counts."
+
+      Action/result: Updated `tools/logic_opcode_evidence.py` and regenerated
+      `docs/src/logic_opcode_evidence.md`.
+
+1283. Reported: "The generated evidence page is refreshed. I’m changing the
+      tracker from 163 to 166 covered action opcodes, leaving 10 partial action
+      rows."
+
+      Action/result: Prepared the `PROGRESS.md` coverage-count update.
+
+1284. Reported: "`PROGRESS.md` is updated. I’m tightening the opcode prose
+      next, including the correction that `0x89` replays the entered command
+      buffer, not the unaccepted live edit buffer."
+
+      Action/result: Updated `PROGRESS.md` for 166/176 action opcode coverage.
+
+1285. Reported: "The opcode chapter now records both the successful cases and
+      the failed pre-Enter hypothesis for `0x89`. I’m adding that higher-level
+      distinction to the runtime model so an implementation knows which input
+      buffer is replayed."
+
+      Action/result: Updated `docs/src/logic_bytecode.md` for `0x70`, `0x89`,
+      and `0x8a`.
+
+1286. Reported: "The runtime model now distinguishes live edit text from the
+      entered source buffer. I’m updating the symbolic label map with the newly
+      validated input/status helpers and their SQ2 addresses."
+
+      Action/result: Updated `docs/src/runtime_model.md` with the live/source
+      input-buffer distinction.
+
+1287. Reported: "The symbolic map has new stable labels for the input
+      character helper, erase, refresh, and source-to-visible append helper.
+      I’m adding the QEMU batch commands/results to the compatibility chapter
+      now."
+
+      Action/result: Updated `docs/src/symbolic_labels.md` with input/status
+      helper labels.
+
+1288. Reported: "The compatibility chapter has the earlier text batches in the
+      right spot, so I’m inserting the new input-refresh/status-show evidence
+      alongside them and marking the old smoke batch as superseded for three
+      more opcodes."
+
+      Action/result: Added input-refresh and status-show QEMU commands/results
+      to `docs/src/compatibility_testing.md`.
+
+1289. Reported: "Compatibility docs now have both new batch commands and the
+      failed `0x89` pre-Enter correction. I’m checking for any older “still
+      smoke-only” wording that needs to be superseded."
+
+      Action/result: Searched for stale smoke-only wording.
+
+1290. Reported: "I found two stale “dispatch-smoke” summaries that predate the
+      new behavior cases. I’m revising them to say which parts are now
+      superseded instead of letting the docs contradict the tracker."
+
+      Action/result: Revised stale text/status smoke summaries.
+
+1291. Reported: "The stale summaries now point forward to the focused behavior
+      probes. I’m making the high-level progress areas a little less stale as
+      well, especially the input/text subsystem summary."
+
+      Action/result: Updated high-level subsystem tracker wording in
+      `PROGRESS.md`.
+
+1292. Reported: "The subsystem tracker now reflects that visible input-line
+      refresh/erase is no longer just smoke coverage. I’m appending the
+      clean-room evidence section with the exact failed and successful QEMU
+      batches, since the failed pre-Enter hypothesis is part of the useful
+      history."
+
+      Action/result: Prepared the clean-room notes append for input/status.
+
+1293. Reported: "The notes file ends with the `0x6d` section, so I’m appending
+      a new dated input/status section after it. This will preserve the
+      row-count correction and the final promotion result."
+
+      Action/result: Appended the input-line refresh/erase and status-line show
+      notes section.
+
+1294. Reported: "I’m going to keep pushing into the remaining partials. The
+      trace-window pair `0x95`/`0x96` looks like the next feasible source-first
+      target: the existing smoke case deliberately leaves flag 10 clear, but
+      the disassembly says setting flag 10 should draw a boxed trace area."
+
+      Action/result: Selected trace-window enable/configure as the next partial
+      opcode pair.
+
+1295. Reported: "I’m picking up exactly where the trace-window disassembly
+      left off. The key thing I’m checking now is whether the visible effect of
+      `0x95` can be validated without getting tangled in the trace pause
+      mechanism that may intercept the very next opcode."
+
+      Action/result: Resumed trace-window validation after context compaction.
+
+1296. Reported: "The static trace code confirms two separate responsibilities:
+      `0x96` only writes trace configuration globals, while `0x95` consults
+      flag 10 and then draws the window through the normal boxed-text helper.
+      I’m going to make the QEMU case line up with that split rather than
+      treating it as a generic “some pixels changed” test."
+
+      Action/result: Re-read trace docs/source and planned a focused enabled
+      trace-window case.
+
+1297. Reported: "There’s already an older note saying an enabled trace attempt
+      showed a box but wasn’t in the comparison suite. I’m turning that into a
+      repeatable case now, with a bounded rectangle predicate attached to the
+      exact configured rows."
+
+      Action/result: Located the prior trace-window attempt and began converting
+      it into a stable fixture.
+
+1298. Reported: "The case should end right after enabling trace, or use a
+      one-shot branch, because the disassembly says an already-active `0x95`
+      consumes an extra byte. That extra-byte behavior is precisely the kind of
+      footgun I want the test to avoid while we’re validating the window draw
+      itself."
+
+      Action/result: Chose a one-shot trace fixture shape to avoid repeated
+      active-state byte consumption.
+
+1299. Reported: "I’ve confirmed the fixture harness can already express this
+      cleanly: `compare_view=False` plus a rectangle check lets us validate the
+      trace text/window pixels without pretending we have a full glyph model.
+      Next I’m adding the enabled-trace case and a unit assertion for its
+      expected bounds."
+
+      Action/result: Prepared to add the trace case and unit assertion.
+
+1300. Reported: "For the trace window’s vertical position, I’m using the source
+      formula directly: top row is the configured input/status base row plus
+      the trace row offset plus one. With `0x6f(0,0,5)` and `0x96(...,1,2)`,
+      the box should land around logical rows 48..63."
+
+      Action/result: Formed an initial trace rectangle hypothesis.
+
+1301. Reported: "Small correction from the source formula: the trace vertical
+      base is the first `0x6f` operand (`[0x05dd]`), not the status-row
+      operand. I’m setting that deliberately in the fixture so the expected
+      rectangle is derived from the actual globals the handler reads."
+
+      Action/result: Corrected the vertical-position hypothesis before adding
+      the fixture.
+
+1302. Reported: "I’m making the trace case one-shot and omitting the validation
+      sprite, because the trace dispatcher can pause before later bytecode. The
+      observable we need is the boxed trace area itself, so the case will
+      compare that surface directly."
+
+      Action/result: Added `trace_window_enable_draws_box_when_flag10_set` and
+      a unit assertion for its initial rectangle checks.
+
+1303. Reported: "The fixture and unit assertion are in place. I’m running the
+      focused tests first, then I’ll let QEMU tell us whether the exact row
+      window is right or whether the text helper’s border math needs a tighter
+      bound."
+
+      Action/result: Ran focused unit tests for the trace fixture and rectangle
+      comparator.
+
+1304. Reported: "Focused tests pass. I’m running the enabled trace-window case
+      through the original engine now; this one may pause inside the trace UI,
+      but that’s acceptable because the screenshot is the evidence we need."
+
+      Action/result: Focused tests passed and QEMU trace batch
+      `trace_window_enable_001` was launched.
+
+1305. Reported: "The enabled trace case matched on the first pass, so the
+      source-derived row band is correct enough for automation. I’m inspecting
+      the capture/report anyway before promoting the opcodes, because a match
+      count alone doesn’t tell us whether we’re seeing the border, trace text,
+      or both."
+
+      Action/result: First trace QEMU run matched and report/capture inspection
+      began.
+
+1306. Reported: "The report path points to the fixture capture rather than the
+      batch directory; I asked the quick inspector for the wrong copy. I’m
+      rerunning that inspection against the actual saved PPM now, then I’ll
+      update the evidence mappings."
+
+      Action/result: Re-ran capture inspection against the correct fixture PPM.
+
+1307. Reported: "The capture is stranger than a small bordered box: most of the
+      upper logical rows are white, with a few trace-text/background pixels
+      inside. That may be the boxed text helper filling a large text area, so
+      I’m checking the image visually and then I’ll keep the automated predicate
+      honest by describing exactly what it proves."
+
+      Action/result: Inspected downsample color counts and prepared visual
+      inspection.
+
+1308. Reported: "The image viewer could not read that PPM directly, so I’m
+      converting a PNG copy under `build/` for inspection. This is just for
+      local sanity checking; the test continues to use the saved PPM."
+
+      Action/result: Converted the trace PPM capture to PNG for visual
+      inspection.
+
+1309. Reported: "The visual check is useful: the helper draws a red-bordered,
+      white-filled trace box with black trace text like `0: 12(94)`. I’m
+      tightening the check to look for both the white fill and red border, so
+      it’s less likely to pass on an unrelated white screen."
+
+      Action/result: Identified the visible trace-window components from the
+      capture.
+
+1310. Reported: "The visual mapping says my first rectangle was broad enough
+      but not ideal: the red border is around logical row 5 in the downsampled
+      frame, while the white fill spans below it. I’m checking the local
+      disassembly helpers briefly before tightening the predicate, because the
+      helper’s coordinate system clearly is not the same as the 8-pixel
+      text-row helpers."
+
+      Action/result: Compared observed trace-window pixel rows against the
+      source-derived coordinate expectations.
+
+1311. Reported: "I’m revising the predicate into three signals: red border
+      pixels, a large white fill area, and black trace text inside it. That
+      matches the observed UI without requiring exact glyph reproduction."
+
+      Action/result: Tightened the trace rectangle checks to require red,
+      white, and black visible signals.
+
+1312. Reported: "The trace predicate is now tighter. I’m rerunning the focused
+      tests and then the same original-engine capture to make sure the stricter
+      checks still pass."
+
+      Action/result: Re-ran focused unit tests after tightening the predicate.
+
+1313. Reported: "The stricter unit checks pass. I’m rerunning the QEMU trace
+      case; if it matches again, I’ll promote `0x95` and `0x96` from
+      dispatch-smoke to QEMU-validated in the evidence and tracker."
+
+      Action/result: Launched final trace QEMU batch
+      `trace_window_enable_002`.
+
+1314. Reported: "The stricter QEMU trace capture matched. I’m updating the
+      generated evidence mapping now so the opcode table points at the enabled
+      trace-window case instead of the older flag-clear smoke case."
+
+      Action/result: Final trace QEMU batch matched and evidence mapping update
+      began.
+
+1315. Reported: "`0x95` and `0x96` are moving out of the smoke bucket together:
+      the enabled case exercises `0x96`’s stored row/height configuration and
+      `0x95`’s flag-gated draw path in the original interpreter."
+
+      Action/result: Updated `tools/logic_opcode_evidence.py` to map `0x95` and
+      `0x96` to the enabled trace case.
+
+1316. Reported: "The evidence generator is patched. I’m regenerating the opcode
+      evidence chapter, then I’ll update `PROGRESS.md` from 166 to 168 covered
+      action opcodes."
+
+      Action/result: Regenerated `docs/src/logic_opcode_evidence.md`.
+
+1317. Reported: "The generated evidence page is refreshed. I’m updating the
+      tracker counts and the two trace rows now, then I’ll put the new behavior
+      in the opcode/runtime/compatibility notes."
+
+      Action/result: Prepared the `PROGRESS.md` promotion update.
+
+1318. Reported: "The tracker still only has eight partial action opcodes after
+      this promotion: `0x6e`, `0x83`, `0x8e`, `0xa3`, `0xa4`, `0xa9`, `0xaa`,
+      and `0xad`. I’m making that count explicit in `PROGRESS.md`."
+
+      Action/result: Updated `PROGRESS.md` to 168/176 action opcode coverage.
+
+1319. Reported: "I’m updating the spec prose carefully here: the table still
+      needs the disassembled control-flow details, while the paragraph below
+      can carry the QEMU-visible result: red border, white fill, black trace
+      text, and the pause-before-next-action behavior."
+
+      Action/result: Began updating the trace opcode prose.
+
+1320. Reported: "That patch missed the paragraph because the file has slightly
+      different wrapping after earlier edits. I’m rereading the local section
+      and applying the update against the exact text."
+
+      Action/result: Re-read the exact `docs/src/logic_bytecode.md` trace block
+      after a patch-context miss.
+
+1321. Reported: "I found the exact block. The update also fixes wording from
+      “input-line row” to “input-line base row,” which matches the `0x6f`
+      storage we just rechecked."
+
+      Action/result: Updated `docs/src/logic_bytecode.md` for the trace-window
+      behavior and wording correction.
+
+1322. Reported: "The opcode chapter now carries both the source-backed
+      internals and the new QEMU-visible trace behavior. I’m adding the same
+      higher-level interpretation to the runtime model: this is developer
+      tracing state, not ordinary game logic state."
+
+      Action/result: Updated `docs/src/runtime_model.md`.
+
+1323. Reported: "The runtime model is updated. I’m refreshing the symbolic
+      labels next so the cross-version map says the enabled draw path is now
+      validated, not merely observed as a one-off mismatch."
+
+      Action/result: Updated `docs/src/symbolic_labels.md` trace entries.
+
+1324. Reported: "The symbolic map now points to the new trace batch. I’m adding
+      the exact QEMU command/result to the compatibility chapter and marking
+      the older trace smoke entry as superseded for `0x95`/`0x96`."
+
+      Action/result: Updated `docs/src/compatibility_testing.md`.
+
+1325. Reported: "The compatibility chapter has the old system batch grouped
+      with several follow-ups. I’m adding a small focused trace subsection
+      immediately after it, so future runs can reproduce the promotion without
+      rerunning unrelated dialog cases."
+
+      Action/result: Inserted the focused enabled trace-window command/result
+      in the compatibility chapter.
+
+1326. Reported: "Compatibility evidence is now reproducible. I’m appending a
+      clean-room notes section with the source locations, the QEMU command, and
+      the observed pixel/UI shape, then I’ll update the progress log."
+
+      Action/result: Prepared the enabled trace-window notes section.
+
+1327. Reported: "The notes section will include the failed/awkward history too:
+      older enabled trace attempts were excluded because they polluted the
+      validation sprite, but the new rectangle-check path lets us validate the
+      trace UI directly."
+
+      Action/result: Appended the enabled trace-window validation section to
+      `docs/src/clean_room_executable_notes.md`.
+
+1328. Reported: "I’m catching the historical progress log up now before doing
+      more opcode work. This will be a longer append because it needs to
+      preserve both the input/status work from before compaction and the
+      trace-window work from this pass."
+
+      Action/result: Appended progress-log entries for the input/status and
+      trace-window work through this point.
+
+1329. Reported: "The progress log is caught up through the trace promotion.
+      I’m moving on to the remaining eight partial action opcodes now,
+      starting by rereading their current descriptions so the next probe is
+      driven by disassembly rather than trial-and-error."
+
+      Action/result: Reviewed the remaining partial opcode descriptions.
+
+1330. Reported: "Of the remaining eight, `0xa9` looks like the best next
+      target: it has a visible restore path through the same saved-rectangle
+      helper used by text windows, so we may be able to validate it with a
+      modal message/window setup and an exact surface check."
+
+      Action/result: Selected `0xa9` as the next validation candidate.
+
+1331. Reported: "`0xa9` may not be easiest after all: ordinary message-display
+      actions close their own text-window state before the following opcode,
+      so a plain “show message then `0xa9`” would still only cover the inactive
+      path. I’m checking the `0x0d0f`/input helper path because `0xa9` also
+      clears that flag unconditionally, which may give us a cleaner behavior
+      probe and cover `0xa3`/`0xa4` at the same time."
+
+      Action/result: Redirected the probe design toward the input-width flag
+      path shared by `0xa3`, `0xa4`, and `0xa9`.
+
+1332. Reported: "The source gives a promising behavioral hook:
+      `code.input.handle_input_char` caps visible input length at `0x24` when
+      `[0x0d0f]` is set, but otherwise uses `0x28 - len(string_slot_0)`. I’m
+      adding long-input probes that make that cap visible, which should cover
+      `0xa3`, `0xa4`, and the unconditional `0xa9` clear path."
+
+      Action/result: Began adding long-input probes based on the disassembled
+      input-width calculation.
+
+1333. Reported: "The three long-input cases are in the harness. I’m adding
+      unit assertions for their presence and expected color-count thresholds
+      before trying them in QEMU."
+
+      Action/result: Added the initial `0xa3`/`0xa4`/`0xa9` input-width cases
+      to the probe harness.
+
+1334. Reported: "The unit assertions are in place. I’m running the focused
+      tests now; if those pass, I’ll run a three-case QEMU batch to tune the
+      row-count thresholds against the real interpreter."
+
+      Action/result: Added focused unit tests for the input-width cases.
+
+1335. Reported: "Focused tests pass. I’m running the original-engine batch for
+      `0xa3`, `0xa4`, and `0xa9` now; this will tell us whether the
+      source-derived input-width effect is visible enough for stable
+      compatibility checks."
+
+      Action/result: Started the first QEMU input-width validation batch.
+
+1336. Reported: "The three-case batch is running from one snapshot. I’m
+      waiting for QEMU to finish rather than launching anything else, since
+      the harness owns the shared VNC/socket while it runs."
+
+      Action/result: Waited on the snapshot QEMU batch.
+
+1337. Reported: "The `0xa3` case matched, but the `0xa4` case did not:
+      clearing the flag didn’t reduce visible text as much as my first
+      threshold expected. I’m inspecting the capture and counts before deciding
+      whether this is a threshold issue or a wrong model of when the long slot
+      is consulted."
+
+      Action/result: Identified the first input-width mismatch and began
+      inspecting capture counts.
+
+1338. Reported: "The mismatch is large: the `0xa4` case still has 548 white
+      pixels in the input row. That suggests the long string in slot 0 may not
+      be affecting the cap because slot 0 is being cleared or not the same
+      slot `0x3652` measures; I’m waiting for the detailed row-count script and
+      then I’ll adjust based on the source path."
+
+      Action/result: Captured the large row-count mismatch for the first
+      `0xa4` attempt.
+
+1339. Reported: "The row counts show `0xa3` and `0xa4` looked identical
+      because my long slot-0 string was visible prompt text, not just an
+      invisible cap. I’m switching that slot to a long run of spaces: same
+      length for the source formula, but no glyph pixels from the prefix
+      itself."
+
+      Action/result: Changed the fixture string slot to long blank prompt text.
+
+1340. Reported: "The fixtures now use a long blank string slot, so any white
+      pixels on the row should come from typed live input rather than the
+      slot-0 prefix. I’m rerunning the focused tests, then the same three-case
+      QEMU batch."
+
+      Action/result: Prepared the second input-width batch.
+
+1341. Reported: "The focused tests still pass. I’m rerunning the input-width
+      QEMU batch without changing the thresholds yet, so the original engine
+      tells us whether the long-blank-slot model is right."
+
+      Action/result: Started the second QEMU input-width batch.
+
+1342. Reported: "The rerun is still inside QEMU. I’m polling it rather than
+      starting another disassembly pass, since these cases depend on the shared
+      snapshot harness completing cleanly."
+
+      Action/result: Waited on the second snapshot QEMU batch.
+
+1343. Reported: "Now the `0xa3` case is the one that mismatched, which is good
+      evidence the prompt pollution is gone. I’m checking the exact row count;
+      if it’s just below the threshold we can tune it, but if it is near zero
+      then the blank slot may be suppressing typed input differently than
+      expected."
+
+      Action/result: Observed that the long blank prompt moved the visible
+      effect rather than removing it.
+
+1344. Reported: "The source model is still useful, but the visible signal is
+      one row lower: the long blank prefix moves the typed characters into the
+      next text row, so `0xa3` shows glyphs at logical Y 48..55. I’m retargeting
+      the checks there; `0xa4`/`0xa9` should keep that wrapped row empty if
+      they clear the flag."
+
+      Action/result: Retargeted input-width checks to the wrapped text row.
+
+1345. Reported: "The expected checks now target the wrapped row. I’m rerunning
+      the focused unit test and then the three-case QEMU batch again, this time
+      with all three cases able to exercise the same wrapped-row predicate."
+
+      Action/result: Started the third validation attempt.
+
+1346. Reported: "The unit check passes. I’m rerunning the QEMU batch; this one
+      should distinguish `0xa3` from both clearing paths if the
+      disassembly-derived cap model is correct."
+
+      Action/result: Began another snapshot QEMU run for the retargeted checks.
+
+1347. Reported: "The batch is running. This pass is a good example of QEMU as
+      confirmation rather than discovery: the key distinction came from
+      `0x3652`; QEMU is just helping pin down the visible row where the effect
+      lands."
+
+      Action/result: Waited on the retargeted QEMU batch.
+
+1348. Reported: "`0xa3` now matches on the wrapped row, but `0xa4` still shows
+      wrapped-row pixels. That means either `0xa4` is not being reached before
+      typing, or the long-slot cap is not recomputed the way I expected after
+      the flag clear. I’m checking the report and source-flow details before
+      changing the fixture again."
+
+      Action/result: Investigated the remaining wrapped-row mismatch.
+
+1349. Reported: "The `0xa4` mismatch is actually a full white wrapped row,
+      which looks like the blank prefix itself wrapped and painted as a white
+      text rectangle, not necessarily typed characters. I’m waiting on the row
+      breakdown and then I’ll avoid relying on wrapped text rows for this flag
+      test."
+
+      Action/result: Distinguished white row fill from typed glyph pixels.
+
+1350. Reported: "A memory-backed check is probably the right tool for these
+      tiny globals. Before adding anything, I’m reading the existing QEMU
+      snapshot helper to see if we can extend it narrowly with monitor `xp`
+      reads instead of building a separate debugger harness."
+
+      Action/result: Considered, but did not need, a monitor-backed memory
+      check for this flag.
+
+1351. Reported: "There is a usable visible signal after all, but it’s the
+      inverse of my first check: the wrapped row is white fill in both paths,
+      while only the `0xa3` path contains black glyph pixels from accepted
+      typed characters. I’m changing the cases to compare black glyph pixels,
+      which aligns with the source distinction and the captures."
+
+      Action/result: Changed the predicate from white fill to black glyph
+      pixels.
+
+1352. Reported: "The harness now checks for black glyph pixels in the wrapped
+      row. I’m updating the unit expectations to match that corrected signal,
+      then I’ll rerun all three original-engine cases."
+
+      Action/result: Updated the harness and test expectations.
+
+1353. Reported: "The unit expectation is corrected. I’m running the focused
+      unit test and then a final QEMU pass for `0xa3`, `0xa4`, and `0xa9` with
+      the black-glyph predicate."
+
+      Action/result: Started focused tests for the corrected predicate.
+
+1354. Reported: "The focused unit test passes. I’m rerunning the three-case
+      QEMU batch; this should also exercise the `0xa9` clearing path now that
+      `0xa4` is expected to pass."
+
+      Action/result: Started the final QEMU input-width batch.
+
+1355. Reported: "The batch is running again. If it passes, I’ll promote
+      `0xa3` and `0xa4` for the input-width flag behavior, and `0xa9` for the
+      unconditional flag clear while leaving its active saved-rectangle restore
+      source-backed."
+
+      Action/result: Waited on the final input-width batch.
+
+1356. Reported: "The corrected input-width batch passed all three cases. I’m
+      promoting `0xa3`, `0xa4`, and `0xa9` now, with the caveat documented that
+      `0xa9`’s active saved-rectangle restore remains source-backed while its
+      unconditional `[0x0d0f]` clear is QEMU-validated."
+
+      Action/result: Promoted `0xa3`, `0xa4`, and `0xa9`.
+
+1357. Reported: "I’m updating the evidence generator first so the generated
+      opcode evidence table agrees with the new QEMU batch before I touch the
+      prose tracker."
+
+      Action/result: Updated `tools/logic_opcode_evidence.py`.
+
+1358. Reported: "The generator now points at the input-width behavior cases.
+      I’m regenerating the evidence page and then bumping the tracker to
+      171/176 covered action opcodes."
+
+      Action/result: Regenerated the logic opcode evidence chapter.
+
+1359. Reported: "The evidence chapter is regenerated. I’m updating
+      `PROGRESS.md`; after this, the only partial action opcodes left should be
+      `0x6e`, `0x83`, `0x8e`, `0xaa`, and `0xad`."
+
+      Action/result: Prepared the tracker update.
+
+1360. Reported: "The tracker is updated to 171/176. I’m revising the opcode
+      prose next so it explains the actual high-level behavior: `[0x0d0f]`
+      changes the live input width calculation, and `0xa9` always clears that
+      flag even without an active text window."
+
+      Action/result: Updated the opcode prose for input-width state.
+
+1361. Reported: "The row updates need a smaller patch because one of the
+      surrounding summaries has been rewrapped by earlier edits. I’m applying
+      the opcode-row changes first, then I’ll adjust the two stale summary
+      paragraphs against their exact text."
+
+      Action/result: Split the opcode chapter patch after a context miss.
+
+1362. Reported: "I’ve got the exact paragraphs. I’m replacing the opcode rows
+      and then cleaning the old “smoke-only” summaries so the chapter doesn’t
+      contradict the new QEMU evidence."
+
+      Action/result: Removed stale smoke-only wording for promoted opcodes.
+
+1363. Reported: "The opcode chapter is now consistent. I’m updating the
+      runtime model’s text/alternate-mode state row so implementers see why
+      `[0x0d0f]` matters outside a one-line opcode description."
+
+      Action/result: Updated the runtime model.
+
+1364. Reported: "I accidentally triggered an empty web search while switching
+      tools; no external material was consulted or used. I’m continuing with
+      the local runtime-model edit."
+
+      Action/result: Recorded that the accidental empty search produced no
+      external source material.
+
+1365. Reported: "The runtime model now includes the input-width state. I’m
+      updating the symbolic label map with stable labels for the input-width
+      flag and the small `0xa3`/`0xa4` action handlers, so future interpreter
+      versions can be compared by role rather than raw address."
+
+      Action/result: Began updating symbolic labels for input-width state.
+
+1366. Reported: "The symbol map already had `code.text.close_window_state`;
+      I’m expanding it and adding the flag/action labels in the same Text/Input
+      section."
+
+      Action/result: Added and expanded text/input symbolic labels.
+
+1367. Reported: "The symbolic labels now include the width flag and its
+      handlers. I’m adding the successful `input_width_flag_004` batch to the
+      compatibility chapter, with a short note about what the black-glyph
+      predicate proves."
+
+      Action/result: Prepared compatibility evidence for the input-width batch.
+
+1368. Reported: "The compatibility chapter’s text/input section is the right
+      home for this, so I’m placing the input-width batch between the
+      prompt/text-attribute probes and the older text/status smoke batch."
+
+      Action/result: Inserted the input-width compatibility evidence.
+
+1369. Reported: "The compatibility chapter now has the reproducible successful
+      batch. I’m appending the clean-room notes with the failed threshold/string
+      attempts too, because those corrections explain why the final black-glyph
+      predicate is the right one."
+
+      Action/result: Added the input-width observations and corrections to the
+      clean-room notes.
+
+1370. Reported: "The input-width work is documented. I’m continuing into the
+      last five partials now. The next likely candidate is `0x83`, because it
+      writes global `[0x0139]`, and that same global is touched by first-object
+      motion helpers, so there may be a source-driven movement probe available."
+
+      Action/result: Started the `0x83` investigation from disassembly.
+
+1371. Reported: "`0x83` itself is extremely small in the disassembly: it only
+      writes zero to `[0x0139]`. I’m looking at consumers of that word now; if
+      no existing script-visible condition depends on it, I’ll keep it
+      source-backed rather than inventing a brittle visual test."
+
+      Action/result: Confirmed that the action body only clears `[0x0139]`.
+
+1372. Reported: "The consumer is the main cycle’s direction mirror between
+      object 0 byte `+0x21` and global byte `[0x000f]`. I’m reading that small
+      source block directly; if `0x83` flips which side wins, we may be able to
+      observe it with an existing object field getter and a conditional draw."
+
+      Action/result: Identified the main-cycle direction-mirror consumer for
+      `[0x0139]`.
+
+1373. Reported: "I’ll keep moving from `PROGRESS.md` and avoid waiting for
+      repeated “continue” prompts. First I’m catching the progress log up with
+      the recent input-width and `0x83` investigation updates, then I’ll
+      continue from the disassembly-backed direction-mirror probe."
+
+      Action/result: Resumed the `PROGRESS.md` task stream and prepared to
+      update the historical progress log.
+
+1374. Reported: "The tracker confirms the remaining partial action opcodes are
+      `0x6e`, `0x83`, `0x8e`, `0xaa`, and `0xad`. I’m adding the recent updates
+      to the historical log now, then I’ll build the `0x83` probe around the
+      main-cycle object0 direction mirror."
+
+      Action/result: Confirmed the partial opcode list and appended prior
+      progress-log entries through the input-width work.
+
+1375. Reported: "The progress log is caught up. Now I’m reading the existing
+      object-field probe helpers so the `0x83` case can reuse established
+      fixture patterns instead of adding a one-off script shape."
+
+      Action/result: Reviewed object field setter/getter fixture helpers.
+
+1376. Reported: "The existing harness already has clean helpers for setting and
+      reading object byte `+0x21`, which is exactly what the `0x83` consumer
+      needs. I’m checking the fixture builder now so the new case can span
+      multiple interpreter cycles without relying on timing guesswork."
+
+      Action/result: Confirmed `0x56`/`0x57` helper coverage and inspected
+      multi-cycle fixture support.
+
+1377. Reported: "The case can be cycle-structured with two flags: phase 0 seeds
+      object0 direction and clears `[0x0139]`; phase 1 lets the main loop copy
+      that into global `[0x000f]`, then sets `[0x0139]`; phase 2 verifies the
+      global value was copied back into object0. I’m checking the exact helper
+      bytes for nested `if` and flag conditions before patching it in."
+
+      Action/result: Designed the first attempted `0x83` multi-cycle fixture.
+
+1378. Reported: "The phase plan is sound: it observes `0x83` indirectly
+      through `0x84` and `0x57`, after the main loop has had a full cycle to
+      perform each mirror direction. I’m going to add this as a narrowly named
+      compatibility case, then run it alone under QEMU."
+
+      Action/result: Began adding the attempted `0x83` compatibility case.
+
+1379. Reported: "I found a useful detail: the existing object helpers normally
+      use object 10, but the main-loop mirror is specifically object 0. The new
+      fixture will initialize object 0 as a normal object entry, then use the
+      same `+0x21` setter/getter to observe the global mirror."
+
+      Action/result: Adjusted the attempted fixture to target object 0.
+
+1380. Reported: "One subtlety: if phase 0 simply sets a flag, phase 1 would run
+      later in the same logic pass. I’m using an explicit `end` inside each
+      successful phase so the handoff happens at the next main cycle, where the
+      disassembled mirror code actually runs."
+
+      Action/result: Added phase-ending `end` actions to the attempted fixture
+      design.
+
+1381. Reported: "The probe case is in the harness. I’m adding a unit assertion
+      for it now, plus a small structural test that its bytecode includes the
+      phase-ending `end` actions and both `0x83`/`0x84`, so future edits do not
+      accidentally collapse it back into a same-cycle test."
+
+      Action/result: Added temporary unit assertions for the attempted fixture.
+
+1382. Reported: "The focused structural test is added. I’m running just the
+      probe tests that cover the case list and this new multi-cycle shape
+      before I let QEMU execute it."
+
+      Action/result: Ran focused unit tests for the attempted fixture; they
+      passed.
+
+1383. Reported: "The unit checks pass. I’m running the single `0x83`
+      original-engine case now; if it matches, we’ll have a behavior-level
+      validation of the selector bit rather than only a dispatch smoke."
+
+      Action/result: Started QEMU batch `object0_direction_mirror_001`.
+
+1384. Reported: "That command bounced because this particular harness doesn’t
+      use a boolean `--snapshot`; it has snapshot image path options and
+      otherwise runs its snapshot path by default. I’m rerunning with the
+      harness’s actual CLI."
+
+      Action/result: Corrected the logic probe command after the ambiguous
+      `--snapshot` option.
+
+1385. Reported: "The first QEMU run completed but did not match. I’m reading
+      the generated comparison report and capture summary before changing
+      anything; the key question is whether the phase logic failed to reach
+      phase 2 or whether the mirror copied a different value than expected."
+
+      Action/result: Inspected QEMU report `object0_direction_mirror_001`.
+
+1386. Reported: "The mismatch is interesting, not a total failure: the
+      validation sprite did draw, but its pixels are a different cel than the
+      default expected one. That suggests the probe reached phase 2 and changed
+      the object/direction state, but the transient validation draw is being
+      influenced by direction-related selection. I’m going to identify the
+      actual cel before deciding whether the behavioral check should expect
+      that variant."
+
+      Action/result: Compared the capture against local view/cel renders.
+
+1387. Reported: "The mismatch is only inside the validation sprite, which is
+      reassuring: the draw condition fired. I’m going to use a quick local
+      comparison against available view/group/frame combinations to identify
+      what the real engine drew."
+
+      Action/result: Determined that an exact transient/persistent marker was
+      not a clean signal.
+
+1388. Reported: "The real engine drew view 11 frame 7, even though the
+      validation helper requested frame 0, because the transient draw path is
+      also seeing the direction state. That is useful evidence, but for this
+      opcode probe I want the pass/fail signal to be just the object0 mirror,
+      so I’m switching the conditional marker to a persistent object with
+      explicit setup instead of the transient validation helper."
+
+      Action/result: Reworked the attempted fixture marker to use a persistent
+      object.
+
+1389. Reported: "The marker now uses object 10 with bit `0x2000` set, so its
+      cel choice should stay fixed while the condition still depends on object0
+      byte `+0x21`. I’m rerunning the focused structural test, then the same
+      single QEMU case."
+
+      Action/result: Ran the updated attempted fixture; it still mismatched.
+
+1390. Reported: "It still reaches a mismatch, so I’m inspecting the new report.
+      If this is another cel/priority difference we can correct the expected
+      marker; if there is no marker, the phase logic needs adjustment."
+
+      Action/result: Inspected `object0_direction_mirror_002`.
+
+1391. Reported: "Still mismatched. I’m checking whether `0x46` actually
+      stabilizes the marker in this setup or whether persistent-object
+      activation sets the animation bit after the clear."
+
+      Action/result: Investigated persistent marker frame advancement.
+
+1392. Reported: "The remaining mismatch is animation timing: the persistent
+      marker advances to frame 7 during the draw wait. Since this probe is
+      about `0x83`, I’m using the already-documented `0x46` action to clear the
+      animation bit on the marker so the expected cel stays frame 0."
+
+      Action/result: Added `0x46` to the attempted marker setup.
+
+1393. Reported: "The marker now suppresses automatic group selection and frame
+      cycling before activation. I’m doing one more focused unit check and QEMU
+      run for `0x83`."
+
+      Action/result: Ran focused unit check and QEMU batch
+      `object0_direction_mirror_003`; it still mismatched.
+
+1394. Reported: "Still mismatched. I’m checking whether `0x46` actually
+      stabilizes the marker in this setup or whether persistent-object
+      activation sets the animation bit after the clear."
+
+      Action/result: Confirmed the marker still advanced.
+
+1395. Reported: "The marker still advances to frame 7, so activation probably
+      sets the animation bit after my clear. I’m moving `0x46` after
+      activation; that should leave the marker active but non-advancing during
+      the subsequent frame update."
+
+      Action/result: Reordered the marker actions.
+
+1396. Reported: "I’ve reordered the marker actions. I’m rerunning the single
+      QEMU case; if this still advances, I’ll just set the expected frame to
+      the observed stable frame and document why."
+
+      Action/result: Ran QEMU batch `object0_direction_mirror_004`; it still
+      mismatched.
+
+1397. Reported: "The marker remains animated, so an exact-frame comparison is
+      the wrong assertion for this probe. I’m switching the case to a rectangle
+      predicate that only asks “did the conditional marker place non-background
+      sprite pixels here?”, which keeps the test about the `0x83` mirror
+      instead of frame timing."
+
+      Action/result: Reconsidered the validation predicate after confirming the
+      capture had no marker.
+
+1398. Reported: "The capture shows no marker at all, so the phase condition is
+      false. I’m generating a disposable diagnostic fixture under `build/` that
+      draws a marker at different X positions for object0 direction values
+      `0..8`; this will tell us what `0x57` reads after the mirror sequence
+      without adding a speculative permanent test."
+
+      Action/result: Generated disposable diagnostic
+      `manual_direction_value_cases.json`.
+
+1399. Reported: "The disposable case is generated. I’m running it through QEMU
+      with comparison against a blank picture, so any drawn marker will show up
+      as a mismatch bbox and we can map that X position back to the value."
+
+      Action/result: Ran `object0_direction_value_diag_001`; it matched blank,
+      showing no value marker in `0..8`.
+
+1400. Reported: "The value diagnostic stayed blank, which means either phase 2
+      is not being reached or `+0x21` is outside `0..8`. I’m generating one
+      more disposable variant with an unconditional phase-2 marker, so we can
+      separate phase-control failure from an unexpected direction byte."
+
+      Action/result: Generated disposable diagnostic
+      `manual_direction_phase_cases.json`.
+
+1401. Reported: "The second diagnostic uses high-numbered flags as well, just
+      in case the earlier phase flags were touched by interpreter/game state.
+      I’m running it now."
+
+      Action/result: Ran `object0_direction_phase_diag_001`.
+
+1402. Reported: "The phase-2 marker did draw, so the multi-cycle flag
+      scaffolding is fine. I’m reading the bbox and pixel locations now to
+      infer which value-specific marker, if any, appeared alongside the
+      unconditional one."
+
+      Action/result: Mapped the value marker to direction value `0`.
+
+1403. Reported: "The phase-2 getter reads direction `0`, not `6`. That
+      suggests the first object entry’s direction is being cleared before the
+      next top-of-cycle mirror can seed `[0x000f]`, likely because the object is
+      inactive/stationary. I’m testing a source-driven variant that activates
+      object 0 during the seed phase so its direction byte survives long enough
+      to be mirrored."
+
+      Action/result: Generated active-object disposable diagnostic.
+
+1404. Reported: "The active-object diagnostic is generated. I’m running it now;
+      the value marker should tell us whether activation preserves the seed
+      direction."
+
+      Action/result: Ran `object0_direction_active_diag_001`.
+
+1405. Reported: "The active-object diagnostic produced a marker. I’m extracting
+      the X buckets now to map it back to the direction value."
+
+      Action/result: The active-object variant still mapped to direction value
+      `0`.
+
+1406. Reported: "Activating object 0 still yields value `0`, so the issue is
+      not just inactive-object cleanup. I’m going back to the disassembly
+      references for `[0x0139]` and `[0x000f]`; something after the action may
+      be restoring the selector or clearing the global before the next cycle."
+
+      Action/result: Re-read references to `[0x0139]` and `[0x000f]`.
+
+1407. Reported: "The main-cycle source explains the failed fixture: after
+      logic returns, the cycle writes global `[0x000f]` back into object0
+      `+0x21` unconditionally. So a script-set object0 direction after the
+      top-of-cycle mirror is clobbered before the next cycle. I’m reading the
+      neighboring code and references now to document `0x83` precisely rather
+      than forcing a misleading QEMU test."
+
+      Action/result: Identified the cycle-end global-to-object restore.
+
+1408. Reported: "At this point the clean result is source-backed, not
+      QEMU-promoted: `0x83` is a selector write whose effect occurs before
+      logic, while our script-level attempts happen after that point and are
+      clobbered by the cycle-end global-to-object copy. I’m going to document
+      that timing explicitly and mark `0x83` covered as source-backed rather
+      than pretending the failed fixture was a useful compatibility test."
+
+      Action/result: Decided to promote `0x83` as source-backed.
+
+1409. Reported: "I’m updating the evidence generator so `0x83` is recorded as
+      source-backed with a timing caveat, not as a QEMU smoke. Then I’ll update
+      the opcode prose and progress tracker to reduce the partial list to
+      four."
+
+      Action/result: Prepared the evidence-generator update.
+
+1410. Reported: "Since the script-level `0x83` fixture does not prove the
+      selector behavior, I’m removing it from the reusable probe registry
+      rather than leaving a misleading failing case around. The failed attempts
+      will stay documented in the notes as evidence about cycle timing."
+
+      Action/result: Removed the attempted reusable helper from
+      `tools/logic_interpreter_probe.py`.
+
+1411. Reported: "The helper is removed. I’m removing the corresponding registry
+      entry and unit assertions next, then the evidence generator will carry
+      `0x83` as source-backed."
+
+      Action/result: Removed the attempted base-case entry.
+
+1412. Reported: "The failing `0x83` registry case is gone. I’m cleaning up the
+      unit test references that were only there to protect that abandoned
+      fixture."
+
+      Action/result: Removed the temporary unit assertions.
+
+1413. Reported: "The abandoned fixture is cleaned out. I’m running the
+      case-list unit test once to make sure the registry is back to a
+      consistent shape before changing the docs."
+
+      Action/result: The case-list unit test passed.
+
+1414. Reported: "The registry test passes. I’m changing the generated evidence
+      matrix so `0x83` has its own source-backed note about the main-cycle
+      mirror and the failed script-level probe timing."
+
+      Action/result: Added `SOURCE_BACKED_ACTIONS` evidence for `0x83`.
+
+1415. Reported: "The generator now treats `0x83` as a source-backed timing
+      primitive rather than a smoke. I’m regenerating the evidence chapter."
+
+      Action/result: Regenerated `docs/src/logic_opcode_evidence.md`.
+
+1416. Reported: "The evidence chapter is regenerated. I’m updating
+      `PROGRESS.md` now: `0x83` is covered as source-backed, leaving `0x6e`,
+      `0x8e`, `0xaa`, and `0xad` partial."
+
+      Action/result: Updated `PROGRESS.md` to 172/176 covered action opcodes.
+
+1417. Reported: "The tracker is updated. I’m expanding the opcode prose next,
+      because implementers need the timing rule: `0x83` affects the next
+      cycle’s pre-logic mirror, but logic-script attempts to seed object0
+      direction after that point are overwritten at cycle end."
+
+      Action/result: Began updating `docs/src/logic_bytecode.md`.
+
+1418. Reported: "The top-level cycle section already mentions the mirror, but
+      it doesn’t say which branch corresponds to `[0x0139] == 0` or mention the
+      cycle-end copy. I’m adding that there and in the `0x83` opcode row."
+
+      Action/result: Added branch direction and cycle-end restore prose.
+
+1419. Reported: "I found two older smoke summaries that still list opcodes
+      we’ve since promoted or source-backed. I’m cleaning those alongside the
+      `0x83` timing prose so the book stays internally consistent."
+
+      Action/result: Updated old smoke summaries in the bytecode chapter.
+
+1420. Reported: "The logic bytecode chapter now carries the exact branch
+      direction and the failed-probe timing reason. I’m updating the
+      compatibility chapter’s old smoke summary to stop claiming `0x83` is only
+      smoke-covered."
+
+      Action/result: Updated `docs/src/compatibility_testing.md`.
+
+1421. Reported: "Compatibility notes are consistent now. I’m adding the same
+      high-level timing rule to the runtime model’s motion/object lifecycle,
+      since that’s where an implementer is likely to look when modeling object0
+      direction and keyboard/global direction state."
+
+      Action/result: Added an object0/global direction mirror row to
+      `docs/src/runtime_model.md`.
+
+1422. Reported: "The runtime model now has the special mirror row. I’m updating
+      the symbolic label map with stable data labels for `[0x0139]` and
+      `[0x000f]`, plus a clearer main-cycle note for cross-version comparison."
+
+      Action/result: Began updating `docs/src/symbolic_labels.md`.
+
+1423. Reported: "The label file already has the first-object pointer, so I’m
+      placing the direction mirror globals in that same data section and
+      sharpening the main-cycle description."
+
+      Action/result: Added `data.motion.global_direction_000f` and
+      `data.motion.direction_mirror_selector_0139`.
+
+1424. Reported: "The symbolic labels now include the two mirror globals. I’m
+      appending a clean-room notes section with the disassembly commands, the
+      failed/diagnostic QEMU attempts, and the conclusion that `0x83` is
+      source-backed because its branch point is outside script control."
+
+      Action/result: Prepared the clean-room notes section.
+
+1425. Reported: "The notes currently end at the input-width promotion, so I’m
+      adding a new dated section immediately after it for the `0x83`
+      source pass and diagnostics."
+
+      Action/result: Appended the `0x83` direction-mirror timing section to
+      `docs/src/clean_room_executable_notes.md`.
+
+1426. Reported: "The clean-room notes now capture the `0x83` investigation.
+      I’m catching the progress log up again before moving to the next
+      remaining partial opcode, since this pass had several diagnostic detours
+      worth preserving."
+
+      Action/result: Prepared to append the `0x83` investigation progress-log
+      entries.
+
+1427. Reported: "The progress log is caught up through the `0x83` source-backed
+      promotion. I’m moving on to the four remaining partials now; I’ll start
+      with `0xad` because it is small, source-local, and likely another
+      timing/global side effect we can either document cleanly or validate with
+      a narrow probe."
+
+      Action/result: Began the `0xad` source pass.
+
+1428. Reported: "`0xad` is a tiny handler too: `inc byte [0x1530]` and return.
+      I’m reading the keyboard-interrupt consumer around `0x6036` because that
+      byte is only useful if we can explain when the nonzero value changes
+      observable behavior."
+
+      Action/result: Disassembled the action body and keyboard IRQ consumer.
+
+1429. Reported: "The consumer is clearer now: `[0x1530]` is a nonzero gate in
+      the keyboard IRQ path. On tracked key release, if the per-key pressed
+      latch was set and `[0x1530]` is nonzero, the ISR calls the same event
+      enqueue/display-input helper path. I’m checking where the tracked-key
+      table is initialized before turning this into a source-backed spec row."
+
+      Action/result: Identified the tracked-key release gate behavior.
+
+1430. Reported: "The only static hits for `[0x1530]` are the action increment
+      and the keyboard ISR test, so this looks like an enable/count gate rather
+      than ordinary game state. I’m checking the existing event-helper labels
+      so the docs can name the called helper symbolically instead of using a
+      raw address."
+
+      Action/result: Reused `code.input.enqueue_event` as the symbolic helper
+      name for the IRQ enqueue call.
+
+1431. Reported: "I’m treating `0xad` as source-backed: the action body and the
+      only observed consumer are both local and compact, while building a QEMU
+      fixture around raw IRQ key-release timing would be brittle. I’m updating
+      the evidence matrix and docs to call it a key-release enqueue gate."
+
+      Action/result: Decided to promote `0xad` as source-backed.
+
+1432. Reported: "The generator has a specific source-backed entry for `0xad`.
+      I’m removing it from the smoke-only set and regenerating the evidence
+      page."
+
+      Action/result: Added `0xad` to source-backed evidence and prepared to
+      remove its smoke classification.
+
+1433. Reported: "`0xad` is no longer classified as smoke in the generator. I’m
+      regenerating the matrix now."
+
+      Action/result: Regenerated `docs/src/logic_opcode_evidence.md`.
+
+1434. Reported: "The evidence page is regenerated. I’m updating `PROGRESS.md`
+      so `0xad` is covered as source-backed, leaving only `0x6e`, `0x8e`, and
+      `0xaa` partial."
+
+      Action/result: Updated `PROGRESS.md` to 173/176 covered action opcodes.
+
+1435. Reported: "The tracker is updated. I’m expanding the raw event queue
+      section and the `0xad` opcode row so the source-backed status has real
+      semantics, not just “increments a byte.”"
+
+      Action/result: Updated `docs/src/logic_bytecode.md` for the IRQ
+      release-event gate.
+
+1436. Reported: "The bytecode chapter now links `0xad` to the IRQ release path.
+      I’m updating the compatibility chapter so the old diagnostics batch is
+      clearly just smoke for `0x8e`/`0xaa`, while `0xad` is source-backed."
+
+      Action/result: Updated `docs/src/compatibility_testing.md`.
+
+1437. Reported: "The compatibility chapter is consistent. I’m adding the
+      key-release gate to the runtime model’s input/event lifecycle so
+      implementation readers know `0xad` is an input subsystem detail."
+
+      Action/result: Prepared the runtime-model update.
+
+1438. Reported: "The event/edit loop row is the right place for this; I’m
+      extending its contract rather than adding another separate section."
+
+      Action/result: Updated `docs/src/runtime_model.md`.
+
+1439. Reported: "The runtime model now mentions the release-event gate. I’m
+      adding symbolic labels for the IRQ hook and its small data tables so
+      future version comparisons can find this feature without relying on raw
+      addresses."
+
+      Action/result: Prepared symbolic-label additions for the IRQ hook and
+      tables.
+
+1440. Reported: "The input data table section already has the queue and key-map
+      entries, so the release-tracking tables fit cleanly there. I’m patching
+      both code and data labels together."
+
+      Action/result: Added `code.input.keyboard_irq_hook` and related data
+      labels.
+
+1441. Reported: "The symbol map now names the IRQ hook and its latch/gate
+      tables. I’m appending a short clean-room note for `0xad`, including the
+      disassembly evidence and why it stays source-backed instead of
+      QEMU-validated."
+
+      Action/result: Appended the `0xad` key-release enqueue gate section to
+      `docs/src/clean_room_executable_notes.md`.
+
+1442. Reported: "The `0xad` clean-room note is in place. I’m logging the
+      `0xad` work in `progress_log.md` before moving on to the last three
+      partial opcodes."
+
+      Action/result: Appended the `0xad` progress-log entries.
+
+1443. Reported: "`0xad` is logged. I’m moving to `0x8e` next, since it sits in
+      the resource-event replay system we already documented; the goal is to
+      tighten its exact capacity/reset behavior from disassembly and see
+      whether existing replay probes already cover the observable contract."
+
+      Action/result: Began the `0x8e` source pass.
+
+1444. Reported: "`0x8e` is already well supported by the resource-event source
+      pass: it writes `data.event.pair_capacity`, wraps
+      `code.event.reset_pair_buffer` with flush/rebuild helpers, and the reset
+      helper’s capacity/count semantics are documented. I’m going to promote it
+      as source-backed rather than manufacture a replay fixture that would
+      mostly re-test the larger `0x8c` replay machinery."
+
+      Action/result: Decided to promote `0x8e` as source-backed.
+
+1445. Reported: "That patch missed because the smoke table has already
+      collapsed to a shorter shape after the previous edits. I’m re-reading the
+      exact generator block and applying a narrower patch."
+
+      Action/result: Re-read `tools/logic_opcode_evidence.py` after a
+      patch-context miss.
+
+1446. Reported: "The generator block is straightforward. I’m adding `0x8e` to
+      the source-backed map and leaving only `0x6e` in the smoke map."
+
+      Action/result: Updated the evidence generator for `0x8e`.
+
+1447. Reported: "`0x8e` is now source-backed in the generator. I’m regenerating
+      the evidence page and updating the tracker to 174/176."
+
+      Action/result: Regenerated the logic opcode evidence chapter.
+
+1448. Reported: "The evidence page is regenerated. I’m updating `PROGRESS.md`;
+      after this only `0x6e` and `0xaa` remain partial in the action table."
+
+      Action/result: Updated `PROGRESS.md` to 174/176 covered action opcodes.
+
+1449. Reported: "The tracker now leaves two partial actions. I’m expanding the
+      `0x8e` row and cleaning the old smoke paragraph so it no longer treats
+      event capacity reset as merely dispatch-smoked."
+
+      Action/result: Updated `docs/src/logic_bytecode.md`.
+
+1450. Reported: "The bytecode chapter now treats `0x8e` as the source-backed
+      event log capacity reset. I’m updating the compatibility chapter’s
+      diagnostics summary to leave only `0xaa` as smoke-covered."
+
+      Action/result: Updated `docs/src/compatibility_testing.md`.
+
+1451. Reported: "Compatibility notes now align with the source-backed
+      promotion. I’m checking the runtime model’s resource-event section; it
+      likely already has the necessary capacity/reset contract, but I’ll add a
+      line if it’s missing."
+
+      Action/result: Reviewed the runtime model resource lifecycle.
+
+1452. Reported: "The resource lifecycle table mentions replay/recording but not
+      the capacity reset itself. I’m adding a small paragraph after the table so
+      `0x8e` is visible in the high-level model."
+
+      Action/result: Updated `docs/src/runtime_model.md`.
+
+1453. Reported: "The runtime model now has a direct `0x8e` capacity-reset
+      paragraph. I’m tightening the existing symbolic label note for
+      `code.event.set_pair_capacity_action` with the same semantics."
+
+      Action/result: Updated `docs/src/symbolic_labels.md`.
+
+1454. Reported: "The symbolic map is updated. I’m adding a short `0x8e`
+      clean-room note that ties the handler, reset helper, and existing replay
+      evidence together."
+
+      Action/result: Appended the `0x8e` event-pair capacity reset section to
+      `docs/src/clean_room_executable_notes.md`.
+
+1455. Reported: "`0x8e` is documented. I’m moving to `0xaa`, the
+      save-description copy action. There was an earlier failed attempt to
+      force the buffer; I’ll re-read the save selector/source path first so we
+      can decide whether it is cleanly source-backed or worth a new QEMU
+      fixture."
+
+      Action/result: Began the `0xaa` source pass.
+
+1456. Reported: "The `0xaa` source path is compact and the earlier QEMU attempt
+      patched the wrong layer: the action copies from the interpreter’s runtime
+      buffer at `DS:0x0e72`, not from the fixture’s static AGIDATA bytes. I’m
+      going to promote this as source-backed and document that proper dynamic
+      validation would need to drive the save/restore selector to populate that
+      runtime buffer."
+
+      Action/result: Decided to promote `0xaa` as source-backed.
+
+1457. Reported: "The generator now has source-backed evidence for `0xaa`. I’m
+      regenerating the matrix and updating the tracker; after this, only the
+      screen-shake-like `0x6e` remains partial."
+
+      Action/result: Updated the evidence generator and regenerated the matrix.
+
+1458. Reported: "The evidence matrix is regenerated. I’m bumping `PROGRESS.md`
+      to 175/176 covered action opcodes."
+
+      Action/result: Updated `PROGRESS.md` to 175/176 covered action opcodes.
+
+1459. Reported: "The tracker now leaves only `0x6e` partial. I’m updating the
+      `0xaa` opcode prose and retiring the last old “dispatch-smoke” wording in
+      the diagnostics/system paragraph."
+
+      Action/result: Updated `docs/src/logic_bytecode.md`.
+
+1460. Reported: "The bytecode chapter now explains the static-patch failure
+      correctly. I’m updating the compatibility chapter’s save-description
+      section so it records that failed QEMU attempt as a fixture-shape issue,
+      not an unresolved opcode."
+
+      Action/result: Updated `docs/src/compatibility_testing.md`.
+
+1461. Reported: "The compatibility note now distinguishes static fixture bytes
+      from the runtime buffer. I’m adding a brief runtime-model note under
+      save/restore so `0xaa` shows up at the subsystem level too."
+
+      Action/result: Checked for an existing save/restore runtime section.
+
+1462. Reported: "The runtime model doesn’t yet have a save/restore subsection,
+      so I’m adding a compact one rather than scattering `0xaa` into unrelated
+      text/input state."
+
+      Action/result: Added a save/restore data model table to
+      `docs/src/runtime_model.md`.
+
+1463. Reported: "The runtime model now has a save/restore data model and names
+      the `0xaa` contract. I’m adding symbolic labels for the action handler
+      and runtime description buffer."
+
+      Action/result: Prepared save-description symbolic labels.
+
+1464. Reported: "The save code labels are grouped already. I’m placing `0xaa`
+      there and adding the buffer in the data section near other runtime
+      globals."
+
+      Action/result: Added `code.save.copy_description_to_string_action` and
+      `data.save.description_buffer`.
+
+1465. Reported: "The symbol map now includes the `0xaa` handler and runtime
+      save-description buffer. I’m appending a clean-room note for `0xaa` so
+      the failed static-patch QEMU attempt and the source-backed conclusion are
+      both in the evidence trail."
+
+      Action/result: Appended the `0xaa` save-description buffer copy section
+      to `docs/src/clean_room_executable_notes.md`.
+
+1466. Reported: "`0xaa` is now source-backed and logged in the notes. I’m
+      turning to the final partial action, `0x6e`, the screen-shake-like
+      handler; I’ll inspect the disassembly first and decide whether a visual
+      QEMU validation is practical or whether the effect is
+      hardware-timing-specific."
+
+      Action/result: Began the `0x6e` source pass.
+
+1467. Reported: "The first disassembly window caught the neighboring input-line
+      config code, not the shake handler. The opcode table says `0x6e` starts
+      around `0x7a00`, so I’m reading that exact region next."
+
+      Action/result: Re-read the exact `0x6e` handler region.
+
+1468. Reported: "`0x6e` is the last partial and the source is now clear. It is
+      a hardware/display timing effect: for normal EGA-like modes it walks a
+      small byte table and writes CRT controller registers `0x02` and `0x07`,
+      waiting one timer tick between offsets; other display modes delegate to
+      overlay helpers. A screenshot-after-return fixture can only prove
+      dispatch, so I’m promoting this as source-backed."
+
+      Action/result: Decided to promote `0x6e` as source-backed.
+
+1469. Reported: "The generator now treats `0x6e` as source-backed with a note
+      that QEMU only dispatch-smoked it. I’m regenerating the evidence matrix
+      and then the opcode table will be complete."
+
+      Action/result: Updated the evidence generator and regenerated the
+      matrix.
+
+1470. Reported: "The evidence matrix is regenerated. I’m updating `PROGRESS.md`
+      to show all 176 action opcodes covered at the current spec target."
+
+      Action/result: Updated `PROGRESS.md` to all 176 action opcodes covered.
+
+1471. Reported: "The action opcode tracker is now complete. I’m checking the
+      remaining-work section to make sure it no longer implies opcode coverage
+      is still the highest-value gap."
+
+      Action/result: Reviewed `PROGRESS.md` remaining-work section.
+
+1472. Reported: "The highest-value list still has the old “promote remaining
+      dispatch-smoke opcodes” item. I’m replacing that with the next useful
+      opcode-adjacent work: hardening source-backed edge cases and moving back
+      into subsystem specs/tests."
+
+      Action/result: Updated `PROGRESS.md` highest-value remaining work.
+
+1473. Reported: "The remaining-work list now reflects that opcode coverage is
+      complete at the current target. I’m expanding the `0x6e` row with the
+      exact normal-path register loop and display-mode branch behavior."
+
+      Action/result: Updated the `0x6e` opcode prose.
+
+1474. Reported: "The opcode row now has the source-level shake loop. I’m
+      updating the text/status compatibility section so it says QEMU smoke only
+      proves return, while the shake semantics are source-backed."
+
+      Action/result: Updated `docs/src/compatibility_testing.md`.
+
+1475. Reported: "The compatibility chapter now classifies `0x6e` correctly. I’m
+      adding a small display-hardware note to the runtime model because this
+      opcode is really a hardware timing operation, not a logical surface
+      mutation."
+
+      Action/result: Prepared the runtime-model display note.
+
+1476. Reported: "There’s a short miscellaneous action list at the end of the
+      runtime model, so I’m adding `0x6e` there with its “transient register
+      effect” contract."
+
+      Action/result: Updated `docs/src/runtime_model.md`.
+
+1477. Reported: "The runtime model now states the portable contract for shake:
+      short display offset animation, no persistent buffer change. I’m adding
+      labels for the shake handler and its offset table/base bytes."
+
+      Action/result: Prepared symbolic labels for the shake path.
+
+1478. Reported: "The display labels are grouped near the graphics helpers and
+      display globals. I’m adding the `0x6e` action label there, plus the three
+      data globals/table it uses in the normal CRT path."
+
+      Action/result: Added `code.display.shake_screen_action` and related
+      display data labels.
+
+1479. Reported: "The symbol map now has the shake action and data labels. I’m
+      adding the final clean-room note for `0x6e`, then I’ll run the
+      verification suite."
+
+      Action/result: Appended the `0x6e` screen-shake source pass section to
+      `docs/src/clean_room_executable_notes.md`.
+
+1480. Reported: "I’ve picked the thread back up at the verification stage.
+      First I’m going to finish checking the opcode-coverage edits, then I’ll
+      roll straight into the next `PROGRESS.md` item instead of waiting for
+      another nudge."
+
+      Action/result: Resumed from the opcode-coverage verification pass.
+
+1481. Reported: "`mdbook build docs` is clean. I’m doing the last mechanical
+      checks now, including whitespace/diff hygiene and a quick scan for stale
+      “partial opcode” wording before moving on."
+
+      Action/result: Confirmed `mdbook build docs` succeeds and started final
+      hygiene checks.
+
+1482. Reported: "The verification pass surfaced only expected historical
+      mentions of earlier “173/174/175” milestones, not current stale status.
+      I also see two probe/test files modified, so I’m going to inspect those
+      before deciding whether they are intentional work to carry forward or
+      leftovers from the opcode push."
+
+      Action/result: Inspected the probe and unit-test diffs.
+
+1483. Reported: "I’m going to preserve these updates in the historical progress
+      log now. The extra probe edits look aligned with the next `PROGRESS.md`
+      item, namely text/input UI semantics, so I’ll treat them as in-flight work
+      to validate and document rather than discard."
+
+      Action/result: Began documenting the verification handoff and selected
+      text/input UI semantics as the next workstream.
+
+1484. Reported: "Text/input coverage is more advanced than the high-level
+      tracker implies: the newer batches all report `match` with zero
+      mismatches. I’m going to tighten the tracker around that and then use the
+      next gap in the same area, menu navigation, as the next source-first
+      target."
+
+      Action/result: Checked recorded QEMU batch outputs for the text/input
+      cases and selected menu navigation as the next gap.
+
+1485. Reported: "There is already a menu label cluster and a couple of QEMU
+      probes, but the “remaining” risk is navigation behavior. I’m rereading
+      the menu interaction routine at `0x93d1` and the event normalizer paths
+      around `0x4529..0x46e8` so the next test cases come from the control flow
+      rather than guesswork."
+
+      Action/result: Re-read `code.menu.interact` and the shared input/event
+      helpers from disassembly.
+
+1486. Reported: "The navigation table is clear in the disassembly: movement
+      values `1..8` jump to eight small branches at `0x9492`, `0x94a6`,
+      `0x94b2`, `0x94cb`, `0x94da`, `0x94e5`, `0x94f6`, and `0x9509`. I’m
+      going to inspect the menu node construction now so I can name those
+      branches correctly in terms of next/previous item and heading movement."
+
+      Action/result: Decoded the menu movement dispatch table and inspected
+      menu node construction.
+
+1487. Reported: "The menu construction confirms both heading and item lists are
+      circular doubly-linked lists: offset `+0` is next and `+2` is previous;
+      headings point at their item list at `+0c`, and item enable/selection id
+      live at `+0a`/`+0c`. I’m going to add a compact source-backed navigation
+      table to the docs and tracker, then consider whether a non-keyboard
+      event-injection probe is worth adding."
+
+      Action/result: Prepared source-backed menu navigation documentation.
+
+1488. Reported: "I’m making a source-backed documentation pass now: correcting
+      the old “enabled item navigation” wording, adding the exact movement-code
+      table, and recording the branch targets as symbolic labels so this
+      survives future interpreter-version comparisons."
+
+      Action/result: Added the menu navigation source table and updated
+      symbolic labels, runtime model, compatibility notes, clean-room notes,
+      and `PROGRESS.md`.
+
+1489. Reported: "That patch didn’t apply because the clean-room note heading
+      text has drifted slightly. No files were changed by that failed patch; I’m
+      locating the exact anchors and I’ll apply it in smaller chunks."
+
+      Action/result: Located the exact clean-room and progress-log anchors.
+
+1490. Reported: "I found the exact anchors. I’m applying the menu-navigation
+      docs in smaller patches now so each change has a clean landing point."
+
+      Action/result: Applied the logic-bytecode menu navigation table.
+
+1491. Reported: "The logic bytecode chapter now has the exact movement table
+      and the corrected disabled-item semantics. I’m carrying the same model
+      into the runtime overview and symbolic label map."
+
+      Action/result: Updated the runtime model and symbolic label map.
+
+1492. Reported: "The runtime model now has a portable menu state description,
+      and the symbol map has separate root/current pointers plus the navigation
+      jump table. Next I’m updating the tracker and compatibility notes so the
+      remaining gap is accurately framed as dynamic movement-event validation,
+      not unknown semantics."
+
+      Action/result: Updated `PROGRESS.md` and compatibility notes.
+
+1493. Reported: "The tracker now says menu navigation is source-backed and names
+      the remaining validation gap precisely. I’m adding the clean-room evidence
+      note and progress-log entries for this source pass."
+
+      Action/result: Appended the menu-navigation clean-room section and this
+      progress-log catch-up.
+
+1494. Reported: "The menu source pass is documented. I’m going to run the quick
+      verification checks now, then I’ll move into the next `PROGRESS.md` item:
+      picture/view renderer compatibility, using the existing renderer and QEMU
+      captures as confirmation tools."
+
+      Action/result: Ran mdBook, diff whitespace, and full unittest checks.
+
+1495. Reported: "Verification is clean: mdBook builds, whitespace checks pass,
+      and the full unittest suite still runs green. I’m switching into the
+      picture/view renderer area now and reading the current renderer/test
+      coverage before picking a narrow edge case."
+
+      Action/result: Began reviewing renderer, view-batch, and graphics tests.
+
+1496. Reported: "The graphics test file I guessed at doesn’t exist; the renderer
+      coverage is split across other test modules. I’m locating the actual
+      graphics tests and then I’ll pick an edge case that lines up with both the
+      disassembly and the current harness."
+
+      Action/result: Located `tests/test_graphics_rendering.py` and related
+      overlay/movement tests.
+
+1497. Reported: "The renderer surface is clearer now: picture tests live in
+      `tests/test_graphics_rendering.py`, while object-overlay and movement
+      probes exercise composed view cels. I’m reading the remaining edge docs
+      around transparent/mirroring/clipping to choose a useful, source-backed
+      next probe."
+
+      Action/result: Reviewed graphics object-pipeline notes and object overlay
+      case coverage.
+
+1498. Reported: "A good next edge is the object placement/search helper around
+      `0x593a`, especially the weird right-edge result that currently lives as
+      an observation. I’m going to read that disassembly before adding any new
+      QEMU probes, because the existing behavior probably explains itself in
+      the placement code."
+
+      Action/result: Disassembled `code.object.place` and
+      `code.object.control_acceptance`.
+
+1499. Reported: "The placement helper explains the odd right-edge capture:
+      `0x593a` first tries the requested position, then does a spiral search
+      with growing segment lengths: left 1, down 1, right 2, up 2, left 3, down
+      3, and so on. I’m checking the current prose because it may already have
+      part of this but not the full search contract."
+
+      Action/result: Found the existing placement prose and identified the
+      missing exact spiral contract.
+
+1500. Reported: "I’m going to codify the spiral search locally rather than keep
+      right-edge placement as a magic expected coordinate. First I’m checking
+      the derived sequence against the known QEMU result; if it lands on
+      `(140,67)`, that gives us a much better compatibility oracle."
+
+      Action/result: Simulated the source sequence and confirmed it reaches
+      `(140, 67)` for the known right-edge case.
+
+1501. Reported: "The derived spiral lands exactly on the known right-edge QEMU
+      placement `(140,67)`, which is a nice little moment. I’m going to turn
+      that into a reusable helper and unit tests, then update the object-overlay
+      comparison to use the source-derived placement instead of hard-coded
+      coordinates where possible."
+
+      Action/result: Prepared the placement-search helper and tests.
+
+1502. Reported: "I’m editing the local graphics model now: adding a
+      `0x593a`-style placement search helper, switching the overlay comparison
+      to use it for ordinary bounds adjustment, and replacing the old
+      hard-coded edge-position tests with source-derived expectations."
+
+      Action/result: Added `search_object_placement()` and updated overlay
+      comparisons/tests.
+
+1503. Reported: "The placement helper is in place and the edge cases now derive
+      their expected positions from that source model. I’m running the focused
+      graphics/object-overlay tests before I touch the docs."
+
+      Action/result: Ran focused graphics, object-overlay, and view-batch tests
+      successfully.
+
+1504. Reported: "The focused Python tests pass. Before running a fresh emulator
+      batch, I’m checking the existing QEMU captures for the top/right edge
+      cases against the new source-derived placement model; that gives a quick
+      original-engine sanity check without burning another boot."
+
+      Action/result: Existing top/right QEMU captures matched the new
+      source-derived placement model with 0 mismatches.
+
+1505. Reported: "The existing top/right QEMU captures both match with the new
+      source-derived placement helper. I’m documenting the exact spiral search
+      now and tightening the compatibility notes so future work treats this as
+      a modeled routine, not a one-off captured coordinate."
+
+      Action/result: Began updating the object-placement documentation.
+
+1506. Reported: "The docs anchor moved again in that paragraph, so I’m doing the
+      same smaller-patch treatment here. No changes landed from that failed
+      patch."
+
+      Action/result: Located exact placement documentation anchors.
+
+1507. Reported: "I’ve got the exact paragraphs. I’m applying the placement-search
+      documentation separately now."
+
+      Action/result: Added the exact `0x593a` spiral and acceptance tests to
+      the graphics object-pipeline chapter.
+
+1508. Reported: "The placement section now states the exact spiral and
+      acceptance tests. I’m replacing the older “weird right edge” prose with
+      the source-derived explanation."
+
+      Action/result: Rewrote the top/right edge placement explanation.
+
+1509. Reported: "The object-pipeline chapter now treats the top/right placements
+      as outputs of the `0x593a` spiral. I’m updating the compatibility and
+      tracker notes, plus the symbol map, to match the new model."
+
+      Action/result: Updated compatibility notes, symbolic labels, and
+      `PROGRESS.md`.
+
+1510. Reported: "The compatibility/tracker docs are aligned. I’m adding the
+      clean-room evidence entry for the placement-source pass and logging the
+      recent work updates."
+
+      Action/result: Appended the object-placement source-pass notes and this
+      progress-log catch-up.
+
+1511. Reported: "Full verification is clean: 109 tests now pass, opcode
+      evidence check passes, mdBook builds, and diff whitespace is clean. I’ll
+      continue with renderer compatibility; next I’m looking for picture-fuzz
+      or view-corpus gaps that are still only lightly covered."
+
+      Action/result: Verified the full local suite, opcode-evidence check,
+      mdBook build, and whitespace check, then moved to renderer-compatibility
+      gaps.
+
+1512. Reported: "The next picture-side risk the docs call out is seed-fill
+      traversal: the local renderer uses a queue, while the original appears to
+      have its own stack/span helper. I’m going to inspect the seed-fill routine
+      around `0x533b` and see whether the observable contract can be made more
+      implementation-ready without overfitting internals."
+
+      Action/result: Began source-first inspection of picture seed fill around
+      `code.picture.seed_fill` (`0x533b`).
+
+1513. Reported: "I’m picking up at the seed-fill source pass. I’ll first write
+      the two recent progress updates into the log, then tighten the docs around
+      the span-stack fill behavior before deciding whether new compatibility
+      cases are worth adding."
+
+      Action/result: Resumed from the seed-fill source pass and checked current
+      tracker/docs state.
+
+1514. Reported: "The repo is in the expected in-progress state, with the object
+      placement pass already documented and tested. I’ve found the outstanding
+      picture-renderer note: seed fill is documented as span-based, but the
+      exact source-derived contract can be sharper."
+
+      Action/result: Identified seed-fill traversal documentation as the next
+      high-value picture-renderer refinement.
+
+1515. Reported: "I’m going back to the actual `0x533b` disassembly rather than
+      just polishing prose from memory. The goal is to describe what the
+      original routine commits to observably, and keep implementation guidance
+      portable."
+
+      Action/result: Re-read the seed-fill helper disassembly and the current
+      picture-renderer compatibility notes.
+
+1516. Reported: "The seed-fill routine confirms the docs’ broad statement, and
+      adds useful specifics: it chooses exactly one expansion channel, rejects
+      no-op fills before scanning, writes spans with the normal odd/even masks,
+      and uses stack-pushed span state for branches. I’m turning that into a
+      clearer spec paragraph now."
+
+      Action/result: Prepared a source-backed seed-fill contract update for
+      the graphics pipeline documentation.
+
+1517. Reported: "I’m going to keep the seed-fill labels conservative: the
+      scratch bytes around `0x126c` clearly form span state, but several fields
+      change roles during branch handling. A single “span scratch block” label
+      is more honest than naming every byte too confidently."
+
+      Action/result: Reviewed existing picture symbolic labels and chose a
+      conservative scratch-block label strategy for seed-fill state.
+
+1518. Reported: "There’s already an older seed-fill refinement note, so I’m not
+      going to pretend this is a first discovery. This pass will add the
+      missing traversal details and separate “observable behavior” from “how
+      SQ2’s executable happens to organize its stack state.”"
+
+      Action/result: Compared the older seed-fill notes with the new
+      disassembly pass to avoid duplicating or overstating evidence.
+
+1519. Reported: "`PROGRESS.md` points next at picture/view compatibility and
+      then implementation-ready subsystem state machines. I’ll finish the
+      seed-fill spec cleanup as part of that renderer work, then use the
+      tracker to choose the next concrete gap rather than wandering."
+
+      Action/result: Re-read the high-value tracker section and kept the next
+      work item aligned to renderer compatibility.
+
+1520. Reported: "I’m editing the picture pipeline chapter now. The important
+      distinction is: original traversal order is source-backed, but clean
+      implementations can use a different flood-fill algorithm if they preserve
+      target selection and pixel-write semantics on valid resources."
+
+      Action/result: Updated the `0xf8` seed-fill section with explicit channel
+      selection, early exits, span-stack traversal, and portable final-buffer
+      semantics.
+
+1521. Reported: "The main seed-fill chapter now separates channel selection,
+      no-op rejection, span traversal, and the portable observable contract.
+      I’m adding the scratch-block label and evidence note so future
+      cross-version work has something stable to map."
+
+      Action/result: Added `data.picture.seed_fill_span_scratch` to the
+      symbolic label map.
+
+1522. Reported: "The compatibility notes still say the traversal itself is an
+      open risk. I’m narrowing that: traversal class is now source-backed; what
+      still needs broader proof is edge-case parity across barriers, masks, and
+      multiple seeds."
+
+      Action/result: Reframed the seed-fill compatibility risk around expanded
+      parity coverage instead of unknown traversal class.
+
+1523. Reported: "I’m appending the clean-room evidence entry for this seed-fill
+      pass, including the commands that were useful and the small correction to
+      the previous “queue versus span” uncertainty."
+
+      Action/result: Appended the picture seed-fill span-stack source-pass note
+      to the clean-room evidence log.
+
+1524. Reported: "The evidence note will also capture a minor tooling lesson:
+      one of the broad disassembly windows was noisy, but the useful evidence
+      is still the focused helper body and the existing renderer tests."
+
+      Action/result: Recorded the noisy broad disassembly as limited evidence
+      and documented the source-backed result.
+
+1525. Reported: "I’m updating `PROGRESS.md` now so the tracker reflects the
+      narrower seed-fill status: source-backed traversal, still needing broader
+      parity cases. That should make the next renderer step clearer."
+
+      Action/result: Updated the picture-decoding tracker with source-backed
+      seed-fill span traversal and the remaining coverage targets.
+
+1526. Reported: "The tracker currently treats picture decoding as one broad
+      bucket. I’ll add the seed-fill evidence there without marking the whole
+      renderer done; the remaining work is still real, just better bounded."
+
+      Action/result: Kept picture decoding at partial status while adding the
+      refined seed-fill evidence.
+
+1527. Reported: "I noticed one wording detail worth tightening before moving
+      on: the control fill value lives as high-nibble `4`, which appears as
+      `0x40` in the buffer byte. I’m making that explicit so a future
+      implementation doesn’t compare the wrong byte value."
+
+      Action/result: Clarified the control-channel seed-fill target and no-op
+      value as high-nibble `4` / buffer byte `0x40`.
+
+1528. Reported: "The seed-fill docs and tracker now agree: traversal is
+      source-backed, final-buffer equivalence remains the portable contract,
+      and the remaining risk is coverage depth. I’m going to run the
+      lightweight checks for these doc-only changes before choosing the next
+      `PROGRESS.md` task."
+
+      Action/result: Started verification for the seed-fill documentation pass.
+
+1529. Reported: "The doc build and whitespace check are clean after the
+      seed-fill update. Next I’m going to turn that remaining seed-fill coverage
+      list into concrete valid synthetic picture cases, then decide whether a
+      small original-engine QEMU batch is worthwhile."
+
+      Action/result: Verified the seed-fill documentation changes and began
+      adding curated picture fuzz cases.
+
+1530. Reported: "The fuzz base list already has two seed-fill cases, but they
+      don’t cover multiple seeds or a narrow barrier shape. I’m reading the
+      local renderer shape helpers before adding cases, so the fixtures stay
+      valid and intentional."
+
+      Action/result: Reviewed picture renderer command handling and existing
+      seed-fill tests before adding new valid cases.
+
+1531. Reported: "The local renderer’s `write_cell()` already models the
+      odd/even row mask path, so a good seed-fill case can exercise that
+      without new renderer machinery. I’m adding a few curated safe base cases
+      rather than relying on random generation to stumble into them."
+
+      Action/result: Chose curated seed-fill fixture shapes for deterministic
+      fuzz coverage.
+
+1532. Reported: "For QEMU screenshots, visual-channel cases are the most useful
+      because the batch comparator sees the rendered EGA image. I’ll still
+      include one control-channel case in local tests, but the curated QEMU
+      candidates should mostly produce visible differences."
+
+      Action/result: Balanced visible QEMU cases with one local control-channel
+      semantic test.
+
+1533. Reported: "I’m making three small curated fixtures: a full-height
+      one-pixel visual barrier, two separate boxes filled by one multi-seed
+      command, and a control-channel fill that crosses a visual-only barrier.
+      They each target a specific seed-fill edge without malformed data."
+
+      Action/result: Added `base_021`, `base_022`, and `base_023` to
+      `tools/picture_fuzz.py`.
+
+1534. Reported: "The new base cases are in the fuzz catalog. I’m adding direct
+      renderer assertions next, because these cases encode semantics that are
+      clearer to test as cell values than as screenshot hashes alone."
+
+      Action/result: Added local renderer tests for the full-height barrier,
+      multi-seed boxes, and control-channel barrier-crossing case.
+
+1535. Reported: "The local semantic tests are in place. I’m running the
+      renderer and fuzz-tool tests now; if they pass, I’ll regenerate a small
+      corpus and consider a targeted QEMU batch for the visible fill cases."
+
+      Action/result: Ran targeted renderer/fuzz tests and generated a small
+      corpus containing the new curated cases.
+
+1536. Reported: "The new tests pass, and a small regenerated corpus reports 24
+      curated base cases plus randoms. I’m checking the batch command path
+      before running QEMU so I use the snapshot harness correctly and don’t
+      waste a boot cycle."
+
+      Action/result: Confirmed the new cases render locally and are marked safe
+      for QEMU.
+
+1537. Reported: "I’m going to run the three new safe seed-fill fixtures through
+      the original engine using the snapshot batch harness. The first two
+      should validate visible fill geometry; the third is mostly a guard that
+      control-only fill does not disturb the visible barrier."
+
+      Action/result: Started a QEMU snapshot batch for `base_021`, `base_022`,
+      and `base_023`.
+
+1538. Reported: "The snapshot batch built its disk, then QEMU was blocked by
+      the sandbox from binding the local VNC socket. That’s a permissions issue
+      rather than a renderer result, so I’m rerunning the same harness with
+      escalation."
+
+      Action/result: Re-ran the same seed-fill QEMU batch with permission to
+      bind the local VNC socket.
+
+1539. Reported: "The escalated QEMU batch is running now from the snapshot
+      disk. I’ll wait for the JSON summary, then fold the result into the
+      compatibility docs and tracker."
+
+      Action/result: Waited for the original-engine seed-fill batch to finish.
+
+1540. Reported: "The original-engine batch matched all three new seed-fill
+      cases with 0 mismatches. That gives us QEMU-backed coverage for the
+      full-height barrier, multi-seed fill, and the visible side of the
+      control-channel barrier case."
+
+      Action/result: Captured the successful QEMU report at
+      `build/picture-fuzz/batches/seed_fill_edges_001.json`.
+
+1541. Reported: "I’m updating the compatibility chapter with the new corpus
+      count and the seed-fill batch result. I’ll be careful to say the
+      control-only case’s screenshot validates visible stability, while the
+      local cell test validates the control-channel crossing behavior."
+
+      Action/result: Began documenting the new seed-fill fuzz cases and QEMU
+      results.
+
+1542. Reported: "The docs currently say there are 21 curated base cases and
+      that QEMU coverage stops at `base_020`. I’m bumping that to 24 and adding
+      the `seed_fill_edges_001` batch as the new evidence point."
+
+      Action/result: Updated the compatibility chapter with the new curated
+      case count and QEMU seed-fill batch result.
+
+1543. Reported: "I’m also revising the “remaining risk” paragraph so it
+      doesn’t keep asking for cases we just added. Multi-seed and
+      narrow-barrier coverage are now present; broader mask and pattern
+      interactions still remain."
+
+      Action/result: Narrowed the remaining picture-renderer risk to broader
+      mask, pattern, and interleaved operation coverage.
+
+1544. Reported: "I’m adding the clean-room note for the new fuzz cases now,
+      including the failed non-escalated QEMU attempt as a permissions artifact
+      and the successful escalated run as the evidence."
+
+      Action/result: Appended the seed-fill fuzz expansion note to
+      `docs/src/clean_room_executable_notes.md`.
+
+1545. Reported: "`PROGRESS.md` needs the same refinement: seed-fill now has
+      specific QEMU-backed edge fixtures, while broader pattern/fill
+      combinations remain open. I’m updating that tracker line next."
+
+      Action/result: Updated the picture-decoding tracker with the new
+      QEMU-backed seed-fill edge fixtures.
+
+1546. Reported: "The tracker is updated. I’m regenerating the standard
+      1,024-random corpus once so the documented counts are backed by the
+      actual command, then I’ll run the local suite/checks."
+
+      Action/result: Regenerated the standard picture fuzz corpus and reran
+      targeted renderer/fuzz tests.
+
+1547. Reported: "The standard corpus command now confirms the documented
+      numbers: 1,048 total cases and 1,046 safe for QEMU. The targeted
+      renderer/fuzz tests still pass after adding the three curated cases."
+
+      Action/result: Confirmed the documented fuzz corpus counts and targeted
+      test pass.
+
+1548. Reported: "I’ve folded the verified standard corpus count into the
+      evidence note. Next I’ll run the broader project checks, then continue to
+      the next renderer gap if everything is clean."
+
+      Action/result: Updated the clean-room evidence note with the verified
+      standard corpus generation command.
+
+1549. Reported: "I’m running the usual verification set now: full unit tests,
+      opcode-evidence consistency, mdBook build, and diff whitespace. After
+      that I’ll continue with the next `PROGRESS.md` item instead of stopping."
+
+      Action/result: Ran the full verification set after the seed-fill fuzz
+      expansion.
+
+1550. Reported: "Verification is clean: 112 tests pass, opcode evidence is
+      consistent, mdBook builds, and diff whitespace is clean. I’m moving to
+      the next renderer gap in `PROGRESS.md`: view/cel drawing coverage,
+      especially mirroring and transparent-color edges."
+
+      Action/result: Began the view/cel drawing coverage pass.
+
+1551. Reported: "The view docs already mention more transparent-color samples
+      than the tracker summary remembered, so I’m checking the actual coverage
+      before adding duplicate cases. The next useful step looks like selecting
+      a few largest or unusual cels from the local corpus and validating them
+      through the existing view batch harness."
+
+      Action/result: Scanned existing view docs, tests, and the local view
+      corpus for large, mirrored, and transparent-color candidate cels.
+
+1552. Reported: "The corpus scan gives good candidates: large cels with
+      transparent colors not yet emphasized by the small default view batch,
+      plus a tall 129-row cel. I’m checking the view-batch tests before
+      deciding whether to expand the built-in batch or keep these as a separate
+      stress list."
+
+      Action/result: Reviewed `tests/test_view_batch.py` and candidate cel
+      dimensions/control bytes.
+
+1553. Reported: "I’m going to add an optional stress suite to `view_batch.py`
+      rather than making every default run heavier. It will be reusable for
+      compatibility work while the default six-case smoke stays quick."
+
+      Action/result: Chose an optional stress-suite design for view validation.
+
+1554. Reported: "The stress suite will deliberately cover transparent colors
+      `0,1,2,5,6,7,8,10,13,14,15` and a bit-`0x80` transparent-10 frame. That
+      complements the existing smaller probe set without changing the default
+      batch."
+
+      Action/result: Selected eleven stress cases from the local SQ2 view
+      corpus.
+
+1555. Reported: "The stress cases are defined. I’m wiring them into the CLI as
+      `--include-stress`, so scripted runs can opt in without breaking quick
+      smoke runs or JSON case loading."
+
+      Action/result: Added `stress_cases()` and `--include-stress` to
+      `tools/view_batch.py`.
+
+1556. Reported: "The CLI flag is in. I’m extending the view-batch unit tests to
+      lock down that the stress suite stays optional and actually includes the
+      broader transparent-color coverage."
+
+      Action/result: Added unit coverage for optional stress-case loading.
+
+1557. Reported: "The optional stress suite is covered by tests. I’m running the
+      view-batch unit tests and a quick local frame render check for those
+      stress cases before involving QEMU."
+
+      Action/result: Verified stress cases render locally and fit on screen;
+      targeted view tests passed.
+
+1558. Reported: "The stress suite renders locally and all placements fit the
+      screen. I’m running the base plus stress view batch through QEMU snapshot
+      mode now; this is the compatibility check that matters for the new
+      cases."
+
+      Action/result: Started the 17-case original-engine view stress batch.
+
+1559. Reported: "The 17-case view stress batch is running from a single QEMU
+      snapshot now. It includes the six existing smoke cases plus eleven
+      larger/transparent/mirrored cels."
+
+      Action/result: Waited for the view stress QEMU batch to complete.
+
+1560. Reported: "The view batch is still running; no result lines yet, which is
+      normal while the snapshot harness drives each DOS fixture and captures
+      screens. I’m waiting it out rather than interrupting the emulator."
+
+      Action/result: Continued waiting for QEMU snapshot results.
+
+1561. Reported: "Still waiting on QEMU. This longer run is expected for 17
+      cases, but it should return a compact match/mismatch summary once the
+      harness finishes."
+
+      Action/result: Continued waiting for QEMU snapshot results.
+
+1562. Reported: "The emulator batch is taking its time but is still alive. I’m
+      letting it continue, since stopping here would throw away the
+      original-engine evidence we’re trying to collect."
+
+      Action/result: Continued waiting for QEMU snapshot results.
+
+1563. Reported: "Still no output from the harness, which means it’s inside the
+      snapshot-run loop rather than comparison/report writing. I’ll give it
+      another interval before deciding whether to inspect for a stuck QEMU
+      process."
+
+      Action/result: Continued waiting; the batch later returned result lines.
+
+1564. Reported: "Good, results are coming back: the first 13 view cases all
+      match, including several large transparent-color samples and the tall
+      129-row cel. I’m waiting for the last four and the JSON summary."
+
+      Action/result: Observed the first 13 view stress cases matching QEMU.
+
+1565. Reported: "The full 17-case view batch matched with 0 mismatches and 0
+      errors. I’m reading the report, then I’ll document the optional stress
+      suite and update the view coverage tracker."
+
+      Action/result: Completed QEMU view stress validation with all cases
+      matching.
+
+1566. Reported: "The QEMU report confirms every stress case matched. I noticed
+      the new test import line is a bit ungainly, so I’m tidying that before
+      documenting the result."
+
+      Action/result: Read `view_stress_001.json` and formatted the test import
+      cleanly.
+
+1567. Reported: "I’m updating the docs in two places: command examples for the
+      optional stress suite, and the compatibility evidence list showing the
+      17-case `view_stress_001` result."
+
+      Action/result: Updated the compatibility-testing chapter with the stress
+      command and QEMU result.
+
+1568. Reported: "The compatibility chapter now has the stress command and
+      result. I’m adding a shorter note in the graphics pipeline chapter near
+      the view layout section so readers see that the row/transparent model has
+      broader QEMU coverage now."
+
+      Action/result: Added the view stress result to the graphics object
+      pipeline chapter.
+
+1569. Reported: "I’m appending the clean-room evidence for the view stress
+      batch, including the corpus scan that selected the cases and the QEMU
+      report path."
+
+      Action/result: Appended the optional view stress batch expansion note to
+      the clean-room executable notes.
+
+1570. Reported: "The evidence note is in. I’m updating `PROGRESS.md` so the
+      view area no longer lists broad transparent-color coverage as an
+      untouched gap; the remaining view work is more about clipping,
+      priority/control combinations, and animation state."
+
+      Action/result: Updated the view coverage tracker in `PROGRESS.md`.
+
+1571. Reported: "I’m catching the progress log up for the view stress work
+      before running another verification pass. The log is long, but it’s doing
+      its job as the clean-room trail."
+
+      Action/result: Recorded the view stress work in the progress log.
+
+1572. Reported: "The progress log is caught up. I’m running the full checks
+      again after the view-batch code/docs changes, then I’ll keep moving to
+      the next tracker item if it’s clean."
+
+      Action/result: Ran the full verification set after the view stress pass.
+
+1573. Reported: "Verification is clean again: 113 tests pass, opcode evidence
+      is consistent, mdBook builds, and whitespace is clean. I’m checking
+      `PROGRESS.md` for the next highest-value gap now; likely candidates are
+      right/bottom clipping or interleaved picture line/fill/pattern cases."
+
+      Action/result: Re-read `PROGRESS.md` and selected picture pattern/
+      interleaving coverage as the next renderer task.
+
+1574. Reported: "`PROGRESS.md` now points me back to picture renderer coverage:
+      interleaved line/fill/pattern streams and broader pattern modes. I’m
+      going to add a few valid curated pattern cases next and run them through
+      the same fuzz/QEMU path."
+
+      Action/result: Began adding pattern-focused curated picture fuzz cases.
+
+1575. Reported: "The existing pattern source notes already cover bits `0x10`
+      and `0x20`, but the curated QEMU cases don’t isolate `0x10` or mix
+      fill/line/pattern in one stream. I’m adding those as safe base cases."
+
+      Action/result: Reviewed pattern source notes and existing fuzz coverage
+      before adding new cases.
+
+1576. Reported: "I’ll add three pattern cases: `0x10` mask bypass alone, an
+      interleaved rectangle-fill-line-pattern stream, and a combined
+      `0x10|0x20` pseudo-random pattern sequence. The local tests will assert
+      the first two at the pixel level."
+
+      Action/result: Added `base_024`, `base_025`, and `base_026` to
+      `tools/picture_fuzz.py`.
+
+1577. Reported: "The new pattern cases are in the fuzz catalog. I’m adding
+      renderer assertions for mask-bypass geometry and the interleaved
+      operation order so these aren’t just anonymous hashes."
+
+      Action/result: Added local pixel-level tests for pattern mask-bypass and
+      interleaved operation ordering.
+
+1578. Reported: "The pixel-level pattern tests are in. I’m running the targeted
+      renderer/fuzz tests and regenerating the standard corpus so the base-case
+      counts stay truthful."
+
+      Action/result: Targeted renderer/fuzz tests passed and the standard
+      corpus regenerated with 1,051 cases, 1,049 safe for QEMU.
+
+1579. Reported: "The local pattern tests pass, and the standard corpus now
+      reports 1,051 total cases with 1,049 safe for QEMU. I’m running the three
+      new pattern fixtures through the original engine next."
+
+      Action/result: Started the `pattern_interleaved_001` QEMU snapshot batch.
+
+1580. Reported: "The pattern QEMU batch is running from the snapshot disk. These
+      cases should tell us whether the local renderer’s mask-bypass and mixed
+      operation ordering match the original engine."
+
+      Action/result: Waited for the original-engine pattern batch to finish.
+
+1581. Reported: "The original-engine pattern batch matched all three new cases
+      with 0 mismatches. I’m documenting the result and updating the
+      remaining-picture-work wording so interleaved line/fill/pattern coverage
+      is no longer listed as missing."
+
+      Action/result: Read `pattern_interleaved_001.json` and began documenting
+      the successful QEMU result.
+
+1582. Reported: "The compatibility chapter still has the pre-pattern counts.
+      I’m bumping it to 27 curated base cases, adding `pattern_interleaved_001`,
+      and narrowing the remaining picture risk again."
+
+      Action/result: Updated compatibility-testing counts and pattern QEMU
+      evidence.
+
+1583. Reported: "I’m appending the clean-room evidence entry for the pattern
+      additions now, including the source-note check, local tests, corpus
+      regeneration, and QEMU report."
+
+      Action/result: Appended the pattern/interleaved picture fuzz expansion
+      note.
+
+1584. Reported: "The pattern evidence note is in. I’m updating the picture
+      tracker so the remaining renderer work focuses on odd/even-mask variation
+      and broader real-resource parity rather than the interleaved cases we
+      just validated."
+
+      Action/result: Updated `PROGRESS.md` for the new pattern/interleaving
+      coverage.
+
+1585. Reported: "I’m catching the progress log up for the pattern-fuzz pass,
+      then I’ll run the full verification set again. After that, I’ll keep
+      going into the next remaining gap."
+
+      Action/result: Recorded the pattern-fuzz work in the progress log.
+
+1586. Reported: "The progress log is current again. I’m running the full check
+      set after the pattern-fuzz changes: unit tests, opcode evidence, mdBook,
+      and whitespace."
+
+      Action/result: Ran the full verification set after pattern-fuzz changes.
+
+1587. Reported: "Verification is clean: 115 tests pass, opcode evidence is
+      consistent, mdBook builds, and whitespace is clean. I’m moving next to
+      the object placement/search gap, specifically what happens when collision
+      or control rejection makes the spiral continue past the first
+      bounds-acceptable spot."
+
+      Action/result: Began a source-first pass on placement-search rejection
+      predicates.
+
+1588. Reported: "My first disassembly window landed on the familiar MZ-offset
+      trap, so I’m rerunning the helper slices with the corrected file skip.
+      I’ll use the existing docs as guardrails and only refine what the source
+      clearly supports."
+
+      Action/result: Re-ran `0x4719` and `0x56b8` disassembly with corrected
+      file offsets.
+
+1589. Reported: "The corrected source slices confirm the caller contract
+      already in the docs: placement tests bounds, object-object collision,
+      then control acceptance at every spiral candidate. I’m going to make the
+      local placement helper’s `accept` hook explicit and tested, so
+      collision/control rejection can be modeled without hard-coding only
+      bounds cases."
+
+      Action/result: Prepared a local placement-helper clarification and test.
+
+1590. Reported: "I’m editing the helper and tests now: the source-backed spiral
+      remains the same, but the test will prove an external collision/control
+      predicate can reject early candidates and force the same spiral onward."
+
+      Action/result: Began adding placement-helper documentation and coverage.
+
+1591. Reported: "The helper already had the hook; this is mostly documentation
+      and coverage, not new behavior. That’s the right kind of small change for
+      a source-confirmed routine."
+
+      Action/result: Added a docstring to `search_object_placement()`.
+
+1592. Reported: "The helper docstring is in. I’m adding a regression test that
+      rejects the first few otherwise-valid candidates and verifies the next
+      accepted point follows the exact source spiral order."
+
+      Action/result: Added the placement accept-hook regression test.
+
+1593. Reported: "The accept-hook test now pins the first rejected-candidate
+      sequence: `(20,80)`, `(19,80)`, `(19,81)`, `(20,81)`, then `(21,81)`. I’m
+      reflecting that in the placement docs."
+
+      Action/result: Updated the graphics pipeline placement documentation.
+
+1594. Reported: "I’m recording this as a small source-model refinement, not as
+      new original-engine dynamic evidence: the source shows the later
+      predicates are applied at each candidate, and the local helper now
+      exposes/tests that structure."
+
+      Action/result: Appended the placement-search predicate-hook evidence
+      note.
+
+1595. Reported: "The evidence note is in. I’m updating the object-pipeline
+      tracker to say the local placement model now has a tested predicate hook,
+      while full object-record collision/control fixtures remain future work."
+
+      Action/result: Updated `PROGRESS.md` for the placement-search predicate
+      hook.
+
+1596. Reported: "I’m checking the symbol map before verification; if the
+      collision helper already has a label, I’ll leave it alone, and if not
+      I’ll add one so future version comparisons can map both placement
+      predicates."
+
+      Action/result: Found the control helper label but no collision helper
+      label.
+
+1597. Reported: "The control helper has a label, but the object-object
+      collision helper doesn’t. I’m adding `code.object.collision_test` at
+      `0x4719` so the placement predicate pair is complete in the symbol map."
+
+      Action/result: Added `code.object.collision_test` to the symbolic label
+      map.
+
+1598. Reported: "The symbol map now has both placement predicates named. I’m
+      adding that to the evidence note, then I’ll run the targeted and full
+      checks."
+
+      Action/result: Updated the placement evidence note with the new symbolic
+      label.
+
+1599. Reported: "I’m running the focused graphics tests first for the
+      placement-hook change. If those pass, I’ll run the full project checks
+      again."
+
+      Action/result: Ran focused graphics tests for placement changes.
+
+1600. Reported: "The focused graphics tests pass, including the new placement
+      predicate hook case. I’m running the full verification set now, then I’ll
+      keep going from the tracker."
+
+      Action/result: Ran the full verification set after the placement-hook
+      change.
+
+1601. Reported: "Full verification is clean again: 116 tests pass, opcode
+      evidence is consistent, mdBook builds, and whitespace is clean. I’m
+      logging the placement-hook work, then I’ll move to the next highest-value
+      non-graphics gap: text/input UI semantics."
+
+      Action/result: Confirmed the full suite and prepared to move to text/input
+      UI semantics.
+
+1602. Reported: "I’m shifting into the text/input UI area now. First I’m
+      auditing what is already QEMU-backed versus what is only dispatch-smoked
+      so I don’t spend time duplicating evidence."
+
+      Action/result: Began auditing text/input coverage against the tracker and
+      existing probes.
+
+1603. Reported: "`0xa9`’s active saved-window path may not be reachable cleanly
+      from the existing simple fixtures, but the source check is still useful:
+      it tells us exactly which state bit gates the restore call and which
+      globals are cleared afterward."
+
+      Action/result: Re-read action `0xa9` and identified the saved-window
+      restore gate and cleanup writes.
+
+1604. Reported: "The remaining text/input gap is narrower than PROGRESS.md
+      says. Most of the input-line, prompt, mapped-key, raw-key, status, and
+      width-mode behavior already has focused QEMU coverage; I’m updating the
+      tracker to name the real gap instead of the stale broad one."
+
+      Action/result: Narrowed the `PROGRESS.md` text/input remaining-work entry.
+
+1605. Reported: "I’m adding a short evidence note for this text/input audit so
+      the tracker change has a source trail. After that I’ll pick the next
+      partial subsystem rather than overfitting a brittle `0xa9` fixture."
+
+      Action/result: Added the text/input tracker audit note.
+
+1606. Reported: "With the text/input tracker narrowed, I’m moving to another
+      partially covered subsystem from PROGRESS.md: sound. I’ll start from the
+      load/start/stop source that the current QEMU probes already touch, then
+      see how much of the resource format falls directly out of the code."
+
+      Action/result: Started the source-first sound-resource pass.
+
+1607. Reported: "The first sound disassembly window was actually
+      joystick/picture code, so I corrected the address window and landed on the
+      sound cache lookup/load/start/stop cluster. The loader is doing something
+      pleasantly concrete: reading four little-endian offsets from the payload
+      into the cache record."
+
+      Action/result: Corrected the sound disassembly window and identified the
+      four-channel offset setup.
+
+1608. Reported: "The sound loader source is clear on the resource container,
+      and a quick SQ2 corpus scan says all present sound resources follow the
+      same four-offset header shape. I’m reading the driver-start/tick routines
+      next to see what each channel stream record contains."
+
+      Action/result: Scanned SQ2 sound resources and moved to the playback
+      start/tick source.
+
+1609. Reported: "I’m going to add a small sound-resource parser, but only for
+      the source-confirmed container/event fields: four channel offsets, then
+      duration/tone/control records ending in `0xffff`. Pitch and timing can
+      stay provisional until the driver code is better understood."
+
+      Action/result: Added `tools/agi_sound.py`.
+
+1610. Reported: "The parser is added. I’m adding tests that scan every present
+      SQ2 sound resource so the format claim is pinned to the local corpus, not
+      just sound 1."
+
+      Action/result: Added `tests/test_sound_resources.py`.
+
+1611. Reported: "The sound tests are in. I’m running them now, then I’ll update
+      the subsystem docs and tracker if the corpus scan stays clean."
+
+      Action/result: Ran targeted sound-resource tests.
+
+1612. Reported: "The sound parser tests pass across all 49 SQ2 sound resources:
+      every channel offset is sorted/in-bounds, every channel reaches an
+      in-payload `0xffff` terminator, and sound 1 matches the first event shape
+      from the source pass. I’m checking the symbol map for the sound channel
+      globals before documenting this."
+
+      Action/result: Confirmed the targeted sound-resource tests and prepared
+      sound symbol-map updates.
+
+1613. Reported: "The symbol map already names the main sound code paths, but it
+      didn’t yet name the channel pointer/countdown/state globals that
+      `0x7f96` initializes. I’m adding those data labels so later interpreter
+      versions can be mapped by role instead of address."
+
+      Action/result: Prepared sound channel data labels.
+
+1614. Reported: "The sound label block has a slightly different neighbor order
+      than I expected, so I’m patching it at the existing sound section rather
+      than moving unrelated labels around."
+
+      Action/result: Added the sound data labels in the existing sound symbol
+      section.
+
+1615. Reported: "I found the sound block and added the channel stream pointer,
+      countdown, active-word, and attenuation labels. Next I’ll finish the docs
+      for the sound resource shape and run the full verification set before the
+      next commit point."
+
+      Action/result: Completed the symbol-map update and queued sound
+      documentation/verification work.
+
+1616. Reported: "I’ll get the current work into a clean commit. First I’m
+      checking the tree and the recent docs/test state so I don’t accidentally
+      freeze an unfinished evidence trail."
+
+      Action/result: Checked git status, diff stats, and the tail of the
+      progress log.
+
+1617. Reported: "The tree is large but coherent: opcode/probe work, graphics
+      fuzz/view validation, placement modeling, and the new sound parser. I
+      found the progress log stops just before the text/input and sound updates,
+      so I’m going to patch that evidence gap and the sound docs before
+      committing."
+
+      Action/result: Decided to finish missing progress-log and sound-doc
+      updates before staging.
+
+1618. Reported: "The sound parser itself is small and the source-backed shape
+      is clear: loader builds four channel pointers from the payload header, and
+      the tick routine consumes duration/tone/control records. I’m adding that
+      to the model and compatibility docs so the commit tells the full story."
+
+      Action/result: Added sound-resource shape documentation to the runtime,
+      opcode, compatibility, progress, and evidence notes.
+
+1619. Reported: "Before editing, I’m keeping the patches scoped to
+      documentation and one tiny test cleanup. No new reverse-engineering claim
+      here without a source or test hook behind it."
+
+      Action/result: Kept the commit-prep edits scoped to evidence and
+      verification support.
+
+1620. Reported: "The documentation gap is patched. I’m running the project’s
+      full pre-commit checks now: unit tests, opcode evidence consistency,
+      mdBook build, and whitespace scan."
+
+      Action/result: Ran the full pre-commit verification set.
+
+1621. Reported: "All four checks passed cleanly, and the full test suite is now
+      120 tests with the sound parser included. I’m recording that verification
+      result in the progress log, then I’ll stage only the tracked project files
+      plus the new sound parser/tests, leaving generated DOS/build artifacts
+      alone."
+
+      Action/result: Confirmed `python3 -B -m unittest discover -s tests`
+      passed with 120 tests, opcode evidence check passed, mdBook built, and
+      `git diff --check` passed.
+
+1622. Reported: "The intended files are staged and the generated `build/` and
+      DOS installer directory are still untracked. I’m doing one staged diff
+      sanity check, then I’ll write the commit."
+
+      Action/result: Verified staged status and staged diff summary before the
+      commit.
+
+1623. Reported: "I added the final staging update to the historical log as
+      well, so the record stays complete. Now I’m restaging that one log file
+      and committing."
+
+      Action/result: Restaged the progress log before committing.
+
+1624. Reported: "Staged whitespace is clean and the only unstaged items are the
+      expected generated directories. I’m committing this batch now."
+
+      Action/result: Committed the staged reverse-engineering, documentation,
+      and compatibility-test updates.

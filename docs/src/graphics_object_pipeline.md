@@ -190,22 +190,30 @@ decoded endpoint is clamped to `x <= 0x9f` and `y <= 0xa7`, then connected with
 `0x66e1`.
 
 **`0xf8` (`seed_fill`)**: Handler `0x66ab` repeatedly reads coordinate pairs
-and calls helper `0x533b`. The helper chooses the expansion test channel by
-priority: if the low visual draw nibble is enabled, it expands through cells
-whose low nibble is `0xf`; otherwise, if the high control draw nibble is
-enabled, it expands through cells whose high nibble is `0x4`. A selected visual
-fill value of `0xf` or selected control fill value of `0x4` exits without
-filling. Once a cell is accepted, the write itself still goes through the normal
-active draw byte and odd/even masks, so both nibbles may be updated when both
-channels are active.
+and calls helper `0x533b`. The helper chooses exactly one expansion test channel
+for each seed. If the low visual draw nibble is enabled, it expands through
+cells whose low nibble is `0xf`. Otherwise, if the high control draw nibble is
+enabled, it expands through cells whose high nibble is `4` (`0x40` in the
+buffer byte). If neither channel is enabled, the command has no effect.
 
-The implementation is a horizontal span fill rather than a naive recursive
-four-neighbor fill. It writes the seed row left and right until the selected
-test channel no longer matches the target, then scans adjacent rows above and
-below, pushing deferred span state on the CPU stack when branching is needed.
-The current local renderer models the same expansion result with an explicit
-queue over four-neighbor cells, but uses the observed channel-priority and
-normal-pixel-write rules.
+The selected channel also supplies the no-op test. A selected visual fill value
+of `0xf`, or a selected control high-nibble value of `4` (`0x40` in the buffer
+byte), exits before scanning.
+The seed cell must already match the selected default target, or the helper
+exits. Once a cell is accepted, the write itself still goes through the normal
+active draw byte and odd/even masks, so both nibbles may be updated when both
+channels are active even though only one channel controls expansion.
+
+The SQ2 executable implements this as a stack-backed horizontal span fill. It
+writes the current horizontal run left and right, records the accepted span
+limits in the scratch block around `0x126c..0x1279`, scans the adjacent row in
+one vertical direction for matching target cells, pushes deferred span state on
+the CPU stack when a branch must be revisited, then reverses direction or pops
+the next deferred span until a sentinel row value ends the fill. For a portable
+clean-room implementation, the observable contract is the filled connected
+region under the selected-channel target test plus the normal pixel-write rule;
+a queue- or stack-based flood fill is equivalent for valid finite picture data
+if it produces the same final logical buffer.
 
 **`0xf9` (`set_pattern_mode`)**: Handler `0x6524` stores the next byte in
 `[0x15ee]`. The low three bits select one of eight pattern masks through the
@@ -589,18 +597,20 @@ buffer level. It takes a decoded frame, a left X, a baseline Y, and a priority
 nibble, computes `top = baseline_y - frame.height + 1`, skips pixels whose
 color equals the frame's transparent low nibble, and writes
 `(priority << 4) | color` only when the high-nibble priority gate permits it.
-QEMU validation of `add_to_pic` top-edge placement showed one extra adjustment:
-if `top` is negative, the overlay path adds that negative value to `left`, adds
-its absolute value to `baseline_y`, and draws with `top = 0`. In the observed
-case, view 11/group 0/frame 0 requested at left `20`, baseline `2` matched a
-local draw at left `18`, baseline `4`. Focused QEMU batch `clip_edges_001`
-revalidates this case and also confirms that the same view flush with the left
-edge at left `0`, baseline `80` draws at the requested in-bounds placement.
-Right-edge placement is not a simple pixel clip. A transient view 11/group 0/
-frame 0 probe requested at left `154`, baseline `80`; QEMU matched a local draw
-at left `140`, baseline `67`. This records the current observed result of
-placement helper `0x593a`, but the general placement-search algorithm still
-needs more boundary probes before it should be reduced to a formula.
+QEMU validation of `add_to_pic` top-edge and right-edge placement now lines up
+with this source-derived spiral search. For view 11/group 0/frame 0, requested
+left `20`, baseline `2` first becomes bounds-acceptable at left `18`, baseline
+`4`. Requested left `154`, baseline `80` fails the right-edge bound until the
+spiral reaches left `140`, baseline `67`. Focused QEMU batch `clip_edges_001`
+revalidates the top-edge case and also confirms that the same view flush with
+the left edge at left `0`, baseline `80` draws at the requested in-bounds
+placement. The local compatibility helper models this bounds-only portion of
+`0x593a` directly and exposes an `accept` predicate for the two later source
+tests, `0x4719(object) == 0` and `0x56b8(object) != 0`. Local tests now reject
+the first four otherwise-valid candidates and confirm that the same spiral then
+accepts `(21,81)`, proving that collision/control rejection extends the search
+without changing the movement order. Full object-record collision/control
+fixtures can plug those predicates in as the local model grows.
 This does not yet replace the full object-record/update-list pipeline, but it
 captures the central `IBM_OBJS.OVL:0x9db6` pixel rule for focused tests.
 
@@ -650,7 +660,9 @@ QEMU probes now include additional transparent-color samples: view 21/group 0/
 frame 0 with transparent color `3`, view 29/group 0/frame 0 with transparent
 color `8` and size `45x47`, and view 10/group 0/frame 0 with bit `0x80` and
 transparent color `10`. All matched the local renderer in the expanded object
-overlay batch.
+overlay batch. A later optional view stress batch broadened this again with
+larger cels and transparent colors `0`, `1`, `2`, `5`, `6`, `7`, `8`, `10`,
+`13`, `14`, and `15`; all 17 base-plus-stress cases matched QEMU.
 
 The exact meaning of the first two payload bytes remains open.
 
@@ -697,8 +709,22 @@ if object flag 0x0008 is clear: object[+0x05] > [0x012d]
 
 If the object is above or at `[0x012d]` and bit `0x0008` is clear, `0x593a`
 first bumps the Y-like field to `[0x012d] + 1`. When the starting position is
-not acceptable, the helper tries neighboring positions in a widening
-left/right/up/down pattern until the bounds and additional tests pass.
+not acceptable, the helper tries neighboring positions in a widening spiral
+until the bounds and additional tests pass. The candidate is tested before each
+movement step. The movement sequence is:
+
+```text
+left 1, down 1, right 2, up 2,
+left 3, down 3, right 4, up 4, ...
+```
+
+At each candidate, `0x593a` requires all of:
+
+```text
+0x5a14(object) != 0
+0x4719(object) == 0
+0x56b8(object) != 0
+```
 
 QEMU horizon probes validate this path with `[0x012d] = 100`. With bit
 `0x0008` clear, placing view 11 at baseline `80` clamps it to baseline `101`.

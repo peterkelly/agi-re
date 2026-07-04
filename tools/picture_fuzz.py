@@ -127,6 +127,12 @@ def base_cases() -> list[PictureFuzzCase]:
         _case("base_018_pattern_edge_circle", "Pattern plot clamps a circular mask at the lower-right edge.", bytes([0xF0, 8, 0xF9, 7, 0xFA, 159, 167, 0xFF]), "pattern"),
         _case("base_019_pattern_edge_rectangle", "Pattern plot clamps a rectangular mask at the lower-right edge.", bytes([0xF0, 9, 0xF9, 0x17, 0xFA, 159, 167, 0xFF]), "pattern"),
         _case("base_020_pattern_random_sequence", "Two pseudo-random pattern plots with different seeds.", bytes([0xF0, 10, 0xF9, 0x25, 0xFA, 0x01, 50, 50, 0xE1, 52, 52, 0xFF]), "pattern"),
+        _case("base_021_visual_fill_full_height_barrier", "Visual seed fill stopped by a full-height one-pixel barrier.", bytes([0xF0, 2, 0xF6, 80, 0, 80, 167, 0xF0, 3, 0xF8, 10, 10, 0xFF]), "fill"),
+        _case("base_022_visual_fill_multi_seed_boxes", "One seed-fill command fills two isolated boxed regions.", bytes([0xF0, 2, 0xF4, 10, 10, 20, 20, 10, 10, 0xF4, 30, 10, 20, 40, 10, 30, 0xF0, 3, 0xF8, 15, 15, 35, 15, 0xFF]), "fill"),
+        _case("base_023_control_fill_ignores_visual_barrier", "Control seed fill crosses a visual-only barrier because control is the test channel.", bytes([0xF0, 2, 0xF6, 80, 0, 80, 167, 0xF1, 0xF2, 6, 0xF8, 10, 10, 0xFF]), "fill"),
+        _case("base_024_pattern_bypass_mask", "Pattern mode bit 0x10 bypasses the row/column mask test.", bytes([0xF0, 11, 0xF9, 0x13, 0xFA, 80, 80, 0xFF]), "pattern"),
+        _case("base_025_interleaved_line_fill_pattern", "Rectangle outline, seed fill, line, and pattern plot in one valid stream.", bytes([0xF0, 2, 0xF4, 20, 20, 40, 40, 20, 20, 0xF0, 3, 0xF8, 30, 30, 0xF0, 4, 0xF6, 20, 30, 40, 30, 0xF0, 5, 0xF9, 0x14, 0xFA, 30, 30, 0xFF]), "pattern"),
+        _case("base_026_pattern_random_bypass_sequence", "Two pattern plots with both bypass-mask and pseudo-random bits set.", bytes([0xF0, 12, 0xF9, 0x35, 0xFA, 0x7D, 70, 70, 0x22, 75, 72, 0xFF]), "pattern"),
     ]
 
 

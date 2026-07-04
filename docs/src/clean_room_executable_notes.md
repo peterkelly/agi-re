@@ -5379,3 +5379,734 @@ Results:
 - Updated `PROGRESS.md`: logic action opcode coverage is now 162 of 176 at
   `[x]` level (`161` QEMU-validated plus structural `0x00`), with 14 partial
   action opcodes remaining.
+
+## 2026-07-04: text-attribute pair behavior probe
+
+Commands run from `/Users/peter/ai/agi/reverse`:
+
+- `git status --short`
+- `sed -n` reads of `PROGRESS.md`, `tools/logic_interpreter_probe.py`,
+  `tests/test_logic_interpreter_probe.py`, `tools/logic_opcode_evidence.py`,
+  `docs/src/logic_bytecode.md`, `docs/src/runtime_model.md`,
+  `docs/src/compatibility_testing.md`, `docs/src/symbolic_labels.md`, and this
+  notes file.
+- `rg -n "0x77d5|0x7803|0x78a1|0x78ad|set_attribute_pair|0x6d|0x6D" docs/src/clean_room_executable_notes.md docs/src/symbolic_labels.md docs/src/logic_bytecode.md docs/src/runtime_model.md`
+- `ndisasm -b 16 -o 0x77d5 -e 0x79d5 build/cleanroom/AGI.decrypted.exe`
+- `ndisasm -b 16 -o 0x76ca -e 0x78ca build/cleanroom/AGI.decrypted.exe`
+- `python3 -B -m unittest tests.test_logic_interpreter_probe.LogicInterpreterProbeTests.test_base_cases_cover_core_control_flow tests.test_logic_interpreter_probe.LogicInterpreterProbeTests.test_text_rect_clear_cases_expect_display_surface_rectangles`
+- `python3 -B tools/logic_interpreter_probe.py --dos-prefix TA --output build/logic-interpreter-probes/batches/text_attr_pair_behaviour_001.json --boot-wait 5 --draw-wait 8 --stop-on-failure --case text_attribute_pair_changes_attr_mode_clear_color`
+- `python3 -B tools/logic_opcode_evidence.py`
+
+Results:
+
+- Re-read action `0x6d` at image `0x77af`. It reads two immediate operands and
+  calls `code.text.set_attribute_pair` (`0x77d5`).
+- Re-read `code.text.set_attribute_pair` at image `0x77d5`. It stores
+  `[0x05d1] = helper_0x7803(arg0, arg1)`, `[0x05cd] = helper_0x78a1(arg0)`,
+  and `[0x05cf] = helper_0x78ad(arg1)`. In normal text mode, `0x78ad`
+  returns `0xff` for a nonzero argument; when byte `[0x1757]` is set, `0x7803`
+  packs the pair as `arg0 | (arg1 << 4)`.
+- Added QEMU case `text_attribute_pair_changes_attr_mode_clear_color`. The
+  fixture runs `0x6d(0, 1)`, then `0x6a`, and compares the visible surface
+  without expecting the normal validation sprite while alternate text mode is
+  active.
+- QEMU batch `text_attr_pair_behaviour_001` matched with 1 match, 0 mismatches,
+  and 0 errors. This validates that the stored pair is reused by `0x6a` and
+  produces a full-screen visual color 15 clear, matching packed text attribute
+  low byte `0xf0` for the observed EGA path.
+- Promoted action `0x6d` (`set_text_window_pair`) to behavior-level
+  QEMU-validated evidence. Updated `tools/logic_opcode_evidence.py`,
+  regenerated `docs/src/logic_opcode_evidence.md`, and updated opcode,
+  runtime, compatibility, and symbolic-label docs.
+- Updated `PROGRESS.md`: logic action opcode coverage is now 163 of 176 at
+  `[x]` level (`162` QEMU-validated plus structural `0x00`), with 13 partial
+  action opcodes remaining.
+
+## 2026-07-04: input-line refresh/erase and status-line show probes
+
+Commands run from `/Users/peter/ai/agi/reverse`:
+
+- `git status --short`
+- `sed -n` reads of `PROGRESS.md`, `tools/logic_interpreter_probe.py`,
+  `tests/test_logic_interpreter_probe.py`, `tools/logic_opcode_evidence.py`,
+  `docs/src/logic_bytecode.md`, `docs/src/runtime_model.md`,
+  `docs/src/compatibility_testing.md`, `docs/src/symbolic_labels.md`, and this
+  notes file.
+- `rg -n "\\[~\\]|Highest-Value|Remaining|0x70|0x89|0x8a|0xa3|0xa4|0xa9|0xaa|0xad|0x83|0x8e|0x95|0x96|0x6e" PROGRESS.md docs/src/logic_bytecode.md docs/src/runtime_model.md docs/src/clean_room_executable_notes.md tools/logic_interpreter_probe.py tests/test_logic_interpreter_probe.py tools/logic_opcode_evidence.py`
+- `ndisasm -b 16 -o 0x3652 -e 0x3852 build/cleanroom/AGI.decrypted.exe`
+- `ndisasm -b 16 -o 0x3726 -e 0x3926 build/cleanroom/AGI.decrypted.exe`
+- `ndisasm -b 16 -o 0x34bd -e 0x36bd build/cleanroom/AGI.decrypted.exe`
+- `python3 -B -m unittest tests.test_logic_interpreter_probe.LogicInterpreterProbeTests.test_base_cases_cover_core_control_flow tests.test_logic_interpreter_probe.LogicInterpreterProbeTests.test_text_rect_clear_cases_expect_display_surface_rectangles tests.test_logic_interpreter_probe.LogicInterpreterProbeTests.test_rect_checks_can_match_without_glyph_model tests.test_logic_interpreter_probe.LogicInterpreterProbeTests.test_rect_checks_report_mismatch`
+- First QEMU attempt:
+  `python3 -B tools/logic_interpreter_probe.py --dos-prefix IR --output build/logic-interpreter-probes/batches/input_refresh_status_001.json --boot-wait 5 --draw-wait 8 --stop-on-failure --case status_line_show_draws_configured_row --case input_line_typed_text_visible_baseline --case input_line_erase_clears_typed_buffer --case input_line_erase_then_refresh_restores_typed_buffer`
+- Capture checks:
+  `python3 -B -m json.tool build/logic-interpreter-probes/batches/input_refresh_status_001.json`
+  and `python3 -B tools/inspect_ppm.py` over the three input-line captures.
+- Local row-count script over the downsampled captures for
+  `input_line_typed_text_visible_baseline`,
+  `input_line_erase_clears_typed_buffer`, and the failed refresh case.
+- Focused unit rerun:
+  `python3 -B -m unittest tests.test_logic_interpreter_probe.LogicInterpreterProbeTests.test_base_cases_cover_core_control_flow tests.test_logic_interpreter_probe.LogicInterpreterProbeTests.test_rect_checks_can_match_without_glyph_model tests.test_logic_interpreter_probe.LogicInterpreterProbeTests.test_rect_checks_report_mismatch`
+- Corrected QEMU input batch:
+  `python3 -B tools/logic_interpreter_probe.py --dos-prefix IR --output build/logic-interpreter-probes/batches/input_refresh_status_002.json --boot-wait 5 --draw-wait 8 --stop-on-failure --case input_line_typed_text_visible_baseline --case input_line_erase_clears_typed_buffer --case input_line_refresh_repaints_entered_buffer`
+- QEMU status batch:
+  `python3 -B tools/logic_interpreter_probe.py --dos-prefix ST --output build/logic-interpreter-probes/batches/status_show_001.json --boot-wait 5 --draw-wait 8 --stop-on-failure --case status_line_show_draws_configured_row`
+- `python3 -B tools/logic_opcode_evidence.py`
+
+Results:
+
+- Added a narrow rectangle-check comparison mode to
+  `tools/logic_interpreter_probe.py` for UI text rows whose exact font glyphs
+  are not yet modeled by the local renderer. Existing exact full-frame
+  comparisons remain the default.
+- Re-read helper `code.input.handle_input_char` (`0x3652`), action `0x8a`
+  (`0x3726`), action `0x89` (`0x3753`), helper
+  `code.input.append_source_to_visible` (`0x37a5`), and status-line helper
+  `0x34bd`.
+- Added QEMU baseline `input_line_typed_text_visible_baseline`, which validates
+  that typed live-edit characters produce visible color-15 pixels on the
+  configured input row.
+- Added QEMU case `input_line_erase_clears_typed_buffer`. The fixture
+  configures input row 5, sends `look`, then runs `0x8a` every cycle. It
+  matched only when logical Y 40..47 was black before the final object draw,
+  validating the visible erase path for action `0x8a`.
+- The first attempted refresh case assumed `0x89` would repaint unaccepted
+  live-edit characters after `0x8a`. QEMU batch `input_refresh_status_001`
+  matched the baseline and erase cases but mismatched the refresh case. Row
+  counts showed the baseline row had color-15 glyph pixels while both the
+  erase and failed refresh captures had zero color-15 pixels in logical Y
+  40..47.
+- Corrected the refresh case to type `look` plus Enter before checking `0x89`.
+  This matches the disassembly: Enter copies visible buffer `0x0fa4` into
+  source buffer `0x0fce`, clears visible length `[0x0ff8]`, and redraws; the
+  normal EGA `0x89` path then copies from `0x0fce` back into `0x0fa4`.
+- QEMU batch `input_refresh_status_002` matched with 3 matches, 0 mismatches,
+  and 0 errors. This promotes actions `0x89` (`refresh_input_line`) and
+  `0x8a` (`erase_input_line`) to behavior-level QEMU-validated evidence for
+  the observed EGA path.
+- Added QEMU case `status_line_show_draws_configured_row`. The fixture
+  configures status row 5 through `0x6f(0, 0, 5)`, runs `0x70`, and checks for
+  visible color-15 pixels in logical Y 40..47. QEMU batch `status_show_001`
+  matched with 1 match, 0 mismatches, and 0 errors, promoting action `0x70`
+  (`show_status_line_like`) to behavior-level QEMU-validated evidence.
+- Updated `tools/logic_opcode_evidence.py`, regenerated
+  `docs/src/logic_opcode_evidence.md`, and updated opcode, runtime,
+  compatibility, symbolic-label, and tracker docs.
+- Updated `PROGRESS.md`: logic action opcode coverage is now 166 of 176 at
+  `[x]` level (`165` QEMU-validated plus structural `0x00`), with 10 partial
+  action opcodes remaining.
+
+## 2026-07-04: enabled trace-window validation
+
+Commands run from `/Users/peter/ai/agi/reverse`:
+
+- `git status --short`
+- `rg -n "trace_window|0x95|0x96|1d10|1d08|1d0a" tools/logic_interpreter_probe.py docs/src/logic_bytecode.md docs/src/clean_room_executable_notes.md docs/src/symbolic_labels.md PROGRESS.md`
+- `sed -n` reads of `tools/logic_interpreter_probe.py`,
+  `tests/test_logic_interpreter_probe.py`, `docs/src/logic_bytecode.md`,
+  `docs/src/symbolic_labels.md`, `docs/src/runtime_model.md`,
+  `docs/src/compatibility_testing.md`, `PROGRESS.md`, and this notes file.
+- `ndisasm -b 16 -o 0x8c91 -e 0x8e91 build/cleanroom/AGI.decrypted.exe`
+  during the preceding trace inspection pass.
+- Focused unit tests:
+  `python3 -B -m unittest tests.test_logic_interpreter_probe.LogicInterpreterProbeTests.test_base_cases_cover_core_control_flow tests.test_logic_interpreter_probe.LogicInterpreterProbeTests.test_trace_window_rect_check_tracks_source_bounds tests.test_logic_interpreter_probe.LogicInterpreterProbeTests.test_rect_checks_can_match_without_glyph_model tests.test_logic_interpreter_probe.LogicInterpreterProbeTests.test_rect_checks_report_mismatch`
+- First enabled trace QEMU run:
+  `python3 -B tools/logic_interpreter_probe.py --dos-prefix TR --output build/logic-interpreter-probes/batches/trace_window_enable_001.json --boot-wait 5 --draw-wait 8 --stop-on-failure --case trace_window_enable_draws_box_when_flag10_set`
+- Capture inspection:
+  `python3 -B tools/inspect_ppm.py build/logic-interpreter-probes/fixtures/trace_window_enable_draws_box_when_flag10_set/qemu_capture.ppm`
+- Local downsample/color-count script over the same PPM capture.
+- `magick build/logic-interpreter-probes/fixtures/trace_window_enable_draws_box_when_flag10_set/qemu_capture.ppm build/logic-interpreter-probes/fixtures/trace_window_enable_draws_box_when_flag10_set/qemu_capture.png`
+- Stricter focused unit rerun, same unittest command as above.
+- Final enabled trace QEMU run:
+  `python3 -B tools/logic_interpreter_probe.py --dos-prefix TR --output build/logic-interpreter-probes/batches/trace_window_enable_002.json --boot-wait 5 --draw-wait 8 --stop-on-failure --case trace_window_enable_draws_box_when_flag10_set`
+- `python3 -B tools/logic_opcode_evidence.py`
+
+Results:
+
+- Re-read the trace action pair from disassembly. Handler `0x95` at image
+  `0x8c91` either consumes an extra byte when trace state `[0x1d10]` is already
+  nonzero, or calls helper `0x8cae` to enable the trace window only if flag 10
+  is set. Handler `0x96` at image `0x8d3d` stores trace logic/resource,
+  row-offset, and height globals in `[0x1d12]`, `[0x1d08]`, and `[0x1d0a]`,
+  clamping height upward to at least 2.
+- Added QEMU case `trace_window_enable_draws_box_when_flag10_set`. The fixture
+  configures the base text row with `0x6f(0, 0, 5)`, configures the trace window
+  with `0x96(0, 1, 2)`, sets flag 10, and runs `0x95` as a one-shot path so the
+  repeated-active `SI + 1` behavior cannot consume fixture bytes by accident.
+- The first enabled trace run matched a broad white-window check. Inspection of
+  the capture showed the original engine draws a red-bordered, white-filled
+  trace box with black text such as `0: 12(94)`. The downsampled capture has
+  red border pixels around logical row 5, large white fill through the trace
+  window, and black glyph pixels in rows 18..30.
+- Tightened the case to require all three visible signals: red border, white
+  fill, and black trace text. QEMU batch `trace_window_enable_002` matched with
+  1 match, 0 mismatches, and 0 errors.
+- Promoted actions `0x95` (`enable_action_trace_window`) and `0x96`
+  (`configure_action_trace_window`) from QEMU dispatch-smoke to behavior-level
+  QEMU-validated evidence. The older flag-clear case remains useful as gated
+  no-draw coverage.
+- Updated `tools/logic_opcode_evidence.py`, regenerated
+  `docs/src/logic_opcode_evidence.md`, and updated opcode, runtime,
+  compatibility, symbolic-label, and tracker docs.
+- Updated `PROGRESS.md`: logic action opcode coverage is now 168 of 176 at
+  `[x]` level (`167` QEMU-validated plus structural `0x00`), with 8 partial
+  action opcodes remaining.
+
+## 2026-07-04: input-width flag and inactive close-window cleanup probes
+
+Commands run from `/Users/peter/ai/agi/reverse`:
+
+- `rg -n "Highest-Value|Remaining|0x6e|0x83|0x8e|0xa3|0xa4|0xa9|0xaa|0xad" PROGRESS.md docs/src/logic_bytecode.md docs/src/runtime_model.md docs/src/symbolic_labels.md tools/logic_interpreter_probe.py tools/logic_opcode_evidence.py`
+- `sed -n` reads of `PROGRESS.md`, `docs/src/logic_bytecode.md`,
+  `docs/src/runtime_model.md`, `docs/src/symbolic_labels.md`,
+  `docs/src/compatibility_testing.md`, `tools/logic_interpreter_probe.py`,
+  `tests/test_logic_interpreter_probe.py`, `tools/qemu_snapshot.py`, and this
+  notes file.
+- `ndisasm -b 16 -o 0x3652 -e 0x3852 build/cleanroom/AGI.decrypted.exe`
+- `ndisasm -b 16 -o 0x3939 -e 0x3b39 build/cleanroom/AGI.decrypted.exe`
+- `ndisasm -b 16 -o 0x1f2b -e 0x212b build/cleanroom/AGI.decrypted.exe`
+- Focused unit tests:
+  `python3 -B -m unittest tests.test_logic_interpreter_probe.LogicInterpreterProbeTests.test_base_cases_cover_core_control_flow tests.test_logic_interpreter_probe.LogicInterpreterProbeTests.test_input_width_flag_cases_have_distinct_row_checks tests.test_logic_interpreter_probe.LogicInterpreterProbeTests.test_rect_checks_can_match_without_glyph_model tests.test_logic_interpreter_probe.LogicInterpreterProbeTests.test_rect_checks_report_mismatch`
+- First QEMU attempt with a visible long slot-0 prefix:
+  `python3 -B tools/logic_interpreter_probe.py --dos-prefix IW --output build/logic-interpreter-probes/batches/input_width_flag_001.json --boot-wait 5 --draw-wait 8 --stop-on-failure --case input_width_flag_a3_allows_long_live_input --case input_width_flag_a4_restores_long_slot_limit --case close_text_window_state_clears_input_width_flag`
+- Capture/report inspections using `python3 -B tools/inspect_ppm.py` and local
+  downsample/color-count scripts over the generated `input_width_flag_*`
+  fixture captures.
+- Second QEMU attempt with a long blank slot-0 prefix:
+  `python3 -B tools/logic_interpreter_probe.py --dos-prefix IW --output build/logic-interpreter-probes/batches/input_width_flag_002.json --boot-wait 5 --draw-wait 8 --stop-on-failure --case input_width_flag_a3_allows_long_live_input --case input_width_flag_a4_restores_long_slot_limit --case close_text_window_state_clears_input_width_flag`
+- Third QEMU attempt with the check moved to the wrapped row:
+  `python3 -B tools/logic_interpreter_probe.py --dos-prefix IW --output build/logic-interpreter-probes/batches/input_width_flag_003.json --boot-wait 5 --draw-wait 8 --stop-on-failure --case input_width_flag_a3_allows_long_live_input --case input_width_flag_a4_restores_long_slot_limit --case close_text_window_state_clears_input_width_flag`
+- Final QEMU batch:
+  `python3 -B tools/logic_interpreter_probe.py --dos-prefix IW --output build/logic-interpreter-probes/batches/input_width_flag_004.json --boot-wait 5 --draw-wait 8 --stop-on-failure --case input_width_flag_a3_allows_long_live_input --case input_width_flag_a4_restores_long_slot_limit --case close_text_window_state_clears_input_width_flag`
+- `python3 -B tools/logic_opcode_evidence.py`
+
+Results:
+
+- Re-read `code.input.handle_input_char` (`0x3652`). At entry it computes a
+  live-input cap in `DI`: if word `[0x0d0f]` is nonzero it uses `0x24`;
+  otherwise it computes `0x28 - strlen(0x020d)`, where `0x020d` is fixed string
+  slot 0. The prompt marker byte can reduce this by one, and byte `[0x21]`
+  applies another cap. The printable-character path appends to visible buffer
+  `0x0fa4` only while current visible length `[0x0ff8]` is below this cap.
+- Re-read action `0xa3` at `0x3939`: it sets word `[0x0d0f] = 1` and returns
+  the current bytecode pointer. Action `0xa4` at `0x394b` clears the same word.
+- Re-read action `0xa9` at `0x1f2b`: if word `[0x0d1d]` is nonzero, it restores
+  saved display rectangle `[0x0d23]`/`[0x0d25]` through helper `0x560c`, then
+  clears both `[0x0d0f]` and `[0x0d1d]`. The QEMU case below validates the
+  unconditional `[0x0d0f]` clear with no active saved window; the active
+  rectangle restore remains source-backed from this disassembly.
+- Added cases `input_width_flag_a3_allows_long_live_input`,
+  `input_width_flag_a4_restores_long_slot_limit`, and
+  `close_text_window_state_clears_input_width_flag`.
+- First attempt used a visible 38-character string slot 0. `0xa3` matched, but
+  `0xa4` mismatched because the long prefix itself painted many white pixels on
+  the input row, masking the accepted-input distinction.
+- Second attempt changed slot 0 to 38 spaces. This removed the visible prefix
+  glyphs, but QEMU showed the typed characters wrapping into logical rows
+  48..55, not rows 40..47.
+- Third attempt checked for white pixels on the wrapped row. `0xa3` matched,
+  but `0xa4` still mismatched because the wrapped row is blank white fill even
+  without accepted typed glyphs.
+- Final attempt checked for black glyph pixels inside logical rows 48..55.
+  With `0xa3`, accepted typed characters create black glyph pixels in that
+  white-filled wrapped row. With `0xa4`, and with `0xa9` after `0xa3`, the same
+  row remains blank white fill with no black glyph signal.
+- QEMU batch `input_width_flag_004` matched 3/3 with 0 mismatches and 0 errors.
+  This promotes `0xa3` and `0xa4` to behavior-level QEMU evidence for the
+  input-width flag and promotes `0xa9` for the inactive-window unconditional
+  flag-clear side.
+- Updated `tools/logic_opcode_evidence.py`, regenerated
+  `docs/src/logic_opcode_evidence.md`, and updated opcode, runtime,
+  compatibility, symbolic-label, and tracker docs.
+- Updated `PROGRESS.md`: logic action opcode coverage is now 171 of 176 at
+  `[x]` level (`170` QEMU-validated plus structural `0x00`), with 5 partial
+  action opcodes remaining.
+
+## 2026-07-04: action `0x83` direction-mirror timing
+
+Commands:
+
+- `rg -n "0139|0x0139|clear_global_0139|set_global_0139|field_22|object0|first object" ...`
+- `ndisasm -b 16 -o 0x702f -e 0x722f build/cleanroom/AGI.decrypted.exe`
+- `ndisasm -b 16 -o 0x0150 -e 0x0350 build/cleanroom/AGI.decrypted.exe | sed -n '1,90p'`
+- `python3 -B tools/logic_interpreter_probe.py --dos-prefix L83 --output build/logic-interpreter-probes/batches/object0_direction_mirror_001.json --boot-wait 5 --draw-wait 8 --stop-on-failure --case clear_global_0139_allows_object0_direction_to_seed_global`
+- `python3 -B tools/logic_interpreter_probe.py --dos-prefix L83 --output build/logic-interpreter-probes/batches/object0_direction_mirror_002.json --boot-wait 5 --draw-wait 8 --stop-on-failure --case clear_global_0139_allows_object0_direction_to_seed_global`
+- `python3 -B tools/logic_interpreter_probe.py --dos-prefix L83 --output build/logic-interpreter-probes/batches/object0_direction_mirror_003.json --boot-wait 5 --draw-wait 8 --stop-on-failure --case clear_global_0139_allows_object0_direction_to_seed_global`
+- `python3 -B tools/logic_interpreter_probe.py --dos-prefix L83 --output build/logic-interpreter-probes/batches/object0_direction_mirror_004.json --boot-wait 5 --draw-wait 8 --stop-on-failure --case clear_global_0139_allows_object0_direction_to_seed_global`
+- `python3 -B tools/logic_interpreter_probe.py --cases build/logic-interpreter-probes/manual_direction_value_cases.json --dos-prefix L8D --output build/logic-interpreter-probes/batches/object0_direction_value_diag_001.json --boot-wait 5 --draw-wait 8 --case diagnostic_object0_direction_value_after_0139_mirror`
+- `python3 -B tools/logic_interpreter_probe.py --cases build/logic-interpreter-probes/manual_direction_phase_cases.json --dos-prefix L8P --output build/logic-interpreter-probes/batches/object0_direction_phase_diag_001.json --boot-wait 5 --draw-wait 8 --case diagnostic_object0_direction_phase2_reached`
+- `python3 -B tools/logic_interpreter_probe.py --cases build/logic-interpreter-probes/manual_direction_active_cases.json --dos-prefix L8A --output build/logic-interpreter-probes/batches/object0_direction_active_diag_001.json --boot-wait 5 --draw-wait 8 --case diagnostic_object0_active_direction_phase2`
+
+Observations:
+
+- Action `0x83` at image `0x702f` is a tiny handler: it stores word
+  `[0x0139] = 0` and returns the current bytecode pointer.
+- Action `0x84` at image `0x7041` stores word `[0x0139] = 1` and clears byte
+  `+0x22` on the first object entry.
+- `code.engine.main_cycle` uses `[0x0139]` before logic execution. When the
+  word is zero, it copies first-object direction byte `+0x21` to global byte
+  `[0x000f]`. When the word is nonzero, it copies `[0x000f]` back to first
+  object byte `+0x21`.
+- The same main-cycle source later writes `[0x000f]` back to first-object
+  `+0x21` after the logic-0 call returns. This means a logic script that sets
+  object0 byte `+0x21` after the pre-logic mirror is too late to seed
+  `[0x000f]` for the next cycle by itself.
+- Several attempted permanent QEMU fixtures tried to set object0 byte `+0x21`
+  to `6`, execute `0x83`, wait a cycle, execute `0x84`, and then read byte
+  `+0x21` through `0x57`. These did not validate the intended model:
+  `object0_direction_mirror_001..004` mismatched or produced no validation
+  marker.
+- Disposable diagnostics confirmed the phase scaffolding reached phase 2, but
+  the observed object0 direction after the sequence was `0`, not `6`. Activating
+  object0 during the seed phase did not change that result.
+- Conclusion: `0x83` should be specified from source as the selector clear for
+  the pre-logic object0/global direction mirror. A script-level QEMU fixture is
+  not a clean validation shape because the relevant branch point happens before
+  logic bytecode runs, and cycle-end restoration can clobber script-written
+  object0 direction bytes.
+- Removed the attempted reusable `clear_global_0139_allows_object0_direction_to_seed_global`
+  fixture from `tools/logic_interpreter_probe.py` after the diagnostics showed
+  it was testing the wrong timing point.
+- Updated `tools/logic_opcode_evidence.py`, regenerated
+  `docs/src/logic_opcode_evidence.md`, and updated opcode, runtime,
+  compatibility, symbolic-label, and tracker docs.
+- Updated `PROGRESS.md`: logic action opcode coverage is now 172 of 176 at
+  `[x]` level (`170` QEMU-validated, structural `0x00`, and source-backed
+  `0x83`), with 4 partial action opcodes remaining.
+
+## 2026-07-04: action `0xad` key-release enqueue gate
+
+Commands:
+
+- `rg -n "0xad|increment_global_1530|1530|0x1530|Highest-Value|\\[~\\]" PROGRESS.md docs/src/logic_bytecode.md docs/src/runtime_model.md docs/src/symbolic_labels.md docs/src/clean_room_executable_notes.md tools/logic_opcode_evidence.py tools/logic_interpreter_probe.py tests/test_logic_interpreter_probe.py`
+- `ndisasm -b 16 -o 0x6000 -e 0x6200 build/cleanroom/AGI.decrypted.exe | sed -n '1,220p'`
+- `rizin -q -c "/x 3015" -c q build/cleanroom/AGI.decrypted.exe`
+- `rizin -q -c "/x 1915" -c "/x 3015" -c "/x 2f15" -c q build/cleanroom/AGI.decrypted.exe`
+- `rg -n "44a9|code\\.event|enqueue|event queue|keyboard|raw event|type-2|type 2|0x44a9" docs/src/symbolic_labels.md docs/src/logic_bytecode.md docs/src/runtime_model.md docs/src/clean_room_executable_notes.md`
+
+Observations:
+
+- Action `0xad` at image `0x602f` consists of `inc byte [0x1530]`, then
+  returns the current bytecode pointer.
+- Local byte-pattern searches found only the action increment and the keyboard
+  IRQ hook test of `[0x1530]`.
+- The keyboard IRQ hook at image `0x6036` stores the raw scan byte in
+  `[0x152f]`, maps scan codes `0x47..0x51` to an index by subtracting `0x47`,
+  checks enable table `[0x1519 + index]`, and tracks press/release state in
+  `[0x1524 + index]`.
+- On release (`scan & 0x80` set), if the latch was set, the hook clears the
+  latch and tests byte `[0x1530]`. If the gate is nonzero, it calls
+  `code.input.enqueue_event` (`0x44a9`) with `(type=2, value=0)`.
+- On press, if no latch is set for that index, the hook clears the latch table
+  range and increments the selected `[0x1524 + index]` latch.
+- Conclusion: `0xad` is a source-backed input/keyboard action. It increments a
+  nonzero gate that allows selected tracked-key releases to enqueue a type-2
+  zero event from the interrupt hook. A QEMU fixture for this would depend on
+  raw scan-code press/release timing and is less appropriate than direct source
+  evidence for the current spec target.
+- Updated `tools/logic_opcode_evidence.py`, regenerated
+  `docs/src/logic_opcode_evidence.md`, and updated opcode, runtime,
+  compatibility, symbolic-label, and tracker docs.
+- Updated `PROGRESS.md`: logic action opcode coverage is now 173 of 176 at
+  `[x]` level (`170` QEMU-validated, structural `0x00`, and source-backed
+  `0x83`/`0xad`), with 3 partial action opcodes remaining.
+
+## 2026-07-04: action `0x8e` event-pair capacity reset
+
+Commands:
+
+- `rg -n "0x8e|set_global_0141|pair_capacity|0x0141|data.event.pair_capacity|reset_pair_buffer|event buffer|resource-event|replay" PROGRESS.md docs/src/logic_bytecode.md docs/src/runtime_model.md docs/src/symbolic_labels.md docs/src/compatibility_testing.md docs/src/clean_room_executable_notes.md tools/logic_opcode_evidence.py tools/logic_interpreter_probe.py tests/test_logic_interpreter_probe.py`
+- `ndisasm -b 16 -o 0x7140 -e 0x7220 build/cleanroom/AGI.decrypted.exe | sed -n '1,180p'`
+- `ndisasm -b 16 -o 0x7060 -e 0x7130 build/cleanroom/AGI.decrypted.exe | sed -n '1,220p'`
+
+Observations:
+
+- Action `0x8e` at image `0x716a` reads one immediate byte, writes it to
+  `data.event.pair_capacity` (`[0x0141]`), calls an update-list flush helper,
+  calls `code.event.reset_pair_buffer`, calls the matching update-list rebuild
+  helper, and returns the advanced bytecode pointer.
+- `code.event.reset_pair_buffer` checks `data.event.pair_capacity`. If the
+  capacity is positive and no pair buffer exists, it allocates
+  `capacity * 2` bytes, stores the resulting pointer in
+  `data.event.pair_buffer_base` (`[0x1707]`), and initializes allocator state.
+  It then sets `data.event.pair_buffer_write` (`[0x1709]`) to the base pointer
+  and clears `data.event.pair_count` (`[0x0143]`).
+- Existing replay-source and QEMU work already validates downstream pair-log
+  semantics for `0xab`/`0xac` rollback and display-mode/restore replay. The
+  `0x8e` action itself is compact enough to cover from source as the capacity
+  and reset entry point for that same log.
+- Updated `tools/logic_opcode_evidence.py`, regenerated
+  `docs/src/logic_opcode_evidence.md`, and updated opcode, runtime,
+  compatibility, symbolic-label, and tracker docs.
+- Updated `PROGRESS.md`: logic action opcode coverage is now 174 of 176 at
+  `[x]` level (`170` QEMU-validated, structural `0x00`, and source-backed
+  `0x83`/`0x8e`/`0xad`), with 2 partial action opcodes remaining.
+
+## 2026-07-04: action `0xaa` save-description buffer copy
+
+Commands:
+
+- `rg -n "0xaa|copy_save_description|0x0e72|0e72|save description|description buffer|select_slot|0x2726|0x4de8|0x7d|0x7e" PROGRESS.md docs/src/logic_bytecode.md docs/src/runtime_model.md docs/src/symbolic_labels.md docs/src/compatibility_testing.md docs/src/clean_room_executable_notes.md tools/logic_opcode_evidence.py tools/logic_interpreter_probe.py tests/test_logic_interpreter_probe.py`
+- `ndisasm -b 16 -o 0x2700 -e 0x2860 build/cleanroom/AGI.decrypted.exe | sed -n '1,220p'`
+- `ndisasm -b 16 -o 0x4d80 -e 0x4e40 build/cleanroom/AGI.decrypted.exe | sed -n '1,160p'`
+
+Observations:
+
+- Action `0xaa` at image `0x2726` reads one immediate string-slot index,
+  computes destination `0x020d + index * 0x28`, and copies up to `0x1f` bytes
+  from runtime buffer `[0x0e72]` through the shared bounded-copy helper.
+- Save and restore handlers test byte `[0x0e72]` after `code.save.select_slot_or_path`
+  returns, so this buffer is populated by save/restore selector state rather
+  than by static resource data.
+- Earlier attempted QEMU fixture `save_description_copy_001` patched
+  `AGIDATA.OVL` bytes at offset `0x0e72` to `look`, then tried to compare the
+  copied string slot against a message string. The validation draw did not
+  occur even though the fixture file contained the bytes. This is now
+  explained as a fixture-shape problem: action `0xaa` reads the interpreter's
+  runtime data segment at `[0x0e72]`, not the fixture file's static overlay
+  bytes.
+- Dynamic validation remains possible but should drive the real save/restore
+  selector path that fills the runtime description buffer. The action itself is
+  compact and is now covered as source-backed.
+- Updated `tools/logic_opcode_evidence.py`, regenerated
+  `docs/src/logic_opcode_evidence.md`, and updated opcode, runtime,
+  compatibility, symbolic-label, and tracker docs.
+- Updated `PROGRESS.md`: logic action opcode coverage is now 175 of 176 at
+  `[x]` level (`170` QEMU-validated, structural `0x00`, and source-backed
+  `0x83`/`0x8e`/`0xaa`/`0xad`), with only `0x6e` partial.
+
+## 2026-07-04: action `0x6e` screen-shake source pass
+
+Commands:
+
+- `rg -n "0x6e|shake_screen|screen_shake|shake|0x6e\\b|screen-shake|display offset|0x1379|0x112e|0x1130" PROGRESS.md docs/src/logic_bytecode.md docs/src/runtime_model.md docs/src/symbolic_labels.md docs/src/compatibility_testing.md docs/src/clean_room_executable_notes.md tools/logic_opcode_evidence.py tools/logic_interpreter_probe.py tests/test_logic_interpreter_probe.py`
+- `ndisasm -b 16 -o 0x79c0 -e 0x7b60 build/cleanroom/AGI.decrypted.exe | sed -n '1,260p'`
+- `rizin -q -c "/x 7a17" -c "/x 7913" -c "/x 6513" -c "/x 7917" -c q build/cleanroom/AGI.decrypted.exe`
+
+Observations:
+
+- Action `0x6e` reads one immediate count byte into `CL` and advances the
+  bytecode pointer before doing the display work.
+- Display mode `[0x1130] == 3`, `2`, or `4` delegates to display/overlay helper
+  paths observed at `0x99b8`, `0x9be3`, and `0x9916`.
+- The normal path sets byte `[0x1779]` to `0x70` when hardware selector
+  `[0x112e] == 0`, otherwise to `0x38`.
+- It writes CRT controller registers via ports `0x3d4` and `0x3d5`: register
+  `0x02` receives a byte from table `0x177a` plus `[0x1365]`; register `0x07`
+  receives the following table byte plus `[0x1779]`.
+- After each register-pair write, it waits for timer word `[0x0129]` to change.
+  It advances through table pairs until the register-7 value returns to the
+  base `[0x1779]`, then repeats for the requested count.
+- Existing QEMU case `screen_shake_dispatch_smoke` validates that a one-count
+  action returns to following bytecode. A screenshot-after-return fixture cannot
+  capture the transient register animation reliably, so the timing/display
+  effect is source-backed.
+- Updated `tools/logic_opcode_evidence.py`, regenerated
+  `docs/src/logic_opcode_evidence.md`, and updated opcode, runtime,
+  compatibility, symbolic-label, and tracker docs.
+- Updated `PROGRESS.md`: all 176 logic action opcodes are now covered at `[x]`
+  level (`170` QEMU-validated, structural `0x00`, and source-backed
+  `0x6e`/`0x83`/`0x8e`/`0xaa`/`0xad`).
+
+## 2026-07-04: menu navigation source-table refinement
+
+Commands run from `/Users/peter/ai/agi/reverse`:
+
+- `ndisasm -b 16 -o 0x93d1 -e 0x95d1 build/cleanroom/AGI.decrypted.exe`
+- `xxd -g 2 -s 0x16b3 -l 0x50 SQ2/AGIDATA.OVL`
+- `sed -n '2140,2255p' tools/logic_interpreter_probe.py`
+- `sed -n '1088,1178p' docs/src/logic_bytecode.md`
+
+Documented result:
+
+- Re-read `code.menu.interact` (`0x93d1`) and its type-2 movement dispatch
+  table at image `0x9526`. The eight little-endian target words are `0x9492`,
+  `0x94a6`, `0x94b2`, `0x94cb`, `0x94da`, `0x94e5`, `0x94f6`, and `0x9509`.
+- Confirmed from `SQ2/AGIDATA.OVL` that the raw movement table rooted at
+  `0x16b3` maps BIOS-style key words `0x4800`, `0x4900`, `0x4d00`, `0x5100`,
+  `0x5000`, `0x4f00`, `0x4b00`, and `0x4700` to movement values `1..8`.
+- Refined the menu/navigation prose: item movement branches select previous,
+  first, last, or next item nodes directly and do not skip disabled item nodes.
+  The item enable word is tested only by the Enter branch before enqueueing a
+  type-3 selection event. Heading left/right movement skips disabled headings,
+  while root/last-heading jumps select the root or root-previous heading
+  directly.
+- Added symbolic label `table.menu.navigation_dispatch` and split
+  `data.menu.heading_root`, `data.menu.current_heading`, and
+  `data.menu.current_item` so future interpreter-version comparisons do not
+  depend on the SQ2 addresses alone.
+
+## 2026-07-04: object placement spiral source pass
+
+Commands run from `/Users/peter/ai/agi/reverse`:
+
+- `ndisasm -b 16 -o 0x593a -e 0x5b3a build/cleanroom/AGI.decrypted.exe | sed -n '1,260p'`
+- `ndisasm -b 16 -o 0x56b8 -e 0x58b8 build/cleanroom/AGI.decrypted.exe | sed -n '1,260p'`
+- `rg -n '0x593a|0x56b8|placement|right-edge|right edge|baseline `67`|baseline_y=67|expected_baseline_y=67|place' docs/src/graphics_object_pipeline.md docs/src/clean_room_executable_notes.md docs/src/symbolic_labels.md tools/object_overlay_probe.py tests/test_object_overlay_probe.py`
+- Local simulation of the `0x593a` movement sequence for view 11/group 0/frame
+  0 at requested placements `(20, 2)`, `(0, 80)`, and `(154, 80)`.
+- `python3 -B -m unittest tests.test_graphics_rendering tests.test_object_overlay_probe`
+- `python3 -B -m unittest tests.test_view_batch`
+- Compared existing QEMU captures for `top_clip_view11_priority15` and
+  `right_clip_view11_priority15` against the updated local model.
+
+Documented result:
+
+- Re-read placement helper `code.object.place` (`0x593a`). It tests the initial
+  object position with bounds helper `0x5a14`, object collision helper
+  `0x4719`, and control/priority acceptance helper `0x56b8`. If the position
+  fails, it searches in a widening spiral.
+- The source movement sequence is `left 1`, `down 1`, `right 2`, `up 2`,
+  `left 3`, `down 3`, `right 4`, `up 4`, and so on. The candidate is tested
+  before each move.
+- Added `search_object_placement()` and `placement_bounds_ok()` to
+  `tools/agi_graphics.py` for the bounds-only portion of this source model.
+  The helper reproduces the previously QEMU-observed top-edge placement
+  `(18, 4)` and right-edge placement `(140, 67)` for view 11/group 0/frame 0,
+  and reproduces horizon clamping to `[0x012d] + 1` when bit `0x0008` is not
+  modeled as set.
+- Updated `tools/object_overlay_probe.py` so ordinary top/right expected
+  positions are derived from the placement search instead of hard-coded in the
+  case registry. Existing QEMU captures for both edge cases still compare with
+  0 mismatches.
+- Updated object-pipeline, compatibility, symbolic-label, progress-tracker, and
+  unit-test coverage. Collision/control rejection can extend the search beyond
+  the first bounds-acceptable candidate, so those cases remain future work.
+
+## 2026-07-04: picture seed-fill span-stack source pass
+
+Commands run from `/Users/peter/ai/agi/reverse`:
+
+- `ndisasm -b 16 -o 0x533b -e 0x533b build/cleanroom/AGI.decrypted.exe`
+- `sed -n '185,220p' docs/src/graphics_object_pipeline.md`
+- `sed -n '770,790p' docs/src/compatibility_testing.md`
+- `sed -n '968,984p' docs/src/compatibility_testing.md`
+- `sed -n '88,118p' docs/src/symbolic_labels.md`
+- `sed -n '2415,2490p' docs/src/clean_room_executable_notes.md`
+
+Rejected or limited evidence:
+
+- The broad disassembly command above printed far past the seed-fill helper,
+  so only the known helper body around `code.picture.seed_fill` and the
+  pre-existing focused seed-fill notes were used as evidence for this pass.
+
+Documented result:
+
+- Re-read the seed-fill helper enough to make the implementation-facing contract
+  sharper. The helper chooses exactly one expansion test channel per seed:
+  visual low nibble first when visual drawing is active, otherwise control high
+  nibble when control drawing is active.
+- Confirmed the early exits: no active drawing channel, selected visual value
+  equal to the visual default target, selected control value equal to the
+  control default target, or a seed cell that does not match the selected
+  default target.
+- Confirmed that accepted pixels still use the normal active draw byte and
+  odd/even masks, so both logical nibbles can change even though only one
+  channel controls expansion.
+- Documented the SQ2 traversal class as a stack-backed horizontal span fill.
+  It fills the current row left/right, records span state in the scratch block
+  around `0x126c..0x1279`, scans adjacent rows in a current vertical direction,
+  pushes deferred branch spans on the CPU stack, reverses direction when needed,
+  and terminates after popping the sentinel row state.
+- Added conservative symbolic label `data.picture.seed_fill_span_scratch`
+  instead of naming each byte in the scratch block prematurely.
+- Updated compatibility notes to say the remaining seed-fill work is broadened
+  parity coverage for barriers, odd/even masks, and multi-seed cases, not
+  unknown traversal class.
+
+## 2026-07-04: seed-fill fuzz case expansion
+
+Commands run from `/Users/peter/ai/agi/reverse`:
+
+- `rg -n "base_0|visual_fill|seed|fill|cases|safe_for_qemu" tools/picture_fuzz.py tests/test_picture_fuzz.py tests/test_graphics_rendering.py`
+- `sed -n '1,260p' tests/test_picture_fuzz.py`
+- `sed -n '1,260p' tools/picture_fuzz.py`
+- `sed -n '1,240p' tools/agi_graphics.py`
+- `sed -n '115,160p' tests/test_graphics_rendering.py`
+- `python3 -B -m unittest tests.test_graphics_rendering tests.test_picture_fuzz`
+- `python3 -B tools/picture_fuzz.py generate --count 8 --seed 4097 --output build/picture-fuzz/seed-fill-cases --clean`
+- `python3 -B tools/picture_fuzz.py batch-qemu --snapshot --corpus build/picture-fuzz/seed-fill-cases --fixture-root build/picture-fuzz/seed-fill-fixtures --case base_021_visual_fill_full_height_barrier --case base_022_visual_fill_multi_seed_boxes --case base_023_control_fill_ignores_visual_barrier --dos-prefix SF --output build/picture-fuzz/batches/seed_fill_edges_001.json --boot-wait 5 --draw-wait 8 --stop-on-failure`
+- `cat build/picture-fuzz/batches/seed_fill_edges_001.json`
+- `python3 -B tools/picture_fuzz.py generate --count 1024 --seed 4097 --output build/picture-fuzz/corpus --clean`
+
+Rejected or limited evidence:
+
+- The first QEMU batch attempt failed before any interpreter behavior was
+  observed because sandboxed QEMU could not bind `127.0.0.1:5` for VNC. The
+  same command was rerun with approved escalation and produced the evidence
+  result below.
+
+Documented result:
+
+- Added safe curated fuzz cases:
+  - `base_021_visual_fill_full_height_barrier`: a full-height one-pixel visual
+    barrier blocks a visual seed fill.
+  - `base_022_visual_fill_multi_seed_boxes`: one `0xf8` command contains two
+    seed pairs and fills two isolated boxed regions.
+  - `base_023_control_fill_ignores_visual_barrier`: a control-channel fill
+    crosses a visual-only barrier because the selected expansion channel is
+    control, while the visible barrier remains undisturbed.
+- Added local renderer assertions for all three cases. The tests check final
+  cell values rather than only screenshot hashes, including the control-channel
+  crossing in `base_023`.
+- Regenerated a small corpus; it reported 32 cases total, with 30 marked safe
+  for QEMU. The standard 1,024-random corpus command reports 1,048 cases total
+  and 1,046 safe cases.
+- The QEMU snapshot batch `seed_fill_edges_001` matched the local renderer:
+  3 matches, 0 mismatches, 0 errors, with each comparison covering 26,880
+  logical pixels.
+
+## 2026-07-04: optional view stress batch expansion
+
+Commands run from `/Users/peter/ai/agi/reverse`:
+
+- `rg -n "mirror|mirroring|transparent|cel|view" docs/src/graphics_object_pipeline.md docs/src/compatibility_testing.md PROGRESS.md tests/test_graphics_rendering.py tools/agi_graphics.py tools/view_batch.py`
+- `sed -n '390,620p' tools/agi_graphics.py`
+- `sed -n '520,620p' docs/src/graphics_object_pipeline.md`
+- Local Python corpus scan over `VIEWDIR` frames to count frames, mirror-bit
+  frames, transparent-color representatives, and largest cels.
+- Local Python validation that selected stress cases fit within the screen at
+  their chosen placements.
+- `python3 -B -m unittest tests.test_view_batch tests.test_graphics_rendering`
+- `python3 -B tools/view_batch.py --snapshot --include-stress --dos-prefix VXS --output build/view-batch/batches/view_stress_001.json --boot-wait 5 --draw-wait 8 --stop-on-failure`
+- `cat build/view-batch/batches/view_stress_001.json`
+
+Documented result:
+
+- Added `stress_cases()` to `tools/view_batch.py` and exposed it through
+  optional CLI flag `--include-stress`. The default six-case view batch remains
+  unchanged for quick smoke runs.
+- The stress suite adds eleven cases selected from the local SQ2 view corpus:
+  large cels, the 129-row tall cel, transparent colors `0`, `1`, `2`, `5`,
+  `6`, `7`, `8`, `10`, `13`, `14`, and `15`, and a bit-`0x80` transparent-10
+  frame.
+- The local unit tests confirm that stress cases are optional and that the
+  stress placements fit on screen.
+- The QEMU snapshot run `view_stress_001` covered 17 cases total: the six
+  existing base cases plus the eleven stress cases. All 17 matched with 0
+  mismatches and 0 errors, each over 26,880 logical pixels.
+
+## 2026-07-04: pattern and interleaved picture fuzz expansion
+
+Commands run from `/Users/peter/ai/agi/reverse`:
+
+- `rg -n "pattern|0x10|0x20|pattern_mode|base_02" tests/test_graphics_rendering.py tools/picture_fuzz.py docs/src/graphics_object_pipeline.md docs/src/compatibility_testing.md`
+- `sed -n '245,270p' docs/src/graphics_object_pipeline.md`
+- `sed -n '250,278p' tests/test_graphics_rendering.py`
+- `python3 -B -m unittest tests.test_graphics_rendering tests.test_picture_fuzz`
+- `python3 -B tools/picture_fuzz.py generate --count 1024 --seed 4097 --output build/picture-fuzz/corpus --clean`
+- `python3 -B tools/picture_fuzz.py batch-qemu --snapshot --case base_024_pattern_bypass_mask --case base_025_interleaved_line_fill_pattern --case base_026_pattern_random_bypass_sequence --dos-prefix PF --output build/picture-fuzz/batches/pattern_interleaved_001.json --boot-wait 5 --draw-wait 8 --stop-on-failure`
+- `cat build/picture-fuzz/batches/pattern_interleaved_001.json`
+
+Documented result:
+
+- Added safe curated picture fuzz cases:
+  - `base_024_pattern_bypass_mask`: isolates pattern mode bit `0x10` bypassing
+    the row/column mask test.
+  - `base_025_interleaved_line_fill_pattern`: draws a rectangle outline, fills
+    it, draws a line through it, and overlays a pattern plot in one valid
+    picture stream.
+  - `base_026_pattern_random_bypass_sequence`: uses both mode bits `0x10` and
+    `0x20` across two pseudo-random pattern plots.
+- Added local renderer assertions for the first two cases. The mask-bypass test
+  checks the expected 4-by-7 filled footprint for radius 3, and the interleaved
+  test checks that later line and pattern commands overwrite earlier fill
+  results sequentially.
+- Regenerated the standard fuzz corpus. It now reports 1,051 cases total and
+  1,049 safe for QEMU.
+- The QEMU snapshot batch `pattern_interleaved_001` matched the local renderer:
+  3 matches, 0 mismatches, 0 errors, with each comparison covering 26,880
+  logical pixels.
+
+## 2026-07-04: placement-search predicate hook clarification
+
+Commands run from `/Users/peter/ai/agi/reverse`:
+
+- `rg -n "0x4719|0x56b8|collision|control rejection|placement search|spiral|code.object.place|code.object.*collision|control-buffer" docs/src/graphics_object_pipeline.md docs/src/clean_room_executable_notes.md docs/src/symbolic_labels.md tools/agi_graphics.py tests/test_graphics_rendering.py tools/object_overlay_probe.py tests/test_object_overlay_probe.py`
+- `ndisasm -b 16 -o 0x4719 -e 0x4919 build/cleanroom/AGI.decrypted.exe | sed -n '1,240p'`
+- `ndisasm -b 16 -o 0x56b8 -e 0x58b8 build/cleanroom/AGI.decrypted.exe | sed -n '1,260p'`
+- `sed -n '700,866p' docs/src/graphics_object_pipeline.md`
+
+Rejected or limited evidence:
+
+- The first disassembly rerun used image addresses as file offsets and landed
+  in the wrong window. The corrected commands above add the MZ header offset
+  when skipping into the file and show the expected helper bodies.
+
+Documented result:
+
+- Reconfirmed from `code.object.place` and its callees that every placement
+  candidate is tested in this order: bounds/horizon helper `0x5a14`, collision
+  helper `0x4719`, and control-buffer acceptance helper `0x56b8`.
+- Added a docstring to `search_object_placement()` explaining that its optional
+  `accept` predicate models the two non-bounds predicates.
+- Added a local regression test that rejects the first four otherwise-valid
+  candidates `(20,80)`, `(19,80)`, `(19,81)`, and `(20,81)`. The helper then
+  returns `(21,81)`, matching the source spiral order and showing how
+  collision/control rejection extends the search without changing movement
+  order.
+- Added symbolic label `code.object.collision_test` for helper `0x4719` so both
+  placement predicates have stable cross-version names.
+
+## 2026-07-04: text/input tracker audit
+
+Commands run from `/Users/peter/ai/agi/reverse`:
+
+- `rg -n "dispatch-smoke|text window|input line|prompt|status line|close_text|clear_text|trace window|0x69|0x70|0xa3|0xa4|0xa9|text/input|Text windows" PROGRESS.md docs/src/logic_bytecode.md docs/src/runtime_model.md docs/src/compatibility_testing.md tools/logic_interpreter_probe.py tests/test_logic_interpreter_probe.py`
+- `ndisasm -b 16 -o 0x1f2b -e 0x212b build/cleanroom/AGI.decrypted.exe | sed -n '1,180p'`
+- `rg -n "0x0d1d|0x0d23|0x0d25|0x560c|close_text_window|saved rectangle|text window" docs/src/clean_room_executable_notes.md docs/src/logic_bytecode.md docs/src/runtime_model.md tools/logic_interpreter_probe.py`
+- `rg -n "0x79|set_input|input row|key_event_mapping|status_line_show_hide|input_line_erase|0x8a|0x6f" docs/src/logic_bytecode.md docs/src/compatibility_testing.md docs/src/runtime_model.md tools/logic_interpreter_probe.py tests/test_logic_interpreter_probe.py`
+
+Documented result:
+
+- Audited the current text/input coverage against `PROGRESS.md`. The broad
+  "promote dispatch-smoke rows" wording was stale: focused QEMU cases already
+  cover prompt marker behavior, status/input row show-hide/clear, input
+  refresh/erase, mapped-key and raw-key paths, text attribute mode entry/exit,
+  and the input-width flag effects of `0xa3`, `0xa4`, and inactive `0xa9`.
+- Re-read `0xa9` at `0x1f2b`: it conditionally calls
+  `0x560c([0x0d23], [0x0d25])` only when `[0x0d1d]` is nonzero, then clears
+  `[0x0d0f]` and `[0x0d1d]`.
+- Updated `PROGRESS.md` to name the remaining text/input gap more precisely:
+  active saved-window restore for `0xa9`, plus non-EGA text paths only if they
+  become necessary for SQ2 behavior.
+
+## 2026-07-04: sound resource format source pass
+
+Commands run from `/Users/peter/ai/agi/reverse`:
+
+- `ndisasm -b 16 -o 0x50d8 -e 0x52d8 build/cleanroom/AGI.decrypted.exe | sed -n '1,260p'`
+- `ndisasm -b 16 -o 0x7f96 -e 0x8196 build/cleanroom/AGI.decrypted.exe | sed -n '1,260p'`
+- Local Python scans over `SQ2/SNDDIR` and the referenced `VOL.*` payloads.
+- `python3 -B -m unittest tests.test_sound_resources`
+
+Documented result:
+
+- `code.sound.find_loaded_resource` starts at `0x50d8`.
+- Action `0x62` enters `code.sound.load_resource` at `0x5126`. On cache miss,
+  it records resource event `(3, resource)`, resolves the sound directory entry
+  through `0x440d`, reads the payload through the generic volume reader
+  `0x2e32`, stores the raw payload pointer at cache-record `+0x04`, then reads
+  four little-endian words from the payload and stores derived payload-relative
+  channel pointers at record offsets `+0x06`, `+0x08`, `+0x0a`, and `+0x0c`.
+- Action `0x63` stores/clears the completion flag, locates the already loaded
+  sound record through `0x50d8`, and calls `code.sound.driver_start` at
+  `0x7f96`.
+- `code.sound.driver_start` copies the four cached channel pointers into data
+  `0x1788..0x178f`, initializes the four countdown words at `0x1790..0x1797`
+  to 1, initializes per-channel state words, and sets active-state word
+  `[0x1258] = 1`.
+- The playback tick reads channel records as `duration u16`; `0xffff`
+  terminates a channel. Otherwise it reads a 16-bit tone/control word followed
+  by one control byte and uses the low nibble as the observed
+  attenuation/control value.
+- Added `tools/agi_sound.py` with a deterministic parser for the observed sound
+  payload shape and `tests/test_sound_resources.py` to scan all present SQ2
+  sound resources.
+- The targeted sound test passed: 49 present sound resources; every present
+  payload has four sorted in-bounds channel offsets with first offset 8; every
+  channel parses to an in-payload terminator. Sound 1 has offsets
+  `(8, 15, 22, 29)`, channel 0 first event `(duration=0x0027,
+  tone_word=0x8037, control_byte=0x9f)`, and channel 0 terminator offset 13.
+- This is source-backed resource-format evidence. Audible pitch, timing, and
+  hardware-driver output remain provisional.

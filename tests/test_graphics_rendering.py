@@ -28,6 +28,7 @@ from agi_graphics import (  # noqa: E402
     picture_to_ppm,
     render_picture,
     render_view_frame,
+    search_object_placement,
 )
 from disassemble_logic import SQ2, read_dir_entries, read_volume_payload  # noqa: E402
 from ppm_tools import non_background_bbox, read_ppm, unique_colors  # noqa: E402
@@ -153,6 +154,91 @@ class PictureRenderingTests(unittest.TestCase):
         rendered = PictureRenderer(payload).render()
         self.assertEqual(set(rendered.cells), {0x2F})
 
+    def test_seed_fill_stops_at_full_height_visual_barrier(self) -> None:
+        payload = bytes(
+            [
+                0xF0,
+                0x02,
+                0xF6,
+                80,
+                0,
+                80,
+                167,
+                0xF0,
+                0x03,
+                0xF8,
+                10,
+                10,
+                0xFF,
+            ]
+        )
+        rendered = PictureRenderer(payload).render()
+        for y in range(HEIGHT):
+            self.assertEqual(rendered.cells[y * WIDTH + 79] & 0x0F, 3)
+            self.assertEqual(rendered.cells[y * WIDTH + 80] & 0x0F, 2)
+            self.assertEqual(rendered.cells[y * WIDTH + 81] & 0x0F, 0x0F)
+
+    def test_seed_fill_accepts_multiple_seed_pairs_in_one_command(self) -> None:
+        payload = bytes(
+            [
+                0xF0,
+                0x02,
+                0xF4,
+                10,
+                10,
+                20,
+                20,
+                10,
+                10,
+                0xF4,
+                30,
+                10,
+                20,
+                40,
+                10,
+                30,
+                0xF0,
+                0x03,
+                0xF8,
+                15,
+                15,
+                35,
+                15,
+                0xFF,
+            ]
+        )
+        rendered = PictureRenderer(payload).render()
+        self.assertEqual(rendered.cells[15 * WIDTH + 15] & 0x0F, 3)
+        self.assertEqual(rendered.cells[15 * WIDTH + 35] & 0x0F, 3)
+        self.assertEqual(rendered.cells[15 * WIDTH + 25] & 0x0F, 0x0F)
+        self.assertEqual(rendered.cells[10 * WIDTH + 10] & 0x0F, 2)
+        self.assertEqual(rendered.cells[10 * WIDTH + 30] & 0x0F, 2)
+
+    def test_control_seed_fill_ignores_visual_only_barrier(self) -> None:
+        payload = bytes(
+            [
+                0xF0,
+                0x02,
+                0xF6,
+                80,
+                0,
+                80,
+                167,
+                0xF1,
+                0xF2,
+                0x06,
+                0xF8,
+                10,
+                10,
+                0xFF,
+            ]
+        )
+        rendered = PictureRenderer(payload).render()
+        self.assertEqual(rendered.cells[10 * WIDTH + 10] >> 4, 6)
+        self.assertEqual(rendered.cells[10 * WIDTH + 81] >> 4, 6)
+        self.assertEqual(rendered.cells[10 * WIDTH + 80] & 0x0F, 2)
+        self.assertEqual(rendered.cells[10 * WIDTH + 81] & 0x0F, 0x0F)
+
     def test_absolute_line_uses_interpreter_step_pattern(self) -> None:
         payload = bytes([0xF0, 0x00, 0xF6, 0x00, 0x00, 0x03, 0x01, 0xFF])
         rendered = PictureRenderer(payload).render()
@@ -180,6 +266,56 @@ class PictureRenderingTests(unittest.TestCase):
         self.assertEqual(visual[154 * WIDTH + 0], 9)
         self.assertEqual(visual[167 * WIDTH + 0], 9)
         self.assertNotEqual(visual[153 * WIDTH + 0], 9)
+
+    def test_pattern_mode_bit_10_bypasses_shape_mask(self) -> None:
+        payload = bytes([0xF0, 0x0B, 0xF9, 0x13, 0xFA, 80, 80, 0xFF])
+        rendered = PictureRenderer(payload).render()
+        changed = changed_visual_pixels(rendered)
+        self.assertEqual(len(changed), 28)
+        for y in range(77, 84):
+            for x in range(78, 82):
+                self.assertIn((x, y), changed)
+
+    def test_interleaved_line_fill_pattern_order_is_sequential(self) -> None:
+        payload = bytes(
+            [
+                0xF0,
+                0x02,
+                0xF4,
+                20,
+                20,
+                40,
+                40,
+                20,
+                20,
+                0xF0,
+                0x03,
+                0xF8,
+                30,
+                30,
+                0xF0,
+                0x04,
+                0xF6,
+                20,
+                30,
+                40,
+                30,
+                0xF0,
+                0x05,
+                0xF9,
+                0x14,
+                0xFA,
+                30,
+                30,
+                0xFF,
+            ]
+        )
+        rendered = PictureRenderer(payload).render()
+        visual = rendered.visual_nibbles
+        self.assertEqual(visual[20 * WIDTH + 20], 2)
+        self.assertEqual(visual[25 * WIDTH + 25], 3)
+        self.assertEqual(visual[30 * WIDTH + 22], 4)
+        self.assertEqual(visual[30 * WIDTH + 30], 5)
 
 
 class ViewRenderingTests(unittest.TestCase):
@@ -278,6 +414,31 @@ class ViewRenderingTests(unittest.TestCase):
         draw_frame_on_buffer(cells, frame, left=159, baseline_y=4, priority=5)
         draw_frame_on_buffer(equivalent, frame, left=WIDTH - 3, baseline_y=4, priority=5)
         self.assertEqual(cells, equivalent)
+
+    def test_search_object_placement_matches_source_spiral_edges(self) -> None:
+        frame = render_view_frame(11, 0, 0)
+        self.assertEqual(
+            search_object_placement(20, 2, frame.width, frame.height),
+            (18, 4),
+        )
+        self.assertEqual(
+            search_object_placement(154, 80, frame.width, frame.height),
+            (140, 67),
+        )
+
+    def test_search_object_placement_applies_horizon_when_not_exempt(self) -> None:
+        frame = render_view_frame(11, 0, 0)
+        self.assertEqual(
+            search_object_placement(20, 80, frame.width, frame.height, horizon=100, horizon_exempt=False),
+            (20, 101),
+        )
+
+    def test_search_object_placement_accept_hook_extends_spiral(self) -> None:
+        rejected = {(20, 80), (19, 80), (19, 81), (20, 81)}
+        self.assertEqual(
+            search_object_placement(20, 80, 2, 2, accept=lambda left, y: (left, y) not in rejected),
+            (21, 81),
+        )
 
     def test_draw_frame_on_buffer_respects_existing_higher_priority(self) -> None:
         cells = bytearray([DEFAULT_CELL] * (WIDTH * HEIGHT))

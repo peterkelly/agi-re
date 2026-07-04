@@ -16,6 +16,7 @@ from agi_graphics import (
     PictureRenderer,
     compose_frame_on_picture,
     render_view_frame,
+    search_object_placement,
 )
 from compare_picture_capture import downsample_qemu_picture_nibbles
 from ppm_tools import read_ppm
@@ -210,8 +211,6 @@ def base_cases() -> list[ObjectOverlayCase]:
             15,
             x=20,
             baseline_y=2,
-            expected_x=18,
-            expected_baseline_y=4,
         ),
         _case(
             "right_clip_view11_priority15",
@@ -220,8 +219,6 @@ def base_cases() -> list[ObjectOverlayCase]:
             15,
             x=154,
             baseline_y=80,
-            expected_x=140,
-            expected_baseline_y=67,
         ),
         _case(
             "bottom_clip_view11_priority15",
@@ -358,8 +355,16 @@ def compare_capture(case: ObjectOverlayCase, capture: Path) -> OverlayComparison
         picture = PictureRenderer(case.picture_payload).render(case.picture_no)
         frame = render_view_frame(case.view_no, case.group_no, case.frame_no)
         expected_priority = case.expected_priority if case.expected_priority is not None else (case.priority & 0x0F)
-        expected_x = case.expected_x if case.expected_x is not None else case.x
-        expected_baseline_y = case.expected_baseline_y if case.expected_baseline_y is not None else case.baseline_y
+        if case.expected_x is not None or case.expected_baseline_y is not None:
+            expected_x = case.expected_x if case.expected_x is not None else case.x
+            expected_baseline_y = case.expected_baseline_y if case.expected_baseline_y is not None else case.baseline_y
+        else:
+            expected_x, expected_baseline_y = search_object_placement(
+                case.x,
+                case.baseline_y,
+                frame.width,
+                frame.height,
+            )
         expected_picture = compose_frame_on_picture(
             picture,
             frame,

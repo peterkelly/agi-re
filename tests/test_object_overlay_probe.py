@@ -102,15 +102,17 @@ class ObjectOverlayProbeTests(unittest.TestCase):
             comparison = compare_capture(case, capture)
         self.assertTrue(comparison.matches)
 
-    def test_compare_capture_uses_expected_position_override(self) -> None:
+    def test_compare_capture_derives_right_edge_position_from_placement_search(self) -> None:
         case = next(item for item in base_cases() if item.case_id == "right_clip_view11_priority15")
+        self.assertIsNone(case.expected_x)
+        self.assertIsNone(case.expected_baseline_y)
         picture = PictureRenderer(case.picture_payload).render(case.picture_no)
         frame = render_view_frame(case.view_no, case.group_no, case.frame_no)
         expected = compose_frame_on_picture(
             picture,
             frame,
-            case.expected_x,
-            case.expected_baseline_y,
+            140,
+            67,
             case.expected_priority if case.expected_priority is not None else case.priority,
         )
         with tempfile.TemporaryDirectory() as temp_dir:
@@ -121,13 +123,15 @@ class ObjectOverlayProbeTests(unittest.TestCase):
 
     def test_compare_capture_uses_top_clip_position_override(self) -> None:
         case = next(item for item in base_cases() if item.case_id == "top_clip_view11_priority15")
+        self.assertIsNone(case.expected_x)
+        self.assertIsNone(case.expected_baseline_y)
         picture = PictureRenderer(case.picture_payload).render(case.picture_no)
         frame = render_view_frame(case.view_no, case.group_no, case.frame_no)
         expected = compose_frame_on_picture(
             picture,
             frame,
-            case.expected_x,
-            case.expected_baseline_y,
+            18,
+            4,
             case.expected_priority if case.expected_priority is not None else case.priority,
         )
         with tempfile.TemporaryDirectory() as temp_dir:

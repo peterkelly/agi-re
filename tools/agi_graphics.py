@@ -13,7 +13,7 @@ from collections import deque
 from dataclasses import dataclass
 from functools import lru_cache
 from pathlib import Path
-from typing import Iterable
+from typing import Callable, Iterable
 
 from disassemble_logic import AGIDATA, SQ2, read_dir_entries, read_volume_payload, u16le
 
@@ -21,6 +21,7 @@ from disassemble_logic import AGIDATA, SQ2, read_dir_entries, read_volume_payloa
 WIDTH = 0xA0
 HEIGHT = 0xA8
 DEFAULT_CELL = 0x4F
+DEFAULT_HORIZON = 0x24
 
 
 PALETTE = [
@@ -536,6 +537,89 @@ def picture_to_ppm(path: Path, rendered: RenderedPicture, channel: str = "visual
 
 def frame_to_ppm(path: Path, rendered: RenderedFrame) -> None:
     write_ppm(path, rendered.width, rendered.height, rendered.pixels)
+
+
+def placement_bounds_ok(
+    left: int,
+    baseline_y: int,
+    frame_width: int,
+    frame_height: int,
+    horizon: int = DEFAULT_HORIZON,
+    horizon_exempt: bool = True,
+) -> bool:
+    return (
+        left >= 0
+        and left + frame_width <= WIDTH
+        and baseline_y - frame_height >= -1
+        and baseline_y <= HEIGHT - 1
+        and (horizon_exempt or baseline_y > horizon)
+    )
+
+
+def search_object_placement(
+    left: int,
+    baseline_y: int,
+    frame_width: int,
+    frame_height: int,
+    horizon: int = DEFAULT_HORIZON,
+    horizon_exempt: bool = True,
+    accept: Callable[[int, int], bool] | None = None,
+    max_steps: int = WIDTH * HEIGHT * 4,
+) -> tuple[int, int]:
+    """Return the first source-order placement candidate accepted by all tests.
+
+    The optional ``accept`` predicate models the non-bounds checks performed by
+    ``code.object.place`` after ``0x5a14``: object collision and control-buffer
+    acceptance.
+    """
+    if not horizon_exempt and baseline_y <= horizon:
+        baseline_y = horizon + 1
+
+    def candidate_ok(candidate_left: int, candidate_baseline: int) -> bool:
+        if not placement_bounds_ok(
+            candidate_left,
+            candidate_baseline,
+            frame_width,
+            frame_height,
+            horizon,
+            horizon_exempt,
+        ):
+            return False
+        return accept(candidate_left, candidate_baseline) if accept is not None else True
+
+    direction = 0
+    segment_len = 1
+    remaining = 1
+    for _step in range(max_steps):
+        if candidate_ok(left, baseline_y):
+            return left, baseline_y
+        if direction == 0:
+            left -= 1
+            remaining -= 1
+            if remaining == 0:
+                direction = 1
+                remaining = segment_len
+        elif direction == 1:
+            baseline_y += 1
+            remaining -= 1
+            if remaining == 0:
+                direction = 2
+                segment_len += 1
+                remaining = segment_len
+        elif direction == 2:
+            left += 1
+            remaining -= 1
+            if remaining == 0:
+                direction = 3
+                remaining = segment_len
+        else:
+            baseline_y -= 1
+            remaining -= 1
+            if remaining == 0:
+                direction = 0
+                segment_len += 1
+                remaining = segment_len
+    raise ValueError("placement search did not find an acceptable position")
 
 
 def _priority_gate_allows(cells: bytearray, x: int, y: int, object_priority: int) -> bool:

@@ -154,10 +154,10 @@ Evidence levels:
 | `0x6a` | `enable_text_attr_mode_1757` | - | enable text attr mode 1757 | QEMU-validated | logic_interpreter_probe: text_attribute_enable_clears_visible_surface |
 | `0x6b` | `disable_text_attr_mode_1757` | - | disable text attr mode 1757 | QEMU-validated | logic_interpreter_probe: text_attribute_disable_restores_picture_draw |
 | `0x6c` | `set_input_prompt_char` | imm0 | set input prompt char | QEMU-validated | logic_interpreter_probe: input_prompt_empty_message_suppresses_marker |
-| `0x6d` | `set_text_window_pair` | imm0, imm1 | set text window pair | QEMU dispatch-smoke | logic_interpreter_probe: text_attribute_mode_dispatch_smoke |
-| `0x6e` | `shake_screen_like` | imm0 | shake screen like | QEMU dispatch-smoke | logic_interpreter_probe: screen_shake_dispatch_smoke |
+| `0x6d` | `set_text_window_pair` | imm0, imm1 | set text window pair | QEMU-validated | logic_interpreter_probe: text_attribute_pair_changes_attr_mode_clear_color |
+| `0x6e` | `shake_screen_like` | imm0 | shake screen like | source-backed | Disassembly: action reads a count byte and performs display-mode-specific screen shake; in the normal path it writes CRT controller registers 0x02/0x07 from a small offset table with timer-tick waits. QEMU dispatch smoke confirms return to following bytecode. |
 | `0x6f` | `set_input_line_config` | imm0, imm1, imm2 | set input line config | QEMU-validated | logic_interpreter_probe: input_line_config_operand1_offsets_display_by_8 |
-| `0x70` | `show_status_line_like` | - | show status line like | QEMU dispatch-smoke | logic_interpreter_probe: status_line_show_hide_dispatch_smoke |
+| `0x70` | `show_status_line_like` | - | show status line like | QEMU-validated | logic_interpreter_probe: status_line_show_draws_configured_row |
 | `0x71` | `hide_status_line_like` | - | hide status line like | QEMU-validated | logic_interpreter_probe: status_line_hide_clears_configured_row |
 | `0x72` | `set_string_slot_from_message` | imm0, imm1 | set string slot from message | QEMU-validated | logic_interpreter_probe: set_string_from_message_equal_normalized and parse_string_slot_sets_input_word_sequence |
 | `0x73` | `prompt_string_to_slot` | imm0, imm1, imm2, imm3, imm4 | prompt string to slot | QEMU-validated | logic_interpreter_probe: prompt_string_to_slot_stores_typed_word |
@@ -176,26 +176,26 @@ Evidence levels:
 | `0x80` | `confirm_restart_game` | - | confirm restart game | QEMU-validated | logic_interpreter_probe: restart_confirm_escape_continues_to_draw |
 | `0x81` | `display_view_resource_text_like` | imm0 | display view resource text like | QEMU-validated | logic_interpreter_probe: view_resource_display_immediate_returns |
 | `0x82` | `random_range_to_var` | imm0, imm1, var2 | random range to var | QEMU-validated | logic_interpreter_probe: random_equal_bounds_stores_bound |
-| `0x83` | `clear_global_0139` | - | clear global 0139 | QEMU dispatch-smoke | logic_interpreter_probe: diagnostic_global_actions_dispatch_smoke |
+| `0x83` | `clear_global_0139` | - | clear global 0139 | source-backed | Disassembly: action clears [0x0139]; code.engine.main_cycle uses that selector before logic to choose object0->global direction mirroring, then restores object0 direction from global after logic. |
 | `0x84` | `set_global_0139_and_clear_object0_field_22` | - | set global 0139 and clear object0 field 22 | QEMU-validated | object_movement_probe: action_84_after_random_motion_stops_motion |
 | `0x85` | `display_object_diagnostics_var` | var0 | display object diagnostics var | QEMU-validated | logic_interpreter_probe: object_diagnostics_var_enter_returns |
 | `0x86` | `confirm_and_restart_like` | imm0 | confirm and restart like | QEMU-validated | logic_interpreter_probe: confirm_restart_like_escape_continues_to_draw |
 | `0x87` | `show_heap_status` | - | show heap status | QEMU-validated | logic_interpreter_probe: heap_status_then_ack_continues_to_draw |
 | `0x88` | `pause_game_message` | - | pause game message | QEMU-validated | logic_interpreter_probe: pause_message_then_ack_continues_to_draw |
-| `0x89` | `refresh_input_line` | - | refresh input line | QEMU dispatch-smoke | logic_interpreter_probe: input_line_toggle_refresh_erase_dispatch_smoke |
-| `0x8a` | `erase_input_line` | - | erase input line | QEMU dispatch-smoke | logic_interpreter_probe: input_line_toggle_refresh_erase_dispatch_smoke |
+| `0x89` | `refresh_input_line` | - | refresh input line | QEMU-validated | logic_interpreter_probe: input_line_refresh_repaints_entered_buffer |
+| `0x8a` | `erase_input_line` | - | erase input line | QEMU-validated | logic_interpreter_probe: input_line_erase_clears_typed_buffer |
 | `0x8b` | `calibrate_joystick` | - | calibrate joystick | QEMU-validated | logic_interpreter_probe: joystick_calibration_no_joystick_returns |
 | `0x8c` | `toggle_display_mode_bit` | - | toggle display mode bit | QEMU-validated | logic_interpreter_probe: display_mode_toggle_guarded_noop_continues |
 | `0x8d` | `show_interpreter_version` | - | show interpreter version | QEMU-validated | logic_interpreter_probe: interpreter_version_then_ack_continues_to_draw |
-| `0x8e` | `set_global_0141_and_refresh` | imm0 | set global 0141 and refresh | QEMU dispatch-smoke | logic_interpreter_probe: diagnostic_global_actions_dispatch_smoke |
+| `0x8e` | `set_global_0141_and_refresh` | imm0 | set global 0141 and refresh | source-backed | Disassembly: action writes data.event.pair_capacity and calls code.event.reset_pair_buffer inside update-list flush/rebuild helpers; reset allocates capacity*2 bytes on first use and clears pair count/write cursor. |
 | `0x8f` | `verify_game_signature` | imm0 | verify game signature | QEMU-validated | logic_interpreter_probe: signature_check_matching_message_returns |
 | `0x90` | `append_message_to_log_file` | imm0 | append message to log file | QEMU-validated | logic_interpreter_probe: log_file_append_dispatch_smoke plus extracted LOGFILE content |
 | `0x91` | `save_logic_resume_ip` | - | save logic resume ip | QEMU-validated | logic_interpreter_probe: save_restore_resume_actions_continue_to_draw |
 | `0x92` | `restore_logic_entry_ip` | - | restore logic entry ip | QEMU-validated | logic_interpreter_probe: save_restore_resume_actions_continue_to_draw |
 | `0x93` | `set_object_pos_dirty` | imm0, imm1, imm2 | set object pos dirty | QEMU-validated | logic_interpreter_probe: set_object_pos_dirty_getter_observes_values |
 | `0x94` | `set_object_pos_dirty_var` | imm0, var1, var2 | set object pos dirty var | QEMU-validated | logic_interpreter_probe: set_object_pos_dirty_var_getter_observes_values |
-| `0x95` | `enable_action_trace_window` | - | enable action trace window | QEMU dispatch-smoke | logic_interpreter_probe: trace_window_config_enable_dispatch_smoke |
-| `0x96` | `configure_action_trace_window` | imm0, imm1, imm2 | configure action trace window | QEMU dispatch-smoke | logic_interpreter_probe: trace_window_config_enable_dispatch_smoke |
+| `0x95` | `enable_action_trace_window` | - | enable action trace window | QEMU-validated | logic_interpreter_probe: trace_window_enable_draws_box_when_flag10_set |
+| `0x96` | `configure_action_trace_window` | imm0, imm1, imm2 | configure action trace window | QEMU-validated | logic_interpreter_probe: trace_window_enable_draws_box_when_flag10_set |
 | `0x97` | `display_message_configured` | imm0, imm1, imm2, imm3 | display message configured | QEMU-validated | logic_interpreter_probe: display_message_configured_then_ack_continues_to_draw |
 | `0x98` | `display_message_configured_var` | var0, imm1, imm2, imm3 | display message configured var | QEMU-validated | logic_interpreter_probe: display_message_configured_var_then_ack_continues_to_draw |
 | `0x99` | `discard_view_var` | var0 | discard view var | QEMU-validated | logic_interpreter_probe: discard_view_var_allows_reload_and_draw |
@@ -208,17 +208,17 @@ Evidence levels:
 | `0xa0` | `disable_menu_item_like` | imm0 | disable menu item like | QEMU-validated | logic_interpreter_probe: menu_disabled_item_enter_does_not_set_status_byte and menu_enable_after_disable_allows_enter_status_byte |
 | `0xa1` | `mark_menu_if_flag_0e` | - | mark menu if flag 0e | QEMU-validated | logic_interpreter_probe: menu_interactive_enter_sets_status_byte and menu_edges_002 |
 | `0xa2` | `display_view_resource_text_like_var` | imm0 | display view resource text like var | QEMU-validated | logic_interpreter_probe: view_resource_display_var_returns |
-| `0xa3` | `set_global_0d0f` | - | set global 0d0f | QEMU dispatch-smoke | logic_interpreter_probe: diagnostic_global_actions_dispatch_smoke |
-| `0xa4` | `clear_global_0d0f` | - | clear global 0d0f | QEMU dispatch-smoke | logic_interpreter_probe: diagnostic_global_actions_dispatch_smoke |
+| `0xa3` | `set_global_0d0f` | - | set global 0d0f | QEMU-validated | logic_interpreter_probe: input_width_flag_a3_allows_long_live_input |
+| `0xa4` | `clear_global_0d0f` | - | clear global 0d0f | QEMU-validated | logic_interpreter_probe: input_width_flag_a4_restores_long_slot_limit |
 | `0xa5` | `muln` | var0, imm1 | muln | QEMU-validated | logic_interpreter_probe: muln_keeps_low_product_byte |
 | `0xa6` | `mulv` | var0, var1 | mulv | QEMU-validated | logic_interpreter_probe: mulv_keeps_low_product_byte |
 | `0xa7` | `divn` | var0, imm1 | divn | QEMU-validated | logic_interpreter_probe: divn_stores_quotient_byte |
 | `0xa8` | `divv` | var0, var1 | divv | QEMU-validated | logic_interpreter_probe: divv_stores_quotient_byte |
-| `0xa9` | `close_text_window_state` | - | close text window state | QEMU dispatch-smoke | logic_interpreter_probe: close_text_window_state_dispatch_smoke |
-| `0xaa` | `copy_save_description_to_string_slot` | imm0 | copy save description to string slot | source-backed | Handler disassembly and local SQ2 bytecode scan; see logic_bytecode.md. |
+| `0xa9` | `close_text_window_state` | - | close text window state | QEMU-validated | logic_interpreter_probe: close_text_window_state_clears_input_width_flag |
+| `0xaa` | `copy_save_description_to_string_slot` | imm0 | copy save description to string slot | source-backed | Disassembly: action copies up to 0x1f bytes from runtime save-description buffer [0x0e72] into string slot 0x020d + arg0*0x28 via the shared bounded-copy helper. |
 | `0xab` | `save_event_buffer_count` | - | save event buffer count | QEMU-validated | logic_interpreter_probe: display_mode_replay_uses_rolled_back_event_count |
 | `0xac` | `restore_event_buffer_count` | - | restore event buffer count | QEMU-validated | logic_interpreter_probe: display_mode_replay_uses_rolled_back_event_count |
-| `0xad` | `increment_global_1530` | - | increment global 1530 | QEMU dispatch-smoke | logic_interpreter_probe: diagnostic_global_actions_dispatch_smoke |
+| `0xad` | `increment_global_1530` | - | increment global 1530 | source-backed | Disassembly: action increments [0x1530]; the keyboard IRQ hook tests this nonzero gate before enqueueing a type-2 zero event on selected tracked-key release paths. |
 | `0xae` | `rebuild_priority_table_from_y` | imm0 | rebuild priority table from y | QEMU-validated | object_overlay_probe: priority-table rebuild effects |
 | `0xaf` | `noop_1_table_count` | imm0 | noop 1 table count | QEMU-validated | logic_interpreter_probe: noop_af_runtime_consumes_no_operand |
 

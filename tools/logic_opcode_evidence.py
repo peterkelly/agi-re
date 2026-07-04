@@ -122,7 +122,9 @@ QEMU_ACTIONS = {
     0x6A: "logic_interpreter_probe: text_attribute_enable_clears_visible_surface",
     0x6B: "logic_interpreter_probe: text_attribute_disable_restores_picture_draw",
     0x6C: "logic_interpreter_probe: input_prompt_empty_message_suppresses_marker",
+    0x6D: "logic_interpreter_probe: text_attribute_pair_changes_attr_mode_clear_color",
     0x6F: "logic_interpreter_probe: input_line_config_operand1_offsets_display_by_8",
+    0x70: "logic_interpreter_probe: status_line_show_draws_configured_row",
     0x71: "logic_interpreter_probe: status_line_hide_clears_configured_row",
     0x72: "logic_interpreter_probe: set_string_from_message_equal_normalized and parse_string_slot_sets_input_word_sequence",
     0x73: "logic_interpreter_probe: prompt_string_to_slot_stores_typed_word",
@@ -146,6 +148,8 @@ QEMU_ACTIONS = {
     0x87: "logic_interpreter_probe: heap_status_then_ack_continues_to_draw",
     0x88: "logic_interpreter_probe: pause_message_then_ack_continues_to_draw",
     0x84: "object_movement_probe: action_84_after_random_motion_stops_motion",
+    0x89: "logic_interpreter_probe: input_line_refresh_repaints_entered_buffer",
+    0x8A: "logic_interpreter_probe: input_line_erase_clears_typed_buffer",
     0x8B: "logic_interpreter_probe: joystick_calibration_no_joystick_returns",
     0x8C: "logic_interpreter_probe: display_mode_toggle_guarded_noop_continues",
     0x8D: "logic_interpreter_probe: interpreter_version_then_ack_continues_to_draw",
@@ -155,6 +159,8 @@ QEMU_ACTIONS = {
     0x92: "logic_interpreter_probe: save_restore_resume_actions_continue_to_draw",
     0x93: "logic_interpreter_probe: set_object_pos_dirty_getter_observes_values",
     0x94: "logic_interpreter_probe: set_object_pos_dirty_var_getter_observes_values",
+    0x95: "logic_interpreter_probe: trace_window_enable_draws_box_when_flag10_set",
+    0x96: "logic_interpreter_probe: trace_window_enable_draws_box_when_flag10_set",
     0x97: "logic_interpreter_probe: display_message_configured_then_ack_continues_to_draw",
     0x98: "logic_interpreter_probe: display_message_configured_var_then_ack_continues_to_draw",
     0x99: "logic_interpreter_probe: discard_view_var_allows_reload_and_draw",
@@ -167,10 +173,13 @@ QEMU_ACTIONS = {
     0xA0: "logic_interpreter_probe: menu_disabled_item_enter_does_not_set_status_byte and menu_enable_after_disable_allows_enter_status_byte",
     0xA1: "logic_interpreter_probe: menu_interactive_enter_sets_status_byte and menu_edges_002",
     0xA2: "logic_interpreter_probe: view_resource_display_var_returns",
+    0xA3: "logic_interpreter_probe: input_width_flag_a3_allows_long_live_input",
+    0xA4: "logic_interpreter_probe: input_width_flag_a4_restores_long_slot_limit",
     0xA5: "logic_interpreter_probe: muln_keeps_low_product_byte",
     0xA6: "logic_interpreter_probe: mulv_keeps_low_product_byte",
     0xA7: "logic_interpreter_probe: divn_stores_quotient_byte",
     0xA8: "logic_interpreter_probe: divv_stores_quotient_byte",
+    0xA9: "logic_interpreter_probe: close_text_window_state_clears_input_width_flag",
     0xAB: "logic_interpreter_probe: display_mode_replay_uses_rolled_back_event_count",
     0xAC: "logic_interpreter_probe: display_mode_replay_uses_rolled_back_event_count",
     0xAE: "object_overlay_probe: priority-table rebuild effects",
@@ -178,20 +187,15 @@ QEMU_ACTIONS = {
 }
 
 
-QEMU_SMOKE_ACTIONS = {
-    0x6D: "logic_interpreter_probe: text_attribute_mode_dispatch_smoke",
-    0x6E: "logic_interpreter_probe: screen_shake_dispatch_smoke",
-    0x70: "logic_interpreter_probe: status_line_show_hide_dispatch_smoke",
-    0x83: "logic_interpreter_probe: diagnostic_global_actions_dispatch_smoke",
-    0x89: "logic_interpreter_probe: input_line_toggle_refresh_erase_dispatch_smoke",
-    0x8A: "logic_interpreter_probe: input_line_toggle_refresh_erase_dispatch_smoke",
-    0x8E: "logic_interpreter_probe: diagnostic_global_actions_dispatch_smoke",
-    0x95: "logic_interpreter_probe: trace_window_config_enable_dispatch_smoke",
-    0x96: "logic_interpreter_probe: trace_window_config_enable_dispatch_smoke",
-    0xA3: "logic_interpreter_probe: diagnostic_global_actions_dispatch_smoke",
-    0xA4: "logic_interpreter_probe: diagnostic_global_actions_dispatch_smoke",
-    0xA9: "logic_interpreter_probe: close_text_window_state_dispatch_smoke",
-    0xAD: "logic_interpreter_probe: diagnostic_global_actions_dispatch_smoke",
+QEMU_SMOKE_ACTIONS = {}
+
+
+SOURCE_BACKED_ACTIONS = {
+    0x6E: "Disassembly: action reads a count byte and performs display-mode-specific screen shake; in the normal path it writes CRT controller registers 0x02/0x07 from a small offset table with timer-tick waits. QEMU dispatch smoke confirms return to following bytecode.",
+    0x83: "Disassembly: action clears [0x0139]; code.engine.main_cycle uses that selector before logic to choose object0->global direction mirroring, then restores object0 direction from global after logic.",
+    0x8E: "Disassembly: action writes data.event.pair_capacity and calls code.event.reset_pair_buffer inside update-list flush/rebuild helpers; reset allocates capacity*2 bytes on first use and clears pair count/write cursor.",
+    0xAA: "Disassembly: action copies up to 0x1f bytes from runtime save-description buffer [0x0e72] into string slot 0x020d + arg0*0x28 via the shared bounded-copy helper.",
+    0xAD: "Disassembly: action increments [0x1530]; the keyboard IRQ hook tests this nonzero gate before enqueueing a type-2 zero event on selected tracked-key release paths.",
 }
 
 
@@ -250,6 +254,8 @@ def action_evidence(opcode: int) -> tuple[str, str]:
         return ("QEMU-validated", QEMU_ACTIONS[opcode])
     if opcode in QEMU_SMOKE_ACTIONS:
         return ("QEMU dispatch-smoke", QEMU_SMOKE_ACTIONS[opcode])
+    if opcode in SOURCE_BACKED_ACTIONS:
+        return ("source-backed", SOURCE_BACKED_ACTIONS[opcode])
     return ("source-backed", "Handler disassembly and local SQ2 bytecode scan; see logic_bytecode.md.")
 
 

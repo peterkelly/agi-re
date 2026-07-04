@@ -19,8 +19,9 @@ better understood, or a new remaining-work item is discovered.
 
 ## Current Snapshot
 
-- Logic action opcodes: 162 of 176 are covered at `[x]` level
-  (`161` QEMU-validated plus `0x00` structural); 14 remain `[~]`.
+- Logic action opcodes: all 176 of 176 are covered at `[x]` level
+  (`170` QEMU-validated, `0x00` structural, and
+  `0x6e`/`0x83`/`0x8e`/`0xaa`/`0xad` source-backed).
 - Logic condition opcodes: all 19 of 19 are QEMU-validated.
 - Main remaining risk areas: full picture/view renderer edge behavior, text and
   input UI details, sound/audio semantics, final compatibility suite breadth,
@@ -152,10 +153,10 @@ better understood, or a new remaining-work item is discovered.
 - [x] `0x6a` `enable_text_attr_mode_1757` - QEMU-validated
 - [x] `0x6b` `disable_text_attr_mode_1757` - QEMU-validated
 - [x] `0x6c` `set_input_prompt_char` - QEMU-validated
-- [~] `0x6d` `set_text_window_pair` - QEMU dispatch-smoke
-- [~] `0x6e` `shake_screen_like` - QEMU dispatch-smoke
+- [x] `0x6d` `set_text_window_pair` - QEMU-validated
+- [x] `0x6e` `shake_screen_like` - source-backed CRT/display shake timing
 - [x] `0x6f` `set_input_line_config` - QEMU-validated
-- [~] `0x70` `show_status_line_like` - QEMU dispatch-smoke
+- [x] `0x70` `show_status_line_like` - QEMU-validated
 - [x] `0x71` `hide_status_line_like` - QEMU-validated
 - [x] `0x72` `set_string_slot_from_message` - QEMU-validated
 - [x] `0x73` `prompt_string_to_slot` - QEMU-validated
@@ -174,26 +175,26 @@ better understood, or a new remaining-work item is discovered.
 - [x] `0x80` `confirm_restart_game` - QEMU-validated
 - [x] `0x81` `display_view_resource_text_like` - QEMU-validated
 - [x] `0x82` `random_range_to_var` - QEMU-validated
-- [~] `0x83` `clear_global_0139` - QEMU dispatch-smoke
+- [x] `0x83` `clear_global_0139` - source-backed main-cycle mirror selector
 - [x] `0x84` `set_global_0139_and_clear_object0_field_22` - QEMU-validated
 - [x] `0x85` `display_object_diagnostics_var` - QEMU-validated
 - [x] `0x86` `confirm_and_restart_like` - QEMU-validated
 - [x] `0x87` `show_heap_status` - QEMU-validated
 - [x] `0x88` `pause_game_message` - QEMU-validated
-- [~] `0x89` `refresh_input_line` - QEMU dispatch-smoke
-- [~] `0x8a` `erase_input_line` - QEMU dispatch-smoke
+- [x] `0x89` `refresh_input_line` - QEMU-validated
+- [x] `0x8a` `erase_input_line` - QEMU-validated
 - [x] `0x8b` `calibrate_joystick` - QEMU-validated
 - [x] `0x8c` `toggle_display_mode_bit` - QEMU-validated
 - [x] `0x8d` `show_interpreter_version` - QEMU-validated
-- [~] `0x8e` `set_global_0141_and_refresh` - QEMU dispatch-smoke
+- [x] `0x8e` `set_global_0141_and_refresh` - source-backed event-pair capacity reset
 - [x] `0x8f` `verify_game_signature` - QEMU-validated
 - [x] `0x90` `append_message_to_log_file` - QEMU-validated
 - [x] `0x91` `save_logic_resume_ip` - QEMU-validated
 - [x] `0x92` `restore_logic_entry_ip` - QEMU-validated
 - [x] `0x93` `set_object_pos_dirty` - QEMU-validated
 - [x] `0x94` `set_object_pos_dirty_var` - QEMU-validated
-- [~] `0x95` `enable_action_trace_window` - QEMU dispatch-smoke
-- [~] `0x96` `configure_action_trace_window` - QEMU dispatch-smoke
+- [x] `0x95` `enable_action_trace_window` - QEMU-validated
+- [x] `0x96` `configure_action_trace_window` - QEMU-validated
 - [x] `0x97` `display_message_configured` - QEMU-validated
 - [x] `0x98` `display_message_configured_var` - QEMU-validated
 - [x] `0x99` `discard_view_var` - QEMU-validated
@@ -206,17 +207,17 @@ better understood, or a new remaining-work item is discovered.
 - [x] `0xa0` `disable_menu_item_like` - QEMU-validated
 - [x] `0xa1` `mark_menu_if_flag_0e` - QEMU-validated
 - [x] `0xa2` `display_view_resource_text_like_var` - QEMU-validated
-- [~] `0xa3` `set_global_0d0f` - QEMU dispatch-smoke
-- [~] `0xa4` `clear_global_0d0f` - QEMU dispatch-smoke
+- [x] `0xa3` `set_global_0d0f` - QEMU-validated
+- [x] `0xa4` `clear_global_0d0f` - QEMU-validated
 - [x] `0xa5` `muln` - QEMU-validated
 - [x] `0xa6` `mulv` - QEMU-validated
 - [x] `0xa7` `divn` - QEMU-validated
 - [x] `0xa8` `divv` - QEMU-validated
-- [~] `0xa9` `close_text_window_state` - QEMU dispatch-smoke
-- [~] `0xaa` `copy_save_description_to_string_slot` - QEMU dispatch-smoke
+- [x] `0xa9` `close_text_window_state` - QEMU-validated
+- [x] `0xaa` `copy_save_description_to_string_slot` - source-backed save-description buffer copy
 - [x] `0xab` `save_event_buffer_count` - QEMU-validated
 - [x] `0xac` `restore_event_buffer_count` - QEMU-validated
-- [~] `0xad` `increment_global_1530` - QEMU dispatch-smoke
+- [x] `0xad` `increment_global_1530` - source-backed key-release enqueue gate
 - [x] `0xae` `rebuild_priority_table_from_y` - QEMU-validated
 - [x] `0xaf` `noop_1_table_count` - QEMU-validated
 
@@ -263,24 +264,31 @@ better understood, or a new remaining-work item is discovered.
   - Evidence: logic resource docs, interpreter source pass, QEMU opcode probes.
   - Remaining: keep opcode tracker aligned with new findings.
 - [~] Variables, flags, strings, parser words, and input buffers
-  - Evidence: string/message/input probes and local parser notes.
-  - Remaining: broaden parser/vocabulary edge cases and promote remaining
-    visible input-line/text actions beyond dispatch-smoke.
+  - Evidence: string/message/input probes, visible input-line refresh/erase
+    probes, and local parser notes.
+  - Remaining: broaden parser/vocabulary edge cases and any non-EGA input
+    paths needed to explain SQ2 behavior.
 - [~] Picture resource decoding and drawing
   - Evidence: picture decoder notes, Python renderer, fuzz corpus, QEMU
-    comparison harness.
+    comparison harness, source-backed seed-fill span traversal, and QEMU
+    seed-fill edge cases for full-height barriers and multi-seed fills, plus
+    QEMU pattern mask-bypass and interleaved line/fill/pattern cases.
   - Remaining: finish edge-case semantics for valid EGA picture streams and
-    expand comparison fixtures.
+    expand comparison fixtures, especially odd/even mask interactions,
+    additional interleavings, and larger real-resource parity checks.
 - [~] View resource decoding and cel drawing
   - Evidence: view layout notes, view/object snapshot batches, focused edge
-    placement captures.
-  - Remaining: broaden cel corpus coverage, mirroring/transparent-color edge
-    cases, and formal implementation text.
+    placement captures, and optional 17-case QEMU stress batch for larger cels
+    plus transparent-color variants.
+  - Remaining: broaden right/bottom clipping, priority/control combinations,
+    runtime animation state, and formal implementation text.
 - [~] Object records, priority/control screens, and drawing pipeline
   - Evidence: object overlay probes, priority/control bit probes, labels, and
-    implementation-facing drawing lifecycle state machine.
+    implementation-facing drawing lifecycle state machine; bounds-only
+    placement search now modeled from `code.object.place`, with a tested
+    predicate hook for collision/control rejection.
   - Remaining: finish draw ordering, dirty-rectangle, and placement-search edge
-    semantics.
+    semantics for full object-record collision/control fixtures.
 - [~] Object movement, collision, animation, and boundary handling
   - Evidence: object movement QEMU batches, disassembly-backed scheduler, and
     implementation-facing motion state machine.
@@ -292,17 +300,23 @@ better understood, or a new remaining-work item is discovered.
   - Remaining: deepen save-file path/selection semantics and restore/restart
     state transitions.
 - [~] Text windows, status line, prompts, and interactive input
-  - Evidence: message/string/numeric input probes, dispatch-smoke coverage, and
-    implementation-facing UI lifecycle state machine.
-  - Remaining: promote dispatch-smoke rows to behavior coverage where visible
-    state matters.
+  - Evidence: message/string/numeric input probes, visible status/input-line
+    probes, mapped-key/raw-key probes, prompt-marker behavior, input-width flag
+    behavior, and implementation-facing UI lifecycle state machine.
+  - Remaining: active saved-window restore path for `0xa9` and any non-EGA text
+    paths that become relevant to explaining SQ2 behavior.
 - [~] Menus and inventory UI
-  - Evidence: inventory selection, menu setup, disabled/enabled item probes.
-  - Remaining: validate movement/navigation events with direct event injection
-    or a more precise QEMU input path.
+  - Evidence: inventory selection, menu setup, disabled/enabled item probes,
+    and a source-backed `code.menu.interact` movement dispatch table.
+  - Remaining: validate movement/navigation events dynamically with direct
+    event injection or a more precise QEMU input path; existing QEMU keyboard
+    attempts did not produce reusable movement evidence.
 - [~] Sound and audio
-  - Evidence: load/start/stop completion-flag behavior.
-  - Remaining: actual sound resource format, playback timing, driver/hardware
+  - Evidence: load/start/stop completion-flag behavior; source-backed sound
+    cache/channel pointer setup; local parser/tests for the four-channel sound
+    payload header and duration/tone/control event streams across all present
+    SQ2 sound resources.
+  - Remaining: playback timing, tone/pitch interpretation, driver/hardware
     behavior, and completion semantics beyond current stop helper evidence.
 - [~] DOS file I/O, logging, save descriptions, and path selection
   - Evidence: log-file QEMU content check and save/restore source map.
@@ -328,14 +342,16 @@ better understood, or a new remaining-work item is discovered.
 
 ## Highest-Value Remaining Work
 
-1. Promote the remaining QEMU dispatch-smoke action opcodes to behavior-level
-   coverage where they affect visible state, saved state, or input/UI state.
-2. Deepen text/input UI semantics now that condition `0x0d` is validated:
-   input-line enable/refresh/erase, prompt/status-line state, and menu
-   navigation events are the most useful next targets.
+1. Add optional dynamic probes for source-backed timing/hardware opcodes only
+   where the fixture would be representative rather than brittle (`0x6e`,
+   `0x83`, `0x8e`, `0xaa`, `0xad` are otherwise covered for the current spec
+   target).
+2. Deepen the remaining text/input UI gap around active saved-window restore
+   for `0xa9`, plus non-EGA text paths only if they become relevant to SQ2
+   behavior.
 3. Continue the picture/view renderer compatibility work with valid synthetic
    resources and original-engine captures.
 4. Continue turning the remaining subsystem notes into implementation-ready
-   state machines, especially text windows, save/file selection, sound, and
-   heap/allocation.
+   state machines, especially save/file selection, sound playback,
+   heap/allocation, and menu movement/event delivery.
 5. Keep expanding the final compatibility suite as each subsystem solidifies.

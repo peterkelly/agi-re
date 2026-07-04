@@ -33,7 +33,7 @@ Address columns use these meanings:
 
 | Label | SQ2 address | Notes/evidence |
 | --- | --- | --- |
-| `code.engine.main_cycle` | image `0x0150` | Top-level interpreter cycle. Calls input/system helpers, mirrors object-0 direction/global direction state, runs pre-motion mode updates, invokes logic 0 through `code.logic.call_logic`, then runs `code.object.frame_timer_update` unless text-attribute mode byte `[0x1757]` is nonzero. |
+| `code.engine.main_cycle` | image `0x0150` | Top-level interpreter cycle. Calls input/system helpers, mirrors object-0 direction/global direction state (`[0x0139] == 0` copies object0 `+0x21` to `[0x000f]`, nonzero copies `[0x000f]` to object0), runs pre-motion mode updates, invokes logic 0 through `code.logic.call_logic`, restores object0 `+0x21` from `[0x000f]`, then runs `code.object.frame_timer_update` unless text-attribute mode byte `[0x1757]` is nonzero. |
 | `code.logic.interpret_main` | image `0x293c` | Main logic bytecode loop. Reads opcodes from current logic bytecode and dispatches actions/conditions. |
 | `code.logic.action_dispatch` | image `0x02c4` | Action dispatcher. Uses `table.logic.action_dispatch`. |
 | `code.logic.condition_dispatch` | image `0x07e3` | Condition dispatcher. Uses `table.logic.condition_dispatch`. |
@@ -80,7 +80,7 @@ Address columns use these meanings:
 | `code.event.next_replay_pair` | image `0x714c` | Returns the current replay pair pointer and advances by two bytes, or returns zero at end. |
 | `table.restore.replay_event_dispatch` | image `0x6915` | Nine-word jump table for resource-event replay kinds `0..8`. Linear disassembly from before the table can swallow the following `call 0x706d`; disassemble at `0x6927` to see the post-loop re-enable. |
 | `code.restore.finish_replay_and_reenable_recording` | image `0x6927` | Exit target reached when `code.event.next_replay_pair` returns zero. Calls `code.event.enable_recording`, then rebinds object view payloads, restores saved object flags, refreshes display/input state, and returns from replay. |
-| `code.event.set_pair_capacity_action` | image `0x716a` | Action handler for `0x8e`; writes `data.event.pair_capacity` and calls `code.event.reset_pair_buffer` inside update-list flush/rebuild calls. |
+| `code.event.set_pair_capacity_action` | image `0x716a` | Action handler for `0x8e`; writes `data.event.pair_capacity`, calls `code.event.reset_pair_buffer` inside update-list flush/rebuild calls, and thereby resets the pair-buffer write cursor and active count. |
 | `code.event.save_pair_count_action` | image `0x718b` | Action handler for `0xab`; copies `data.event.pair_count` to `data.event.saved_pair_count`. |
 | `code.event.restore_pair_count_action` | image `0x719d` | Action handler for `0xac`; restores `data.event.pair_count` and recomputes `data.event.pair_buffer_write`. |
 
@@ -110,6 +110,7 @@ Address columns use these meanings:
 | `code.picture.read_coord_pair` | image `0x66b8` | Reads clamped X/Y coordinate pair for picture commands. |
 | `code.picture.draw_line` | image `0x66e1` | Draws a line between current and target picture coordinates. |
 | `code.picture.seed_fill` | image `0x533b` | Expands from a seed coordinate through matching buffer nibbles. |
+| `data.picture.seed_fill_span_scratch` | data `0x126c..0x1279` | Scratch bytes/words used by `code.picture.seed_fill` to track current span limits, vertical direction, saved row/column state, and deferred branch bounds. Field meanings are source-backed but intertwined, so keep this as a conservative block label unless a future version requires per-field names. |
 | `code.display.clear_logical_buffer` | image `0x5528` | Clears the logical graphics/control buffer. |
 | `code.display.full_refresh` | image `0x5546` | Copies/rebuilds the visible display from logical buffers. |
 | `code.display.fill_buffer_word` | image `0x5257` | Fills the logical buffer segment with a caller-supplied word. |
@@ -117,6 +118,7 @@ Address columns use these meanings:
 | `code.display.draw_vertical_line` | image `0x52ab` | Draws a vertical line in the logical buffer using active picture draw state. |
 | `code.display.pixel_write` | image `0x52f9` | Writes pixel/control nibbles into the logical buffer. |
 | `code.display.map_visual_color_for_adapter` | image `0x5685` | Maps picture visual color bytes before they are stored in draw masks. Returns the input unchanged for the EGA target path; delegates to the graphics overlay at `0x9815` only for hardware selector `[0x112e] == 0` with modes other than `2` or `3`. |
+| `code.display.shake_screen_action` | image `0x7a00` | Action handler for `0x6e`; reads a count byte and performs display-mode-specific transient screen-shake work. The normal path writes CRT controller registers `0x02` and `0x07` from `data.display.shake_offset_table`. |
 | `overlay.cga.map_visual_color_for_mode` | `CGA_GRAF.OVL` near `0x9815` | CGA overlay color mapper called by `code.display.map_visual_color_for_adapter`; indexes three-byte entries in `data.display.cga_color_map` and returns either a duplicated byte for mode 0 or a two-byte word for mode 1. |
 
 ## Objects, Views, and Motion
@@ -129,7 +131,8 @@ Address columns use these meanings:
 | `code.object.select_group_table` | image `0x3c1b` | Computes a group table pointer from the view payload. |
 | `code.object.select_frame` | image `0x3ccb` | Selects a derived frame/entry and updates object size/pointers. |
 | `code.object.setup_transient_display_object` | image `0x2d52` | Builds/draws the temporary object-like record rooted at `0x0eb4` from staged bytes `0x0eae..0x0eb3`; records event kind 5 plus three parameter pairs for restore replay. |
-| `code.object.place` | image `0x593a` | Places an object and performs priority/control collision adjustment. |
+| `code.object.place` | image `0x593a` | Places an object and performs priority/control collision adjustment. If the initial candidate fails bounds/collision/control tests, it searches in a widening spiral: left 1, down 1, right 2, up 2, then repeats with increasing segment lengths. |
+| `code.object.collision_test` | image `0x4719` | Object-object rectangle/crossing test used by placement and movement. Returns zero when object flag bit `0x0200` bypasses collision; otherwise scans eligible objects and rejects overlapping/crossing candidates. |
 | `code.object.control_acceptance` | image `0x56b8` | Tests an object's proposed footprint against high-nibble control/priority classes in `data.display.logical_buffer_segment`; QEMU probes validate selected `0x0002`, `0x0100`, and `0x0800` flag effects. |
 | `code.object.frame_timer_update` | image `0x0563` | Per-cycle active-object scan that decrements frame timer byte `+0x20`, calls `code.object.advance_frame_by_mode` at zero, and reloads `+0x20` from `+0x1f`. |
 | `code.object.advance_frame_by_mode` | image `0x48b3` | Dispatches object frame mode byte `+0x23`; modes loop or stop frames and may set completion flag byte `+0x27`. |
@@ -163,24 +166,32 @@ Address columns use these meanings:
 | Label | SQ2 address | Notes/evidence |
 | --- | --- | --- |
 | `code.text.display_string` | image `0x1ce8` | Displays a resolved string and returns an interaction result in some paths. |
-| `code.text.close_window_state` | image `0x1f2b` | Restores/clears active text-window state. |
+| `code.text.close_window_state` | image `0x1f2b` | Restores/clears active text-window state and always clears `data.input.width_flag_0d0f`. QEMU `close_text_window_state_clears_input_width_flag` validates the inactive-window clear side; saved-rectangle restore remains source-backed. |
 | `code.text.format_string` | image `0x2374` | Formats text into caller-provided buffers. |
 | `code.text.format_message_to_buffer` | image `0x1f54` | Formats/copies a resolved logic message into a stack buffer. |
 | `code.text.clear_rows` | image `0x2b78` | Helper used by action `0x69`; wraps `code.text.clear_bounds` with left column 0 and right column `0x27`. QEMU `text_rect_clear_rows_removes_formatted_text` validates rows 5..6 clearing logical Y 40..55 to visual color 0. |
 | `code.text.clear_row` | image `0x2ba6` | Wraps `code.text.clear_rows` with top row equal to bottom row. Used by status-line hide (`0x71`) and input-line disable (`0x77`); QEMU `text_hide_clear_behaviour_001` validates a configured row clearing to visual color 0. |
 | `code.text.clear_bounds` | image `0x2bc4` | BIOS `int 10h` scroll/clear wrapper used by action `0x9a`; arguments map to top, left, bottom, right, attribute. QEMU validates text columns as four logical pixels wide and rows as eight logical pixels tall in the EGA target. |
-| `code.text.redraw_status_line` | image `0x34bd` | Redraws the status-line-like area when `data.text.status_line_enabled` is nonzero, using the current text attribute globals and the status row global. |
-| `code.text.show_status_line` | image `0x3547` | Action handler for `0x70`; sets `data.text.status_line_enabled` and calls `code.text.redraw_status_line`. |
+| `code.text.redraw_status_line` | image `0x34bd` | Redraws the status-line-like area when `data.text.status_line_enabled` is nonzero, using the current text attribute globals and the status row global. QEMU `status_line_show_draws_configured_row` validates visible output on the configured row. |
+| `code.text.show_status_line` | image `0x3547` | Action handler for `0x70`; sets `data.text.status_line_enabled` and calls `code.text.redraw_status_line`. QEMU `status_line_show_draws_configured_row` validates the row draw. |
 | `code.text.hide_status_line` | image `0x355c` | Action handler for `0x71`; clears `data.text.status_line_enabled` and clears the configured status row. |
-| `code.text.set_attribute_pair` | image `0x77d5` | Shared helper for action `0x6d` and text-mode transitions. Stores derived text/window attributes in globals `[0x05d1]`, `[0x05cd]`, and `[0x05cf]`. |
-| `code.text.enter_attr_mode` | image `0x76ca` | Action handler for `0x6a`; erases the prompt marker, sets byte `[0x1757]`, derives attributes, enters the overlay text mode through entry `0x9803`, then clears a text rectangle. QEMU `text_attribute_enable_clears_visible_surface` validates a black visible logical surface while this mode remains active. |
+| `code.text.set_attribute_pair` | image `0x77d5` | Shared helper for action `0x6d` and text-mode transitions. Stores derived text/window attributes in globals `[0x05d1]`, `[0x05cd]`, and `[0x05cf]`. QEMU `text_attribute_pair_changes_attr_mode_clear_color` validates that pair `(0, 1)` changes the later `0x6a` clear to visual color 15. |
+| `code.input.set_width_flag_action` | image `0x3939` | Action handler for `0xa3`; sets `data.input.width_flag_0d0f`. QEMU validates the wider live-input path with a long blank string slot 0. |
+| `code.input.clear_width_flag_action` | image `0x394b` | Action handler for `0xa4`; clears `data.input.width_flag_0d0f`. QEMU validates the narrowed live-input path after `0xa3`. |
+| `data.input.width_flag_0d0f` | data `0x0d0f` | Word tested by input helper `code.input.handle_input_char`; when set, the helper uses a fixed `0x24` character cap, otherwise it derives the cap from fixed string slot 0. Also cleared by `code.text.close_window_state`. |
+| `code.text.enter_attr_mode` | image `0x76ca` | Action handler for `0x6a`; erases the prompt marker, sets byte `[0x1757]`, derives attributes, enters the overlay text mode through entry `0x9803`, then clears a text rectangle. QEMU `text_attribute_enable_clears_visible_surface` validates a black visible logical surface with the default pair, and `text_attribute_pair_changes_attr_mode_clear_color` validates the stored pair path. |
 | `code.text.leave_attr_mode` | image `0x78cb` | Shared cleanup for action `0x6b`; clears byte `[0x1757]`, recomputes attributes, calls overlay entry `0x9806`, then redraws status and input-line areas. QEMU `text_attribute_disable_restores_picture_draw` validates that ordinary picture/object drawing is visible again after this action. |
 | `code.input.edit_string` | image `0x0da9` | Blocking string editor used by `0x73` and `0x76`. It copies the destination buffer to a local edit buffer, displays it, waits through `code.input.wait_event`, dispatches keys through `data.input.edit_key_table`, copies accepted text back on Enter, and returns without copying on Escape. |
+| `code.input.handle_input_char` | image `0x3652` | Shared input-line character helper. Normal characters append to visible buffer `0x0fa4`; backspace erases one visible character; Enter copies the visible buffer into source buffer `0x0fce`, parses it, clears visible length `[0x0ff8]`, and redraws the input row. |
+| `code.input.erase_input_line` | image `0x3726` | Action handler for `0x8a`; loops `code.input.handle_input_char(0x08)` while visible length `[0x0ff8]` is nonzero. QEMU `input_line_erase_clears_typed_buffer` validates the visible-row erase. |
+| `code.input.refresh_input_line` | image `0x3753` | Action handler for `0x89`; when input is enabled, calls the source-to-visible refresh helper in the normal EGA path. QEMU `input_line_refresh_repaints_entered_buffer` validates repaint from source buffer `0x0fce` after Enter. |
+| `code.input.append_source_to_visible` | image `0x37a5` | Appends bytes from source input buffer `0x0fce` into visible buffer `0x0fa4` until visible length `[0x0ff8]` reaches the source length, drawing each byte through `0x29f6`. |
 | `code.input.wait_for_event_or_tick` | image `0x4529` | Blocks until an event queue record is available or timer globals `[0x0129]`/`[0x012b]` change, then returns the event record pointer. Menu interaction uses this before normalizing raw and movement events. |
 | `code.input.wait_event` | image `0x45d7` | Blocking event wait helper. Calls the event normalizer at `0x459e` until the returned word is neither `0x0000` nor `0xffff`. |
 | `code.input.enqueue_event` | image `0x44a9` | Enqueues an input/event record with a type word and value word in the circular queue rooted near `data.input.event_queue`. Menu selection uses this to enqueue type 3 item ids. |
 | `code.input.dequeue_event` | image `0x44f9` | Dequeues one 4-byte event record from `data.input.event_queue_base`, returning zero when read and write pointers match. |
 | `code.input.reset_event_state` | image `0x4482` | Resets input-related state around helper calls `0x466f` and `0x6326`, then resets event queue write/read pointers `[0x120a]` and `[0x120c]` to base `0x11ba`. Used by room switch and pause/calibration paths. |
+| `code.input.keyboard_irq_hook` | image `0x6036` | Keyboard interrupt hook. Handles selected raw scan codes, tracks pressed/released latches, and when `data.input.key_release_enqueue_gate_1530` is nonzero can enqueue `(type=2, value=0)` through `code.input.enqueue_event` on selected key releases. |
 | `code.input.drain_bios_keys` | image `0x467f` | Repeatedly polls BIOS-key helper `0x5a89`, maps known movement keys through `code.input.map_raw_direction_key`, and enqueues type-2 movement events or type-1 raw key events. |
 | `code.input.map_raw_direction_key` | image `0x46b6` | Scans `data.input.menu_direction_event_map` for a raw key word and returns the movement value, or `0xffff` when unmapped. |
 | `code.input.remap_display_adapter_event` | image `0x46e8` | When display adapter word `[0x112e] == 2`, scans `data.input.display_adapter_event_map` and converts matching type-1 events to type-2 movement events. |
@@ -195,6 +206,7 @@ Address columns use these meanings:
 | `data.input.edit_key_table` | image/data `0x0e64` | Key dispatch table used by `code.input.edit_string`. The observed SQ2 bytes map `0x03` and `0x18` to clear-current-input, `0x08` to backspace, `0x0d` to accept/copy, and `0x1b` to cancel/return. Evidence: `xxd -g 1 -s 0x1060 -l 0x20 build/cleanroom/AGI.decrypted.exe`. |
 | `code.save.restore_game_state` | image `0x2512` | Restore-game action handler. |
 | `code.save.save_game_state` | image `0x2753` | Save-game action handler. |
+| `code.save.copy_description_to_string_action` | image `0x2726` | Action handler for `0xaa`; copies up to `0x1f` bytes from runtime save-description buffer `[0x0e72]` into string slot `0x020d + arg0 * 0x28`. |
 | `code.save.read_length_prefixed_block` | image `0x26b0` | Reads a length-prefixed memory block from a save file. |
 | `code.save.write_length_prefixed_block` | image `0x28c6` | Writes a length-prefixed memory block to a save file. |
 | `code.save.select_slot_or_path` | image `0x85e5` | Shared save/restore slot/path selection helper. |
@@ -213,12 +225,15 @@ Address columns use these meanings:
 | `code.menu.finalize_setup` | image `0x92ba` | Action handler for `0x9e`; finalizes/freezes menu setup. |
 | `code.menu.set_item_enabled` | image `0x935f` | Shared helper used by `0x9f` and `0xa0` to enable or disable menu items by id. |
 | `code.menu.interact` | image `0x93d1` | Interactive menu path. Draws the menu, waits for input, and enqueues type-3 events with selected item ids for enabled items; QEMU `menu_interaction_001` validates one-item Enter selection and `menu_edges_002` validates Escape, disabled Enter, and re-enable behavior. |
+| `table.menu.navigation_dispatch` | image `0x9526` | Eight-word movement dispatch table used by `code.menu.interact` for type-2 events. Values `1..8` branch to previous item, first item, next enabled heading, last item, next item, last heading, previous enabled heading, and root heading. |
 | `code.menu.draw_heading` | image `0x9557` | Draws a menu heading and its item list, including highlighting the current item through helpers `0x95d0`, `0x9625`, and `0x95a9`. |
 | `code.menu.draw_item` | image `0x95d0` | Positions and draws one menu item using row/column fields from an item node. |
 | `code.menu.erase_or_unhighlight_item` | image `0x9625` | Redraws or clears the item's saved rectangle/highlight state while navigating menu items. |
 | `data.menu.finalized` | data `0x1d2a` | Menu setup finalization flag set by `code.menu.finalize_setup`. |
 | `data.menu.request_interaction` | data `0x1d22` | Word set by action `0xa1` when flag 14 is set; the input/event path enters `code.menu.interact` and clears this word after handling menu interaction. |
-| `data.menu.heading_root` | data `0x1d2c` | Root/current circular menu heading list pointer used by menu setup and interaction routines. |
+| `data.menu.heading_root` | data `0x1d2c` | Root pointer for the circular menu heading list used by setup and interaction routines. |
+| `data.menu.current_heading` | data `0x1d2e` | Current/remembered heading pointer persisted by `code.menu.interact` after movement events and initialized by `code.menu.finalize_setup`. |
+| `data.menu.current_item` | data `0x1d30` | Current/remembered item pointer persisted by `code.menu.interact` after movement events and initialized from the current heading's item root. |
 
 ## System, Trace, Sound, and Files
 
@@ -229,8 +244,8 @@ Address columns use these meanings:
 | `data.display.priority_screen_mode` | data `0x1755` | Word tested by the full-screen refresh path to display priority/control nibbles instead of normal visual nibbles. |
 | `code.object.display_diagnostics_action` | image `0x72b5` | Action handler for `0x85`; formats object fields into the diagnostic template at data `0x1713` and displays the text. QEMU `priority_diag_sound_001` validates return after Enter. |
 | `code.trace.enable_window_action` | image `0x8c91` | Action handler for `0x95`; when the trace window is already active, consumes one extra byte, otherwise calls `code.trace.enable_window_if_flagged`. |
-| `code.trace.enable_window_if_flagged` | image `0x8cae` | Enables and draws the trace window only when flag 10 is set. QEMU covers the flag-clear dispatch path; enabled drawing is source-backed and visibly leaves a trace box. |
-| `code.trace.configure_window_action` | image `0x8d3d` | Action handler for `0x96`; stores trace logic/resource, row offset, and height globals, clamping height to at least 2. |
+| `code.trace.enable_window_if_flagged` | image `0x8cae` | Enables and draws the trace window only when flag 10 is set. QEMU `trace_window_enable_002` validates the enabled red-border/white-fill/black-text path; `system_dialog_001` covers the flag-clear dispatch path. |
+| `code.trace.configure_window_action` | image `0x8d3d` | Action handler for `0x96`; stores trace logic/resource, row offset, and height globals, clamping height to at least 2. QEMU validates `0x96(0,1,2)` feeding the enabled trace-window draw path. |
 | `data.trace.active_state` | data `0x1d10` | Trace-window state word tested by `0x95` and cleared by helper `0x8d79`. |
 | `data.trace.logic_resource` | data `0x1d12` | Optional logic resource number used by trace formatting and by restart/room-switch reload paths. |
 | `data.trace.row_offset` | data `0x1d08` | Row offset configured by action `0x96`. |
@@ -243,6 +258,10 @@ Address columns use these meanings:
 | `code.sound.driver_stop` | image `0x80af` | Hardware/driver-facing sound stop helper called by `code.sound.stop_or_clear_state` when sound state had been active. |
 | `data.sound.active_state` | data `0x1258` | Word set while sound playback state is active. |
 | `data.sound.completion_flag` | data `0x126a` | Word holding the flag number set by `code.sound.stop_or_clear_state`; `0x63` stores and clears this flag before starting playback. |
+| `data.sound.channel_stream_pointers` | data `0x1788..0x178f` | Four current stream pointers copied from a sound cache record by `code.sound.driver_start`; the playback tick advances them through event records. |
+| `data.sound.channel_countdowns` | data `0x1790..0x1797` | Four countdown words initialized to 1 and reloaded from event duration words during playback. |
+| `data.sound.channel_active_words` | data `0x1798..0x179f` | Four nonzero/zero words used by the playback tick to decide whether a channel is still active. |
+| `data.sound.channel_attenuation` | data `0x17a8..0x17af` | Per-channel low-nibble attenuation/control values; `0x0f` is the silent value used when a channel terminates. |
 | `code.log.append_message` | image `0x828f` | Action handler for `0x90`; opens/creates `logfile`, appends a room/input/message record, closes the handle, and returns. QEMU `log_file_contents_001` validates the extracted `LOGFILE` content for a synthetic message. |
 | `data.log.file_handle` | data `0x1823` | DOS file handle for the log file; `0xffff` means closed/unopened. |
 | `data.log.filename` | data `0x1825` | Zero-terminated log filename, observed as `logfile`. |
@@ -255,6 +274,8 @@ Address columns use these meanings:
 | `data.vars.current_room` | data `0x0009` | Byte variable 0. `code.room.switch_state` writes the destination room here; SQ2 logic 0 later dispatches room logic with `call_logic_var(v0)` at logic bytecode offset `0x053e`. |
 | `data.vars.previous_room` | data `0x000a` | Byte variable 1. `code.room.switch_state` copies the prior current-room byte here before overwriting `data.vars.current_room`. Many room-entry blocks branch on this value. |
 | `data.vars.entry_boundary` | data `0x000b` | Byte variable 2. `code.room.switch_state` uses values `1..4` to place object 0 at a room edge, then clears the byte. |
+| `data.motion.global_direction_000f` | data `0x000f` | Global direction byte mirrored with object0 byte `+0x21` by `code.engine.main_cycle`; also written by first-object motion helpers. |
+| `data.motion.direction_mirror_selector_0139` | data `0x0139` | Word selector for the pre-logic object0/global direction mirror. Action `0x83` clears it; action `0x84`, room switch, and selected first-object stop/reset helpers set it. |
 | `data.flags.packed_flags` | data `0x0109` | Packed flag bitfield; flag 0 is the high bit of byte `0x0109`. |
 | `data.strings.slots` | data `0x020d` | Fixed 40-byte string slots. |
 | `data.strings.normalization_drop_chars` | data `0x094b` | Zero-terminated bytes skipped during normalized string comparison. |
@@ -272,8 +293,12 @@ Address columns use these meanings:
 | `data.resource.view_cache_root` | pointer global `[0x0ffa]` | Root of cached view-like resource records. Cleared by `code.view.clear_cache_root` during room-switch cache reset. |
 | `data.resource.picture_cache_root` | pointer/global record `[0x120e]` | Picture-like cache root/static first record used by picture loading. Cleared by `code.picture.clear_cache_root` during room-switch cache reset. |
 | `data.resource.sound_cache_root` | pointer/global record `[0x125a]` | Sound-like cache root/static first record used by sound loading. Cleared by `code.sound.clear_cache_root` during room-switch cache reset. |
+| `data.save.description_buffer` | data `0x0e72` | Runtime save-description/path buffer consumed by `0xaa` and tested by save/restore handlers after slot/path selection. |
 | `data.display.hardware_kind` | global `[0x112e]` | Display adapter/hardware selector used by setup and display branches. |
 | `data.display.mode` | global `[0x1130]` | Display mode selector affected by command-line flags and opcode `0x8c`. |
+| `data.display.shake_low_base` | data `0x1779` | Base value added to the second byte of each normal-path screen-shake table pair before writing CRT controller register `0x07`; `0x6e` sets it to `0x70` or `0x38` from hardware selector `[0x112e]`. |
+| `data.display.shake_offset_table` | data `0x177a` | Byte pairs consumed by the normal-path `0x6e` screen shake loop. The first byte plus `[0x1365]` is written to CRT register `0x02`; the second byte plus `data.display.shake_low_base` is written to register `0x07`. |
+| `data.display.shake_high_offset` | data `0x1365` | Offset added to the first byte of each screen-shake table pair before writing CRT controller register `0x02`. |
 | `data.display.cga_color_map` | `AGIDATA.OVL:0x1d36` | Three-byte-per-color table used by the CGA graphics overlay color mapper. Mode 0 uses byte 0 duplicated; mode 1 uses bytes 1 and 2 as the returned word. |
 | `data.control.priority_table` | data `0x127a` | Runtime 168-byte row-to-priority/control table. |
 | `data.display.logical_buffer_segment` | global `[0x136f]` | Segment of logical graphics/control buffer. |
@@ -289,6 +314,10 @@ Address columns use these meanings:
 | `data.input.event_queue_base` | data `0x11ba` | Start of the 20-record circular raw event queue. Records are 4 bytes: type word, value word. |
 | `data.input.event_queue_write` | data `0x120a` | Write pointer used by `code.input.enqueue_event`; wraps to `data.input.event_queue_base` at the queue end. |
 | `data.input.event_queue_read` | data `0x120c` | Read pointer used by `code.input.dequeue_event`; equal read/write pointers mean the queue is empty. |
+| `data.input.tracked_scan_enabled` | data `0x1519` | Byte table indexed by raw scan code minus `0x47`; nonzero entries enable special keyboard IRQ release tracking for selected scan codes. |
+| `data.input.tracked_scan_pressed_latch` | data `0x1524` | Byte table indexed like `data.input.tracked_scan_enabled`; press paths set one latch and clear the others, release paths clear the latch before optionally enqueueing a release event. |
+| `data.input.last_irq_scan_code` | data `0x152f` | Last raw scan byte captured by `code.input.keyboard_irq_hook` before range/latch handling. |
+| `data.input.key_release_enqueue_gate_1530` | data `0x1530` | Byte gate incremented by action `0xad`; nonzero lets `code.input.keyboard_irq_hook` enqueue a type-2 zero event on selected tracked-key release paths. |
 | `data.input.menu_direction_event_map` | data `0x16b3` | Four-byte raw key/event to movement-code table consulted by helper `0x46b6` before type-2 events are enqueued. Observed SQ2 entries map `0x4800`, `0x4900`, `0x4d00`, `0x5100`, `0x5000`, `0x4f00`, `0x4b00`, and `0x4700` to movement codes `1..8`. |
 | `data.input.display_adapter_event_map` | data `0x16d7` | Four-byte remap table used when display adapter word `[0x112e] == 2`; observed entries map numeric keypad values `0x38`, `0x39`, `0x36`, `0x33`, `0x32`, `0x31`, `0x34`, and `0x37` to movement values `1..8`. |
 | `data.input.prompt_marker_char` | data `0x05d7` | Prompt/input marker character configured by action `0x6c`; `code.input.show_prompt_marker` and `code.input.erase_prompt_marker` use it when drawing or erasing the marker. |

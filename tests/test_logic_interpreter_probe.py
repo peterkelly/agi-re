@@ -86,18 +86,26 @@ class LogicInterpreterProbeTests(unittest.TestCase):
         self.assertIn("input_line_toggle_refresh_erase_dispatch_smoke", case_ids)
         self.assertIn("input_line_disable_clears_configured_row", case_ids)
         self.assertIn("input_line_enable_clears_configured_row", case_ids)
+        self.assertIn("input_line_typed_text_visible_baseline", case_ids)
+        self.assertIn("input_line_erase_clears_typed_buffer", case_ids)
+        self.assertIn("input_line_refresh_repaints_entered_buffer", case_ids)
         self.assertIn("text_rect_clear_dispatch_smoke", case_ids)
         self.assertIn("text_rect_clear_rows_removes_formatted_text", case_ids)
         self.assertIn("text_rect_clear_bounds_removes_formatted_text", case_ids)
         self.assertIn("close_text_window_state_dispatch_smoke", case_ids)
+        self.assertIn("input_width_flag_a3_allows_long_live_input", case_ids)
+        self.assertIn("input_width_flag_a4_restores_long_slot_limit", case_ids)
+        self.assertIn("close_text_window_state_clears_input_width_flag", case_ids)
         self.assertIn("text_attribute_mode_dispatch_smoke", case_ids)
         self.assertIn("text_attribute_enable_clears_visible_surface", case_ids)
+        self.assertIn("text_attribute_pair_changes_attr_mode_clear_color", case_ids)
         self.assertIn("text_attribute_disable_restores_picture_draw", case_ids)
         self.assertIn("screen_shake_dispatch_smoke", case_ids)
         self.assertIn("input_prompt_config_dispatch_smoke", case_ids)
         self.assertIn("input_prompt_empty_message_suppresses_marker", case_ids)
         self.assertIn("status_line_show_hide_dispatch_smoke", case_ids)
         self.assertIn("status_line_hide_clears_configured_row", case_ids)
+        self.assertIn("status_line_show_draws_configured_row", case_ids)
         self.assertIn("key_event_mapping_dispatch_smoke", case_ids)
         self.assertIn("input_line_config_operand1_offsets_display_by_8", case_ids)
         self.assertIn("mapped_key_sets_status_byte", case_ids)
@@ -124,6 +132,7 @@ class LogicInterpreterProbeTests(unittest.TestCase):
         self.assertIn("display_mode_replay_skips_flag7_unrecorded_picture", case_ids)
         self.assertIn("display_mode_replay_uses_rolled_back_event_count", case_ids)
         self.assertIn("trace_window_config_enable_dispatch_smoke", case_ids)
+        self.assertIn("trace_window_enable_draws_box_when_flag10_set", case_ids)
         self.assertIn("log_file_append_dispatch_smoke", case_ids)
         self.assertIn("save_game_escape_continues_to_draw", case_ids)
         self.assertIn("restore_game_escape_continues_to_draw", case_ids)
@@ -254,6 +263,10 @@ class LogicInterpreterProbeTests(unittest.TestCase):
             [{"left": 0, "top": 40, "right": WIDTH - 1, "bottom": 47, "color": 0}],
         )
         self.assertEqual(
+            cases["input_line_erase_clears_typed_buffer"].expected_visual_rects,
+            [{"left": 0, "top": 40, "right": WIDTH - 1, "bottom": 47, "color": 0}],
+        )
+        self.assertEqual(
             cases["status_line_hide_clears_configured_row"].expected_visual_rects,
             [{"left": 0, "top": 40, "right": WIDTH - 1, "bottom": 47, "color": 0}],
         )
@@ -263,8 +276,110 @@ class LogicInterpreterProbeTests(unittest.TestCase):
         )
         self.assertFalse(cases["text_attribute_enable_clears_visible_surface"].compare_view)
         self.assertEqual(
+            cases["text_attribute_pair_changes_attr_mode_clear_color"].expected_visual_rects,
+            [{"left": 0, "top": 0, "right": WIDTH - 1, "bottom": HEIGHT - 1, "color": 15}],
+        )
+        self.assertFalse(cases["text_attribute_pair_changes_attr_mode_clear_color"].compare_view)
+        self.assertEqual(
             cases["input_prompt_empty_message_suppresses_marker"].expected_visual_rects,
             [{"left": 0, "top": 40, "right": WIDTH - 1, "bottom": 47, "color": 0}],
+        )
+
+    def test_rect_checks_can_match_without_glyph_model(self) -> None:
+        case = next(item for item in base_cases() if item.case_id == "status_line_show_draws_configured_row")
+        nibbles = bytearray([0] * (WIDTH * HEIGHT))
+        nibbles[40 * WIDTH] = 15
+        nibbles[40 * WIDTH + 1] = 15
+        nibbles[40 * WIDTH + 2] = 15
+        nibbles[40 * WIDTH + 3] = 15
+        nibbles[40 * WIDTH + 4] = 15
+        nibbles[40 * WIDTH + 5] = 15
+        nibbles[40 * WIDTH + 6] = 15
+        nibbles[40 * WIDTH + 7] = 15
+        with tempfile.TemporaryDirectory() as temp_dir:
+            capture = Path(temp_dir) / "capture.ppm"
+            write_scaled_capture(capture, bytes(nibbles))
+            comparison = compare_capture(case, capture)
+        self.assertEqual(comparison.status, "match")
+
+    def test_rect_checks_report_mismatch(self) -> None:
+        case = next(item for item in base_cases() if item.case_id == "status_line_show_draws_configured_row")
+        with tempfile.TemporaryDirectory() as temp_dir:
+            capture = Path(temp_dir) / "capture.ppm"
+            write_scaled_capture(capture, bytes([0] * (WIDTH * HEIGHT)))
+            comparison = compare_capture(case, capture)
+        self.assertEqual(comparison.status, "mismatch")
+        self.assertIn("below", comparison.error or "")
+
+    def test_trace_window_rect_check_tracks_source_bounds(self) -> None:
+        case = next(item for item in base_cases() if item.case_id == "trace_window_enable_draws_box_when_flag10_set")
+        self.assertFalse(case.compare_view)
+        self.assertEqual(
+            case.expected_rect_checks,
+            [
+                {
+                    "mode": "contains_color",
+                    "left": 0,
+                    "top": 5,
+                    "right": WIDTH - 1,
+                    "bottom": 28,
+                    "color": 4,
+                    "min_count": 180,
+                },
+                {
+                    "mode": "contains_color",
+                    "left": 0,
+                    "top": 6,
+                    "right": WIDTH - 1,
+                    "bottom": 31,
+                    "color": 15,
+                    "min_count": 3000,
+                },
+                {
+                    "mode": "contains_color",
+                    "left": 8,
+                    "top": 18,
+                    "right": 110,
+                    "bottom": 30,
+                    "color": 0,
+                    "min_count": 80,
+                },
+            ],
+        )
+
+    def test_input_width_flag_cases_have_distinct_row_checks(self) -> None:
+        cases = {item.case_id: item for item in base_cases()}
+        self.assertEqual(
+            cases["input_width_flag_a3_allows_long_live_input"].expected_rect_checks,
+            [
+                {
+                    "mode": "contains_color",
+                    "left": 0,
+                    "top": 48,
+                    "right": WIDTH - 1,
+                    "bottom": 55,
+                    "color": 0,
+                    "min_count": 100,
+                }
+            ],
+        )
+        self.assertEqual(
+            cases["input_width_flag_a4_restores_long_slot_limit"].expected_rect_checks,
+            [
+                {
+                    "mode": "no_color",
+                    "left": 0,
+                    "top": 48,
+                    "right": WIDTH - 1,
+                    "bottom": 55,
+                    "color": 0,
+                    "max_count": 20,
+                }
+            ],
+        )
+        self.assertEqual(
+            cases["close_text_window_state_clears_input_width_flag"].expected_rect_checks,
+            cases["input_width_flag_a4_restores_long_slot_limit"].expected_rect_checks,
         )
 
     def test_report_summary_counts_statuses(self) -> None:

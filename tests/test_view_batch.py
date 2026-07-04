@@ -13,7 +13,14 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT / "tools"))
 
-from view_batch import ViewBatchCase, base_cases, load_cases, qemu_batch_dos_dir, write_report  # noqa: E402
+from view_batch import (  # noqa: E402
+    ViewBatchCase,
+    base_cases,
+    load_cases,
+    qemu_batch_dos_dir,
+    stress_cases,
+    write_report,
+)
 
 
 class ViewBatchTests(unittest.TestCase):
@@ -22,6 +29,16 @@ class ViewBatchTests(unittest.TestCase):
         self.assertTrue(any(case.group_no == 1 for case in cases))
         self.assertTrue(any(case.x == 0 for case in cases))
         self.assertTrue(any(case.baseline_y < 5 for case in cases))
+
+    def test_stress_cases_are_optional_and_cover_transparency_range(self) -> None:
+        base = load_cases(None)
+        expanded = load_cases(None, include_stress=True)
+        stress = stress_cases()
+        self.assertEqual(expanded, base + stress)
+        self.assertEqual(len(base), 6)
+        self.assertGreater(len(stress), 8)
+        self.assertTrue(any(case.view_no == 10 for case in stress))
+        self.assertTrue(any(case.view_no == 37 for case in stress))
 
     def test_json_case_loading(self) -> None:
         case = ViewBatchCase("sample", 1, 11, 0, 0, 20, 80, 15)

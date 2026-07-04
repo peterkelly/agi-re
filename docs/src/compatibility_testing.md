@@ -186,6 +186,16 @@ python3 -B tools/view_batch.py --snapshot --dos-prefix VS --output build/view-ba
 The first snapshot-mode view/object smoke ran the six built-in cases and all
 six matched from one QEMU boot.
 
+Run the optional larger cel/transparent-color stress suite in the same snapshot
+batch:
+
+```bash
+python3 -B tools/view_batch.py --snapshot --include-stress --dos-prefix VXS --output build/view-batch/batches/view_stress_001.json --boot-wait 5 --draw-wait 8 --stop-on-failure
+```
+
+The first stress run included the six built-in cases plus eleven large or
+transparent-color-focused cels; all 17 matched with 0 mismatches.
+
 Run targeted object overlay priority, clipping, transparent-cel,
 priority-table, and persistent-object probes with controlled synthetic picture
 backgrounds:
@@ -211,6 +221,12 @@ with 2 matches and 0 mismatches:
 ```bash
 python3 -B tools/object_overlay_probe.py --dos-prefix OC --output build/object-overlay-probes/batches/clip_edges_001.json --boot-wait 5 --draw-wait 8 --stop-on-failure --case left_clip_view11_priority15 --case top_clip_view11_priority15
 ```
+
+The local comparison now derives top/right bounds adjustments with a modeled
+`0x593a` spiral search instead of hard-coded expected coordinates. Existing
+QEMU captures for `top_clip_view11_priority15` and
+`right_clip_view11_priority15` both match the source-derived placements:
+`(18, 4)` for the top-edge request and `(140, 67)` for the right-edge request.
 
 Together with the earlier 22-case report, the current object-overlay registry
 has original-engine evidence for 24 valid synthetic cases.
@@ -462,7 +478,8 @@ python3 -B tools/logic_interpreter_probe.py --dos-prefix TU --output build/logic
 This six-case batch matched QEMU with 0 mismatches. It validates the
 formatted/positioned display return path for `0x67`, `0x68`, and `0x98`, and
 dispatch-smokes the input-line and text-window operations `0x77`, `0x78`,
-`0x89`, `0x8a`, `0x69`, `0x9a`, and `0xa9`.
+`0x89`, `0x8a`, `0x69`, `0x9a`, and `0xa9`. Later focused batches supersede
+the smoke-only status for `0x69`, `0x77`, `0x78`, `0x89`, `0x8a`, and `0x9a`.
 
 Run the text-rectangle clear behavior batch:
 
@@ -516,6 +533,46 @@ clears the visible logical surface to black. A prior attempt in
 draw to appear after `0x6a`, but the original capture remained black, so the
 promoted case treats the visible surface itself as the observable contract.
 
+Run the input-line refresh/erase behavior batch:
+
+```bash
+python3 -B tools/logic_interpreter_probe.py --dos-prefix IR --output build/logic-interpreter-probes/batches/input_refresh_status_002.json --boot-wait 5 --draw-wait 8 --stop-on-failure --case input_line_typed_text_visible_baseline --case input_line_erase_clears_typed_buffer --case input_line_refresh_repaints_entered_buffer
+```
+
+This three-case batch matched QEMU with 0 mismatches. It promotes `0x8a`
+(`erase_input_line`) and `0x89` (`refresh_input_line`) to behavior-level
+coverage for the observed EGA path. The baseline case first verifies that typed
+live-edit glyphs appear on the configured input row. The `0x8a` case then runs
+the erase action each cycle and matches logical Y 40..47 back to black. The
+`0x89` case types `look` plus Enter before checking refresh, because a failed
+earlier attempt (`input_refresh_status_001`) showed that unaccepted live-edit
+characters are not replayed by this path. After Enter populates source buffer
+`0x0fce`, `0x89` repaints visible glyph pixels from that source.
+
+Run the status-line show behavior batch:
+
+```bash
+python3 -B tools/logic_interpreter_probe.py --dos-prefix ST --output build/logic-interpreter-probes/batches/status_show_001.json --boot-wait 5 --draw-wait 8 --stop-on-failure --case status_line_show_draws_configured_row
+```
+
+This one-case batch matched QEMU with 0 mismatches. It promotes `0x70`
+(`show_status_line_like`) to behavior-level coverage for the observed EGA path.
+The fixture configures status row 5 through `0x6f(0, 0, 5)`, runs `0x70`, and
+checks that visible color-15 pixels appear in logical Y 40..47.
+
+Run the text-attribute-pair behavior batch:
+
+```bash
+python3 -B tools/logic_interpreter_probe.py --dos-prefix TA --output build/logic-interpreter-probes/batches/text_attr_pair_behaviour_001.json --boot-wait 5 --draw-wait 8 --stop-on-failure --case text_attribute_pair_changes_attr_mode_clear_color
+```
+
+This one-case batch matched QEMU with 0 mismatches. It promotes `0x6d`
+(`set_text_window_pair`) to behavior-level coverage for the observed EGA path.
+The disassembly shows `0x6d(0, 1)` storing pair globals that `0x6a` later
+recomputes with alternate text mode enabled. The original capture validates the
+resulting visible surface as a full-screen color-15 clear, matching packed text
+attribute low byte `0xf0`.
+
 Run the prompt-marker/text-attribute-exit behavior batch:
 
 ```bash
@@ -531,6 +588,20 @@ empty-message prompt-marker behavior by first setting a nonempty marker, then
 setting an empty message and redrawing the input line; the captured row remains
 black, with no prompt-marker glyph.
 
+Run the input-width flag behavior batch:
+
+```bash
+python3 -B tools/logic_interpreter_probe.py --dos-prefix IW --output build/logic-interpreter-probes/batches/input_width_flag_004.json --boot-wait 5 --draw-wait 8 --stop-on-failure --case input_width_flag_a3_allows_long_live_input --case input_width_flag_a4_restores_long_slot_limit --case close_text_window_state_clears_input_width_flag
+```
+
+This three-case batch matched QEMU with 0 mismatches. The cases set fixed
+string slot 0 to a long blank string, then type live input after setting or
+clearing `[0x0d0f]`. With `0xa3` set, the wrapped input row contains black
+glyph pixels from accepted input. With `0xa4`, and with inactive `0xa9` after a
+prior `0xa3`, the wrapped row remains blank white fill. This promotes `0xa3`
+and `0xa4` to behavior-level evidence for the input-width flag and validates
+the unconditional `[0x0d0f]` clear side of `0xa9`.
+
 Run the text/status configuration batch:
 
 ```bash
@@ -540,8 +611,11 @@ python3 -B tools/logic_interpreter_probe.py --dos-prefix TS --output build/logic
 This five-case batch matched QEMU with 0 mismatches. It originally
 dispatch-smoked `0x6a`, `0x6b`, `0x6c`, `0x6d`, `0x6e`, `0x6f`, `0x70`,
 `0x71`, and `0x79`; later behavior batches supersede the smoke-only status for
-`0x6a`, `0x6b`, `0x6c`, and `0x71`, while `0x6f` and `0x79` have their own
-behavior probes. The earlier batch `text_status_001` used first operand `1` for `0x6f` and
+`0x6a`, `0x6b`, `0x6c`, `0x6d`, `0x70`, and `0x71`, while `0x6f` and `0x79`
+have their own behavior probes. Action `0x6e` remains QEMU dispatch-smoked for
+return-to-bytecode but is source-backed for the transient CRT/display-register
+shake effect. The earlier batch `text_status_001` used first operand `1` for
+`0x6f` and
 mismatched because the interpreter shifted the later validation draw relative
 to the local renderer; the clean smoke fixture uses operand `0` and leaves that
 non-default display-offset behavior for a dedicated probe.
@@ -576,7 +650,8 @@ python3 -B tools/logic_interpreter_probe.py --dos-prefix DS --output build/logic
 
 This four-case batch matched QEMU with 0 mismatches. It validates the
 message/ack/return behavior for `0x87`, `0x88`, and `0x8d`, and dispatch-smokes
-`0x83`, `0x84`, `0x8e`, `0xaa`, `0xab`, `0xac`, `0xad`, `0xa3`, and `0xa4`.
+`0xaa`. Later focused probes or source passes promote `0x83`, `0x84`, `0x8e`,
+`0xab`, `0xac`, `0xad`, `0xa3`, and `0xa4` beyond this original smoke batch.
 
 Run the menu/list and sound dispatch-smoke batch:
 
@@ -609,6 +684,40 @@ configuration dispatch, save/restore Escape cancellation, log append dispatch,
 and sound load/start/stop behavior. The sound case loads sound 1, starts it
 with completion flag 77, stops it, and reaches the validation draw only after
 that flag is set.
+
+The static sound-resource parser is covered by:
+
+```bash
+python3 -B -m unittest tests.test_sound_resources
+```
+
+This test module scans the local SQ2 `SNDDIR` and present sound payloads. It
+checks that 49 sound resources are present, that each present resource has four
+sorted in-bounds channel offsets with first offset 8, that all channels parse to
+an in-payload `0xffff` terminator, and that sound 1's first channel matches the
+source-backed event record shape observed from the loader and playback tick
+code. These tests validate the resource container and event stream shape; they
+do not yet validate audible pitch, timing, or hardware driver output.
+
+Run the focused enabled trace-window case:
+
+```bash
+python3 -B tools/logic_interpreter_probe.py --dos-prefix TR --output build/logic-interpreter-probes/batches/trace_window_enable_002.json --boot-wait 5 --draw-wait 8 --stop-on-failure --case trace_window_enable_draws_box_when_flag10_set
+```
+
+This one-case batch matched QEMU with 0 mismatches. The case sets flag 10,
+configures the trace globals with `0x96(0, 1, 2)`, then runs `0x95`. The
+comparison checks for the enabled trace window's red border, white fill, and
+black opcode/operand text, superseding the older flag-clear smoke evidence for
+`0x95` and `0x96` while preserving that smoke case as the gated no-draw path.
+
+Menu navigation remains source-backed rather than dynamically validated. The
+original-engine probes validate Enter, Escape, disabled-item Enter, and
+disable/re-enable behavior, but the attempted down-arrow QEMU fixture did not
+deliver a reusable type-2 movement event. The disassembly-backed contract is
+therefore recorded separately: type-2 movement values `1..8` dispatch through
+the table at `0x9526` to previous item, first item, next enabled heading, last
+item, next item, last heading, previous enabled heading, and root heading.
 
 Run the display-mode replay cases:
 
@@ -729,6 +838,11 @@ python3 -B tools/picture_fuzz.py compare-capture base_004_clamped_absolute build
   mirrored bit-`0x80` orientation, left-edge clipping, top-edge placement, and
   a low-priority object case. After modeling the top-edge adjustment, all six
   cases match QEMU with 0 mismatches.
+- The optional `--include-stress` view batch adds eleven larger or
+  transparent-color-focused cels, including transparent colors `0`, `1`, `2`,
+  `5`, `6`, `7`, `8`, `10`, `13`, `14`, and `15`, plus a bit-`0x80`
+  transparent-10 frame. QEMU batch `view_stress_001` matched all 17 total
+  cases with 0 mismatches and 0 errors.
 - Local object-frame composition tests cover baseline placement, transparent
   pixels, direct high-priority rejection, and downward priority/control scanning
   from low-control cells. They also lock down the top-edge adjustment observed
@@ -798,6 +912,23 @@ python3 -B tools/picture_fuzz.py compare-capture base_004_clamped_absolute build
 
   The batch matched QEMU with 0 mismatches. The global `[0x0139]` write remains
   source-backed; this capture proves the object motion-byte side effect.
+- Source-backed main-cycle analysis covers `0x83`
+  (`clear_global_0139`): it selects object0-to-global direction mirroring at
+  the pre-logic mirror point. Disposable script-level QEMU probes showed why a
+  direct fixture is awkward: direction bytes written by logic after that mirror
+  are restored from global `[0x000f]` before the next frame/update path can use
+  them.
+- Source-backed keyboard-IRQ analysis covers `0xad`
+  (`increment_global_1530`): the action increments byte `[0x1530]`, and the IRQ
+  hook tests that byte before enqueueing a type-2 zero event on selected
+  tracked-key release paths. A direct QEMU fixture would depend on raw
+  scan-code release timing, so this remains source-backed rather than
+  QEMU-validated.
+- Source-backed resource-event analysis covers `0x8e`
+  (`set_global_0141_and_refresh`): the action writes `data.event.pair_capacity`
+  and resets the pair buffer inside update-list flush/rebuild calls. Existing
+  replay QEMU cases validate downstream pair-log behavior for `0xab`/`0xac`;
+  `0x8e` itself is covered by the compact disassembled reset path.
 - Targeted frame-timer probes validate visible effects of actions `0x46`,
   `0x47`, and `0x4c`:
 
@@ -837,15 +968,32 @@ python3 -B tools/picture_fuzz.py compare-capture base_004_clamped_absolute build
 - `tests/test_picture_fuzz.py` covers deterministic fuzz generation, manifest
   writing, Python render-result recording, scaled synthetic capture comparison
   without booting QEMU, QEMU unsafe-case rejection, and mocked batch reporting.
-- The current fuzz corpus command above generates 1,045 synthetic picture
-  cases: 21 curated base cases plus 1,024 deterministic random cases. Of those,
-  1,043 are marked safe for automated QEMU runs; the unsafe cases intentionally
+- The current fuzz corpus command above generates 1,051 synthetic picture
+  cases: 27 curated base cases plus 1,024 deterministic random cases. Of those,
+  1,049 are marked safe for automated QEMU runs; the unsafe cases intentionally
   include payloads such as no terminator or missing command operands that could
   make the original interpreter treat garbage memory as picture data. These
   unsafe cases are retained only as harness guardrails and are not part of the
   behavioral model.
 - Curated QEMU fuzz batches currently matching the local renderer include:
-  all safe base cases through `base_020_pattern_random_sequence`.
+  all safe base cases through `base_020_pattern_random_sequence`, plus
+  `seed_fill_edges_001` for `base_021_visual_fill_full_height_barrier`,
+  `base_022_visual_fill_multi_seed_boxes`, and
+  `base_023_control_fill_ignores_visual_barrier`, and
+  `pattern_interleaved_001` for `base_024_pattern_bypass_mask`,
+  `base_025_interleaved_line_fill_pattern`, and
+  `base_026_pattern_random_bypass_sequence`.
+- The `seed_fill_edges_001` snapshot batch matched the original engine with 3
+  matches, 0 mismatches, and 0 errors. The first two cases validate visible
+  full-height barrier and multi-seed fill geometry. The third validates that a
+  control-only seed fill does not disturb the visible visual barrier; the local
+  cell-level renderer test records the corresponding control-channel crossing
+  behavior.
+- The `pattern_interleaved_001` snapshot batch matched the original engine with
+  3 matches, 0 mismatches, and 0 errors. These cases validate pattern mode bit
+  `0x10` bypassing the row/column mask test, a rectangle/fill/line/pattern
+  sequence in one valid picture stream, and a two-plot pattern sequence with
+  both `0x10` and pseudo-random bit `0x20` set.
 - A 16-case random QEMU batch covering line, corner, pattern, fill, and scanner
   categories also matched with 0 mismatches.
 - The fuzz pass exposed a diagonal-line mismatch for the two edge-line cases.
@@ -865,19 +1013,24 @@ executable and QEMU captures.
 ## Provisional areas
 
 The view cel renderer is based on the row run-length format documented from the
-IBM object overlay and now has a small QEMU validation batch. It still needs
-broader coverage across larger cels, right/bottom clipping, transparent-color
-variants, priority interactions with different picture control bands, and
-runtime animated-object state changes.
+IBM object overlay and now has both a small QEMU validation batch and an
+optional 17-case stress batch for larger cels and transparent-color variants.
+It still needs broader right/bottom clipping, priority interactions with
+different picture control bands, and runtime animated-object state changes.
 
 The picture renderer is still a compatibility scaffold, but it now has direct
 QEMU fuzz coverage for scanner behavior, exact/right-lower-edge diagonal lines,
 visual/control seed fill, bounded fill barriers, pseudo-random pattern plotting,
-lower-right pattern edge wrapping, and safe truncated coordinate data. The
-remaining seed-fill risk is the exact span-stack traversal versus the local
-queue implementation; fuzz cases should expand toward narrow barriers,
-odd/even mask interactions, and multi-seed fills before picture hashes are
-treated as complete original-engine parity checks.
+lower-right pattern edge wrapping, mask-bypass pattern plotting, interleaved
+line/fill/pattern streams, and safe truncated coordinate data. The seed-fill
+traversal class is source-backed as a horizontal span fill with deferred stack
+state; the local renderer uses a queue because the observable contract for
+valid finite data is the final connected region under the selected channel
+target test. Full-height narrow-barrier, multi-seed, and visible control-only
+barrier cases now match the original engine in QEMU. Fuzz cases should still
+expand toward more varied odd/even mask interactions, additional interleavings,
+and larger real-resource picture hashes before picture hashes are treated as
+complete original-engine parity checks.
 
 Future tests should prefer focused fixtures: a room or script state that draws a
 single picture, a single moving object, or a known cel at a known screen
@@ -908,8 +1061,10 @@ The save-description copy attempt patched the fixture's `AGIDATA.OVL` bytes at
 `0x0e72` to `look` and then tried to validate action `0xaa` by comparing the
 copied string slot against a message-backed `look` string. The validation draw
 did not occur, so the case remains absent from the reusable probe registry;
-runtime initialization or selector behavior appears to control that buffer more
-strongly than a static fixture-file patch.
+the static patch targeted the fixture file, while action `0xaa` reads the
+interpreter's runtime data segment at `0x0e72`. Source-backed disassembly now
+covers `0xaa`; dynamic validation would need to drive the save/restore selector
+path that populates the runtime save-description buffer.
 
 Current QEMU screenshots captured through `screendump` use full VGA-sized PPM
 frames. A generated picture-only SQ2 fixture produced a 640 by 400 capture.

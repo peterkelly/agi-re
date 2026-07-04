@@ -119,7 +119,9 @@ model is:
 
 1. Run several input, sound, and display-maintenance helpers.
 2. Mirror direction state between object 0 byte `+0x21` and global byte
-   `[0x000f]`, depending on global word `[0x0139]`.
+   `[0x000f]`, depending on global word `[0x0139]`: when `[0x0139] == 0`,
+   copy object 0 `+0x21` to `[0x000f]`; otherwise copy `[0x000f]` back to
+   object 0 `+0x21`.
 3. Call `code.motion.pre_mode_and_boundary_update` (`0x0644`). This pass scans
    active/update-eligible objects whose byte `+0x01 == 1`, dispatches motion
    mode byte `+0x22` through `code.motion.dispatch_mode_step` (`0x067a`), and
@@ -134,11 +136,16 @@ model is:
    update-list draw/dirty-rectangle refresh. If `[0x1757]` is nonzero, the
    top-level loop skips `0x0563` for that cycle.
 
-This ordering matters for generated probes and for compatibility. For example,
-automatic group selection observes object byte `+0x01` before
-`code.motion.update_objects` later decrements that countdown byte. A one-shot
-script write of `+0x01 = 2` therefore delays direction-based group selection by
-one later cycle rather than suppressing it permanently.
+This ordering matters for generated probes and for compatibility. After logic
+0 returns, `code.engine.main_cycle` also restores object 0 byte `+0x21` from
+global byte `[0x000f]` before continuing the frame/update path. A logic script
+that writes object 0 `+0x21` after the top-of-cycle mirror is therefore too
+late to seed `[0x000f]` for the following cycle unless another helper also
+updates the global direction byte. For example, automatic group selection
+observes object byte `+0x01` before `code.motion.update_objects` later
+decrements that countdown byte. A one-shot script write of `+0x01 = 2`
+therefore delays direction-based group selection by one later cycle rather
+than suppressing it permanently.
 
 SQ2 logic 0 is the global per-cycle script. A source pass over the actual SQ2
 logic resource shows that logic 0 handles global menu/input/status work first,
@@ -442,6 +449,15 @@ Helper `0x44a9(type, value)` enqueues a record and fails if advancing the write
 pointer would collide with the read pointer. Helper `0x44f9()` dequeues one
 record, returning zero when the queue is empty.
 
+The keyboard IRQ hook at image `0x6036` also feeds this queue. For selected
+scan codes in the range `0x47..0x51`, it checks an enable table at
+`0x1519 + (scan - 0x47)` and a pressed latch at `0x1524 + (scan - 0x47)`. On a
+key release, if the latch was set, it clears the latch and tests byte
+`[0x1530]`. When that byte is nonzero, the hook enqueues event `(type=2,
+value=0)` through `code.input.enqueue_event` (`0x44a9`). Action `0xad`
+increments `[0x1530]`, so it acts as a source-backed gate/count for this
+release-event path.
+
 Keyboard helper `0x5a89` uses BIOS `int 16h`: it returns zero if no key is
 waiting, otherwise reads one key. If the ASCII byte is nonzero it clears `AH`
 and returns just that byte; if ASCII is zero, the BIOS scan-code word is
@@ -688,6 +704,19 @@ an error if it cannot be found, and calls the hardware/driver start helper
 `code.sound.stop_or_clear_state`; that helper only sets the configured
 completion flag when active-state word `[0x1258]` is nonzero, then clears the
 active-state word and calls the hardware/driver stop helper `0x80af`.
+
+The sound loader and driver-start helpers also reveal the sound resource
+container. `code.sound.load_resource` reads the payload through the sound
+directory, stores the raw payload pointer at cache-record `+0x04`, then reads
+four little-endian words from the payload header and stores four derived
+payload-relative channel pointers at record offsets `+0x06`, `+0x08`, `+0x0a`,
+and `+0x0c`. `code.sound.driver_start` copies those four pointers into the
+runtime channel pointer table, initializes four countdown words to 1, initializes
+active/tone state words, and marks sound state active at `[0x1258]`. The driver
+tick reads `duration u16`, treats `0xffff` as a channel terminator, otherwise
+reads a 16-bit tone/control word followed by one control byte whose low nibble
+is the observed attenuation/control value. Playback timing and hardware pitch
+semantics are still provisional.
 
 ### Resource Event Log
 
@@ -1039,7 +1068,7 @@ run the final position was `(140,112)`.
 | `0x57` | `get_object_field_21` | `0x6ffc` | Stores object byte `[+0x21]` into `var[arg1]`. |
 | `0x58` | `set_object_bit_0002` | `0x7b9c` | Sets bit `0x0002` in object word field `[+0x25]`. QEMU validates that this bypasses the rectangle-boundary crossing stop configured by `0x5a`; the object reaches `(50,80)` instead of stopping at `(30,80)`. |
 | `0x59` | `clear_object_bit_0002` | `0x7bc1` | Clears bit `0x0002` in object word field `[+0x25]`. QEMU validates that clearing after `0x58` restores the rectangle-boundary crossing stop at `(30,80)`. |
-| `0x83` | `clear_global_0139` | `0x702f` | Sets global word `[0x0139] = 0`. |
+| `0x83` | `clear_global_0139` | `0x702f` | Sets global word `[0x0139] = 0`. Source-backed main-cycle analysis shows this selects the next pre-logic mirror direction: object 0 byte `+0x21` is copied to global byte `[0x000f]` when the selector is zero. The same cycle later restores object 0 `+0x21` from `[0x000f]` after logic returns, so script-level probes that set object 0 direction after the pre-logic mirror are clobbered before they can seed the next cycle. |
 | `0x84` | `set_global_0139_and_clear_object0_field_22` | `0x7041` | Sets global word `[0x0139] = 1` and clears byte `[+0x22]` on the first object entry. A QEMU movement probe validates the byte `[+0x22]` effect by starting random motion on object 0 with `0x54`, immediately executing `0x84`, and observing that the object remains at its starting position. |
 | `0x85` | `display_object_diagnostics_var` | `0x72b5` | Reads an object index from `var[arg0]`, gathers object fields `[+0x03]`, `[+0x05]`, `[+0x1a]`, `[+0x1c]`, `[+0x24]`, and `[+0x1e]`, formats them with string template `DS:0x1713` through helper `0x2374`, and displays the result through `0x1ce8`. |
 
@@ -1140,9 +1169,22 @@ helper. Event type `1` is interpreted as raw Enter/Escape: Enter enqueues a
 type-3 event with the current item's id only if the item enable word
 `[item+0x0a]` is nonzero; Escape leaves without enqueueing a selection. Event
 type `2` is interpreted as a movement code. Movement values `1..8` dispatch
-through a table that moves between item nodes, heading nodes, first/last
-headings, and first/last enabled items. After each non-exit movement, the loop
-stores the current heading/item in `[0x1d2e]` and `[0x1d30]` and waits again.
+through the word table at `0x9526`, then the loop stores the current
+heading/item in `[0x1d2e]` and `[0x1d30]` before waiting again. Item navigation
+does not skip disabled items; the enable word is tested when Enter is pressed.
+Left/right heading navigation skips headings whose enable word is zero, while
+Home/End-like heading jumps select the root or root-previous heading directly.
+
+| Movement value | Raw key table source | Target | Source-backed effect |
+| ---: | --- | ---: | --- |
+| `1` | `0x4800` | `0x9492` | Move to previous item in the current heading (`[item+0x02]`). |
+| `2` | `0x4900` | `0x94a6` | Move to the first item in the current heading (`[heading+0x0c]`). |
+| `3` | `0x4d00` | `0x94b2` | Move to the next enabled heading (`[heading+0x00]` loop), restoring that heading's remembered item from `[heading+0x0e]`. |
+| `4` | `0x5100` | `0x94cb` | Move to the last item in the current heading (`[first_item+0x02]`). |
+| `5` | `0x5000` | `0x94da` | Move to the next item in the current heading (`[item+0x00]`). |
+| `6` | `0x4f00` | `0x94e5` | Move to the root list's previous heading (`[root+0x02]`) and restore its remembered item. |
+| `7` | `0x4b00` | `0x94f6` | Move to the previous enabled heading (`[heading+0x02]` loop), restoring that heading's remembered item. |
+| `8` | `0x4700` | `0x9509` | Move to the root heading (`[0x1d2c]`) and restore its remembered item. |
 
 Text-window and input-line actions:
 
@@ -1153,10 +1195,10 @@ Text-window and input-line actions:
 | `0x6a` | `enable_text_attr_mode_1757` | `0x76ca` | Calls prompt/input cleanup helper `0x382e`, sets byte `[0x1757] = 1`, derives text attributes through `0x77d5` using globals `[0x05cd]` and `[0x05cf]`, calls helper `0x9803`, then clears or fills a text rectangle through `0x2b78`. QEMU validates that in the normal EGA path this leaves the visible logical surface cleared to black, and a following transient-object validation draw is not visible while this alternate text-attribute mode remains active. |
 | `0x6b` | `disable_text_attr_mode_1757` | `0x7702` | Calls prompt/input cleanup helper `0x382e`, then helper `0x78cb`, which clears byte `[0x1757]`, recomputes text attributes from `[0x05cd]` and `[0x05cf]`, calls helper `0x9806`, redraws the status-line-like area through `0x34bd`, and refreshes the input-line-like area through `0x38d7`. QEMU validates that after `0x6a`, running `0x6b` and then refreshing the picture allows the normal transient-object validation draw to appear again. |
 | `0x6c` | `set_input_prompt_char` | `0x38b4` | Resolves current-logic message `arg0` through `0x21f0` and stores the first byte of that message in `[0x05d7]`. Helpers `0x37f7`, `0x382e`, and `0x38d7` test `[0x05d7]` while drawing or erasing the prompt/input marker. QEMU validates the empty-message case by first setting a nonempty marker, then setting an empty message; a following input-line redraw stays black with no prompt marker glyph. |
-| `0x6d` | `set_text_window_pair` | `0x77af` | Reads immediates `arg0` and `arg1`, then calls helper `0x77d5(arg0, arg1)`. That helper stores derived values in globals `[0x05d1]`, `[0x05cd]`, and `[0x05cf]` using helpers `0x7803`, `0x78a1`, and `0x78ad`. |
-| `0x6e` | `shake_screen_like` | `0x7a00` | Reads an immediate count into `CL` and performs a display-shake-like loop. Depending on display-mode globals `[0x1130]` and `[0x112e]`, it either dispatches to helpers `0x99b8`, `0x9be3`, or `0x9916`, or directly writes CRT controller registers at ports `0x3d4/0x3d5`, using bytes at `0x177a` and global offset bytes `[0x1365]` and `[0x1779]`. |
+| `0x6d` | `set_text_window_pair` | `0x77af` | Reads immediates `arg0` and `arg1`, then calls helper `0x77d5(arg0, arg1)`. That helper stores derived values in globals `[0x05d1]`, `[0x05cd]`, and `[0x05cf]` using helpers `0x7803`, `0x78a1`, and `0x78ad`. In the observed EGA path, setting pair `(0, 1)` while normal text mode is active stores `[0x05cd]=0` and `[0x05cf]=0xff`; a following `0x6a` recomputes `[0x05d1]` with `[0x1757]=1`, producing a packed low-byte text attribute `0xf0`. QEMU validates the resulting alternate text-surface clear as full-screen visual color 15. |
+| `0x6e` | `shake_screen_like` | `0x7a00` | Reads an immediate count into `CL` and performs a display-shake-like loop. Display mode `[0x1130] == 3`, `2`, or `4` delegates to overlay/helper paths `0x99b8`, `0x9be3`, or `0x9916`. Otherwise it chooses base byte `[0x1779] = 0x70` when hardware selector `[0x112e] == 0`, or `0x38` otherwise, then repeatedly writes CRT controller registers `0x02` and `0x07` through ports `0x3d4/0x3d5`. Each step reads bytes from the small table at `0x177a`, adds `[0x1365]` to the register-2 value and `[0x1779]` to the register-7 value, waits for timer word `[0x0129]` to change, advances until the register-7 value returns to the base, and repeats for the count. QEMU dispatch-smokes the action returning to following bytecode; the transient hardware timing effect is source-backed. |
 | `0x6f` | `set_input_line_config` | `0x78f0` | Reads immediates `arg0`, `arg1`, and `arg2`; stores `arg0` in `[0x05dd]`, `arg0 + 0x15` in `[0x05df]`, `arg1` in `[0x05d5]`, and `arg2` in `[0x05db]`. It also computes `[0x1379]` from `arg0`: normally `arg0 << 3`, but in display mode `[0x1130] == 2` it stores `arg0 * 6` for values 0 or 1, and clamps larger values to 6. Nearby redraw helpers use these globals for the input-line/status text areas, so the user-level name remains provisional. |
-| `0x70` | `show_status_line_like` | `0x3547` | Sets word `[0x05d9] = 1` and calls helper `0x34bd`, which redraws a status-line-like text area using helpers `0x2b28`, `0x7989`, `0x2ba6`, `0x2b0d`, `0x2390`, `0x79c3`, and `0x2b4f`. |
+| `0x70` | `show_status_line_like` | `0x3547` | Sets word `[0x05d9] = 1` and calls helper `0x34bd`, which redraws a status-line-like text area using helpers `0x2b28`, `0x7989`, `0x2ba6`, `0x2b0d`, `0x2390`, `0x79c3`, and `0x2b4f`. QEMU validates that after `0x6f(0, 0, 5)`, showing the status line writes visible color-15 pixels in logical row 40..47, the row configured by operand 2. |
 | `0x71` | `hide_status_line_like` | `0x355c` | Sets word `[0x05d9] = 0`, then calls `code.text.clear_row` (`0x2ba6`) with row `[0x05db]` and attribute `0`, clearing the associated text row. QEMU validates that after `0x6f(0, 0, 5)`, hiding the status line clears logical Y 40..47 to visual color 0 without repainting the picture. |
 | `0x72` | `set_string_slot_from_message` | `0x0d37` | Computes destination `0x020d + arg0 * 0x28`, resolves current-logic message `arg1`, and copies up to `0x28` bytes into that fixed-size string slot through helper `0x4de8`. |
 | `0x73` | `prompt_string_to_slot` | `0x0c44` | Reads fixed string slot `arg0`, message number `arg1`, row-like byte `arg2`, column-like byte `arg3`, and max-length byte `arg4`. It clears the destination string slot, optionally positions text with `0x2b0d(arg2, arg3)` when `arg2 < 0x19`, displays the resolved current-logic message, accepts edited input through `code.input.edit_string` (`0x0da9`), then restores the input-line/status display as needed. The accepted length is `min(arg4 + 1, 0x28)`. |
@@ -1165,11 +1207,11 @@ Text-window and input-line actions:
 | `0x76` | `prompt_number_to_var` | `0x71ed` | Displays current-logic message `arg0` as a prompt, accepts/edits up to four characters through helper `0x0da9`, parses the resulting buffer as a decimal number through helper `0x4e8d`, and stores the low byte in `var[arg1]`. It has two display paths: one using text helpers `0x2b0d`, `0x1f54`, `0x2390`, `0x37f7`, and `0x38d7`, and another using helpers `0x9c52` and `0x9d93` when display mode `[0x1130] == 2` and `[0x0d0f] == 0`. |
 | `0x77` | `disable_input_line_like` | `0x386f` | Sets word `[0x05d3] = 0`; unless display mode `[0x1130] == 2`, it calls helper `0x382e` and clears a text area through `code.text.clear_row` (`0x2ba6`) with row `[0x05d5]` and attribute `0`. QEMU validates that after `0x6f(0, 5, 22)`, disabling the input line clears logical Y 40..47 to visual color 0 without repainting the picture. |
 | `0x78` | `enable_input_line_like` | `0x3898` | Sets word `[0x05d3] = 1`; unless display mode `[0x1130] == 2`, calls helper `0x38d7` to redraw the input-line-like display. QEMU validates that after `0x6f(0, 5, 22)`, enabling the input line clears/redraws logical Y 40..47 to visual color 0 when the prompt marker and input buffers are empty. |
-| `0x89` | `refresh_input_line` | `0x3753` | If the input line is enabled through word `[0x05d3]`, refreshes the input-line display. In display mode `[0x1130] == 2` with word `[0x0d0f] == 0`, it displays the string at `0x1e2e` ("ENTER COMMAND") through the alternate display helpers, clears or rewrites the current input character byte `[0x001c]`, and passes that byte to helper `0x3652`. In other modes it calls helper `0x37a5`, which appends bytes from the buffer/string at `0x0fce` into the visible input buffer `0x0fa4` until the input length word `[0x0ff8]` reaches that string's length. |
-| `0x8a` | `erase_input_line` | `0x3726` | Erases the visible input-line buffer by repeatedly passing byte `0x08` to helper `0x3652` while word `[0x0ff8]` is nonzero. In display mode `[0x1130] == 2`, it skips the erase loop when word `[0x0d0f] == 0`. |
-| `0xa3` | `set_global_0d0f` | `0x3939` | Sets word `[0x0d0f] = 1`; helper `0x3652` uses this global while computing input-line width and redraw behavior. |
-| `0xa4` | `clear_global_0d0f` | `0x394b` | Clears word `[0x0d0f]`. |
-| `0xa9` | `close_text_window_state` | `0x1f2b` | If word `[0x0d1d]` is nonzero, calls helper `0x560c([0x0d23], [0x0d25])`, which restores a saved display rectangle. It then clears words `[0x0d0f]` and `[0x0d1d]`. This is used both as a no-operand action and as an internal cleanup helper after message/window paths. |
+| `0x89` | `refresh_input_line` | `0x3753` | If the input line is enabled through word `[0x05d3]`, refreshes the input-line display. In display mode `[0x1130] == 2` with word `[0x0d0f] == 0`, it displays the string at `0x1e2e` ("ENTER COMMAND") through the alternate display helpers, clears or rewrites the current input character byte `[0x001c]`, and passes that byte to helper `0x3652`. In other modes it calls helper `0x37a5`, which appends bytes from the buffer/string at `0x0fce` into the visible input buffer `0x0fa4` until the input length word `[0x0ff8]` reaches that string's length. QEMU validates the normal EGA path by typing `look` plus Enter, then observing that `0x89` repaints visible input glyph pixels from the entered source buffer. A failed pre-Enter probe showed that unaccepted live edit characters are not sufficient for this replay path. |
+| `0x8a` | `erase_input_line` | `0x3726` | Erases the visible input-line buffer by repeatedly passing byte `0x08` to helper `0x3652` while word `[0x0ff8]` is nonzero. In display mode `[0x1130] == 2`, it skips the erase loop when word `[0x0d0f] == 0`. QEMU validates the normal EGA path by first confirming typed characters are visible on the configured input row, then running `0x8a` each cycle and matching logical Y 40..47 back to black. |
+| `0xa3` | `set_global_0d0f` | `0x3939` | Sets word `[0x0d0f] = 1`. Helper `0x3652` uses this global while computing input-line width: when set, it starts from a fixed `0x24` character cap instead of deriving the cap from fixed string slot 0. QEMU validates this by using a long blank string slot 0 and observing accepted live-input glyphs on the wrapped input row only after `0xa3`. |
+| `0xa4` | `clear_global_0d0f` | `0x394b` | Clears word `[0x0d0f]`. QEMU validates the visible counterpart to `0xa3`: after `0xa3` followed by `0xa4`, the same long blank string slot 0 leaves the wrapped input row without live-input glyph pixels. |
+| `0xa9` | `close_text_window_state` | `0x1f2b` | If word `[0x0d1d]` is nonzero, calls helper `0x560c([0x0d23], [0x0d25])`, which restores a saved display rectangle. It then clears words `[0x0d0f]` and `[0x0d1d]`. QEMU validates the unconditional `[0x0d0f]` clear by setting `0xa3`, running `0xa9` with no active saved window, and observing the same narrowed input-width behavior as `0xa4`. The saved-rectangle restore path remains source-backed from the helper calls. |
 
 `code.input.edit_string` (`0x0da9`) is the shared line editor used by both
 `0x73` and `0x76`. Static disassembly shows that it clamps the requested maximum
@@ -1190,8 +1232,11 @@ text was copied into the destination slot. Like the formatted-message probes,
 the fixture refreshes the picture with `0x1a` before the validation draw because
 the text overlay can otherwise remain visible in the captured display.
 
-QEMU fixture `text_ui_003` dispatch-smokes `0x77`, `0x78`, `0x89`, and `0x8a`
-as an input-line toggle/refresh/erase group, and `0xa9` as text-window cleanup.
+QEMU fixture `text_ui_003` originally dispatch-smoked `0x77`, `0x78`, `0x89`,
+and `0x8a` as an input-line toggle/refresh/erase group, and `0xa9` as
+text-window cleanup. Later focused batches promote the input-line opcodes and
+the unconditional `[0x0d0f]` clear side of `0xa9` to the behavior-level
+observations above.
 Follow-up fixture `text_rect_clear_behaviour_003` validates the display-surface
 effect of `0x69` and `0x9a` without relying on a picture refresh: formatted
 message text is acknowledged, the clear action runs, and the captured screen
@@ -1226,11 +1271,12 @@ nonempty prompt marker, displays/acknowledges formatted text on row 5, sets the
 prompt marker from an empty message, and runs `0x78`; the capture matches only
 when the configured input row is black with no prompt-marker glyph.
 
-QEMU fixture `text_status_002` dispatch-smokes the remaining low-risk
+QEMU fixture `text_status_002` originally dispatch-smoked low-risk
 text/status/input handlers in this cluster: `0x6d` for text-attribute
 configuration; `0x6e` for a one-count screen-shake return; `0x70` for
-status-line show; and `0x79` for key-event mapping table
-insertion. The source-backed details still matter: `0x6f` stores its first
+status-line show; and `0x79` for key-event mapping table insertion. Later
+focused batches promote `0x6d` and `0x70` to the behavior-level observations
+above. The source-backed details still matter: `0x6f` stores its first
 operand in `[0x05dd]`, stores operand + `0x15` in `[0x05df]`, and derives
 display offset global `[0x1379]` from that first operand. An intermediate QEMU
 run with first operand `1` shifted the later validation draw relative to the
@@ -1250,10 +1296,13 @@ and sets the mapped status byte.
 
 QEMU fixture `diagnostics_system_001` validates that `0x87`, `0x88`, and `0x8d`
 display their diagnostic/pause/version messages, accept Enter, and return to
-following bytecode. The same batch dispatch-smokes `0x83`, `0x8e`, `0xaa`,
-`0xab`, `0xac`, `0xad`, `0xa3`, and `0xa4` as low-risk global/system state
-handlers that execute and return. A separate movement fixture promotes the
-object-0 motion-byte effect of `0x84` beyond dispatch-smoke.
+following bytecode. The same batch originally smoke-exercised several
+global/system handlers. Separate focused or source-backed work now covers the
+formerly smoke-only actions: `0xab`/`0xac`, `0xa3`/`0xa4`, and the object-0
+motion-byte effect of `0x84` have focused QEMU evidence; `0x83`, `0x8e`,
+`0xaa`, and `0xad` are covered from source because their main effects are
+global/timing/save-selector state not cleanly exposed by ordinary single-room
+script probes.
 
 Resource/table actions outside the main object table:
 
@@ -1288,14 +1337,14 @@ Interpreter/session control actions:
 | `0x80` | `confirm_restart_game` | `0x2472` | Stops active sound state, clears the prompt/input line, and either proceeds immediately if flag 16 is set or displays the confirmation text at `0x0adb` ("Press ENTER to restart the game... Press ESC to continue this game."). On confirmation it calls input/display cleanup helper `0x3726`, preserves flag 9, resets heap/update-list state through `0x1485`, calls helpers `0x0fa5` and `0x30d6`, sets flag 6, restores flag 9 if it had been set, clears timer/event words `[0x0129]` and `[0x012b]`, reloads logic `[0x1d12]` if configured, and calls menu/list refresh helper `0x930e`. It then redraws the input prompt through `0x37f7`. When restart is accepted it returns zero to the dispatcher. |
 | `0x7d` | `save_game_state` | `0x2753` | Save-game-state path. It marks modal state `[0x0615] = 1`, temporarily changes byte `[0x0d15]` to `0x40`, asks helper `code.save.select_slot_or_path(0x73)` for a selected save slot/path, optionally displays the confirmation text at `0x0db6`, creates file `0x1c8c` through DOS wrapper `0x5cad`, writes a 31-byte description/header from `0x1c6c`, then writes several length-prefixed memory blocks through helper `0x28c6`: the engine string/config area beginning just before `0x05e3`, the object record range `[0x096b..0x096f)`, the inventory/object metadata range `[0x0971..0x0975)`, the resource/event pair buffer length `[0x0141] * 2` from `[0x1707]`, and a logic/cache-related block beginning at `0x0985` whose size is returned by `0x1364`. On write failure it closes and deletes the file, displays the error text at `0x0e46`, restores text state, restores `[0x0d15]`, clears `[0x0615]`, and returns to the following bytecode. |
 | `0x7e` | `restore_game_state` | `0x2512` | Restore-game-state path. It marks modal state `[0x0615] = 1`, saves and temporarily changes byte `[0x0d15]`, asks helper `code.save.select_slot_or_path(0x72)` for a selected restore slot/path, optionally displays the confirmation text at `0x0d34`, opens file `0x1c8c` through DOS wrapper `0x5cce`, seeks past a 31-byte description/header, then reads the same length-prefixed block families through helper `0x26b0`. On read failure it displays the error text at `0x0d87` and calls `0x02ae`. On success it restores hardware/display byte variables from `[0x112e]` and `[0x1130]`, sets flag 11 according to hardware mode, calls `code.restore.replay_resource_events`, refreshes display/resource state through `0x4c23` and `0x30d6`, clears the caller return pointer so execution restarts through the restored state, calls menu/list refresh helper `0x930e`, restores text state, restores `[0x0d15]`, and clears `[0x0615]`. |
-| `0x8e` | `set_global_0141_and_refresh` | `0x716a` | Stores immediate `arg0` as `data.event.pair_capacity`, then wraps `code.event.reset_pair_buffer` with update-list flush/rebuild calls `0x6a54` and `0x6a8e`. |
+| `0x8e` | `set_global_0141_and_refresh` | `0x716a` | Stores immediate `arg0` as `data.event.pair_capacity`, then wraps `code.event.reset_pair_buffer` with update-list flush/rebuild calls `0x6a54` and `0x6a8e`. Source-backed reset semantics: if capacity is positive and no pair buffer exists, `code.event.reset_pair_buffer` allocates `capacity * 2` bytes, stores the pointer in `data.event.pair_buffer_base`, initializes allocator state, resets `data.event.pair_buffer_write` to the base pointer, and clears `data.event.pair_count`. |
 | `0x8c` | `toggle_display_mode_bit` | `0x794c` | If word `[0x112e] == 0`, byte variable 0 is nonzero, and display mode word `[0x1130]` is neither 2 nor 3, calls helper `0x1364`, toggles bit 0 of word `[0x1130]`, and refreshes display state through helpers `0x2b28`, `0x5528`, `0x2b4f`, and `0x681c`. A QEMU memory probe with `SIERRA -p -c` and patched guard words confirmed the branch executes and toggles `[0x1130]` from 0 to 1. The same probe showed replay excludes a picture drawn while flag 7 was set or after `0xab`/`0xac` rollback. Source inspection now indicates the visible row-interleaved background is a CGA-mode remapping of the replayed recorded picture, not the excluded picture surviving. Because the handler requires `[0x112e] == 0`, this behavior is outside the full 16-color EGA target path. |
 | `0x8f` | `verify_game_signature` | `0x0e7e` | Reads immediate message number `arg0`, resolves that current-logic message through `0x21f0`, copies up to seven bytes into absolute buffer `0x0002` with `0x4de8`, then calls helper `0x5b49`. Helper `0x5b49` compares bytes at `0x0002` against an embedded `SQ2\0` string at code offset `0x5b6c`, calling helper `0x02ae` on the first mismatch. The one observed local use is in logic 140 immediately before action `0x6f` (`set_input_line_config`), consistent with a game-signature/configuration guard. |
 | `0x90` | `append_message_to_log_file` | `0x828f` | Reads immediate message number `arg0`. If global file handle `[0x1823]` is `0xffff`, helper `0x833f` opens or creates the file named at `0x1825` (`logfile`) and seeks it to the end. The handler then appends a formatted room/input-line record using template `0x1809` (`Room %d\nInput line: %s\n`) with byte variable 0 and string/input buffer `0x0fce`, resolves message `arg0` through `0x21f0`, formats it into the same stack buffer through `0x1f54`, appends it, and closes the file handle with `0x5d52`. If opening fails, it returns after consuming the operand. |
 | `0x91` | `save_logic_resume_ip` | `0x1335` | Stores the current bytecode pointer `SI` into word `[current_logic+0x06]`, where `current_logic` is the record pointed to by `[0x0981]`. |
 | `0x92` | `restore_logic_entry_ip` | `0x134a` | Restores word `[current_logic+0x06]` from `[current_logic+0x04]`. |
-| `0x95` | `enable_action_trace_window` | `0x8c91` | If word `[0x1d10]` is nonzero, returns `SI + 1`, consuming one byte beyond the opcode. Otherwise it calls helper `0x8cae`, which starts an action-trace display only when flag 10 is set: it sets `[0x1d10] = 1`, computes a text-window rectangle from input-line row `[0x05dd]`, trace offset `[0x1d08]`, and trace height `[0x1d0a]`, stores the derived bounds in `[0x1d14]`, `[0x1d16]`, `[0x1d18]`, `[0x1d1a]`, `[0x1d1c]`, and `[0x1d1e]`, then draws a boxed area through helper `0x5590`. |
-| `0x96` | `configure_action_trace_window` | `0x8d3d` | Reads three immediates into `[0x1d12]`, `[0x1d08]`, and `[0x1d0a]`, clamping `[0x1d0a]` upward to at least 2. The first value names an optional logic resource used by the action-trace formatter around `0x8e0b`; the second and third values control the trace window's row offset and height. Restart and room-switch paths also reload logic `[0x1d12]` when it is nonzero, so this configuration participates in both trace display and session reset. |
+| `0x95` | `enable_action_trace_window` | `0x8c91` | If word `[0x1d10]` is nonzero, returns `SI + 1`, consuming one byte beyond the opcode. Otherwise it calls helper `0x8cae`, which starts an action-trace display only when flag 10 is set: it sets `[0x1d10] = 1`, computes a text-window rectangle from input-line base row `[0x05dd]`, trace offset `[0x1d08]`, and trace height `[0x1d0a]`, stores the derived bounds in `[0x1d14]`, `[0x1d16]`, `[0x1d18]`, `[0x1d1a]`, `[0x1d1c]`, and `[0x1d1e]`, then draws a boxed area through helper `0x5590`. QEMU validates the flag-set enabled path by observing the red-bordered, white-filled trace window and black trace text. |
+| `0x96` | `configure_action_trace_window` | `0x8d3d` | Reads three immediates into `[0x1d12]`, `[0x1d08]`, and `[0x1d0a]`, clamping `[0x1d0a]` upward to at least 2. The first value names an optional logic resource used by the action-trace formatter around `0x8e0b`; the second and third values control the trace window's row offset and height. Restart and room-switch paths also reload logic `[0x1d12]` when it is nonzero, so this configuration participates in both trace display and session reset. QEMU validates `0x96(0,1,2)` feeding the enabled trace-window draw path. |
 
 QEMU fixture `system_dialog_001` validates several control paths in this
 cluster. `0x8f` returns when the resolved message begins with the expected SQ2
@@ -1307,10 +1356,12 @@ hardware/mode guard words and launch with `SIERRA -p -c`; screenshot comparison
 validates the observable CGA row-interleaved remapping of the recorded picture,
 while the paired QEMU memory probe validates the internal replay log rather
 than relying on the screenshot alone. `0x96` followed by `0x95`
-dispatch-smokes the trace-window configuration path with flag 10 clear; a
-separate enabled attempt showed the expected trace box on screen, so enabled
-trace drawing remains source-backed rather than part of the visual comparison
-suite.
+dispatch-smokes the trace-window configuration path with flag 10 clear. Later
+fixture `trace_window_enable_002` sets flag 10, configures the trace window with
+`0x96(0, 1, 2)`, and runs `0x95`; the original-engine capture matches bounded
+checks for a red border, white fill, and black trace text. The trace window
+then becomes active, so the dispatcher may pause before the next action and
+format the current opcode/operands into that window.
 
 QEMU fixture `file_log_001` validates that `0x7d` and `0x7e` open their
 save/restore selector paths and return after Escape cancellation. It also
@@ -1356,10 +1407,10 @@ Remaining table entries:
 | ---: | --- | ---: | --- |
 | `0x7f` | `noop` | `0x5051` | Performs no state change and returns the current bytecode pointer unchanged. This opcode was present in the action table but not encountered in the local SQ2 logic scan. |
 | `0x9b` | `noop_2` | `0x4c15` | Consumes two operand bytes and performs no state change. The handler returns `SI + 2`. |
-| `0xaa` | `copy_save_description_to_string_slot` | `0x2726` | Reads immediate string-slot index `arg0`, computes destination string slot `0x020d + arg0 * 0x28`, and copies up to `0x1f` bytes from buffer `0x0e72` into that slot through helper `0x4de8`. Save/restore handlers test byte `[0x0e72]` after slot/path selection, so this action appears to expose that save-description buffer to logic string storage. |
+| `0xaa` | `copy_save_description_to_string_slot` | `0x2726` | Reads immediate string-slot index `arg0`, computes destination string slot `0x020d + arg0 * 0x28`, and copies up to `0x1f` bytes from runtime save-description buffer `0x0e72` into that slot through helper `0x4de8`. Save/restore handlers test byte `[0x0e72]` after slot/path selection, so this action exposes the last selected/entered save-description buffer to logic string storage. A previous QEMU attempt patched static `AGIDATA.OVL` bytes at `0x0e72`, but that did not populate the interpreter's runtime data segment; direct dynamic validation would need to drive the save/restore selector path that fills the buffer. |
 | `0xab` | `save_event_buffer_count` | `0x718b` | Copies `data.event.pair_count` to `data.event.saved_pair_count`. This marks a rollback point in the resource-event pair log. |
 | `0xac` | `restore_event_buffer_count` | `0x719d` | Restores `data.event.pair_count` from `data.event.saved_pair_count`, then recomputes `data.event.pair_buffer_write = data.event.pair_buffer_base + data.event.pair_count * 2`. |
-| `0xad` | `increment_global_1530` | `0x602f` | Increments byte `[0x1530]` and returns the current bytecode pointer. Nearby interrupt-hook code tests `[0x1530]` before calling display/input helper `0x44a9` on selected key release paths, but the exact user-facing purpose remains open. |
+| `0xad` | `increment_global_1530` | `0x602f` | Increments byte `[0x1530]` and returns the current bytecode pointer. Source-backed keyboard-IRQ analysis shows `[0x1530]` is a nonzero gate for selected scan-code release paths: when an enabled tracked key in range `0x47..0x51` has its pressed latch set, release clears the latch and, if `[0x1530] != 0`, enqueues event `(type=2, value=0)` through `code.input.enqueue_event` (`0x44a9`). |
 | `0xae` | `rebuild_priority_table_from_y` | `0x4d10` | Reads immediate row/value `arg0`, clears word `[0x124a]`, and rebuilds the 168-byte priority/control table at `0x127a`. Entries below `arg0` are set to `4`; entries from `arg0` upward are assigned a rising value starting at `5`, using a scale derived from `(0xa8 - arg0) * 0xa8 / 10`, and capped at `0x0f`. Helper `0x4cbb` later maps priority/control values back through this table when `[0x124a] == 0`. |
 | `0xaf` | `noop_1_table_count` | `0x5051` | Uses the same no-op handler as action `0x7f`, returning the bytecode pointer it was given. The action table gives this opcode one fixed operand byte, so table-driven static scans skip one byte, but the handler itself does not read or advance past that operand. This opcode was not encountered in the local SQ2 logic scan. |
 
