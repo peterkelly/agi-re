@@ -33,15 +33,15 @@ read/write cursors, recording gates, event kinds `0..8`, and a special
 four-pair transient-display-object packet for kind `5`. Menu arrow navigation
 consumes type-2 movement events, save/restore selection is separated from
 block I/O, restore replays saved resource events with recording disabled, and
-the direct static scan has not found a matching event-recording re-enable in
-the restore or display-mode replay callers. A QEMU display-mode replay memory
-probe did observe recording enabled again after the following script action, so
-the duplicate-prevention role is source-backed but the exact post-replay
-re-enable timing remains unresolved. Follow-up source inspection classified the
-visible row-interleaving in the `0x8c` replay fixture as a CGA-only color/display
-remapping after `[0x1130]` toggles, not as an EGA target behavior or as leaked
-unrecorded picture data. Sound completion flags are only set by the stop helper
-when active sound state is nonzero.
+then reaches the post-table replay finish target at image `0x6927`, which calls
+`code.event.enable_recording` before rebinding active object views and
+refreshing display/input state. The earlier static scan missed this because
+linear disassembly from the event-kind jump table at `0x6915` treated the
+following `E8 43 07` bytes as table/data. Follow-up source inspection
+classified the visible row-interleaving in the `0x8c` replay fixture as a
+CGA-only color/display remapping after `[0x1130]` toggles, not as an EGA target
+behavior or as leaked unrecorded picture data. Sound completion flags are only
+set by the stop helper when active sound state is nonzero.
 
 ## Confirmed Motion and Object Findings
 

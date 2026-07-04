@@ -7672,3 +7672,241 @@ Progress updates and outcomes:
 
       Action/result: Recorded this final verification note before the last docs
       build.
+
+1006. Reported: "I’ll take the recommended slice: source-first mapping of the
+      event/replay/restore machinery, with QEMU only if the disassembly leaves
+      a behavior question. I’ll update the historical progress log as I go so
+      the trail stays intact."
+
+      Action/result: Began the replay/restore source pass and checked current
+      status, recent clean-room notes, labels, and git status.
+
+1007. Reported: "The current docs already contain a decent first pass on event
+      pairs, but there’s still a gap around exactly what save/restore writes
+      back and where recording becomes enabled again. I’m narrowing onto those
+      routines now, with the source addresses already named in the labels file."
+
+      Action/result: Re-read the prior resource-event and save/restore notes
+      plus the existing symbolic labels.
+
+1008. Reported: "A useful correction is already staring at us: the save block
+      explicitly excludes `data.event.recording_enabled`, and the static scan
+      only found two enable calls. I’m going to re-read the raw routines around
+      restore/replay and the callers, because the unresolved piece is probably
+      not a hidden write but a control-flow path we haven’t named cleanly yet."
+
+      Action/result: Re-disassembled the replay, event helper, restore, and
+      display-toggle routines.
+
+1009. Reported: "The disassembly confirms the replay routine starts by
+      stopping/clearing runtime display state, disabling event recording, and
+      then consuming the pair stream. The restore action then performs several
+      display/menu refreshes after replay, but still no obvious re-enable in
+      that immediate path. Next I’m checking the saved state helpers and the
+      room-switch enable path so the spec can distinguish 'saved data' from
+      'runtime-only gate.'"
+
+      Action/result: Re-read logic-cache serialization, room-switch setup, and
+      temporary view-resource display helpers.
+
+1010. Reported: "Found the likely missing link. In the earlier replay
+      disassembly, the jump table bytes caused `ndisasm` to misparse the
+      instruction immediately after the table; if I start disassembly at the
+      loop-exit target itself, the first instruction should be the re-enable
+      call. I’m checking that precise target now before changing the docs."
+
+      Action/result: Disassembled at image `0x6927` and confirmed `call
+      0x706d`, the event-recording re-enable helper.
+
+1011. Reported: "That resolves the dynamic/static mismatch: replay disables
+      recording while rebuilding resources, then explicitly calls
+      `code.event.enable_recording` at image `0x6927` after the replay-pair
+      loop. The earlier static scan missed it because the jump table bytes
+      swallowed the `E8 43 07` instruction when disassembled linearly."
+
+      Action/result: Promoted the post-loop re-enable from hypothesis to
+      source-backed behavior and updated the plan.
+
+1012. Reported: "I’ve got enough to edit. The core change is not a new
+      behavior, but a better source map: `0x681c` contains both the temporary
+      recording disable and the post-loop re-enable at `0x6927`, with the
+      event-kind jump table at `0x6915` sitting right before it."
+
+      Action/result: Patched `logic_bytecode.md` with the corrected replay
+      lifecycle.
+
+1013. Reported: "The bytecode chapter now has the corrected replay lifecycle:
+      disable during pair replay, re-enable at the post-table exit target, then
+      rebuild visible state. Next I’m touching the labels and handoff docs so
+      future cross-version work has the right anchors."
+
+      Action/result: Updated symbolic labels for the re-enable helper, replay
+      dispatch table, replay finish target, and replay entry.
+
+1014. Reported: "Labels now include the replay jump table and the post-loop
+      re-enable target. I’m updating the status/compatibility prose so the
+      current project state no longer carries the older open question."
+
+      Action/result: Updated `current_status.md`,
+      `graphics_object_pipeline.md`, and `compatibility_testing.md`.
+
+1015. Reported: "That patch missed because the status paragraph has slightly
+      different wrapping. I’m reading that exact block and will patch it with
+      the current text shape."
+
+      Action/result: Re-read the status paragraph and applied the corrected
+      patch.
+
+1016. Reported: "The narrative docs now agree on the corrected replay gate
+      lifecycle. I’m adding the evidence section to the chronological
+      clean-room notes, including why the earlier scan failed."
+
+      Action/result: Added the clean-room note section for the replay
+      re-enable source correction.
+
+1017. Reported: "The clean-room notes now preserve the command trail and the
+      correction. I’m appending the matching progress-log entries for this
+      turn, then I’ll scan for stale wording."
+
+      Action/result: Recorded this progress-log batch before stale-wording
+      scans and verification.
+
+1018. Reported: "The stale scan found only the historical section that
+      originally recorded the unresolved state. I’m going to annotate that old
+      paragraph so readers immediately see it was corrected by the later source
+      pass, while preserving the history."
+
+      Action/result: Patched the earlier clean-room note to point to the
+      `0x6927` correction instead of leaving a dangling unresolved statement.
+
+1019. Reported: "That old note now points forward to the correction instead of
+      leaving a dangling open question. I’ll rerun the stale-wording scan and
+      then verification."
+
+      Action/result: Reran the stale-wording scan and `git diff --check`; both
+      were clean.
+
+1020. Reported: "The stale scan is clean and whitespace checks pass. I’m
+      running the mdBook build plus the local unit suite now; there were no
+      decoder/parser code changes, but this is a useful sanity check after
+      touching the spec around tests."
+
+      Action/result: `mdbook build docs` succeeded and `python3 -B -m unittest
+      discover -s tests` passed with 100 tests.
+
+1021. Reported: "Both checks passed: mdBook built cleanly and the 100-test
+      unittest suite is green. I’m recording that verification in the progress
+      log, then I’ll rebuild once more because the log itself is part of the
+      book."
+
+      Action/result: Recorded this verification note before the final mdBook
+      build.
+
+1022. Reported: "Final verification pass is running now: mdBook after the
+      progress-log update, plus a last whitespace/status check."
+
+      Action/result: `mdbook build docs` and `git diff --check` passed; status
+      showed only the intended modified docs plus the expected untracked
+      `002962_ms_dos_622/` and `build/` directories.
+
+1023. Reported: "The final build and whitespace pass are clean; only the
+      intended docs are modified, with `build/` and the DOS images still
+      untracked. I’m adding that last verification note to the log and doing
+      one no-comment rebuild after it."
+
+      Action/result: Recorded the final verification note before a no-comment
+      mdBook rebuild.
+
+1024. Reported: "I’ll build this as a living project dashboard rather than a
+      throwaway checklist: opcode coverage plus broader engine areas, with
+      explicit status labels and evidence pointers. I’ll read the current
+      opcode docs/generator first so the names match what we already use."
+
+      Action/result: Started the `PROGRESS.md` pass and checked the current
+      git status, AGENTS instructions, and opcode evidence generator.
+
+1025. Reported: "One search command tripped over unescaped backticks in the
+      shell, so I’m ignoring that output and using the local opcode tables
+      directly. The evidence generator imports the canonical `ACTION_NAMES` and
+      `COND_NAMES`, which is exactly what we want for a no-drift progress file."
+
+      Action/result: Used the local opcode-name and evidence tables from
+      `tools/disassemble_logic.py` and `tools/logic_opcode_evidence.py`.
+
+1026. Reported: "I’m going to generate the opcode checklist text from the
+      existing clean-room tables rather than hand-copying 195 labels. That
+      keeps `PROGRESS.md` aligned with `tools/disassemble_logic.py` and the
+      evidence matrix."
+
+      Action/result: Generated the action/condition opcode checklist from the
+      local Python tables, writing only via `apply_patch`.
+
+1027. Reported: "The generated checklist shows only a handful of opcode entries
+      are still at dispatch-smoke or source-backed level; most action and
+      condition rows have focused QEMU evidence. I’ll fold that into a broader
+      dashboard so it’s useful for 'how close are we' at a glance, not just as
+      an opcode dump."
+
+      Action/result: Counted opcode evidence levels: 148 QEMU-validated action
+      opcodes, one structural action opcode, 27 dispatch-smoke action opcodes,
+      18 QEMU-validated condition opcodes, and one source-backed condition.
+
+1028. Reported: "I’m creating `PROGRESS.md` now with a simple ASCII status
+      legend: `[x]` for sufficiently specified/evidenced, `[~]` for partial or
+      smoke/source-backed, and `[ ]` for not yet covered. The opcode section
+      will stay compact, while the engine-area section will carry the real
+      remaining-work list."
+
+      Action/result: Added root `PROGRESS.md` with structural bytes, all action
+      opcodes, all condition opcodes, subsystem coverage areas, and highest
+      value remaining work.
+
+1029. Reported: "`PROGRESS.md` is in place with all action opcodes, condition
+      opcodes, structural bytes, and subsystem coverage areas. I’m updating
+      `AGENTS.md` now so future work treats this as a maintained dashboard, not
+      a one-time snapshot."
+
+      Action/result: Updated `AGENTS.md` to require keeping `PROGRESS.md`
+      aligned with opcode/status and subsystem progress.
+
+1030. Reported: "The agent instructions now point future work at `PROGRESS.md`
+      and define when it must be updated. I’m adding the corresponding
+      progress-log entries, then I’ll run the book and whitespace checks."
+
+      Action/result: Recorded this progress-log batch before validation.
+
+1031. Reported: "Validation is running now. Since this is
+      documentation/tracking rather than decoder code, the key checks are
+      mdBook and whitespace; I’ll also run the existing unittest suite so we
+      don’t unknowingly disturb the broader working set."
+
+      Action/result: `mdbook build docs` succeeded, `git diff --check` passed,
+      and `python3 -B -m unittest discover -s tests` passed with 100 tests.
+
+1032. Reported: "All checks passed: mdBook, whitespace, and the 100-test
+      suite. I’m recording that validation in the progress log and then doing
+      one last mdBook/whitespace pass because the log changed."
+
+      Action/result: Recorded the validation result before the final
+      post-progress-log checks.
+
+1033. Reported: "Final pass is just making sure the freshly updated progress
+      log still renders cleanly and has no whitespace issues."
+
+      Action/result: `mdbook build docs` and `git diff --check` passed. Status
+      showed the expected modified docs and untracked `PROGRESS.md`, plus a
+      generated `tools/__pycache__/` directory from the Python checks.
+
+1034. Reported: "The final checks passed, and running the Python helpers left a
+      generated `tools/__pycache__/` behind. I’m cleaning only that generated
+      cache directory; the requested `PROGRESS.md` stays untracked until you
+      decide whether to commit."
+
+      Action/result: Removed generated `tools/__pycache__/`.
+
+1035. Reported: "Cache cleanup is done. I’m recording the final
+      verification/cleanup note and doing one last lightweight status/build
+      check so the handoff is tidy."
+
+      Action/result: Recorded the final cleanup note before the last status and
+      mdBook checks.

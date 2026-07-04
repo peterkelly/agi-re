@@ -24,6 +24,7 @@ The output of this project is a human-readable spec that contains sufficient inf
 - Build/check the book with `mdbook build docs`.
 - Record reverse-engineering actions, observations, commands, offsets, hypotheses, and corrections in the documentation, especially `docs/src/clean_room_executable_notes.md`.
 - Preserve user-facing progress updates in `docs/src/progress_log.md` with a brief concrete action/result note for each update. If a user asks for historical tracking, update this log before continuing substantial new work.
+- Maintain `PROGRESS.md` as the high-level completion tracker. Update it whenever an opcode changes evidence/status, a subsystem moves forward, or new remaining work is identified. Keep opcode names aligned with `tools/disassemble_logic.py` and `docs/src/logic_opcode_evidence.md`; use it as a dashboard, not as a replacement for detailed evidence notes.
 - Maintain `docs/src/symbolic_labels.md` as the stable cross-version map for interpreter routines, tables, overlay entry points, and globals. Treat addresses as build-specific observations and prefer symbolic labels in prose once a label exists.
 - When assigning or revising a symbolic label, update `docs/src/symbolic_labels.md` with the observed SQ2 address association and record the supporting evidence or uncertainty in the notes.
 - Grow the compatibility test suite alongside the written spec. Prefer deterministic local tests under `tests/` and reusable tools under `tools/`; record what each test proves and what remains provisional in `docs/src/compatibility_testing.md`.

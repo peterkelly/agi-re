@@ -4886,10 +4886,11 @@ Static recording-gate scan:
 - Direct calls to `code.restore.replay_resource_events` were found at file
   `0x287a` / image `0x267a` (restore success path) and file `0x7b7f` / image
   `0x797f` (display-mode toggle action `0x8c`).
-- This scan does not show a direct re-enable inside replay or its immediate
-  restore/display-mode callers. The dynamic probe below proves recording is
-  enabled again by the time the following script action records a transient
-  object packet, so the exact post-replay re-enable timing remains unresolved.
+- This scan did not show a direct re-enable inside replay or its immediate
+  restore/display-mode callers. The dynamic probe below proved recording was
+  enabled again by the time the following script action recorded a transient
+  object packet. A later source pass corrected this apparent open question:
+  the replay dispatch table hid the post-loop `call 0x706d` at image `0x6927`.
 
 Display-mode replay QEMU probe:
 
@@ -5009,3 +5010,59 @@ Documentation result:
 - Added symbolic labels for `code.display.map_visual_color_for_adapter`,
   `overlay.cga.map_visual_color_for_mode`, and
   `data.display.cga_color_map`.
+
+## 2026-07-04: replay recording re-enable source correction
+
+Commands run from `/Users/peter/ai/agi/reverse`:
+
+- `sed -n '1,240p' docs/src/current_status.md`
+- `tail -80 docs/src/clean_room_executable_notes.md`
+- `git status --short`
+- An exploratory `rg` command containing unescaped backticks was rejected by
+  the shell before producing useful evidence; no interpretation was derived
+  from that failed command.
+- `sed -n '4728,4905p' docs/src/clean_room_executable_notes.md`
+- `sed -n '60,95p' docs/src/symbolic_labels.md`
+- `sed -n '185,200p' docs/src/symbolic_labels.md`
+- `sed -n '236,270p' docs/src/runtime_model.md`
+- `ndisasm -b 16 -o 0x681c -e 0x6a1c build/cleanroom/AGI.decrypted.exe`
+- `ndisasm -b 16 -o 0x705e -e 0x725e build/cleanroom/AGI.decrypted.exe`
+- `ndisasm -b 16 -o 0x2512 -e 0x2712 build/cleanroom/AGI.decrypted.exe`
+- `ndisasm -b 16 -o 0x794c -e 0x7b4c build/cleanroom/AGI.decrypted.exe`
+- `ndisasm -b 16 -o 0x1364 -e 0x1564 build/cleanroom/AGI.decrypted.exe | sed -n '1,150p'`
+- `ndisasm -b 16 -o 0x1720 -e 0x1920 build/cleanroom/AGI.decrypted.exe | sed -n '1,180p'`
+- `ndisasm -b 16 -o 0x5ebf -e 0x60bf build/cleanroom/AGI.decrypted.exe | sed -n '1,180p'`
+- `rg -n "call 0x705e|call 0x706d|call 0x681c|mov word \\[0x170d\\]|\\[0x170d\\]" build/cleanroom/AGI.decrypted.ndisasm`
+- `ndisasm -b 16 -o 0x6927 -e 0x6b27 build/cleanroom/AGI.decrypted.exe | sed -n '1,90p'`
+- `xxd -g 1 -s 0x6b10 -l 0x30 build/cleanroom/AGI.decrypted.exe`
+- `ndisasm -b 16 -o 0x6904 -e 0x6b04 build/cleanroom/AGI.decrypted.exe | sed -n '1,45p'`
+
+Correction:
+
+- The earlier static scan that failed to find a replay-time re-enable was a
+  disassembly-boundary false negative, not an engine behavior. In the linear
+  slice that starts before the event-kind dispatch table, `ndisasm` treats the
+  bytes immediately after the table as data-like instructions.
+- The replay loop at `code.restore.replay_resource_events` (`0x681c`) branches
+  to image `0x6927` when `code.event.next_replay_pair` (`0x714c`) returns zero.
+  Disassembling at `0x6927` decodes bytes `e8 43 07` as `call 0x706d`, which is
+  `code.event.enable_recording`.
+- The event-kind dispatch table is at image `0x6915`; the raw bytes around
+  file offset `0x6b10` show the table words for handlers `0x688e`, `0x689e`,
+  `0x68ab`, `0x68b1`, `0x68b7`, `0x68bd`, `0x68f2`, `0x68f8`, and `0x68fe`,
+  followed by `e8 43 07` at file offset `0x6b27` / image `0x6927`.
+- Therefore restore/display-mode replay disables recording only while replaying
+  the saved pairs. After the pair stream ends, replay re-enables recording,
+  then scans object records to restore saved flags, rebind view payloads, and
+  refresh display/input state.
+- The save-block correction remains unchanged: `data.event.recording_enabled`
+  is not saved as part of the length-prefixed state blocks. Restore establishes
+  the runtime gate by replay control flow, not by reading a saved word.
+
+Documentation result:
+
+- Updated `logic_bytecode.md`, `graphics_object_pipeline.md`,
+  `compatibility_testing.md`, `current_status.md`, and `symbolic_labels.md` to
+  remove the stale unresolved re-enable note.
+- Added symbolic labels for `table.restore.replay_event_dispatch` and
+  `code.restore.finish_replay_and_reenable_recording`.

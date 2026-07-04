@@ -534,7 +534,9 @@ the background only, avoiding unrelated object-color effects in the toggled
 display mode. A paired manual QEMU memory probe, documented in the clean-room
 notes, is the stronger evidence for internal replay semantics: the event log
 excludes the second picture when flag 7 blocks recording or when `0xab`/`0xac`
-rolls the count back. The current automated harness does not yet read
+rolls the count back. Follow-up source inspection also found the post-loop
+re-enable at replay finish target `0x6927`, correcting the earlier unresolved
+recording-gate note. The current automated harness does not yet read
 interpreter memory, so treat these cases as CGA-only display checks plus
 source/memory-backed replay-log notes, not as full 16-color EGA target
 behavior.

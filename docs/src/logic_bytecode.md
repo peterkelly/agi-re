@@ -736,17 +736,14 @@ Restore-time replay at `code.restore.replay_resource_events` stops sound,
 resets room caches, disables event recording, prepares the replay cursor, then
 walks pairs with `code.event.next_replay_pair`. Disabling recording is what
 prevents the replayed loads/discards from appending duplicates to the log.
-After replay it rebinds any object view resources that are present again,
-restores object flags saved around the cache reset, refreshes the display, and
-redraws text/input state. A direct static call/store scan found no matching
-`code.event.enable_recording` call in this routine, in the restore action after
-it returns, or in the display-mode toggle path that also calls it; the only
-direct re-enable calls found so far are in room switching and the temporary
-view-resource display helper. A targeted QEMU display-mode replay probe later
-observed `data.event.recording_enabled == 1` after the following script action
-and showed the final transient-object packet appended. Treat duplicate
-prevention during replay as confirmed; the exact post-replay re-enable timing
-is still an open source-follow-up.
+The event-kind dispatch table lives at image `0x6915`; a linear disassembly can
+misread the first post-table instruction as data. When disassembled at the
+loop-exit target, image `0x6927` is `call 0x706d`, so replay re-enables event
+recording immediately after `code.event.next_replay_pair` returns zero and
+before it rebinds object views. After that it restores object flags saved
+around the cache reset, refreshes the display, and redraws text/input state.
+This source finding explains the earlier QEMU observation that recording was
+enabled again by the following script action.
 
 The temporary view-resource display actions `0x81` and `0xa2` also call
 `code.event.disable_recording` before their internal load/display/discard

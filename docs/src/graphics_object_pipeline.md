@@ -78,13 +78,15 @@ prepare/decode helper (`0x4acf`) for a previously recorded picture, while kind
 `8` calls the overlay prepare helper (`0x4b3b`). Kind `5` is not a resource
 load; it restores the three staged byte pairs at `0x0eae..0x0eb3` and calls
 `code.object.setup_transient_display_object` (`0x2d52`), which feeds the
-temporary object into the object drawing path. A display-mode replay QEMU probe
-showed that the event log can exclude an unrecorded or rolled-back picture
-while the visible CGA-style background after `0x8c` becomes row-interleaved.
-Source inspection now points to CGA color/display remapping of the recorded
-picture after `[0x1130]` toggles, not to the unrecorded picture surviving in the
-logical buffer. That makes the resource replay model source/memory-backed, but
-keeps this display artifact outside the full 16-color EGA target path.
+temporary object into the object drawing path. Replay disables event recording
+while it consumes the pair stream, then reaches image `0x6927` and calls
+`code.event.enable_recording` before rebinding object views and refreshing the
+display. A display-mode replay QEMU probe showed that the event log can exclude
+an unrecorded or rolled-back picture while the visible CGA-style background
+after `0x8c` becomes row-interleaved. Source inspection now points to CGA
+color/display remapping of the recorded picture after `[0x1130]` toggles, not
+to the unrecorded picture surviving in the logical buffer. That keeps this
+display artifact outside the full 16-color EGA target path.
 
 ## Picture decoder
 

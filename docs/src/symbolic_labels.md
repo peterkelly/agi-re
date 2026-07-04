@@ -73,11 +73,13 @@ Address columns use these meanings:
 | `code.dos.read_file` | image `0x5e01` | DOS read wrapper. |
 | `code.dos.seek_file` | image `0x5e3e` | DOS seek wrapper. |
 | `code.event.disable_recording` | image `0x705e` | Clears `data.event.recording_enabled`; restore replay and temporary view-resource display use this so replay/internal loads do not append new resource-event pairs. |
-| `code.event.enable_recording` | image `0x706d` | Sets `data.event.recording_enabled`; room switch enables recording after resetting the pair buffer, and temporary view-resource display re-enables it before returning. |
+| `code.event.enable_recording` | image `0x706d` | Sets `data.event.recording_enabled`; room switch enables recording after resetting the pair buffer, restore/display-mode replay calls it from the post-table finish target at `0x6927`, and temporary view-resource display re-enables it before returning. |
 | `code.event.reset_pair_buffer` | image `0x707c` | Allocates the pair buffer when `data.event.pair_capacity > 0` and no buffer exists, then resets write pointer and active pair count. |
 | `code.event.record_pair` | image `0x70b1` | Appends a two-byte `(kind, value)` pair when flag 7 is clear and recording is enabled; enforces `data.event.pair_capacity` and updates `data.event.pair_high_water`. |
 | `code.event.prepare_replay_cursor` | image `0x712f` | Sets replay read cursor to `data.event.pair_buffer_base` and recomputes the write/end cursor from `data.event.pair_count`. |
 | `code.event.next_replay_pair` | image `0x714c` | Returns the current replay pair pointer and advances by two bytes, or returns zero at end. |
+| `table.restore.replay_event_dispatch` | image `0x6915` | Nine-word jump table for resource-event replay kinds `0..8`. Linear disassembly from before the table can swallow the following `call 0x706d`; disassemble at `0x6927` to see the post-loop re-enable. |
+| `code.restore.finish_replay_and_reenable_recording` | image `0x6927` | Exit target reached when `code.event.next_replay_pair` returns zero. Calls `code.event.enable_recording`, then rebinds object view payloads, restores saved object flags, refreshes display/input state, and returns from replay. |
 | `code.event.set_pair_capacity_action` | image `0x716a` | Action handler for `0x8e`; writes `data.event.pair_capacity` and calls `code.event.reset_pair_buffer` inside update-list flush/rebuild calls. |
 | `code.event.save_pair_count_action` | image `0x718b` | Action handler for `0xab`; copies `data.event.pair_count` to `data.event.saved_pair_count`. |
 | `code.event.restore_pair_count_action` | image `0x719d` | Action handler for `0xac`; restores `data.event.pair_count` and recomputes `data.event.pair_buffer_write`. |
@@ -193,7 +195,7 @@ Address columns use these meanings:
 | `code.save.read_length_prefixed_block` | image `0x26b0` | Reads a length-prefixed memory block from a save file. |
 | `code.save.write_length_prefixed_block` | image `0x28c6` | Writes a length-prefixed memory block to a save file. |
 | `code.save.select_slot_or_path` | image `0x85e5` | Shared save/restore slot/path selection helper. |
-| `code.restore.replay_resource_events` | image `0x681c` | Restore/display-mode state rebuild. Stops sound, clears resource caches, disables resource-event recording, replays saved resource/event pairs, rebinds active object views, and refreshes display/input/status state. Direct static scanning found no matching `code.event.enable_recording` call in this routine or its restore/display-mode callers, but a QEMU display-mode probe observed recording enabled again after the following script action; exact re-enable timing remains unresolved. |
+| `code.restore.replay_resource_events` | image `0x681c` | Restore/display-mode state rebuild. Stops sound, clears resource caches, disables resource-event recording while replaying saved resource/event pairs, then reaches `code.restore.finish_replay_and_reenable_recording` at `0x6927` to re-enable recording, rebind active object views, and refresh display/input/status state. |
 
 ## Inventory and Menus
 
