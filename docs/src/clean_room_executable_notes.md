@@ -4943,3 +4943,69 @@ Documentation and harness result:
 - The corrected QEMU batch
   `build/logic-interpreter-probes/batches/replay_visible_001.json` matched with
   2 matches, 0 mismatches, and 0 errors.
+
+## 2026-07-04: display-mode replay classified as CGA remapping artifact
+
+Commands run from `/Users/peter/ai/agi/reverse`:
+
+- `sed -n '1,280p' docs/src/current_status.md`
+- `rg -n "0x8c|display-mode|row-interleav|CGA|EGA|\\[0x1130\\]|0x1130|0x112e|0x2b28|0x5528|0x2b4f|0x681c|0x5685|0x9899" docs/src/logic_bytecode.md docs/src/graphics_object_pipeline.md docs/src/clean_room_executable_notes.md docs/src/symbolic_labels.md docs/src/current_status.md tools tests`
+- `rg -n "1130|112e|1365|1379|5685|9899|99b8|9be3|9916|794c|2b28|5528|2b4f|681c" build/cleanroom/AGI.decrypted.ndisasm`
+- `ndisasm -b 16 -o 0x00c4 -e 0x02c4 build/cleanroom/AGI.decrypted.exe`
+- `ndisasm -b 16 -o 0x40a0 -e 0x42a0 build/cleanroom/AGI.decrypted.exe`
+- `ndisasm -b 16 -o 0x794c -e 0x7b4c build/cleanroom/AGI.decrypted.exe`
+- `ndisasm -b 16 -o 0x2b20 -e 0x2d20 build/cleanroom/AGI.decrypted.exe`
+- `ndisasm -b 16 -o 0x5520 -e 0x5720 build/cleanroom/AGI.decrypted.exe`
+- `ndisasm -b 16 -o 0x9800 SQ2/EGA_GRAF.OVL`
+- `ndisasm -b 16 -o 0x9800 SQ2/CGA_GRAF.OVL`
+- `ndisasm -b 16 -o 0x9800 SQ2/VG_GRAF.OVL`
+- `ndisasm -b 16 -o 0x9800 SQ2/JR_GRAF.OVL`
+- `xxd -g 1 -s 0x1d30 -l 0x90 SQ2/AGIDATA.OVL`
+- local Python table parse of `SQ2/AGIDATA.OVL` bytes at `0x1d36`
+- `ndisasm -b 16 -o 0x4a80 -e 0x4c80 build/cleanroom/AGI.decrypted.exe`
+- `ndisasm -b 16 -o 0x6440 -e 0x6640 build/cleanroom/AGI.decrypted.exe`
+
+Corrected interpretation:
+
+- The row-interleaved display observed after the `0x8c` QEMU replay probe is a
+  CGA-style display remapping artifact. It is not evidence that the unrecorded
+  or rolled-back picture survives the replay.
+- The command-line parser at image `0x00c4` sets display mode word `[0x1130]`
+  directly from single-letter switches: `-c` stores `0`, `-r` stores `1`,
+  `-e` stores `3`, `-h` stores `2`, and `-v` stores `4`. The same parser
+  stores hardware selector `[0x112e] = 0` for `-p`, `2` for `-t`, and `8` for
+  `-s`.
+- Action `0x8c` at image `0x794c` only enters its rebuild path when
+  `[0x112e] == 0`, byte variable 0 is nonzero, and `[0x1130]` is not `2` or
+  `3`. Therefore the fixture that launches `SIERRA -p -c` is intentionally
+  forcing the hardware-0 CGA-style path; the full 16-color EGA target path is
+  outside this handler's active branch.
+- Picture command `0xf0` calls `code.display.map_visual_color_for_adapter`
+  (`0x5685`) before storing the visual draw value and masks. That mapper
+  returns the input color unchanged for `[0x112e] != 0`, and also returns
+  unchanged for modes `2` and `3`. It delegates to graphics-overlay entry
+  `0x9815` only when `[0x112e] == 0` and the mode is not `2` or `3`.
+- In `SQ2/CGA_GRAF.OVL`, entry `0x9815` is a color mapper, not a mode setup
+  entry. It indexes a three-byte-per-color table at `AGIDATA.OVL:0x1d36`.
+  When `[0x1130] != 1`, it returns table byte 0 duplicated into `AL` and `AH`;
+  when `[0x1130] == 1`, it returns the following two-byte word. For AGI color
+  `6`, the observed table bytes are `08 0b 0e`.
+- In `SQ2/EGA_GRAF.OVL`, entry `0x9815` is instead a graphics-mode setup
+  routine that sets BIOS mode `0x0d`, configures palette/register state, and
+  stores video segment `0xa000` in `[0x1371]`. The EGA target path does not use
+  the CGA color-mapping table for picture command `0xf0`.
+- Replay kind `4` calls `code.picture.prepare` (`0x4acf`), which calls
+  `code.picture.decode_with_clear` (`0x6445`). That entry fills the logical
+  buffer with `0x4f4f` through `code.display.fill_buffer_word` (`0x5257`) before
+  decoding the picture command stream. Combined with the QEMU memory proof that
+  the event log excludes picture 1, this rules out the old picture as the source
+  of the row-interleaved background.
+
+Documentation result:
+
+- Updated the bytecode, graphics pipeline, compatibility, status, and symbolic
+  label docs so the row-interleaved replay fixture is described as CGA-only
+  adapter evidence rather than a full EGA compatibility requirement.
+- Added symbolic labels for `code.display.map_visual_color_for_adapter`,
+  `overlay.cga.map_visual_color_for_mode`, and
+  `data.display.cga_color_map`.

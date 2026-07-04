@@ -527,15 +527,17 @@ python3 -B tools/logic_interpreter_probe.py --dos-prefix RV --output build/logic
 These cases patch the display guard words and launch the original engine with
 `SIERRA -p -c` so action `0x8c` reaches the replay branch. The visual
 comparison expectation is deliberately the observed screen behavior: after
-`0x8c`, the background alternates even rows from the recorded picture and odd
-rows from the unrecorded or rolled-back picture. The fixtures compare the
-background only, avoiding unrelated object-color effects in the toggled display
-mode. A paired manual QEMU memory probe, documented in the clean-room notes, is
-the stronger evidence for internal replay semantics: the event log excludes the
-second picture when flag 7 blocks recording or when `0xab`/`0xac` rolls the
-count back. The current automated harness does not yet read interpreter memory,
-so treat these cases as observable display checks plus source/memory-backed
-replay-log notes.
+`0x8c`, the background alternates rows because the recorded picture is redrawn
+through the alternate CGA color/display mapping. The second picture is excluded
+from the replay log; it is not the source of the odd rows. The fixtures compare
+the background only, avoiding unrelated object-color effects in the toggled
+display mode. A paired manual QEMU memory probe, documented in the clean-room
+notes, is the stronger evidence for internal replay semantics: the event log
+excludes the second picture when flag 7 blocks recording or when `0xab`/`0xac`
+rolls the count back. The current automated harness does not yet read
+interpreter memory, so treat these cases as CGA-only display checks plus
+source/memory-backed replay-log notes, not as full 16-color EGA target
+behavior.
 
 The corrected two-case batch matched QEMU with 2 matches, 0 mismatches, and
 0 errors.

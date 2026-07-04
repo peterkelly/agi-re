@@ -114,6 +114,8 @@ Address columns use these meanings:
 | `code.display.draw_horizontal_line` | image `0x526f` | Draws a horizontal line in the logical buffer using active picture draw state. |
 | `code.display.draw_vertical_line` | image `0x52ab` | Draws a vertical line in the logical buffer using active picture draw state. |
 | `code.display.pixel_write` | image `0x52f9` | Writes pixel/control nibbles into the logical buffer. |
+| `code.display.map_visual_color_for_adapter` | image `0x5685` | Maps picture visual color bytes before they are stored in draw masks. Returns the input unchanged for the EGA target path; delegates to the graphics overlay at `0x9815` only for hardware selector `[0x112e] == 0` with modes other than `2` or `3`. |
+| `overlay.cga.map_visual_color_for_mode` | `CGA_GRAF.OVL` near `0x9815` | CGA overlay color mapper called by `code.display.map_visual_color_for_adapter`; indexes three-byte entries in `data.display.cga_color_map` and returns either a duplicated byte for mode 0 or a two-byte word for mode 1. |
 
 ## Objects, Views, and Motion
 
@@ -267,6 +269,7 @@ Address columns use these meanings:
 | `data.resource.sound_cache_root` | pointer/global record `[0x125a]` | Sound-like cache root/static first record used by sound loading. Cleared by `code.sound.clear_cache_root` during room-switch cache reset. |
 | `data.display.hardware_kind` | global `[0x112e]` | Display adapter/hardware selector used by setup and display branches. |
 | `data.display.mode` | global `[0x1130]` | Display mode selector affected by command-line flags and opcode `0x8c`. |
+| `data.display.cga_color_map` | `AGIDATA.OVL:0x1d36` | Three-byte-per-color table used by the CGA graphics overlay color mapper. Mode 0 uses byte 0 duplicated; mode 1 uses bytes 1 and 2 as the returned word. |
 | `data.control.priority_table` | data `0x127a` | Runtime 168-byte row-to-priority/control table. |
 | `data.display.logical_buffer_segment` | global `[0x136f]` | Segment of logical graphics/control buffer. |
 | `data.picture.current_payload` | global `[0x1377]` | Pointer to selected picture payload during decode. |

@@ -2020,8 +2020,8 @@ def base_cases() -> list[LogicInterpreterCase]:
             case_id="display_mode_replay_skips_flag7_unrecorded_picture",
             description=(
                 "Action 0x8c enters display-mode replay after a picture drawn with "
-                "flag 7 set; the visible CGA-style background interleaves rows "
-                "from the recorded and unrecorded pictures."
+                "flag 7 set; replay excludes that picture, and the recorded picture "
+                "is redrawn through the alternate CGA mapping."
             ),
             code_hex=room_reentry_logic0_code(byte_action(0x12, 1), init_flag=136).hex(),
             picture_payload_hex=bytes([0xF0, 0x06, 0xF8, 0x00, 0x00, 0xFF]).hex(),
@@ -2060,8 +2060,8 @@ def base_cases() -> list[LogicInterpreterCase]:
             case_id="display_mode_replay_uses_rolled_back_event_count",
             description=(
                 "Action 0x8c enters display-mode replay after 0xab/0xac roll back "
-                "the resource-event count; the visible CGA-style background "
-                "interleaves rows from the recorded and rolled-back pictures."
+                "the resource-event count; replay excludes the rolled-back picture, "
+                "and the recorded picture is redrawn through the alternate CGA mapping."
             ),
             code_hex=room_reentry_logic0_code(byte_action(0x12, 1), init_flag=134).hex(),
             picture_payload_hex=bytes([0xF0, 0x06, 0xF8, 0x00, 0x00, 0xFF]).hex(),

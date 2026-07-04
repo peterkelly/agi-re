@@ -7550,3 +7550,125 @@ Progress updates and outcomes:
 
      Action/result: Recorded this final progress-log update before the last
      docs build.
+
+992. Reported: "That framing makes sense: I’ll treat the row-interleaving as a
+     display-adapter/mode artifact, not as normative AGI semantics for the EGA
+     path. I’m going source-first through the `0x8c` display refresh chain now,
+     with QEMU only if the disassembly leaves a specific ambiguity worth
+     checking."
+
+     Action/result: Started a source-first pass over startup display-mode
+     selection, `0x8c`, display refresh helpers, and graphics overlays.
+
+993. Reported: "The source scan is already separating two things: the
+     row-interleaving fixture deliberately forces hardware selector
+     `[0x112e] == 0` and toggles mode `[0x1130]` from 0 to 1, which is not the
+     normal full EGA path. I’m tracing where startup assigns EGA values and
+     where the graphics overlay branches on those words."
+
+     Action/result: Disassembled the command-line parser, display auto-detect,
+     `0x8c`, cursor-save/restore helpers, and logical-buffer clear/display
+     helpers.
+
+994. Reported: "The static path is pretty telling: command-line `-c` sets
+     `[0x1130]=0`, `-r` sets `[0x1130]=1`, and `-p` forces `[0x112e]=0`. The
+     EGA-ish auto-detected/full-color path is elsewhere in startup and does not
+     satisfy `0x8c`’s hardware guard, so I’m digging into the overlay entry
+     that only runs for `[0x112e]==0`."
+
+     Action/result: Disassembled the graphics overlay entry tables for EGA,
+     CGA, VGA-like, and JR/Tandy-like overlays.
+
+995. Reported: "There’s a better explanation than `old picture leaking
+     through`: the CGA overlay’s color mapper returns two bytes in mode 1, so
+     replaying recorded color 6 after `0x8c` can itself produce alternating
+     visible colors. I’m checking the AGIDATA tables that the CGA overlay
+     indexes now; that will tell us whether odd-row color 4 is actually the
+     mode-1 mapping for color 6."
+
+     Action/result: Inspected `AGIDATA.OVL:0x1d36` and confirmed the CGA
+     overlay uses a three-byte-per-color table, with mode 1 returning a
+     two-byte word.
+
+996. Reported: "The CGA table backs that up: for `[0x112e]==0`, the color
+     mapper indexes three bytes per color in `AGIDATA.OVL:0x1d36` and uses a
+     two-byte mapping when `[0x1130]==1`. So the odd rows are more likely the
+     recorded picture being redrawn under a different CGA mapping, not the
+     unrecorded picture surviving. I’m checking the overlay selection code next
+     so the docs can say why this is out of the EGA target path."
+
+     Action/result: Confirmed from source that `0x5685` returns colors
+     unchanged for non-CGA/EGA-target paths and delegates to the overlay mapper
+     only for hardware selector `[0x112e] == 0` with modes other than `2` or
+     `3`.
+
+997. Reported: "The replay path also clears before drawing:
+     `0x4acf -> 0x6445 -> 0x5257(0x4f4f)` resets the logical picture buffer,
+     then decodes the recorded picture. That rules out a persistent
+     unrecorded-picture buffer as the primary explanation. I’m updating the
+     docs and labels to classify this as a CGA-only mode-toggle artifact,
+     outside the EGA target semantics."
+
+     Action/result: Updated the bytecode chapter, compatibility chapter,
+     graphics pipeline, current status, harness descriptions, and symbolic
+     labels to classify the row-interleaved fixture as CGA-only remapping.
+
+998. Reported: "I’m making a small but important correction now: the fixture
+     names still describe the event-log exclusion, but their descriptions and
+     docs should say the visible rows come from CGA remapping of the replayed
+     recorded picture, not from the second picture surviving."
+
+     Action/result: Corrected the replay case descriptions in
+     `tools/logic_interpreter_probe.py`.
+
+999. Reported: "The bytecode and compatibility chapters now say this is
+     CGA-only remapping, not replay leakage. I’ll add the source trail to the
+     graphics pipeline chapter and symbolic labels."
+
+     Action/result: Added the CGA color-map explanation to
+     `graphics_object_pipeline.md`.
+
+1000. Reported: "The graphics pipeline now explains the CGA mapper. I’m adding
+      stable labels for the main color mapper, the CGA overlay mapper, and the
+      data table so later interpreter-version comparisons can track this by
+      role."
+
+      Action/result: Added symbolic labels for `0x5685`, the CGA overlay
+      mapper at near `0x9815`, and `AGIDATA.OVL:0x1d36`.
+
+1001. Reported: "Symbolic labels are in. I’ll update the handoff status so the
+      next session doesn’t treat the CGA row effect as an EGA compatibility
+      requirement."
+
+      Action/result: Updated `current_status.md` with the CGA-only/EGA-target
+      distinction.
+
+1002. Reported: "I’m adding the evidence trail now: startup flags, the `0x8c`
+      guard, `0x5685`, CGA overlay `0x9815`, the `AGIDATA.OVL:0x1d36` color
+      table, and the picture decode clear that rules out buffer leakage."
+
+      Action/result: Appended the source-backed correction section to
+      `clean_room_executable_notes.md`.
+
+1003. Reported: "The clean-room notes now have the correction and command
+      trail. I’m appending the progress-log entries for this turn, then I’ll
+      run the normal checks."
+
+      Action/result: Recorded this progress-log update before verification.
+
+1004. Reported: "The documentation updates are in. I’ll scan for stale
+      `unrecorded picture supplies odd rows` wording, then run tests, mdBook,
+      and whitespace checks."
+
+      Action/result: The stale-wording scan found only intended corrected
+      wording and historical progress text. `python3 -B -m unittest discover
+      -s tests` passed with 100 tests, `mdbook build docs` succeeded, and
+      `git diff --check` passed.
+
+1005. Reported: "The scan only finds the intended corrected wording and
+      historical progress text. Tests, mdBook, and whitespace all passed; I’ll
+      record that final verification in the progress log and do one last
+      mdBook/whitespace pass because the log changed."
+
+      Action/result: Recorded this final verification note before the last docs
+      build.

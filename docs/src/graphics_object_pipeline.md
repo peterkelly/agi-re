@@ -80,10 +80,11 @@ load; it restores the three staged byte pairs at `0x0eae..0x0eb3` and calls
 `code.object.setup_transient_display_object` (`0x2d52`), which feeds the
 temporary object into the object drawing path. A display-mode replay QEMU probe
 showed that the event log can exclude an unrecorded or rolled-back picture
-while the visible CGA-style background after `0x8c` interleaves rows from the
-recorded and unrecorded/rolled-back pictures. That makes the resource replay
-model source/memory-backed, but leaves the exact screen-buffer refresh side
-effect of the display-mode path provisional.
+while the visible CGA-style background after `0x8c` becomes row-interleaved.
+Source inspection now points to CGA color/display remapping of the recorded
+picture after `[0x1130]` toggles, not to the unrecorded picture surviving in the
+logical buffer. That makes the resource replay model source/memory-backed, but
+keeps this display artifact outside the full 16-color EGA target path.
 
 ## Picture decoder
 
@@ -1042,6 +1043,10 @@ logical graphics buffer to the selected graphics overlay:
   then calls graphics-overlay entry `0x980c` for the whole screen.
 - `0x5624` converts the common coordinate tuple into a display-memory offset,
   using display-mode globals `[0x1130]` and `[0x112e]`.
+- `0x5685` maps picture visual color bytes for display adapters. On the
+  non-CGA/EGA-target path it returns the input color in both `AL` and `AH`.
+  When hardware selector `[0x112e] == 0` and mode `[0x1130]` is not `2` or `3`,
+  it calls the graphics overlay's `0x9815` entry as a color mapper.
 - `0x5762(object)` is the object dirty-rectangle refresher. If word `[0x1216]`
   is zero it returns without display work. Otherwise it compares the object's
   current frame pointer `+0x10`, current X/Y `+0x03/+0x05`, saved frame pointer
@@ -1077,6 +1082,19 @@ entry table:
 | `0x980c` | `jmp 0x9885` | Copy a rectangle from `[0x136f]` to EGA display memory. |
 | `0x980f` | `jmp 0x9983` | Initialize row-offset table `0x137b` and clear a display-memory range. |
 | `0x9812` | `jmp 0x9907` | Fill a rectangle in EGA display memory. |
+
+The CGA graphics overlay (`SQ2/CGA_GRAF.OVL`) uses the same entry table shape
+but gives entry `0x9815` a different role from EGA. In CGA, `0x9815` is a color
+mapper used by `code.display.map_visual_color_for_adapter` (`0x5685`). It
+indexes three bytes per AGI color at `AGIDATA.OVL:0x1d36`: mode `[0x1130] == 0`
+returns one byte duplicated into `AL` and `AH`, while mode `[0x1130] == 1`
+returns the following two-byte word. Picture command `0xf0` stores those bytes
+into the active visual draw value and the two write masks. Therefore action
+`0x8c`, which is guarded to hardware selector `[0x112e] == 0`, can redraw the
+same recorded picture through a different CGA mapping after it toggles bit 0 of
+`[0x1130]`. The row-interleaved replay fixture should be treated as evidence
+for this CGA adapter path, not as a requirement for the EGA implementation
+target.
 
 ## Transient and preview objects
 
