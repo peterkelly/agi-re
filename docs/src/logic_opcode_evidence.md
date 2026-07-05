@@ -240,7 +240,7 @@ Evidence levels:
 | `0x0b` | `object_left_baseline_in_rect` | imm0, imm1, imm2, imm3, imm4 | object left baseline in rect | QEMU-validated | logic_interpreter_probe: object_left_rect_condition_true |
 | `0x0c` | `status_byte_1218` | imm0 | status byte 1218 | QEMU-validated | logic_interpreter_probe: mapped_key_sets_status_byte |
 | `0x0d` | `raw_key_event_available` | - | raw key event available | QEMU-validated | logic_interpreter_probe: raw_key_event_available_draws_after_typed_key |
-| `0x0e` | `input_word_sequence` | varlen word sequence | input word sequence | QEMU-validated | logic_interpreter_probe: parse_string_slot_sets_input_word_sequence |
+| `0x0e` | `input_word_sequence` | varlen word sequence | input word sequence | QEMU-validated | logic_interpreter_probe: parse_string_slot_sets_input_word_sequence, parser_edges_001, and parser_unknown_terminator_001 |
 | `0x0f` | `string_slots_equal_normalized` | imm0, imm1 | string slots equal normalized | QEMU-validated | logic_interpreter_probe: set_string_from_message_equal_normalized |
 | `0x10` | `object_width_baseline_in_rect` | imm0, imm1, imm2, imm3, imm4 | object width baseline in rect | QEMU-validated | logic_interpreter_probe: object_width_rect_condition_true |
 | `0x11` | `object_center_baseline_in_rect` | imm0, imm1, imm2, imm3, imm4 | object center baseline in rect | QEMU-validated | logic_interpreter_probe: object_center_rect_condition_true |

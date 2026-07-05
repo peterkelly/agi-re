@@ -50,10 +50,35 @@ Observed string operations:
 | Parse a slot | `0x75` (`parse_string_slot`) | Normalize the slot text, look words up in `WORDS.TOK`, fill parsed-word buffers rooted around `0x0c7b`, and set/clear parser flags. |
 | Compare two slots | condition `0x0f` (`string_slots_equal_normalized`) | Compare two slots after dropping bytes from `DS:0x094b` and lowercasing ASCII `A..Z`; this does not use `WORDS.TOK`. |
 
+Parser normalization for action `0x75` uses two SQ2 tables. Bytes in
+`data.words.parser_separators_0c67` (` ,.?!();:[]{}`) become word separators
+and separator runs collapse to one space. Bytes in
+`data.words.parser_ignored_0c75` (apostrophe, backtick, hyphen, and double
+quote) are dropped without creating a separator. The normalized buffer is
+trimmed of a trailing space and then scanned one token at a time.
+
+Dictionary lookup is case-insensitive for ASCII letters. Recognized dictionary
+entries whose word ID is zero are ignored and do not consume one of the ten
+parsed output slots; local examples include `the`, `a`, `i`, `to`, and `with`.
+Recognized nonzero IDs are appended to the parsed-ID table. If lookup finds an
+unknown token, the parser stores the pointer for the next output slot, records
+`len(parsed_ids) + 1` in byte variable `[0x0012]` and
+`data.words.parsed_count_or_error_position`, sets parser flag 2, and stops.
+So an unknown word after ignored zero-ID words still reports output slot 1.
+If parsing reaches the end with at least one nonzero word ID, the same count
+word stores the number of parsed IDs and flag 2 is set. If only zero-ID words
+were present, flag 2 remains clear.
+
 Condition `0x0e` (`input_word_sequence`) consumes the parsed-word buffer rather
 than the raw string slot. Its bytecode operand is a count followed by that many
 little-endian word IDs. Word ID `0x270f` terminates a successful match, and word
-ID `0x0001` behaves as a wildcard for one parsed word.
+ID `0x0001` behaves as a wildcard for one parsed word. QEMU batch
+`parser_edges_001` validates exact two-word matching for `look get`, wildcard
+matching for `look *`, and `0x270f` accepting a `look` prefix while an
+additional parsed word remains. Source helper `0x095c` also allows a
+terminator-only pattern to match an unknown-token parse state when flag 2 is set
+and `data.words.parsed_count_or_error_position` is nonzero; QEMU batch
+`parser_unknown_terminator_001` confirms this behavior.
 
 Condition `0x0f` (`string_slots_equal_normalized`) is the direct string-slot
 comparison path. It treats space, tab, `.`, `,`, `;`, `:`, `'`, `!`, and `-` as
@@ -70,8 +95,10 @@ SaidLikeCondition: matches bytecode word sequences against WordParser output
 StringCompareCondition: normalized direct slot equality, independent of WordParser
 ```
 
-The user-facing parser behavior still needs dynamic confirmation, but this
-separation matches the observed data flow.
+This separation matches the observed data flow and now has dynamic coverage for
+the basic message-to-string parse path, exact parsed-word matching, wildcard
+matching, terminator-prefix matching including the unknown-token edge, and
+direct normalized string comparison.
 
 ## Logic resources and execution state
 
@@ -134,7 +161,7 @@ consumes each channel as a sequence of records:
 | Field | Size | Meaning |
 | --- | --- | --- |
 | Duration | 16-bit little-endian | Countdown value for the next sound event; `0xffff` terminates that channel. |
-| Tone/control word | 16-bit little-endian | Driver-facing tone/control value. The exact pitch/hardware interpretation remains provisional. |
+| Tone/control word | 16-bit little-endian | Driver-facing tone/control value. The PC-speaker path converts this word to the PIT divisor documented below; other hardware selectors pass encoded bytes to port `0xc0`. |
 | Control byte | 8-bit | Low nibble is copied as the observed attenuation/control value; `0x0f` is used for silent/terminated channels. |
 
 The local SQ2 corpus scan found 49 present sound resources. All present
@@ -157,6 +184,42 @@ The active channel set depends on the hardware selector. When selector
 selector values advance all four channels. Natural completion occurs when the
 last active channel reaches its `0xffff` terminator; the stop path clears active
 state and sets the flag stored by `start_sound_with_flag`.
+
+Hardware output is source-backed only to the driver interface level. For
+selector `0`/`8`, the driver uses the PC-speaker-style PIT path: an event with
+attenuation nibble `0x0f` clears port `0x61` bits `0` and `1`; otherwise the
+tone word is converted to a PIT divisor as
+`12 * (((tone_word & 0x3f) << 4) + ((tone_word >> 8) & 0x0f))`, written low
+byte then high byte to port `0x42` after mode byte `0xb6` is written to port
+`0x43`, and port `0x61` bits `0` and `1` are set. Stop on this path emits the
+same silence behavior.
+
+Other observed selectors write driver bytes to port `0xc0`. Tone output sends
+the high tone byte and, unless that high byte has top bits `0xe0`, also sends
+the low tone byte. Stop on this path writes the four silence bytes `0x9f`,
+`0xbf`, `0xdf`, and `0xff`. Selector `2` calls a small source helper that
+adjusts an internal control byte whose high bits match `0x90` and whose low
+nibble is below `8`; the observed port-facing tone bytes remain the high/low
+tone bytes described above.
+
+Attenuation output is also source-modeled. Each channel has a base attenuation
+byte, an envelope index, and a previous envelope value. If the base attenuation
+is `0x0f`, the helper writes the channel mask plus `0x0f` and skips envelope
+processing. Otherwise, when the envelope index is not `0xffff`, the helper
+reads a byte from the default table at `0x17b8`. Byte `0x80` disables the
+envelope and copies the previous envelope value into the base attenuation.
+Other table bytes are deltas from the base attenuation, not cumulative deltas:
+negative underflow clamps to `0`, positive overflow clamps to `0x0f`, and the
+result becomes the previous envelope value. A runtime adjustment byte at
+`[0x0020]` is then added and clamped to `0x0f`; selector `2` also raises
+non-silent values below `8` by `2`. The final port byte is the adjusted low
+nibble ORed with the channel mask `0x90`, `0xb0`, `0xd0`, or `0xf0`.
+
+These port writes are an implementation detail for hardware-facing
+compatibility. The portable game-state contract remains the event schedule,
+active-channel set, attenuation state, tone/attenuation port-output boundary,
+and completion-flag behavior above. This is not a claim about faithfully
+synthesizing the analog waveform from the original hardware.
 
 ## Object records
 
@@ -224,8 +287,12 @@ Implementation-facing phases:
 3. Placement validates object coordinates against screen bounds, the
    horizon-like line `[0x012d]`, object-object crossing, and control-buffer
    classes.
-4. Update-list builders partition active objects between roots `0x16ff` and
-   `0x1703`, sort them by baseline/priority, and allocate render nodes.
+4. Update-list builders partition active objects between roots `0x1703` and
+   `0x16ff`. Each root draws objects in ascending key order, where the key is
+   baseline Y unless fixed-priority bit `0x0004` routes object byte `+0x24`
+   through the reverse-priority helper. Equal keys remain in object-table order,
+   so later object-table entries draw later. Root `0x1703` is drawn completely
+   before root `0x16ff`.
 5. Render nodes save backing rectangles, draw frame data, and later restore old
    rectangles during list flushes.
 6. Display-overlay entries copy full-screen or rectangular regions from the
@@ -262,6 +329,7 @@ Heap and allocation lifecycle:
 
 | State | Entered by | Exited by | Observable contract |
 | --- | --- | --- | --- |
+| Startup memory allocation | `code.startup.allocate_runtime_memory` | Successful DOS memory allocation, or fatal startup error | Startup shrinks/probes the resident DOS block, requests a runtime memory block with DOS `AH=48h`, converts the returned segment into a DS-relative byte offset, writes that offset to both `[0x0a55]` and `[0x0a57]`, and writes `[0x0a5b] = [0x0a57] + requested_runtime_paragraphs * 16`. Failure displays the startup memory error and terminates through DOS. |
 | Bump heap active | Startup after heap base/limit initialization | Interpreter shutdown or fatal allocation failure | Current heap pointer `[0x0a55]` advances monotonically on ordinary allocations. Heap base `[0x0a57]`, room/reset mark `[0x0a59]`, limit `[0x0a5b]`, temporary mark `[0x0a5d]`, and high-water pointer `[0x0a5f]` define the allocator state. |
 | Allocation | Helper `0x13d6(size)` | Success or fatal error path | If `size <= [0x0a5b] - [0x0a55]`, the helper returns the old heap top, advances `[0x0a55]`, refreshes byte variable 8 at `[0x0011]`, and updates high-water `[0x0a5f]`. If not, it displays the out-of-memory message and calls restart/exit helper `0x02ae`; no recoverable allocation failure return was observed. |
 | Temporary mark | `0x144b` | `0x145a` | The current heap top is saved in `[0x0a5d]`; restore rewinds `[0x0a55]` only if that mark is nonzero, then clears it. |
@@ -284,6 +352,17 @@ Save/restore data model:
 | Save file state blocks | `0x7d` | `0x7e` | Files store a 31-byte description/header followed by five little-endian length-prefixed blocks. The fixed local SQ2 block lengths are `1505`, `903`, `328`, and `200` for data rooted at `0x0002`, the object table, inventory/object metadata, and resource-event pairs; the fifth block rooted at `0x0985` has the variable size returned by `0x1364`. |
 | Replay pair block | `0x8e`, resource load/display/discard actions, `0xab`/`0xac` | Restore/display-mode replay | The saved pair block length is `data.event.pair_capacity * 2`; active count controls how much of the buffer replay consumes. |
 
+Save/restore selector state machine:
+
+| State | Entry work | User-visible transition | Output contract |
+| --- | --- | --- | --- |
+| Selector entry | `code.save.select_slot_or_path` records whether the normal prompt marker is visible, erases that marker, saves text/window attribute state, stops active sound, and switches to the selector text attributes. | No direct choice yet; control moves to path preparation. | On every exit path, the helper restores the saved text state and redraws the prompt marker only if it was visible on entry. |
+| Path preparation/edit | If `data.save.path_buffer_1962` is empty, the current DOS directory helper fills it. If the runtime save-description/path buffer `[0x0e72]` is already nonempty, the helper skips the path prompt. Otherwise it displays the save or restore path question, edits `data.save.path_buffer_1962` with a 31-character modal editor, and validates it through `code.dos.validate_path`. The validator skips leading spaces, fills an empty accepted string with the current directory, strips a trailing slash/backslash from multi-character paths, accepts a single slash/backslash, probes two-character drive paths such as `A:`, and otherwise uses DOS find-first with directory attributes. | Enter accepts the edited path if validation succeeds. Escape/cancel returns zero. An invalid or unavailable path displays the insert-disk/path failure message and loops while the acknowledgement helper returns nonzero. | Success leaves a validated path in `data.save.path_buffer_1962`; failure returns zero to the action, so save/restore continues down its cancel/failure continuation rather than performing file I/O. |
+| Slot scan | The selector formats `1..12` candidate filenames with `code.save.format_slot_filename`. Restore candidates must pass `code.save.read_slot_summary`: open succeeds, a 31-byte description is read, the first length prefix is skipped, and seven first-block payload bytes compare against `data.save.signature_prefix_0002`. | The selector displays available descriptions in a modal list. Empty save slots can be accepted by the save path; restore only presents candidates that pass the signature check. | Each valid row has a description, slot number, and timestamp-like ordering metadata. The selected slot later formats the final filename into `data.save.filename_buffer_1c8c`. |
+| Slot interaction | The current row is marked with the right-arrow glyph and the old row is cleared with a space. | Enter accepts the current row; Escape returns zero; normalized movement events `1` and `5` move up and down with wrap. | Enter yields a nonzero slot result. Escape/cancel yields zero and no caller file I/O should occur. |
+| Save-description edit | In save mode, accepting an empty-description slot opens a second 31-character modal editor for the save description. | Enter stores the accepted description; Escape/cancel abandons the selection. | Accepted text fills the 31-byte save header buffer `data.save.header_description_buffer_1c6c` before action `0x7d` creates the file. Restore mode never writes this buffer from the selector. |
+| Caller confirmation and I/O | The selector has restored modal state and returned to action `0x7d` or `0x7e`. | Save and restore each display their caller-side confirmation text before doing DOS file I/O. | Save create/write failures are recoverable and continue after `0x7d`; restore open failure is recoverable and continues after `0x7e`; restore read failure displays the fatal restore-error dialog and exits through cleanup. |
+
 Restart, save/restore, and termination lifecycle:
 
 | Transition | Trigger | State effects | Continuation |
@@ -297,6 +376,42 @@ Restart, save/restore, and termination lifecycle:
 | Restore read failure | `0x7e` fails any length-prefixed block read | Closes the save file, displays the restore-error message, then enters `code.system.exit_with_cleanup`. | Terminates the DOS process through `int 21h AH=0x4c`; this is not a recoverable restore failure in the observed source. |
 | Confirmed exit or fatal helper | `0x86(1)`, confirmed `0x86(0)`, verification failure, allocation failure, or restore read failure | `code.system.exit_with_cleanup` closes the log file if open, restores interrupt hooks and timer state, sets the BIOS video mode from the saved mode byte, and calls the DOS terminate wrapper with exit code zero. | DOS process exits. |
 
+Picture decoder lifecycle:
+
+| State | Entered by | Exited by | Observable contract |
+| --- | --- | --- | --- |
+| Picture cached | `0x18`/`0x19`/`0x1c` resource helpers | Discard, room/reset cache cleanup, or replacement selection | The resource cache stores the selected picture payload pointer. Loading records resource-event pairs unless event recording is blocked. |
+| Fresh decode | `0x19` prepare path through `0x6445` | Scanner completion at `0xff` | The logical 160 by 168 byte buffer is initialized to default cell `0x4f`, draw globals are reset, and then the scanner runs over the selected payload. |
+| Overlay decode | `0x1c` path through `0x6440` | Scanner completion at `0xff` | The scanner runs without the fresh-buffer fill, so valid commands compose over the existing logical buffer. |
+| Command scanner | Picture bytes read from the selected payload | `0xff` sentinel or payload exhaustion in local tooling | Bytes below `0xf0` are ignored by the top-level scanner. Commands `0xf0..0xfa` dispatch to drawing handlers; `0xfb..0xfe` have no handler in the observed table. Raw one-byte operands for `0xf0`, `0xf2`, and `0xf9` consume the next byte even when it is `>= 0xf0`. Coordinate/list readers accept only bytes `<= 0xef`; a command/sentinel byte terminates the active drawing command and remains pending for the scanner. |
+| Draw state | `0xf0..0xf3`, `0xf9` | Later draw-state command or scanner end | Low visual and high control nibbles can be independently enabled/disabled. Pixel writes always flow through the common writer using active draw bits and odd/even masks. In the full EGA target, the observed visual mask values are the same on odd and even rows. |
+| Line/corner/pattern drawing | `0xf4..0xf7`, `0xfa` | Command reader sees another command/sentinel byte | Corner and line commands plot into the logical byte buffer with coordinate clamping. Relative-line endpoints use 8-bit coordinate arithmetic before the high-side clamp, so a negative underflow becomes the right or bottom edge rather than zero. Diagonal lines use the interpreter's byte-width accumulator behavior. Pattern plotting uses the AGIDATA pattern tables and can linearly write a computed column at X `160` as X `0` on the next row before the final buffer bound check. |
+| Seed fill | `0xf8` | Seed list terminates | The selected expansion-test channel is visual when visual drawing is enabled, otherwise control when control drawing is enabled. The write itself still uses the common active-channel writer, so accepted cells can update both nibbles when both channels are active. A clean implementation may use any finite connected-region traversal that produces the same final logical buffer for valid data. |
+| Display finalization | `0x1a`, replay/display helpers, object pipeline refresh | Next draw/update/display transition | The decoded logical buffer is converted to visible output by the active EGA display path, with text/modal overlays handled separately from picture decoding. |
+
+View and cel drawing contract:
+
+| Element | Implementation contract |
+| --- | --- |
+| View payload | Bytes `+0x00/+0x01` are reserved in the current SQ2 model; all local resources contain `0x01,0x01` and observed runtime paths begin meaningful parsing at `+0x02`. Header byte `+0x02` is the group count. Group offsets are relative to the payload base from `+0x05`; frame offsets are relative to their group base. Frame bytes are width, height, control byte, then row-terminated run data. |
+| Cel rows | Each nonzero row byte encodes color in the high nibble and run length in the low nibble. A zero byte ends a row. The control low nibble is the transparent color; transparent runs advance X without writing. |
+| Orientation rewrite | If frame control bit `0x80` is set and bits `0x70` do not match the selected group, the interpreter rewrites the frame stream in place so visible row runs are mirrored horizontally and bits `0x70` cache the selected group. |
+| Baseline placement | The draw top is `baseline_y - frame.height + 1`. Placement helpers search/clamp requested object coordinates before activation/transient drawing, including horizon, screen bounds, collision, and control-buffer acceptance. |
+| Priority/control gate | Visible object pixels compare the object's low priority nibble against the destination high nibble. High nibbles greater than `0x20` are compared directly; lower classes trigger a downward scan in the same column until a comparable high nibble is found or the lower buffer limit is reached. A pixel draws when the discovered value is less than or equal to the object's priority. |
+| Pixel write | Nontransparent cel pixels write `(object_priority << 4) | cel_color` into the logical buffer. The high nibble left by object drawing becomes part of later priority/control tests. |
+| Transient versus persistent | Action `0x7a` draws a transient view/cel against the current picture state. Persistent objects bind view payloads into 43-byte object records, enter update lists when activated, and are redrawn/restored by the object/update pipeline. |
+
+Persistent placement and movement accept a proposed object position only when
+the object-object crossing test accepts it and the control-buffer scan accepts
+the selected frame-width scanline. In the control scan, class `0x00` rejects
+immediately, class `0x10` requires object bit `0x0002`, class `0x20` leaves
+final state `(flag3=true, flag0=false)`, class `0x30` leaves final state
+`(flag3=false, flag0=true)`, and other nonzero classes leave
+`(flag3=false, flag0=false)`. The final scanned class, not an accumulated
+history of earlier cells, drives the post-scan `0x0100` and `0x0800` rejection
+bits and the global flag updates for objects whose byte `+0x02` is zero.
+Priority/control byte `0x0f` bypasses this scan.
+
 Object drawing lifecycle:
 
 | State | Entered by | Exited by | Observable contract |
@@ -305,7 +420,7 @@ Object drawing lifecycle:
 | Bound frame | `set_object_resource*`, group/frame selectors | Position/activation changes or discard/reset | Record has a view payload, selected group/frame pointer, width, and height. |
 | Placed | Position setters and placement helper `0x593a` | Activation, movement, or another position setter | Coordinates have been clamped/searched against bounds, horizon, collision, and control-buffer acceptance. Dirty bit `0x0400` suppresses one movement delta and is then cleared. |
 | Active/listed | `activate_object` | `deactivate_object`, reset, room switch | Active/update bits include `0x0001`; update-list roots are flushed/rebuilt and render nodes may save backing rectangles. |
-| Rendered | Update-list processing or transient draw helper | List flush/rectangle restore or redraw | The selected frame's run data is composited into the logical buffer using transparent-color skip and priority/control gating. |
+| Rendered | Update-list processing or transient draw helper | List flush/rectangle restore or redraw | The selected frame's run data is composited into the logical buffer using transparent-color skip and priority/control gating. Dirty refreshes copy the union of the previous saved footprint and the current footprint, where top is `baseline_y - height + 1`. |
 
 Motion and animation lifecycle:
 
@@ -328,6 +443,26 @@ Text/input UI lifecycle:
 | Modal text window active | Message display, prompt/edit, menu, or diagnostic helpers | `0xa9` or the helper's own close path | The message-window opener at `0x1d96` first closes any already active saved window, formats the text, computes packed rectangle words `[0x0d23]` and `[0x0d25]`, draws/saves the boxed region through helper `0x5590`, then sets `[0x0d1d] = 1`. Closing through `0xa9`/`0x1f2b` restores that saved rectangle through helper `0x560c([0x0d23], [0x0d25])` when active, then clears `[0x0d0f]` and `[0x0d1d]`. |
 | Alternate text/input-width mode | `0x6a`, `0xa3`, and related display-mode helpers | `0x6b`, `0xa4`, or `0xa9`/cleanup paths | Byte `[0x1757]` alters text drawing, while word `[0x0d0f]` changes input-character width limits in helper `0x3652`. QEMU validates that `0x6a` clears the visible logical surface using the current text attribute pair in the observed EGA path, that `0x6b` restores ordinary picture/object drawing, that `0xa3` permits wrapped live input with a long blank string slot 0, and that both `0xa4` and inactive `0xa9` clear the width flag. |
 | Event/edit loop | `code.input.edit_string`, menus, inventory selection, confirmation dialogs, keyboard IRQ hook | Enter, Escape, selected mapped/status event, or tracked key release | The shared event queue feeds raw key predicates, line editors, menu status-byte events, and confirmation exits. Action `0xad` increments `[0x1530]`, a source-backed nonzero gate that lets the keyboard IRQ hook enqueue type-2 zero events on selected tracked-key releases. |
+
+Menu/list data model:
+
+| Element | Source-backed layout | Contract |
+| --- | --- | --- |
+| Heading node | 18-byte heap node. Offsets `+0x00` and `+0x02` are next/previous heading links; `+0x04` is the heading text pointer; `+0x08` is the heading column; `+0x0a` is an enabled/usable word; `+0x0c` is the circular item-list root; `+0x0e` remembers the current item for this heading; `+0x10` is the item count. | Headings form a circular list rooted at `data.menu.heading_root`. Empty headings are marked disabled during later setup/finalization. Left/right navigation skips disabled headings. |
+| Item node | 14-byte heap node. Offsets `+0x00` and `+0x02` are next/previous item links; `+0x04` is the item text pointer; `+0x06` is the menu row/order; `+0x08` is the menu column; `+0x0a` is the enable word; `+0x0c` is the script-visible item id. | Items form a per-heading circular list. Item navigation does not skip disabled entries; the enable word is checked only when Enter is pressed. |
+| Menu globals | `data.menu.finalized`, `data.menu.request_interaction`, `data.menu.heading_root`, `data.menu.current_heading`, and `data.menu.current_item`. | Setup opcodes populate the list until finalized. Interactive movement persists the current heading/item before each event-loop iteration so later menu openings resume from the remembered position. |
+
+Menu interaction lifecycle:
+
+| State | Entry work | Event/transition | Output contract |
+| --- | --- | --- | --- |
+| Setup mutable | `0x9c` allocates and links heading nodes; `0x9d` allocates and links item nodes under the current heading. | Setup continues until `0x9e`. If a heading has no item list, setup marks its enable word zero. | List nodes live on the interpreter heap. After finalization, later `0x9c`/`0x9d` calls are ignored by the observed handlers. |
+| Setup finalized | `0x9e` records the heap room/reset mark, sets `current_heading` to the root heading, sets `current_item` from the heading's item root, and sets the finalized word. | `0x9f` and `0xa0` can later enable or disable item ids by walking all heading/item lists. | The circular lists remain active until the broader heap/menu state is rebuilt by restart/restore/room lifecycle helpers. |
+| Interaction requested | `0xa1` tests flag 14; when set, it writes `data.menu.request_interaction = 1`. The input/main-loop path enters `code.menu.interact` and clears the request word on exit. | No direct selection occurs in `0xa1`; it only requests the modal menu path. | QEMU validates the request plus one-item Enter, Escape, disabled-Enter, and re-enable paths. |
+| Menu opened | `code.menu.interact` clears/redraws the text row, redraws each heading, loads `current_heading`/`current_item`, and draws the active heading and its item rectangle. | The loop waits through the shared input/event helpers, then branches on normalized event type. | The modal menu owns the visible text surface while active; tests refresh the picture after closing before comparing graphics output. |
+| Raw-key event | Event type `1` supplies a raw key word. | Enter (`0x000d`) selects only if the current item's enable word is nonzero; Escape (`0x001b`) exits without selection; other keys loop. | Enter on an enabled item enqueues event type `3` with the item's id. Enter on a disabled item leaves no status event and continues waiting. |
+| Movement event | Event type `2` supplies movement value `1..8`, mapped from the local raw-key table. | Values dispatch through `table.menu.navigation_dispatch`: previous item, first item, next enabled heading, last item, next item, last heading, previous enabled heading, and root heading. | Movement redraws/unhighlights affected rows, remembers a heading's current item before leaving it, stores updated `current_heading` and `current_item`, and waits for another event. |
+| Exit cleanup | Selection or Escape calls the helper that remembers the active item for the heading and restores the saved menu rectangle. | Status line is redrawn when enabled; otherwise the associated row is cleared. | `data.menu.request_interaction` is cleared. Selection is observable through condition `0x0c` on the enqueued item id. |
 
 Text rectangle clears (`0x69` and `0x9a`) are display-surface operations. They
 do not decode or mutate a picture resource; they overwrite the visible text-cell

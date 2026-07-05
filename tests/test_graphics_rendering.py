@@ -14,18 +14,27 @@ ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT / "tools"))
 
 from agi_graphics import (  # noqa: E402
+    ControlAcceptance,
     DEFAULT_CELL,
     HEIGHT,
+    DirtyRect,
+    ObjectDrawCandidate,
     PictureRenderer,
     RenderedFrame,
     WIDTH,
+    control_acceptance_scan,
+    dirty_rect_union,
     draw_frame_on_buffer,
     iter_view_frames,
     iter_valid_resources,
+    _mirror_view_row_runs,
+    object_update_draw_order,
+    object_update_sort_key,
     pattern_column_mask,
     pattern_row_words,
     picture_payload,
     picture_to_ppm,
+    priority_value_to_sort_y,
     render_picture,
     render_view_frame,
     search_object_placement,
@@ -131,6 +140,46 @@ class PictureRenderingTests(unittest.TestCase):
         self.assertEqual(pattern_row_words(0), [0x8000])
         self.assertEqual(pattern_row_words(2), [0x7000, 0xF800, 0xF800, 0xF800, 0x7000])
         self.assertEqual(len(pattern_row_words(7)), 15)
+
+    def test_visual_operand_consumes_command_like_raw_byte(self) -> None:
+        payload = bytes([0xF0, 0xF2, 0xF6, 1, 1, 1, 1, 0xFF])
+        rendered = PictureRenderer(payload).render()
+        self.assertEqual(changed_visual_pixels(rendered), {(1, 1)})
+        self.assertEqual(rendered.cells[1 * WIDTH + 1] & 0x0F, 2)
+        self.assertEqual(rendered.cells[1 * WIDTH + 1] >> 4, 4)
+
+    def test_control_operand_consumes_command_like_raw_byte(self) -> None:
+        payload = bytes([0xF2, 0xF1, 0xF6, 1, 1, 1, 1, 0xFF])
+        rendered = PictureRenderer(payload).render()
+        self.assertEqual(changed_control_pixels(rendered), {(1, 1)})
+        self.assertEqual(rendered.cells[1 * WIDTH + 1] >> 4, 1)
+        self.assertEqual(rendered.cells[1 * WIDTH + 1] & 0x0F, 0x0F)
+
+    def test_pattern_mode_operand_consumes_command_like_raw_byte(self) -> None:
+        payload = bytes([0xF9, 0xFA, 0xF0, 4, 0xF6, 1, 1, 1, 1, 0xFF])
+        rendered = PictureRenderer(payload).render()
+        self.assertEqual(changed_visual_pixels(rendered), {(1, 1)})
+        self.assertEqual(rendered.cells[1 * WIDTH + 1] & 0x0F, 4)
+
+    def test_corner_path_y_first_draws_alternating_segments(self) -> None:
+        payload = bytes([0xF0, 4, 0xF4, 5, 5, 8, 12, 6, 0xFF])
+        rendered = PictureRenderer(payload).render()
+        expected = (
+            {(5, y) for y in range(5, 9)}
+            | {(x, 8) for x in range(5, 13)}
+            | {(12, y) for y in range(6, 9)}
+        )
+        self.assertEqual(changed_visual_pixels(rendered), expected)
+
+    def test_corner_path_x_first_draws_alternating_segments(self) -> None:
+        payload = bytes([0xF0, 5, 0xF5, 5, 5, 12, 8, 6, 0xFF])
+        rendered = PictureRenderer(payload).render()
+        expected = (
+            {(x, 5) for x in range(5, 13)}
+            | {(12, y) for y in range(5, 9)}
+            | {(x, 8) for x in range(6, 13)}
+        )
+        self.assertEqual(changed_visual_pixels(rendered), expected)
 
     def test_seed_fill_prefers_visual_test_channel_but_writes_all_active_channels(self) -> None:
         payload = bytes(
@@ -257,6 +306,22 @@ class PictureRenderingTests(unittest.TestCase):
         rendered = PictureRenderer(payload).render()
         self.assertEqual(changed_visual_pixels(rendered), {(0, 0), (1, 0), (2, 1), (3, 1)})
 
+    def test_relative_line_x_underflow_wraps_then_clamps_to_right_edge(self) -> None:
+        payload = bytes([0xF0, 0x02, 0xF7, 0x00, 0x0A, 0x90, 0xFF])
+        rendered = PictureRenderer(payload).render()
+        changed = changed_visual_pixels(rendered)
+        self.assertEqual(len(changed), WIDTH)
+        self.assertIn((0, 10), changed)
+        self.assertIn((159, 10), changed)
+
+    def test_relative_line_y_underflow_wraps_then_clamps_to_bottom_edge(self) -> None:
+        payload = bytes([0xF0, 0x02, 0xF7, 0x0A, 0x00, 0x09, 0xFF])
+        rendered = PictureRenderer(payload).render()
+        changed = changed_visual_pixels(rendered)
+        self.assertEqual(len(changed), HEIGHT)
+        self.assertIn((10, 0), changed)
+        self.assertIn((10, 167), changed)
+
     def test_long_diagonal_uses_byte_width_line_accumulators(self) -> None:
         payload = bytes([0xF0, 0x02, 0xF6, 0x9F, 0xA7, 0x00, 0x00, 0xFF])
         rendered = PictureRenderer(payload).render()
@@ -348,8 +413,32 @@ class PictureRenderingTests(unittest.TestCase):
         self.assertEqual(changed_control_pixels(rendered), set())
         self.assertEqual(rendered.cells[40 * WIDTH + 40], 0x46)
 
+    def test_command_byte_terminates_incomplete_absolute_line_pair_and_resumes_scanner(self) -> None:
+        payload = bytes([0xF0, 2, 0xF6, 10, 0xF0, 3, 0xF6, 20, 20, 20, 20, 0xFF])
+        rendered = PictureRenderer(payload).render()
+        self.assertEqual(changed_visual_pixels(rendered), {(20, 20)})
+        self.assertEqual(rendered.visual_nibbles[20 * WIDTH + 20], 3)
+
+    def test_command_byte_terminates_corner_path_and_resumes_scanner(self) -> None:
+        payload = bytes([0xF0, 2, 0xF4, 10, 10, 20, 0xF0, 4, 0xF6, 30, 30, 30, 30, 0xFF])
+        rendered = PictureRenderer(payload).render()
+        changed = changed_visual_pixels(rendered)
+        self.assertEqual({(10, y) for y in range(10, 21)} | {(30, 30)}, changed)
+        self.assertEqual(rendered.visual_nibbles[30 * WIDTH + 30], 4)
+
+    def test_command_byte_terminates_seed_fill_list_and_resumes_scanner(self) -> None:
+        payload = bytes([0xF0, 3, 0xF8, 0, 0, 0xF0, 4, 0xF6, 0, 0, 0, 0, 0xFF])
+        rendered = PictureRenderer(payload).render()
+        self.assertEqual(rendered.visual_nibbles[0], 4)
+        self.assertEqual(rendered.visual_nibbles[1], 3)
+        self.assertEqual(rendered.visual_nibbles[-1], 3)
+
 
 class ViewRenderingTests(unittest.TestCase):
+    def test_view_header_reserved_bytes_are_stable_in_local_resources(self) -> None:
+        headers = {payload[:2] for _view_no, payload in iter_valid_resources("VIEWDIR")}
+        self.assertEqual(headers, {b"\x01\x01"})
+
     def test_all_view_payloads_parse_frame_offsets(self) -> None:
         parsed = 0
         for _view_no, payload in iter_valid_resources("VIEWDIR"):
@@ -419,6 +508,27 @@ class ViewRenderingTests(unittest.TestCase):
                     group_0.pixels[y * group_0.width + (group_0.width - 1 - x)],
                 )
 
+    def test_mirror_view_row_collapses_all_transparent_row(self) -> None:
+        self.assertEqual(_mirror_view_row_runs([0x13, 0x12], width=20, transparent=1), [])
+
+    def test_mirror_view_row_emits_implicit_trailing_transparency(self) -> None:
+        row = [0x13, 0x62]
+        self.assertEqual(_mirror_view_row_runs(row, width=20, transparent=1), [0x1F, 0x62])
+
+    def test_mirror_view_row_chunks_long_implicit_transparency(self) -> None:
+        row = [0x13, 0x62]
+        self.assertEqual(
+            _mirror_view_row_runs(row, width=40, transparent=1),
+            [0x1F, 0x1F, 0x15, 0x62],
+        )
+
+    def test_mirror_view_row_reverses_from_first_visible_run(self) -> None:
+        row = [0x13, 0x62, 0x14, 0x71]
+        self.assertEqual(
+            _mirror_view_row_runs(row, width=20, transparent=1),
+            [0x1A, 0x71, 0x14, 0x62],
+        )
+
     def test_draw_frame_on_buffer_uses_baseline_and_transparency(self) -> None:
         cells = bytearray([DEFAULT_CELL] * (WIDTH * HEIGHT))
         frame = RenderedFrame(-1, 0, 0, 3, 2, 0x00, bytes([1, 0, 2, 0, 3, 3]))
@@ -471,6 +581,116 @@ class ViewRenderingTests(unittest.TestCase):
             (21, 81),
         )
 
+    def test_priority_value_to_sort_y_models_source_scan(self) -> None:
+        self.assertEqual(priority_value_to_sort_y(0), -1)
+        self.assertEqual(priority_value_to_sort_y(5), HEIGHT)
+        self.assertEqual(priority_value_to_sort_y(5, after_table_value=0x0F), 47)
+        self.assertEqual(priority_value_to_sort_y(15, after_table_value=0x0F), 167)
+
+    def test_object_update_draw_order_uses_roots_and_stable_sort(self) -> None:
+        candidates = [
+            ObjectDrawCandidate(0, 100, 0x0051),
+            ObjectDrawCandidate(1, 80, 0x0051),
+            ObjectDrawCandidate(2, 90, 0x0041),
+            ObjectDrawCandidate(3, 70, 0x0041),
+            ObjectDrawCandidate(4, 70, 0x0041),
+        ]
+        self.assertEqual(
+            [candidate.object_no for candidate in object_update_draw_order(candidates)],
+            [3, 4, 2, 1, 0],
+        )
+
+    def test_object_update_sort_key_uses_fixed_priority_mapping(self) -> None:
+        fixed_zero = ObjectDrawCandidate(0, 100, 0x0055, 0)
+        fixed_nonzero = ObjectDrawCandidate(1, 10, 0x0055, 5)
+        ordinary = ObjectDrawCandidate(2, 90, 0x0051, 0)
+        self.assertEqual(object_update_sort_key(fixed_zero), -1)
+        self.assertEqual(object_update_sort_key(fixed_nonzero), HEIGHT)
+        self.assertEqual(
+            [candidate.object_no for candidate in object_update_draw_order([fixed_nonzero, ordinary, fixed_zero])],
+            [0, 2, 1],
+        )
+
+    def test_dirty_rect_union_preserves_identical_footprints(self) -> None:
+        self.assertEqual(
+            dirty_rect_union(20, 80, 10, 5, 20, 80, 10, 5),
+            DirtyRect(20, 80, 10, 5),
+        )
+
+    def test_dirty_rect_union_covers_old_and_current_footprints(self) -> None:
+        self.assertEqual(
+            dirty_rect_union(30, 90, 8, 6, 20, 80, 12, 4),
+            DirtyRect(20, 90, 18, 14),
+        )
+        self.assertEqual(
+            dirty_rect_union(20, 80, 12, 4, 30, 90, 8, 6),
+            DirtyRect(20, 90, 18, 14),
+        )
+
+    def test_control_acceptance_scan_models_source_classes(self) -> None:
+        self.assertEqual(
+            control_acceptance_scan([0x00], object_flags=0, priority_byte=14),
+            ControlAcceptance(False),
+        )
+        self.assertEqual(
+            control_acceptance_scan([0x10], object_flags=0, priority_byte=14),
+            ControlAcceptance(False),
+        )
+        self.assertEqual(
+            control_acceptance_scan([0x10], object_flags=0x0002, priority_byte=14),
+            ControlAcceptance(True),
+        )
+        self.assertEqual(
+            control_acceptance_scan([0x20], object_flags=0x0100, priority_byte=14),
+            ControlAcceptance(False),
+        )
+        self.assertEqual(
+            control_acceptance_scan([0x30], object_flags=0x0800, priority_byte=14),
+            ControlAcceptance(False),
+        )
+        self.assertEqual(
+            control_acceptance_scan([0x00], object_flags=0, priority_byte=15),
+            ControlAcceptance(True),
+        )
+
+    def test_control_acceptance_scan_uses_final_scanned_class_state(self) -> None:
+        self.assertEqual(
+            control_acceptance_scan([0x20, 0x30], object_flags=0x0100, priority_byte=14),
+            ControlAcceptance(True),
+        )
+        self.assertEqual(
+            control_acceptance_scan([0x30, 0x20], object_flags=0x0100, priority_byte=14),
+            ControlAcceptance(False),
+        )
+        self.assertEqual(
+            control_acceptance_scan([0x20, 0x30], object_flags=0, priority_byte=14, object_event_byte=0),
+            ControlAcceptance(True, flag0_value=True, flag3_value=False),
+        )
+        self.assertEqual(
+            control_acceptance_scan([0x30, 0x20], object_flags=0, priority_byte=14, object_event_byte=0),
+            ControlAcceptance(True, flag0_value=False, flag3_value=True),
+        )
+
+    def test_control_acceptance_scan_other_nonzero_classes_use_false_false_state(self) -> None:
+        self.assertEqual(
+            control_acceptance_scan([0x40], object_flags=0, priority_byte=14, object_event_byte=0),
+            ControlAcceptance(True, flag0_value=False, flag3_value=False),
+        )
+        self.assertEqual(
+            control_acceptance_scan([0x40], object_flags=0x0100, priority_byte=14),
+            ControlAcceptance(False),
+        )
+        self.assertEqual(
+            control_acceptance_scan([0x40], object_flags=0x0800, priority_byte=14),
+            ControlAcceptance(True),
+        )
+
+    def test_control_acceptance_priority_15_bypass_clears_event_flags(self) -> None:
+        self.assertEqual(
+            control_acceptance_scan([0x00], object_flags=0x0902, priority_byte=15, object_event_byte=0),
+            ControlAcceptance(True, flag0_value=False, flag3_value=False),
+        )
+
     def test_draw_frame_on_buffer_respects_existing_higher_priority(self) -> None:
         cells = bytearray([DEFAULT_CELL] * (WIDTH * HEIGHT))
         cells[2 * WIDTH + 2] = 0x6F
@@ -485,6 +705,29 @@ class ViewRenderingTests(unittest.TestCase):
         frame = RenderedFrame(-1, 0, 0, 1, 1, 0x00, bytes([1]))
         draw_frame_on_buffer(cells, frame, left=2, baseline_y=2, priority=5)
         self.assertEqual(cells[2 * WIDTH + 2], 0x2F)
+
+    def test_draw_frame_on_buffer_accepts_equal_scanned_priority(self) -> None:
+        cells = bytearray([DEFAULT_CELL] * (WIDTH * HEIGHT))
+        cells[2 * WIDTH + 2] = 0x2F
+        cells[3 * WIDTH + 2] = 0x5F
+        frame = RenderedFrame(-1, 0, 0, 1, 1, 0x00, bytes([1]))
+        draw_frame_on_buffer(cells, frame, left=2, baseline_y=2, priority=5)
+        self.assertEqual(cells[2 * WIDTH + 2], 0x51)
+
+    def test_draw_frame_on_buffer_low_control_without_scan_hit_allows_zero_priority(self) -> None:
+        cells = bytearray([0x2F] * (WIDTH * HEIGHT))
+        frame = RenderedFrame(-1, 0, 0, 1, 1, 0x00, bytes([1]))
+        draw_frame_on_buffer(cells, frame, left=2, baseline_y=2, priority=0)
+        self.assertEqual(cells[2 * WIDTH + 2], 0x01)
+
+    def test_draw_frame_on_buffer_rejection_does_not_abort_run(self) -> None:
+        cells = bytearray([DEFAULT_CELL] * (WIDTH * HEIGHT))
+        cells[2 * WIDTH + 3] = 0x6F
+        frame = RenderedFrame(-1, 0, 0, 3, 1, 0x00, bytes([1, 1, 1]))
+        draw_frame_on_buffer(cells, frame, left=2, baseline_y=2, priority=5)
+        self.assertEqual(cells[2 * WIDTH + 2], 0x51)
+        self.assertEqual(cells[2 * WIDTH + 3], 0x6F)
+        self.assertEqual(cells[2 * WIDTH + 4], 0x51)
 
 
 class PpmHelperTests(unittest.TestCase):

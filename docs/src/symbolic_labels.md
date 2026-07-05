@@ -38,6 +38,7 @@ Address columns use these meanings:
 | `code.logic.interpret_main` | image `0x293c` | Main logic bytecode loop. Reads opcodes from current logic bytecode and dispatches actions/conditions. |
 | `code.logic.action_dispatch` | image `0x02c4` | Action dispatcher. Uses `table.logic.action_dispatch`. |
 | `code.logic.condition_dispatch` | image `0x07e3` | Condition dispatcher. Uses `table.logic.condition_dispatch`. |
+| `code.logic.condition_input_word_sequence` | image `0x095c` | Condition handler for `0x0e`; matches the parsed word ID table against variable-length word ID operands, with `0x0001` as a wildcard and `0x270f` as an immediate successful terminator. |
 | `table.logic.action_dispatch` | data `0x061d` | Four-byte action table entries for opcodes `0x00..0xaf`. |
 | `table.logic.condition_dispatch` | data `0x08fd` | Four-byte condition table entries for opcodes `0x00..0x12` in this build. |
 | `code.logic.message_xor_range` | image `0x07ab` | XORs logic message text in place. |
@@ -49,6 +50,7 @@ Address columns use these meanings:
 | `code.logic.call_logic` | image `0x12ae` | Temporarily switches current logic, runs `code.logic.interpret_main`, and may unlink a transient record. |
 | `code.logic.save_resume_ip_action` | image `0x1335` | Action handler for `0x91`; stores the current bytecode pointer in the current logic record's resume pointer field `+0x06`. |
 | `code.logic.restore_entry_ip_action` | image `0x134a` | Action handler for `0x92`; copies the current logic record's entry pointer field `+0x04` back to resume pointer field `+0x06`. |
+| `code.startup.allocate_runtime_memory` | image `0x43ea` | Startup memory setup around DOS `AH=4a`/`AH=48h`; seeds `data.heap.current_top_0a55` and `data.heap.base_0a57` from the allocated segment converted to a DS-relative byte offset, then computes `data.heap.limit_0a5b`. |
 | `code.heap.allocate` | image `0x13d6` | Bump-allocates from `data.heap.current_top_0a55` up to `data.heap.limit_0a5b`. On success it returns the old top, advances the current top, refreshes `data.vars.free_memory_pages_0011` through `code.heap.update_free_memory_var`, and updates `data.heap.high_water_0a5f`. On exhaustion it displays the out-of-memory message and calls the restart/exit helper at `0x02ae`; no recoverable failure return was observed. |
 | `code.heap.current_top` | image `0x1430` | Returns `data.heap.current_top_0a55`. |
 | `code.heap.rewind_to` | image `0x143c` | Stores a caller-supplied pointer in `data.heap.current_top_0a55`; unlike allocation/reset paths, this helper does not refresh the free-memory byte. |
@@ -150,11 +152,15 @@ Address columns use these meanings:
 | `code.object.setup_transient_display_object` | image `0x2d52` | Builds/draws the temporary object-like record rooted at `0x0eb4` from staged bytes `0x0eae..0x0eb3`; records event kind 5 plus three parameter pairs for restore replay. |
 | `code.object.place` | image `0x593a` | Places an object and performs priority/control collision adjustment. If the initial candidate fails bounds/collision/control tests, it searches in a widening spiral: left 1, down 1, right 2, up 2, then repeats with increasing segment lengths. |
 | `code.object.collision_test` | image `0x4719` | Object-object rectangle/crossing test used by placement and movement. Returns zero when object flag bit `0x0200` bypasses collision; otherwise scans eligible objects and rejects overlapping/crossing candidates. |
-| `code.object.control_acceptance` | image `0x56b8` | Tests an object's proposed footprint against high-nibble control/priority classes in `data.display.logical_buffer_segment`; QEMU probes validate selected `0x0002`, `0x0100`, and `0x0800` flag effects. |
+| `code.object.control_acceptance` | image `0x56b8` | Tests an object's proposed footprint against high-nibble control/priority classes in `data.display.logical_buffer_segment`; source and QEMU probes validate selected `0x0002`, `0x0100`, and `0x0800` flag effects, including the final scanned class state. |
 | `code.object.frame_timer_update` | image `0x0563` | Per-cycle active-object scan that decrements frame timer byte `+0x20`, calls `code.object.advance_frame_by_mode` at zero, and reloads `+0x20` from `+0x1f`. |
 | `code.object.advance_frame_by_mode` | image `0x48b3` | Dispatches object frame mode byte `+0x23`; modes loop or stop frames and may set completion flag byte `+0x27`. |
 | `data.object.group_for_direction_two_or_three_groups` | data `0x08dd` | Direction-to-group table used by `code.object.frame_timer_update` when object byte `+0x0b` is 2 or 3 and bit `0x2000` is clear. |
 | `data.object.group_for_direction_four_plus_groups` | data `0x08e7` | Direction-to-group table used by `code.object.frame_timer_update` when object byte `+0x0b` is at least 4 and bit `0x2000` is clear. |
+| `code.object.build_update_list_sorted` | image `0x0358` | Shared update-list builder. It scans the object table, accepts records through a callback, computes a draw key from baseline Y or `code.control.priority_to_y`, selection-sorts by ascending key, and inserts nodes through `code.object.insert_update_node_head`. |
+| `code.object.insert_update_node_head` | image `0x042f` | Allocates a 16-byte render/update node and inserts it at the head of the supplied root list while preserving the first inserted node as the tail. |
+| `code.object.draw_update_list_tail_to_head` | image `0x045e` | Draws a root list from tail toward head, saving each backing rectangle and then drawing the object's selected frame. |
+| `code.object.refresh_update_list_saved_pos` | image `0x0488` | Walks a root list from head toward tail, calls `code.object.update_dirty_rect`, and updates saved-position fields plus stationary bit `0x4000`. |
 | `code.object.build_active_update_list` | image `0x6a26` | Builds update-list root `0x16ff` using callback `code.object.accept_active_root_16ff`. |
 | `code.object.build_inactive_partition_list` | image `0x6a3d` | Builds update-list root `0x1703` using callback `code.object.accept_root_1703`. |
 | `code.object.flush_update_lists_restore` | image `0x6a54` | Flushes roots `0x16ff` and `0x1703` through helper `0x0307`, restoring saved backing rectangles and freeing nodes. |
@@ -167,6 +173,7 @@ Address columns use these meanings:
 | `code.object.restore_rect_overlay_entry` | overlay `IBM_OBJS.OVL:0x9db3` | Entry jump to rectangle restore routine. |
 | `code.object.draw_overlay_entry` | overlay `IBM_OBJS.OVL:0x9db6` | Entry jump to selected-frame drawing routine. |
 | `code.object.rewrite_frame_orientation` | image `0x587d` | Rewrites bit-`0x80` frame data when cached orientation bits differ from object `+0x0a`. |
+| `code.control.priority_to_y` | image `0x4cbb` | Maps a priority/control value back to a Y-like sort key. In SQ2's normal table mode it scans downward from sentinel index `0xa8`; the direct formula branch appears source-present but no SQ2 write has been found that enables it. |
 | `code.motion.update_objects` | image `0x150a` | Per-cycle object movement/update pass. |
 | `code.motion.pre_mode_and_boundary_update` | image `0x0644` | Scans active objects with countdown byte `+0x01 == 1`, dispatches mode byte `+0x22`, then applies rectangle-boundary helper `code.motion.rectangle_boundary_check` when enabled. |
 | `code.motion.rectangle_boundary_check` | image `0x06d9` | Compares current and next baseline points against script rectangle globals `[0x0131..0x013d]`, setting bit `0x0080` and clearing direction on crossing when bit `0x0002` is clear. |
@@ -225,6 +232,12 @@ Address columns use these meanings:
 | `code.input.redraw_input_line` | image `0x38d7` | Redraws the configured input-line area when enabled, including the prompt marker, fixed string slot 0, and the visible input buffer. QEMU `input_line_enable_clears_configured_row` validates the configured row clear with empty prompt/input text. |
 | `code.input.set_line_config` | image `0x78f0` | Action handler for `0x6f`; stores input/status row globals and computes display offset global `[0x1379]` from the first operand. |
 | `code.input.map_key_event` | image `0x4c3d` | Action handler for `0x79`; appends a key/event mapping word and mapped value to the first free four-byte slot rooted at `data.input.key_event_map`. |
+| `code.words.parse_string_slot_action` | image `0x1958` | Action handler for `0x75`; clears parser flags 2 and 4, validates slot index `< 12`, and parses fixed string slot `data.strings.slots + index * 0x28`. |
+| `code.words.parse_buffer` | image `0x18ac` | Clears parsed word ID/pointer tables, normalizes the source string, looks up up to ten output words, sets parser flag 2 when any recognized or unknown output slot exists, and records count/error position in `data.words.parsed_count_or_error_position`. |
+| `code.words.normalize_string_for_parse` | image `0x199d` | Collapses separator runs to spaces, drops ignored punctuation, trims a trailing space, and writes `data.words.normalized_parse_buffer`. |
+| `code.words.lookup_next_normalized_word` | image `0x1a6b` | Looks up the current normalized token in `WORDS.TOK`, advances `data.words.current_parse_pointer_0cd1`, returns `0xffff` for unknown tokens, returns zero for ignored dictionary words, and returns nonzero dictionary IDs for parsed words. |
+| `code.words.terminate_unknown_token` | image `0x1bc7` | Replaces the next space or terminator in the normalized parse buffer with zero for an unknown token. |
+| `code.words.advance_dictionary_entry` | image `0x1be4` | Advances from one compressed dictionary entry to the next by finding the suffix byte with bit `0x80` and stepping over the two-byte ID. |
 | `code.view.display_resource_text` | image `0x5edb` | Shared helper for actions `0x81` and `0xa2`; disables resource-event recording while it loads, displays, and optionally discards a temporary view resource. |
 | `data.input.edit_key_table` | image/data `0x0e64` | Key dispatch table used by `code.input.edit_string`. The observed SQ2 bytes map `0x03` and `0x18` to clear-current-input, `0x08` to backspace, `0x0d` to accept/copy, and `0x1b` to cancel/return. Evidence: `xxd -g 1 -s 0x1060 -l 0x20 build/cleanroom/AGI.decrypted.exe`. |
 | `code.save.restore_game_state` | image `0x2512` | Restore-game action handler. |
@@ -240,6 +253,7 @@ Address columns use these meanings:
 | `code.save.select_numbered_slot` | image `0x8814` | Scans up to 12 numbered save files, displays description rows, handles Enter/Escape/up/down selection, and returns the selected slot number or zero. In save mode it prompts for a new description before accepting an empty-description slot. |
 | `code.save.read_slot_summary` | image `0x8b9f` | Formats a numbered save filename, opens it, records the file timestamp, reads the 31-byte description, seeks past the first block length prefix, compares a short signature fragment with `data.save.signature_prefix_0002`, and returns whether the slot is a valid candidate. |
 | `code.restore.replay_resource_events` | image `0x681c` | Restore/display-mode state rebuild. Stops sound, clears resource caches, disables resource-event recording while replaying saved resource/event pairs, then reaches `code.restore.finish_replay_and_reenable_recording` at `0x6927` to re-enable recording, rebind active object views, and refresh display/input/status state. |
+| `code.dos.validate_path` | image `0x5bdd` | Save-selector path validator. Skips leading spaces, fills an empty path with the current directory, strips a trailing slash/backslash for multi-character paths, accepts a single separator, probes drive-only paths, and otherwise calls DOS find-first with directory attributes. |
 
 ## Inventory and Menus
 
@@ -256,6 +270,7 @@ Address columns use these meanings:
 | `code.menu.interact` | image `0x93d1` | Interactive menu path. Draws the menu, waits for input, and enqueues type-3 events with selected item ids for enabled items; QEMU `menu_interaction_001` validates one-item Enter selection and `menu_edges_002` validates Escape, disabled Enter, and re-enable behavior. |
 | `table.menu.navigation_dispatch` | image `0x9526` | Eight-word movement dispatch table used by `code.menu.interact` for type-2 events. Values `1..8` branch to previous item, first item, next enabled heading, last item, next item, last heading, previous enabled heading, and root heading. |
 | `code.menu.draw_heading` | image `0x9557` | Draws a menu heading and its item list, including highlighting the current item through helpers `0x95d0`, `0x9625`, and `0x95a9`. |
+| `code.menu.remember_item_and_restore_rect` | image `0x95a9` | Stores the active item pointer in the heading node at `+0x0e`, redraws/unhighlights the heading, and restores the saved menu rectangle through helper `0x560c`. Used when leaving a heading and when exiting the modal menu. |
 | `code.menu.draw_item` | image `0x95d0` | Positions and draws one menu item using row/column fields from an item node. |
 | `code.menu.erase_or_unhighlight_item` | image `0x9625` | Redraws or clears the item's saved rectangle/highlight state while navigating menu items. |
 | `data.menu.finalized` | data `0x1d2a` | Menu setup finalization flag set by `code.menu.finalize_setup`. |
@@ -263,6 +278,8 @@ Address columns use these meanings:
 | `data.menu.heading_root` | data `0x1d2c` | Root pointer for the circular menu heading list used by setup and interaction routines. |
 | `data.menu.current_heading` | data `0x1d2e` | Current/remembered heading pointer persisted by `code.menu.interact` after movement events and initialized by `code.menu.finalize_setup`. |
 | `data.menu.current_item` | data `0x1d30` | Current/remembered item pointer persisted by `code.menu.interact` after movement events and initialized from the current heading's item root. |
+| `data.menu.saved_rect_start` | data `0x1d32` | Packed rectangle coordinate computed by helper `0x968b` and consumed by menu save/restore rectangle helpers. |
+| `data.menu.saved_rect_end` | data `0x1d34` | Packed rectangle coordinate computed by helper `0x968b` and consumed by menu save/restore rectangle helpers. |
 
 ## System, Restart, Trace, Sound, and Files
 
@@ -298,8 +315,8 @@ Address columns use these meanings:
 | `code.sound.driver_tick` | image `0x801c` | Timer-driven playback tick. Tests flag 9, advances active channel countdowns, consumes duration/tone/control records, and stops/completes playback when all active channels terminate. |
 | `code.sound.driver_stop` | image `0x80af` | Hardware/driver-facing sound stop helper called by `code.sound.stop_or_clear_state` when sound state had been active. |
 | `code.sound.driver_stop_core` | image `0x80c1` | Shared low-level stop/completion helper. Silences hardware, clears `data.sound.active_state`, and sets `data.sound.completion_flag`. |
-| `code.sound.driver_write_tone` | image `0x80f3` | Hardware-specific tone/control output helper called after an event record is consumed and by the stop path for silence writes. |
-| `code.sound.driver_write_attenuation` | image `0x8162` | Hardware-specific attenuation/envelope output helper called on countdown ticks, event reads, and channel termination. |
+| `code.sound.driver_write_tone` | image `0x80f3` | Hardware-specific tone/control output helper called after an event record is consumed and by the stop path for silence writes. Selector `0`/`8` uses PIT/PC-speaker ports and computes divisor `12 * (((tone_word & 0x3f) << 4) + ((tone_word >> 8) & 0x0f))`; other observed selectors write encoded tone bytes to port `0xc0`. |
+| `code.sound.driver_write_attenuation` | image `0x8162` | Hardware-specific attenuation/envelope output helper called on countdown ticks, event reads, and channel termination. Maintains low-nibble attenuation, applies source envelope/delta state, and writes combined channel/attenuation bytes to port `0xc0` on non-PC-speaker paths. |
 | `code.sound.timer_irq_hook` | image `0x8521` | Replacement timer interrupt hook. Calls `code.sound.driver_tick` while sound state is active, then chains to the original timer interrupt every third invocation through divider byte `data.sound.timer_irq_divider`. |
 | `data.sound.active_state` | data `0x1258` | Word set while sound playback state is active. |
 | `data.sound.completion_flag` | data `0x126a` | Word holding the flag number set by `code.sound.stop_or_clear_state`; `0x63` stores and clears this flag before starting playback. |
@@ -328,8 +345,14 @@ Address columns use these meanings:
 | `data.flags.packed_flags` | data `0x0109` | Packed flag bitfield; flag 0 is the high bit of byte `0x0109`. |
 | `data.strings.slots` | data `0x020d` | Fixed 40-byte string slots. |
 | `data.strings.normalization_drop_chars` | data `0x094b` | Zero-terminated bytes skipped during normalized string comparison. |
+| `data.words.parser_separators_0c67` | data `0x0c67` | Zero-terminated separator bytes used by `code.words.normalize_string_for_parse`; SQ2 bytes are ` ,.?!();:[]{}`. |
+| `data.words.parser_ignored_0c75` | data `0x0c75` | Zero-terminated ignored punctuation bytes dropped by `code.words.normalize_string_for_parse`; SQ2 bytes are apostrophe, backtick, hyphen, and double quote. |
 | `data.words.parsed_ids` | data `0x0c7b` | Parsed dictionary word IDs. |
+| `data.words.parsed_text_pointers` | data `0x0c8f` | Pointers into the normalized parse buffer for recognized words and the first unknown output slot. |
 | `data.words.parsed_count_or_error_position` | data `0x0ca3` | Parsed word count, or one-based error position on parse failure. |
+| `data.words.dictionary_base` | pointer global `[0x0ca5]` | Loaded `WORDS.TOK` base pointer used by dictionary lookup helper `0x1a6b`. |
+| `data.words.normalized_parse_buffer` | data `0x0ca7` | Parser normalization output buffer consumed one token at a time by dictionary lookup. |
+| `data.words.current_parse_pointer_0cd1` | pointer global `[0x0cd1]` | Current token pointer inside `data.words.normalized_parse_buffer`, advanced by dictionary lookup helper `0x1a6b`. |
 | `data.objects.first_object` | pointer global `[0x096b]` | Start of 43-byte object record array. |
 | `data.objects.end` | pointer global `[0x096d]` | End pointer for object record array. |
 | `data.inventory.table_root` | pointer global `[0x0971]` | Root of 3-byte inventory/object metadata entries. |
@@ -353,10 +376,10 @@ Address columns use these meanings:
 | `data.display.shake_offset_table` | data `0x177a` | Byte pairs consumed by the normal-path `0x6e` screen shake loop. The first byte plus `[0x1365]` is written to CRT register `0x02`; the second byte plus `data.display.shake_low_base` is written to register `0x07`. |
 | `data.display.shake_high_offset` | data `0x1365` | Offset added to the first byte of each screen-shake table pair before writing CRT controller register `0x02`. |
 | `data.display.cga_color_map` | `AGIDATA.OVL:0x1d36` | Three-byte-per-color table used by the CGA graphics overlay color mapper. Mode 0 uses byte 0 duplicated; mode 1 uses bytes 1 and 2 as the returned word. |
-| `data.heap.current_top_0a55` | data `0x0a55` | Current top pointer for the interpreter's bump heap. |
-| `data.heap.base_0a57` | data `0x0a57` | Heap base used by the heap-status display to report allocated size relative to the start of the heap. |
+| `data.heap.current_top_0a55` | data `0x0a55` | Current top pointer for the interpreter's bump heap. Seeded with `data.heap.base_0a57` during startup memory allocation. |
+| `data.heap.base_0a57` | data `0x0a57` | Heap base used by allocation and heap-status display. Startup derives it from the DOS allocated segment relative to the interpreter data segment. |
 | `data.heap.room_reset_mark_0a59` | data `0x0a59` | Mark used by room switch, restart, and restore cleanup; `code.heap.reset_dynamic_state` rewinds the heap to this pointer. |
-| `data.heap.limit_0a5b` | data `0x0a5b` | Heap limit pointer used by `code.heap.allocate` and `code.heap.update_free_memory_var`. |
+| `data.heap.limit_0a5b` | data `0x0a5b` | Heap limit pointer used by `code.heap.allocate` and `code.heap.update_free_memory_var`; startup sets it to `data.heap.base_0a57 + requested_runtime_paragraphs * 16`. |
 | `data.heap.temporary_mark_0a5d` | data `0x0a5d` | Optional one-shot temporary heap mark saved by `code.heap.save_temporary_mark` and consumed by `code.heap.restore_temporary_mark`. |
 | `data.heap.high_water_0a5f` | data `0x0a5f` | Highest current-top value observed after successful allocations; reported by `code.heap.show_status_action`. |
 | `data.control.priority_table` | data `0x127a` | Runtime 168-byte row-to-priority/control table. |

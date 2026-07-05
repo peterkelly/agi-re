@@ -5836,6 +5836,145 @@ Documented result:
   `data.menu.current_item` so future interpreter-version comparisons do not
   depend on the SQ2 addresses alone.
 
+## 2026-07-04: menu interaction state-machine source pass
+
+Commands run from `/Users/peter/ai/agi/reverse`:
+
+- `sed -n '1140,1225p' docs/src/logic_bytecode.md`
+- `sed -n '5800,5865p' docs/src/clean_room_executable_notes.md`
+- `sed -n '244,274p' docs/src/symbolic_labels.md`
+- `ndisasm -b 16 -o 0x93d1 -e 0x95d1 build/cleanroom/AGI.decrypted.exe`
+- `ndisasm -b 16 -o 0x911d -e 0x931d build/cleanroom/AGI.decrypted.exe`
+- `xxd -g 2 -s 0x16b0 -l 0x60 SQ2/AGIDATA.OVL`
+
+Documented result:
+
+- Re-read the setup handlers at `0x911d`, `0x91cf`, and `0x92ba`, the
+  enable/disable helper at `0x935f`, and the modal interaction loop at
+  `0x93d1`.
+- Converted the source observations into an implementation-facing menu data
+  model in `docs/src/runtime_model.md`: 18-byte circular heading nodes,
+  14-byte circular item nodes, global root/current pointers, finalization, and
+  the interaction request word.
+- Documented the modal interaction lifecycle. `0xa1` only requests the menu
+  when flag 14 is set. `code.menu.interact` waits through the shared event
+  helpers, treats event type 1 as Enter/Escape, treats event type 2 as movement
+  values `1..8`, and persists the current heading/item before looping.
+- Confirmed the Enter semantics from source and existing QEMU probes: enabled
+  items enqueue a type-3 status event with the item id, disabled items continue
+  waiting, and Escape exits without enqueueing a selection. Dynamic arrow-key
+  validation remains a compatibility-suite gap, but the movement semantics are
+  source-backed from `table.menu.navigation_dispatch` and the AGIDATA raw-key
+  table.
+
+## 2026-07-04: picture scanner command-resume fuzz expansion
+
+Commands run from `/Users/peter/ai/agi/reverse`:
+
+- `rg -n "base_0|corner|f4|f5|interleav|random|pattern|seed_fill|draw_corner" tools/picture_fuzz.py tests/test_picture_fuzz.py tests/test_graphics_rendering.py`
+- `sed -n '1,260p' tools/picture_fuzz.py`
+- `sed -n '1,430p' tests/test_graphics_rendering.py`
+- `python3 -B -m unittest tests.test_graphics_rendering tests.test_picture_fuzz`
+- `python3 -B tools/picture_fuzz.py generate --count 1024 --seed 4097 --output build/picture-fuzz/corpus --clean`
+- `python3 -B tools/picture_fuzz.py batch-qemu --snapshot --case base_030_line_pair_command_resume --case base_031_corner_command_resume --case base_032_fill_command_resume --dos-prefix FR --fixture-root build/picture-fuzz/fixtures --output build/picture-fuzz/batches/command_resume_001.json --boot-wait 5 --draw-wait 8 --stop-on-failure`
+
+Documented result:
+
+- Added three safe curated picture fuzz cases. They exercise the common
+  coordinate/list-reader rule that a byte above `0xef` terminates the active
+  drawing command and remains pending for the scanner.
+- Added local renderer tests for an incomplete absolute-line coordinate pair
+  terminated by command `0xf0`, a Y-first corner path terminated after one
+  segment by command `0xf0`, and a seed-fill point list terminated by command
+  `0xf0`.
+- Regenerated the corpus with 1,057 cases, of which 1,055 are safe for QEMU.
+  The two unsafe cases remain out-of-spec guardrails for over-read behavior.
+- QEMU snapshot batch `command_resume_001` matched all three new cases with
+  0 mismatches, promoting this scanner-resume behavior to original-engine
+  compatibility evidence.
+
+## 2026-07-04: timed view/object carousel harness
+
+Commands run from `/Users/peter/ai/agi/reverse`:
+
+- `sed -n '1,280p' tools/view_batch.py`
+- `sed -n '1,320p' tools/picture_carousel.py`
+- `sed -n '1,260p' tests/test_view_batch.py`
+- `sed -n '1,980p' tools/qemu_fixture.py`
+- `sed -n '1,620p' tests/test_qemu_fixture.py`
+- `python3 -B -m unittest tests.test_qemu_fixture tests.test_view_batch tests.test_view_carousel`
+- `python3 -B tools/view_carousel.py --case view_011_normal_mid --case view_000_group1_mirrored_mid --fixture-root build/view-carousel/smoke-fixtures --dos-dir VCARSMK --output build/view-carousel/batches/view_carousel_smoke_001.json --boot-wait 5 --first-wait 3 --delay-cycles 120 --speed-value 1 --poll-interval 0.5 --poll-timeout 20`
+- `python3 -B tools/view_carousel.py --fixture-root build/view-carousel/base-fixtures --dos-dir VCARBASE --output build/view-carousel/batches/view_carousel_base_001.json --boot-wait 5 --first-wait 3 --delay-cycles 120 --speed-value 1 --poll-interval 0.5 --poll-timeout 20`
+- `python3 -B tools/view_carousel.py --include-stress --fixture-root build/view-carousel/stress-fixtures --dos-dir VCARSTR --output build/view-carousel/batches/view_carousel_stress_001.json --boot-wait 5 --first-wait 3 --delay-cycles 120 --speed-value 1 --poll-interval 0.5 --poll-timeout 20`
+
+Documented result:
+
+- Added `view_timed_carousel_logic_payload` and
+  `build_view_timed_carousel_fixture` to `tools/qemu_fixture.py`. The fixture
+  packs generated `LOGIC.0`, selected picture resources, and selected view
+  resources into `VOL.3` and patches `PICDIR`, `VIEWDIR`, and `LOGDIR`.
+- Added `tools/view_carousel.py`, a timed polling QEMU harness for
+  picture-plus-view cases. It keeps one original-engine process running,
+  refreshes the picture and transient object after a cycle delay, and polls
+  `screendump` output until the expected local comparison matches.
+- Added local tests for the new logic payload, packed fixture layout, runner
+  naming/report behavior, and mocked runner flow.
+- The first sandboxed QEMU attempt failed because QEMU could not bind the local
+  VNC socket; rerunning with the approved `python3 -B tools/view_carousel.py`
+  command prefix allowed the local socket bind.
+- QEMU `view_carousel_smoke_001` matched two cases, `view_carousel_base_001`
+  matched all 8 current base view cases, and `view_carousel_stress_001` matched
+  all 19 current base-plus-stress cases with 0 mismatches and 0 errors from one
+  original-engine process.
+
+## 2026-07-04: picture/view runtime contract synthesis
+
+Commands run from `/Users/peter/ai/agi/reverse`:
+
+- `sed -n '230,295p' docs/src/compatibility_testing.md`
+- `sed -n '1008,1024p' docs/src/compatibility_testing.md`
+- `sed -n '1216,1230p' docs/src/compatibility_testing.md`
+- `sed -n '383,398p' PROGRESS.md`
+
+Documented result:
+
+- Added implementation-facing picture decoder lifecycle text to
+  `docs/src/runtime_model.md`, covering cache selection, fresh versus overlay
+  decode, scanner command/data behavior, draw-state channels, seed-fill
+  contract, and display finalization.
+- Added implementation-facing view/cel drawing contract text to
+  `docs/src/runtime_model.md`, covering payload layout, row runs,
+  bit-`0x80` orientation rewrite, baseline placement, priority/control gating,
+  pixel writes, and transient versus persistent object use.
+- Updated `PROGRESS.md` so picture/view implementation text is no longer listed
+  as the main renderer gap; remaining renderer work is now broader
+  priority/control, animation, future edge probes, and cross-version/resource
+  parity.
+
+## 2026-07-04: parser wildcard and terminator probes
+
+Commands run from `/Users/peter/ai/agi/reverse`:
+
+- `python3 -B tools/inspect_words.py --prefix look --limit 20`
+- `python3 -B tools/inspect_words.py --prefix around --limit 20`
+- `python3 -B tools/inspect_words.py --prefix get --limit 20`
+- `sed -n '1240,1310p' tools/logic_interpreter_probe.py`
+- `python3 -B -m unittest tests.test_logic_interpreter_probe.LogicInterpreterProbeTests.test_base_cases_cover_core_control_flow`
+- `python3 -B tools/logic_interpreter_probe.py --dos-prefix PW --output build/logic-interpreter-probes/batches/parser_edges_001.json --boot-wait 5 --draw-wait 8 --stop-on-failure --case input_word_sequence_matches_two_words --case input_word_sequence_wildcard_matches_word --case input_word_sequence_terminator_accepts_prefix`
+
+Documented result:
+
+- Confirmed from the local `WORDS.TOK` decoder that `look` maps to word ID
+  `0x0002` and `get` maps to word ID `0x0005`. The word `around` maps to
+  `0x0000`, so it was not used as the positive edge probe.
+- Added three `tools/logic_interpreter_probe.py` cases. They parse message
+  string `look get` with action `0x75`, then test condition `0x0e` for exact
+  two-word matching, wildcard word ID `0x0001`, and terminator word ID
+  `0x270f`.
+- QEMU batch `parser_edges_001` matched all three cases with 0 mismatches. The
+  runtime model now treats the wildcard and terminator behavior as
+  QEMU-backed, not merely source-backed.
+
 ## 2026-07-04: object placement spiral source pass
 
 Commands run from `/Users/peter/ai/agi/reverse`:
@@ -6930,3 +7069,834 @@ Documented result:
   that proves actual restored state: it matched the X=50 branch gated by the
   restored flag/variables with 0 visual mismatches. A failure/cancel return
   after `0x7e` draws X=90 and mismatches the X=50 oracle.
+
+## 2026-07-04: dynamic restore read-error UI probe
+
+Commands run from `/Users/peter/ai/agi/reverse`:
+
+- Extended `tools/save_roundtrip_probe.py` with `--mode restore-read-error`.
+  The generated fixture writes `SQ2SG.1` as a malformed save that is still
+  selector-visible: a 31-byte description, declared first-block length
+  `0x05e1`, and seven payload bytes `53 51 32 00 00 00 00`.
+- Added fixture-shape tests to `tests/test_save_roundtrip_probe.py`.
+- `python3 -B -m unittest tests.test_save_roundtrip_probe`
+- First broad-key run, which sent redundant Enters and therefore captured DOS
+  after the fatal dialog was dismissed:
+  `python3 -B tools/save_roundtrip_probe.py --mode restore-read-error --output build/save-roundtrip/restore_read_error_001.json --fixture build/save-roundtrip/restore-read-error-fixture --dos-dir RERR --capture build/save-roundtrip/restore_read_error_001.ppm --snapshot-raw build/save-roundtrip/snapshot/restore_read_error_001.raw --snapshot-qcow build/save-roundtrip/snapshot/restore_read_error_001.qcow2 --boot-wait 5 --draw-wait 8 --path-prompt-wait 8 --path-keys $'\n\n' --slot-wait 2 --slot-keys $'\n\n' --confirmation-wait 1 --confirmation-keys $'\n' --key-delay 0.12`
+- Prompt-timing captures:
+  `restore_read_error_prompt_001`, `restore_read_error_slot_001`,
+  `restore_read_error_after_slot_001`, and `restore_read_error_exact_001`.
+- Stable capture using exactly one Enter per prompt:
+  `python3 -B tools/save_roundtrip_probe.py --mode restore-read-error --output build/save-roundtrip/restore_read_error_002.json --fixture build/save-roundtrip/restore-read-error-fixture --dos-dir RERR --capture build/save-roundtrip/restore_read_error_002.ppm --snapshot-raw build/save-roundtrip/snapshot/restore_read_error_002.raw --snapshot-qcow build/save-roundtrip/snapshot/restore_read_error_002.qcow2 --boot-wait 5 --draw-wait 8 --path-prompt-wait 8 --path-keys $'\n' --slot-wait 2 --slot-keys $'\n' --confirmation-wait 1 --confirmation-keys $'\n' --key-delay 0.12`
+- `python3 -B tools/inspect_ppm.py build/save-roundtrip/restore_read_error_002.ppm`
+- `magick build/save-roundtrip/restore_read_error_002.ppm build/save-roundtrip/restore_read_error_002.png`
+
+Documented result:
+
+- The malformed `SQ2SG.1` is 40 bytes long and intentionally cannot parse as a
+  complete save envelope. It is still valid enough for the selector summary
+  path: after the 31-byte description, `code.save.read_slot_summary` skips the
+  first length prefix and reads the seven available payload bytes, which match
+  the `SQ2` signature prefix established by `0x8f`.
+- The timing captures show the expected UI sequence: restore directory prompt,
+  selector row with description `codex probe`, confirmation dialog naming
+  `\rerr\sq2sg.1`, then the read-error dialog.
+- The stable final capture remains on the read-error dialog after an 8-second
+  wait, proving that the dialog waits for an Enter rather than immediately
+  exiting. Its text is `Error in restoring game. Press ENTER to quit.`
+- `restore_read_error_002.ppm` has geometry `640x400`, RGB SHA-256
+  `556971f26fc34deb32497a9d10c08eedeb28f6bdb0957cd7676a8ef26830849c`,
+  3 unique colors, and non-background bounding box `(0, 136, 639, 399)`.
+  Sending extra Enters after confirmation dismisses this fatal dialog and
+  leaves the process back at DOS, explaining the first failed capture.
+
+## 2026-07-04: heap startup initialization source pass
+
+Commands run from `/Users/peter/ai/agi/reverse`:
+
+- `grep -n "heap initialization\|heap init\|0x0a55\|0x0a57\|0x1476\|0x1485\|0x13d6" docs/src/clean_room_executable_notes.md docs/src/runtime_model.md docs/src/symbolic_labels.md docs/src/agi_executable.md`
+- `ndisasm -b 16 -o 0x13a0 -e 0x13a0 build/cleanroom/AGI.decrypted.exe | sed -n '1,220p'`
+- `rg -n "0a55|0a57|0a5b|0a5f|0a59|heap\\.base|heap\\.limit|current_top" build docs/src tools tests`
+- Local byte-pattern scan over `build/cleanroom/AGI.decrypted.exe` for writes
+  to `0x0a55`, `0x0a57`, `0x0a5b`, and `0x0a5f`.
+- `ndisasm -b 16 -o 0x1600 -e 0x1600 build/cleanroom/AGI.decrypted.exe | sed -n '1,180p'`
+- `ndisasm -b 16 -o 0x43d0 -e 0x43d0 build/cleanroom/AGI.decrypted.exe | sed -n '1,160p'`
+- `xxd -g 1 -s 0x1620 -l 0x90 build/cleanroom/AGI.decrypted.exe`
+- `xxd -g 1 -s 0x4400 -l 0x60 build/cleanroom/AGI.decrypted.exe`
+
+Documented result:
+
+- The existing heap helper labels remain correct for allocator behavior:
+  `[0x0a55]` is the current top, `[0x0a57]` is the base, `[0x0a59]` is the
+  room/reset mark, `[0x0a5b]` is the limit, `[0x0a5d]` is the temporary mark,
+  and `[0x0a5f]` is the high-water pointer. The helper cluster around image
+  `0x1600` includes the direct rewind, temporary mark, room/reset mark, reset,
+  free-memory-byte update, and heap-status display paths already documented in
+  earlier notes.
+- Startup memory setup around image `0x43ea` is the missing initialization
+  source. It computes memory sizing globals, resizes/probes the resident block
+  with DOS `AH=4a`, requests a runtime memory block with DOS `AH=48h`, and on
+  success converts the returned segment into a DS-relative byte offset by
+  subtracting `0x0a01` and shifting left four bits.
+- That converted offset is stored into both `[0x0a55]` and `[0x0a57]`, so the
+  heap current pointer initially equals the heap base. The limit is then
+  computed from word `[0x112c]` as `([0x112c] << 4) + [0x0a57]` and stored into
+  `[0x0a5b]`.
+- If either DOS allocation in this startup routine fails, the path displays a
+  startup memory error and terminates through DOS rather than entering the
+  interpreter with a partial heap.
+
+## 2026-07-04: sound hardware-output source pass
+
+Commands run from `/Users/peter/ai/agi/reverse`:
+
+- `grep -n "sound\|tone\|attenuation\|speaker\|driver\|0x80f3\|0x1790\|0x1806" docs/src/clean_room_executable_notes.md docs/src/runtime_model.md docs/src/symbolic_labels.md docs/src/logic_bytecode.md docs/src/compatibility_testing.md`
+- `ndisasm -b 16 -o 0x80e0 -e 0x80e0 build/cleanroom/AGI.decrypted.exe | sed -n '1,180p'`
+- `ndisasm -b 16 -o 0x8150 -e 0x8150 build/cleanroom/AGI.decrypted.exe | sed -n '1,180p'`
+- `ndisasm -b 16 -o 0x7f80 -e 0x7f80 build/cleanroom/AGI.decrypted.exe | sed -n '1,260p'`
+- `ndisasm -b 16 -o 0x82c0 -e 0x82c0 build/cleanroom/AGI.decrypted.exe | sed -n '1,180p'`
+- Added `pc_speaker_divisor()` and `pc_speaker_event_enabled()` to
+  `tools/agi_sound.py`.
+- `python3 -B -m unittest tests.test_sound_resources`
+
+Documented result:
+
+- The already documented channel scheduling remains the portable gameplay
+  contract: active channel set, countdown/event timing, per-channel attenuation
+  nibble, and completion flag. The hardware-output pass adds only the
+  source-backed driver-interface details.
+- On hardware selectors `0` and `8`, `code.sound.driver_write_tone` uses the
+  PIT/PC-speaker path. If the current attenuation nibble is `0x0f`, it clears
+  bits `0` and `1` of port `0x61`. Otherwise it computes a divisor from the
+  16-bit tone word as
+  `12 * (((tone_word & 0x3f) << 4) + ((tone_word >> 8) & 0x0f))`, writes mode
+  byte `0xb6` to port `0x43`, writes the low and high divisor bytes to port
+  `0x42`, and sets bits `0` and `1` of port `0x61`.
+- On stop, the selector `0`/`8` path calls the same tone helper with a silence
+  control byte, while other selector paths write bytes `0x9f`, `0xbf`, `0xdf`,
+  and `0xff` to port `0xc0`.
+- For non-`0`/`8` selectors, `code.sound.driver_write_tone` writes encoded
+  tone/control bytes to port `0xc0`: it writes the high tone byte, and writes
+  the low tone byte unless the high byte's top three bits are all set.
+  Selector `2` first applies the small control-byte adjustment at helper
+  `0x8345`.
+- `code.sound.driver_write_attenuation` maintains the low-nibble attenuation
+  value, applies a per-channel envelope/delta table when active, adjusts
+  selector `2` attenuation values below 8 upward by 2, combines the low nibble
+  with a stored high-nibble channel mask, and writes the result to port `0xc0`.
+- The new local test locks down the source formula for sound 1's first event:
+  tone word `0x8037` produces PC-speaker divisor `10560`, and its control byte
+  `0x9f` has attenuation nibble `0x0f`, so it is silent on the PC-speaker
+  gate.
+
+## 2026-07-04: sound attenuation envelope source model
+
+Commands run from `/Users/peter/ai/agi/reverse`:
+
+- `dd if=build/cleanroom/AGI.decrypted.exe bs=1 skip=$((0x8362)) count=360 2>/dev/null | ndisasm -b 16 -o 0x8162 -`
+- `dd if=build/cleanroom/AGI.decrypted.exe bs=1 skip=$((0x82f3)) count=140 2>/dev/null | ndisasm -b 16 -o 0x80f3 -`
+- `dd if=build/cleanroom/AGI.decrypted.exe bs=1 skip=$((0x8196)) count=180 2>/dev/null | ndisasm -b 16 -o 0x7f96 -`
+- `xxd -g 1 -s 0x17b8 -l 72 SQ2/AGIDATA.OVL`
+- `python3 -B -m unittest tests.test_sound_resources`
+
+Documented result:
+
+- `code.sound.driver_start` initializes each channel's envelope table pointer
+  at `[0x17b0..0x17b7]` to `0x17b8`, each envelope index at
+  `[0x17a0..0x17a7]` to `0xffff`, and the per-channel active words to
+  `0xffff`.
+- On event reads, `code.sound.driver_tick` resets envelope index `+0x17a0` to
+  zero for channels with `BX != 6` before reading a new duration/tone/control
+  record. Channel 3 (`BX == 6`) keeps its current envelope index across event
+  reads in the observed source.
+- `code.sound.driver_write_attenuation` (`0x8162`) reads the base attenuation
+  byte from `[BX+0x17a8]`. If it is `0x0f`, the helper skips envelope and
+  selector-2 adjustment and writes the silent low nibble with the channel mask.
+- If the base attenuation is not `0x0f` and envelope index `[BX+0x17a0]` is not
+  `0xffff`, the helper reads one byte from table pointer `[BX+0x17b0]` at that
+  index. Byte `0x80` disables the envelope and copies previous envelope value
+  `[BX+0x17a9]` into the base attenuation byte. Other bytes are applied as
+  signed-ish deltas from the base attenuation, not cumulative deltas from the
+  previous envelope value; negative underflow clamps to zero and positive
+  overflow clamps to `0x0f`. The clamped value is stored in `[BX+0x17a9]`.
+- After envelope processing, the helper adds runtime byte `[0x0020]` and clamps
+  to `0x0f`. Hardware selector `2` then raises non-silent attenuation values
+  below `8` by `2`. Finally it ORs the low nibble with the high channel mask
+  from `[BX+0x17fc]` and writes the result to port `0xc0`.
+- The default table at `0x17b8` begins
+  `fe fd fe ff 00 00 01 01 ...` and terminates with `0x80`. The observed
+  channel masks are `0x90`, `0xb0`, `0xd0`, and `0xf0`.
+- Added `SoundAttenuationState`, `SoundAttenuationOutput`,
+  `default_attenuation_envelope()`, `sound_channel_output_mask()`, and
+  `sound_attenuation_output()` to `tools/agi_sound.py`. Local tests cover the
+  source table bytes, channel masks, selector-2 adjustment, delta clamps, and
+  `0x80` terminator behavior.
+
+## 2026-07-04: source-backed opcode dynamic-probe audit
+
+Commands run from `/Users/peter/ai/agi/reverse`:
+
+- `sed -n '1080,1112p' docs/src/compatibility_testing.md`
+- `sed -n '1268,1298p' docs/src/compatibility_testing.md`
+- `rg -n "0x6e|0x83|0x8e|0xaa|0xad|source-backed" docs/src/logic_bytecode.md docs/src/runtime_model.md docs/src/compatibility_testing.md PROGRESS.md`
+- `sed -n '387,397p' PROGRESS.md`
+
+Documented result:
+
+- The five non-QEMU-validated action rows are intentionally source-backed for
+  the current full-EGA spec target rather than unfinished core semantics.
+- `0x6e` (`shake_screen_like`) is source-backed for its CRT/display-register
+  timing loop. The existing dispatch smoke proves bytecode continuation, but a
+  screenshot is not a useful portable oracle for the transient hardware effect.
+- `0x83` (`clear_global_0139`) is source-backed at the main-cycle mirror point.
+  Logic script writes occur after the pre-logic mirror and can be overwritten
+  by the next restore path, so a bytecode-only QEMU fixture would mostly prove
+  the harness timing rather than the interpreter contract.
+- `0x8e` (`set_global_0141_and_refresh`) resets the event-pair capacity state.
+  The downstream save/restore replay behavior is already QEMU-backed through
+  `0xab`/`0xac`; probing the raw reset directly would require a narrow internal
+  state hook.
+- `0xaa` (`copy_save_description_to_string_slot`) copies from runtime data
+  segment buffer `0x0e72`; the earlier failed static `AGIDATA.OVL` patch did
+  not populate that runtime buffer. A representative dynamic probe would need
+  to drive the save/restore selector that fills it.
+- `0xad` (`increment_global_1530`) is source-backed in the keyboard IRQ release
+  gate. A direct QEMU fixture would depend on raw scan-code release timing
+  rather than a stable high-level gameplay observable.
+- Updated `PROGRESS.md` and `docs/src/compatibility_testing.md` so these rows
+  are no longer treated as high-value dynamic-probe work unless a future harness
+  can drive their runtime state directly.
+
+## 2026-07-04: update-list draw-order source model
+
+Commands run from `/Users/peter/ai/agi/reverse`:
+
+- `rg -n "draw ordering|draw order|update-list|update list|dirty|persistent|0x6a54|0x6a8e|0x16ff|0x1703|0x57cf|0x9db6|0x9e35" docs/src/graphics_object_pipeline.md docs/src/runtime_model.md docs/src/symbolic_labels.md tools tests`
+- Initial exploratory `ndisasm` windows around `0x69f0`, `0x5700`, and
+  `0x9d80`; the first executable windows were discarded because `ndisasm -e`
+  was again easy to misread as an end address rather than a file skip.
+- Corrected source slices with the EXE header offset included:
+  `ndisasm -b 16 -o 0x6a20 -e 0x6c20 build/cleanroom/AGI.decrypted.exe`,
+  `ndisasm -b 16 -o 0x5728 -e 0x5928 build/cleanroom/AGI.decrypted.exe`,
+  `ndisasm -b 16 -o 0x0358 -e 0x0558 build/cleanroom/AGI.decrypted.exe`,
+  `ndisasm -b 16 -o 0x042f -e 0x062f build/cleanroom/AGI.decrypted.exe`,
+  `ndisasm -b 16 -o 0x045e -e 0x065e build/cleanroom/AGI.decrypted.exe`,
+  and `ndisasm -b 16 -o 0x4cbb -e 0x4ebb build/cleanroom/AGI.decrypted.exe`.
+- `rg -n "0x1322|1322|127a|priority_table|data\\.priority|0x124a" docs/src/symbolic_labels.md docs/src/graphics_object_pipeline.md docs/src/runtime_model.md tools`
+- `xxd -g 1 -s 0x1240 -l 0x20 SQ2/AGIDATA.OVL`
+- `xxd -g 1 -s 0x1320 -l 0x20 SQ2/AGIDATA.OVL`
+- Local byte-pattern scan over `build/cleanroom/AGI.decrypted.exe` for writes
+  to word `0x124a`.
+- Added update-list ordering helpers to `tools/agi_graphics.py`.
+- `python3 -B -m unittest tests.test_graphics_rendering`
+
+Documented result:
+
+- Source confirms the two root wrappers already documented: `0x6a8e` rebuilds
+  and draws root `0x1703`, then root `0x16ff`; `0x6aab` refreshes root `0x1703`,
+  then root `0x16ff`.
+- Shared builder `0x0358(root, callback)` scans the 43-byte object table in
+  memory order. Accepted records are stored with a draw key. The key is object
+  baseline field `+0x05` unless flag bit `0x0004` is set, in which case it is
+  `0x4cbb(object[+0x24])`.
+- The builder then selects the smallest remaining key on each pass. It uses a
+  signed comparison against an initial `0x00ff` best key and preserves the
+  first object-table entry for equal keys. Consumed keys are overwritten with
+  `0x00ff`.
+- Helper `0x042f` inserts newly allocated 16-byte render nodes at the head of
+  the root list; the first inserted node remains the root tail. Helper `0x045e`
+  draws from tail toward previous pointers, saving a backing rectangle through
+  `IBM_OBJS.OVL:0x9db0` and then drawing through `IBM_OBJS.OVL:0x9db6`.
+  Combining these paths means objects draw in ascending key order within a
+  root, while equal-key objects draw in object-table order and later entries
+  can cover earlier entries.
+- Helper `0x4cbb(value)` in SQ2's normal mode scans the priority table from
+  one-past index `0xa8` downward and returns the first index whose byte is less
+  than `value`; `value == 0` returns `0xffff`. The local AGIDATA byte at
+  `0x127a + 0xa8` is zero, and a local byte-pattern scan found only the
+  `0x4d10` helper clearing word `[0x124a]`, not a write that enables the
+  alternate direct formula branch.
+- Added `ObjectDrawCandidate`, `priority_value_to_sort_y`,
+  `object_update_root`, `object_update_sort_key`, and
+  `object_update_draw_order` to the local renderer helpers. The focused
+  graphics test module now includes source-model tests for root order, stable
+  equal-key order, and the SQ2 sentinel behavior in the fixed-priority reverse
+  mapping.
+
+## 2026-07-04: dirty-rectangle union source model
+
+Commands run from `/Users/peter/ai/agi/reverse`:
+
+- `ndisasm -b 16 -o 0x5762 -e 0x5962 build/cleanroom/AGI.decrypted.exe`
+  (the command was useful for the first routine body but also confirmed again
+  that `ndisasm -e` is a skip offset, not an end offset, so the terminal output
+  continued past `0x57ce`).
+- `python3 -B -m unittest tests.test_graphics_rendering`
+
+Documented result:
+
+- Helper `0x5762(object)` returns without display work when word `[0x1216]` is
+  zero.
+- Otherwise it loads the current frame pointer from object word `+0x10`, the
+  saved frame pointer from object word `+0x12`, stores the current frame pointer
+  back into `+0x12`, and computes one display rectangle covering both the
+  current and saved object footprints.
+- The vertical calculation treats object Y fields as baselines. The current top
+  is `object[+0x05] - current_frame[+0x01] + 1`; the saved top is
+  `object[+0x18] - saved_frame[+0x01] + 1`.
+- The horizontal calculation uses left X plus frame width. The rectangle passed
+  to overlay entry `0x980c` is `left = min(current_left, saved_left)`,
+  `bottom = max(current_bottom, saved_bottom)`, `width = max(current_right,
+  saved_right) - left`, and `height = bottom - min(current_top, saved_top) + 1`.
+- Added `DirtyRect` and `dirty_rect_union()` to `tools/agi_graphics.py`, with
+  focused tests for identical footprints and old/current footprints on opposite
+  sides of the union.
+
+## 2026-07-04: control-acceptance source model
+
+Commands run from `/Users/peter/ai/agi/reverse`:
+
+- `dd if=build/cleanroom/AGI.decrypted.exe bs=1 skip=$((0x58b8)) count=220 2>/dev/null | ndisasm -b 16 -o 0x56b8 -`
+- `dd if=build/cleanroom/AGI.decrypted.exe bs=1 skip=$((0x4919)) count=260 2>/dev/null | ndisasm -b 16 -o 0x4719 -`
+- `python3 -B -m unittest tests.test_graphics_rendering`
+
+Documented result:
+
+- `code.object.control_acceptance` (`0x56b8`) derives object byte `+0x24` from
+  the baseline priority table unless object flag bit `0x0004` is set, computes
+  the logical-buffer offset for the object coordinate, and scans one row using
+  the current frame width.
+- Object priority/control byte `+0x24 == 0x0f` bypasses the buffer scan and
+  returns accepted.
+- High nibble `0x00` rejects immediately. High nibble `0x10` rejects unless
+  object flag bit `0x0002` is set. High nibble `0x20` leaves final class state
+  `(flag3=true, flag0=false)`. High nibble `0x30` leaves final class state
+  `(flag3=false, flag0=true)`. Other nonzero high nibbles leave final class
+  state `(flag3=false, flag0=false)`.
+- The source resets class state for each scanned cell, so the final scanned
+  class state controls the post-scan gates. This corrects the earlier wording
+  that implied class `0x20` was latched once encountered anywhere.
+- After a complete scan, object flag bit `0x0100` rejects states whose flag0
+  component is false, and object flag bit `0x0800` rejects states whose flag0
+  component is true. When object byte `+0x02` is zero, the final class state is
+  also written to global flags 3 and 0.
+- Added `ControlAcceptance` and `control_acceptance_scan()` to
+  `tools/agi_graphics.py`, with focused local tests for class rejection,
+  priority-15 bypass, final-class ordering, and event-byte-zero global flag
+  values.
+- A neighboring slice of `code.object.collision_test` (`0x4719`) confirmed the
+  previously documented object-object skip bit `0x0200`, object-table scan,
+  grouping-byte skip, horizontal overlap test, and current/saved Y crossing
+  test.
+
+## 2026-07-04: view header reserved bytes
+
+Commands run from `/Users/peter/ai/agi/reverse`:
+
+- `dd if=build/cleanroom/AGI.decrypted.exe bs=1 skip=$((0x3bf7)) count=360 2>/dev/null | ndisasm -b 16 -o 0x39f7 -`
+- `dd if=build/cleanroom/AGI.decrypted.exe bs=1 skip=$((0x3e1b)) count=180 2>/dev/null | ndisasm -b 16 -o 0x3c1b -`
+- `dd if=build/cleanroom/AGI.decrypted.exe bs=1 skip=$((0x60db)) count=180 2>/dev/null | ndisasm -b 16 -o 0x5edb -`
+- `python3 -B tools/inspect_view.py | head -n 40`
+- `python3 -B -c "import sys; sys.path.insert(0,'tools'); from agi_graphics import iter_valid_resources; from collections import Counter; c=Counter(payload[:2] for _,payload in iter_valid_resources('VIEWDIR')); print(c); print(sorted((k.hex(),v) for k,v in c.items()))"`
+- `python3 -B -m unittest tests.test_graphics_rendering`
+
+Documented result:
+
+- `code.view.load_resource` (`0x39f7`) loads/caches a view payload, then calls
+  display-mode helper `0x591f` and the update-list rebuild path. It does not
+  interpret payload bytes `+0x00` or `+0x01`.
+- `code.object.bind_view` (`0x3ae7`) copies the cached payload pointer into the
+  object record and reads payload byte `+0x02` as the group count.
+- `code.object.select_group_table` (`0x3c1b`) reads group offsets from
+  `payload + 0x05 + selected_group * 2`, then reads the selected group count
+  from the group pointer.
+- The preview/display helper at `0x5edb` binds the view and uses the existing
+  object/frame selection path; previous source notes also identified its
+  consumer of the preview text offset at payload bytes `+0x03..+0x04`.
+- A local census found all 203 valid SQ2 view resources have first two payload
+  bytes `01 01`.
+- The current clean-room model therefore treats view payload bytes `+0x00` and
+  `+0x01` as reserved header bytes for SQ2: preserved in the format model, but
+  unused by the observed loader, binder, group/frame selector, and preview
+  paths. Future interpreter-version comparisons should flag any divergent use.
+
+## 2026-07-04: direct corner-path unit coverage
+
+Commands run from `/Users/peter/ai/agi/reverse`:
+
+- `rg -n "0xF4|0xf4|corner|draw_corner|base_.*corner|F5|0xf5" tools tests docs/src/compatibility_testing.md docs/src/graphics_object_pipeline.md`
+- `python3 -B -m unittest tests.test_graphics_rendering`
+
+Documented result:
+
+- The picture fuzz corpus and prior QEMU batches already include synthetic
+  corner-path streams, but the focused graphics unit tests only made the
+  command-resume behavior explicit.
+- Added direct local regression tests for `0xf4` (`draw_corner_path_y_first`)
+  and `0xf5` (`draw_corner_path_x_first`) point sets. These tests do not add a
+  new original-engine observation; they make the existing source-modeled rare
+  handlers harder to accidentally regress while picture renderer work
+  continues.
+
+## 2026-07-04: WORDS.TOK decoder tests
+
+Commands run from `/Users/peter/ai/agi/reverse`:
+
+- `python3 -B tools/inspect_words.py --prefix look --limit 10`
+- `python3 -B tools/inspect_words.py --prefix get --limit 10`
+- `python3 -B tools/inspect_words.py --prefix anyword --limit 10`
+- `python3 -B tools/inspect_words.py --limit 5`
+- `python3 -B -m unittest tests.test_words`
+- `python3 -B -m unittest tests.test_graphics_rendering`
+
+Documented result:
+
+- The local WORDS.TOK decoder reads 26 big-endian letter offsets followed by
+  prefix-compressed entries. The local SQ2 file has 1,099 decoded entries and a
+  zero offset for the `x` bucket.
+- Known IDs used by parser probes are now locked down in local tests:
+  `anyword` has ID `0x0001`, `look` has ID `0x0002`, and `get` has ID
+  `0x0005`.
+- Prefix-compressed phrase reconstruction is covered by tests for phrases such
+  as `look across`, `look down`, and `get inside`.
+- This complements the original-engine `parser_edges_001` QEMU batch, which
+  validates matching `look get`, wildcard ID `0x0001`, and terminator ID
+  `0x270f` through condition `0x0e`.
+
+## 2026-07-04: save path validation plan
+
+Commands run from `/Users/peter/ai/agi/reverse`:
+
+- `dd if=build/cleanroom/AGI.decrypted.exe bs=1 skip=$((0x5ddd)) count=360 2>/dev/null | ndisasm -b 16 -o 0x5bdd -`
+- `xxd -g 1 -s 0x135f -l 16 SQ2/AGIDATA.OVL`
+- `dd if=build/cleanroom/AGI.decrypted.exe bs=1 skip=$((0x5fea)) count=120 2>/dev/null | ndisasm -b 16 -o 0x5dea -`
+- `dd if=build/cleanroom/AGI.decrypted.exe bs=1 skip=$((0x603e)) count=120 2>/dev/null | ndisasm -b 16 -o 0x5e3e -`
+- `dd if=build/cleanroom/AGI.decrypted.exe bs=1 skip=$((0x51ea)) count=120 2>/dev/null | ndisasm -b 16 -o 0x4fea -`
+- `dd if=build/cleanroom/AGI.decrypted.exe bs=1 skip=$((0x5fb2)) count=90 2>/dev/null | ndisasm -b 16 -o 0x5db2 -`
+- `python3 -B -m unittest tests.test_save_resources`
+
+Documented result:
+
+- `code.dos.validate_path` (`0x5bdd`) skips leading spaces before measuring the
+  path. If the resulting string is empty it calls `code.dos.get_current_directory`
+  (`0x5db2`) to fill the same buffer.
+- If the last character is slash or backslash and the path length is greater
+  than one, the validator strips that trailing separator in place before
+  selecting a validation path. The separator table at `AGIDATA.OVL:0x135f`
+  contains backslash, slash, and a terminator.
+- If the effective path has a drive prefix (`text[1] == ':'`), the drive letter
+  is lowercased by helper `0x4fea` and stored in byte `[0x1363]`; otherwise
+  helper `0x5dea` reads the current DOS drive letter into `[0x1363]`.
+- A single slash/backslash path returns success immediately. A two-character
+  drive path such as `A:` calls helper `0x5e3e`, which switches to the requested
+  drive, checks whether DOS accepted it, and switches back. Other paths call
+  DOS find-first helper `0x5e01` with attribute `0x10`.
+- Added `SavePathValidationPlan` and `save_path_validation_plan()` to
+  `tools/agi_save.py`, with tests for leading spaces, empty-current-directory
+  fallback, root acceptance, trailing separator stripping, drive-only paths,
+  and normal directory lookup classification. The helper models source-level
+  string handling and DOS-check selection; it does not claim to know whether a
+  given path exists in a future DOS environment.
+
+## 2026-07-04: resource cache record layout polish
+
+Commands run from `/Users/peter/ai/agi/reverse`:
+
+- `dd if=build/cleanroom/AGI.decrypted.exe bs=1 skip=$((0x3b79)) count=130 2>/dev/null | ndisasm -b 16 -o 0x3979 -`
+- `dd if=build/cleanroom/AGI.decrypted.exe bs=1 skip=$((0x4be8)) count=130 2>/dev/null | ndisasm -b 16 -o 0x49e8 -`
+- `dd if=build/cleanroom/AGI.decrypted.exe bs=1 skip=$((0x4c5e)) count=130 2>/dev/null | ndisasm -b 16 -o 0x4a5e -`
+- `dd if=build/cleanroom/AGI.decrypted.exe bs=1 skip=$((0x52d8)) count=90 2>/dev/null | ndisasm -b 16 -o 0x50d8 -`
+- `dd if=build/cleanroom/AGI.decrypted.exe bs=1 skip=$((0x5326)) count=240 2>/dev/null | ndisasm -b 16 -o 0x5126 -`
+
+Documented result:
+
+- View cache lookup `0x3979` walks the list rooted at `[0x0ffa]`, compares
+  record byte `+0x02` against the requested view number, and leaves the link
+  slot for insertion in `[0x1000]`. View loader `0x39f7` allocates 5 bytes on a
+  miss, links the record through that slot, stores the view number at `+0x02`,
+  and stores the payload pointer at `+0x03`.
+- Picture cache lookup `0x49e8` walks the list rooted at the static first record
+  `[0x120e]`, compares record byte `+0x02`, and leaves the insertion slot in
+  `[0x1214]`. Picture loader `0x4a3b` uses the static first record when that
+  insertion slot is zero; otherwise it allocates 5 bytes, links it from the
+  previous record, stores the picture number at `+0x02`, and stores the payload
+  pointer at `+0x03`.
+- Sound cache lookup `0x50d8` walks the list rooted at static record
+  `[0x125a]`, compares record word `+0x02`, and leaves the insertion slot in
+  `[0x1268]`. Sound loader `0x5126` uses the static first record for the first
+  sound, otherwise allocates 14 bytes. It stores the sound number word at
+  `+0x02`, the payload pointer at `+0x04`, and derives four channel stream
+  pointers at `+0x06`, `+0x08`, `+0x0a`, and `+0x0c` from the first four
+  little-endian payload offsets.
+- Existing logic loader notes already pinned down the 10-byte logic cache
+  record: next pointer at `+0x00`, logic number byte at `+0x02`, message count
+  at `+0x03`, bytecode pointer at `+0x04`, current instruction pointer at
+  `+0x06`, and message-offset-table pointer at `+0x08`.
+
+## 2026-07-04: picture raw-operand scanner edge
+
+Commands run from `/Users/peter/ai/agi/reverse`:
+
+- `dd if=build/cleanroom/AGI.decrypted.exe bs=1 skip=$((0x6675)) count=80 2>/dev/null | ndisasm -b 16 -o 0x6475 -`
+- `dd if=build/cleanroom/AGI.decrypted.exe bs=1 skip=$((0x6694)) count=260 2>/dev/null | ndisasm -b 16 -o 0x6494 -`
+- `dd if=build/cleanroom/AGI.decrypted.exe bs=1 skip=$((0x6803)) count=260 2>/dev/null | ndisasm -b 16 -o 0x6603 -`
+- `dd if=build/cleanroom/AGI.decrypted.exe bs=1 skip=$((0x68ab)) count=260 2>/dev/null | ndisasm -b 16 -o 0x66ab -`
+- `python3 -B -m unittest tests.test_graphics_rendering`
+- `python3 -B -m unittest tests.test_picture_fuzz`
+- `python3 -B tools/picture_fuzz.py generate --count 1024 --seed 4097 --output build/picture-fuzz/corpus --clean`
+- `python3 -B tools/picture_fuzz.py batch-qemu --snapshot --case base_033_raw_visual_operand --case base_034_raw_control_operand --case base_035_raw_pattern_mode_operand --dos-prefix RO --fixture-root build/picture-fuzz/fixtures --output build/picture-fuzz/batches/raw_operand_001.json --boot-wait 5 --draw-wait 8 --stop-on-failure`
+
+Documented result:
+
+- The top-level picture scanner at `0x6475` dispatches command bytes
+  `0xf0..0xfa`, then resumes at `0x647a` using the `AL` byte left by the
+  handler. This makes handler-local byte consumption significant.
+- Handlers `0x6494` (`0xf0` set visual), `0x64c7` (`0xf2` set control), and
+  `0x6524` (`0xf9` set pattern mode) each use a raw `lodsb` operand read and
+  then preload the next byte. They do not reject operands `>= 0xf0`.
+- Coordinate/list readers `0x66c1`, `0x66d4`, and `0x66b8` do reject bytes
+  above `0xef`, returning carry with the command-looking byte in `AL` for the
+  scanner to process next. This is the source distinction between raw one-byte
+  operands and coordinate/list data.
+- Updated `PictureRenderer` with `read_raw_byte()` and changed `0xf0`, `0xf2`,
+  and `0xf9` to use it. Added local graphics tests showing that command-looking
+  bytes after those opcodes are operands, not commands.
+- Added three safe curated fuzz cases:
+  `base_033_raw_visual_operand`, `base_034_raw_control_operand`, and
+  `base_035_raw_pattern_mode_operand`. Regenerating the deterministic corpus
+  produced 1,060 cases, of which 1,058 are marked safe for QEMU.
+- Original-engine snapshot batch `raw_operand_001` matched all three new cases
+  with 0 mismatches and 0 errors. This confirms the source-modeled scanner edge
+  on the visible EGA surface.
+
+## 2026-07-04: picture relative-line underflow edge
+
+Commands run from `/Users/peter/ai/agi/reverse`:
+
+- `dd if=build/cleanroom/AGI.decrypted.exe bs=1 skip=$((0x685e)) count=180 2>/dev/null | ndisasm -b 16 -o 0x665e -`
+- `dd if=build/cleanroom/AGI.decrypted.exe bs=1 skip=$((0x68e1)) count=260 2>/dev/null | ndisasm -b 16 -o 0x66e1 -`
+- `python3 -B -m unittest tests.test_graphics_rendering`
+- `python3 -B -m unittest tests.test_picture_fuzz`
+- `python3 -B tools/picture_fuzz.py generate --count 1024 --seed 4097 --output build/picture-fuzz/corpus --clean`
+- `python3 -B tools/picture_fuzz.py batch-qemu --snapshot --case base_036_relative_x_underflow_wraps --case base_037_relative_y_underflow_wraps --dos-prefix RU --fixture-root build/picture-fuzz/fixtures --output build/picture-fuzz/batches/relative_underflow_001.json --boot-wait 5 --draw-wait 8 --stop-on-failure`
+- `python3 -B -m unittest tests.test_compatibility_suite`
+- `python3 -B tools/compatibility_suite.py --dry-run --include-qemu-smoke`
+- `python3 -B tools/compatibility_suite.py --include-qemu-smoke --report build/compatibility-suite/qemu_smoke_002.json`
+
+Documented result:
+
+- Handler `0x665e` reads the initial coordinate pair through `0x66b8`, plots
+  it, then consumes relative bytes while they are `<= 0xef`.
+- For X, bits `0x70` supply a magnitude and bit `0x80` chooses subtraction.
+  The handler adds or subtracts that magnitude in `BH`, an 8-bit coordinate
+  register, then clamps only if `BH > 0x9f`. Subtracting from zero therefore
+  underflows to a high unsigned byte and is clamped to `0x9f`, not to zero.
+- For Y, bits `0x07` supply a magnitude and bit `0x08` chooses subtraction.
+  The same byte-register behavior applies, followed by a high-side clamp to
+  `0xa7`.
+- Updated `PictureRenderer.draw_relative_lines()` to model this 8-bit
+  wrap-and-high-clamp behavior. Added local graphics tests for X underflow from
+  `(0,10)` to the right edge and Y underflow from `(10,0)` to the bottom edge.
+- Added safe curated fuzz cases `base_036_relative_x_underflow_wraps` and
+  `base_037_relative_y_underflow_wraps`. Regenerating the deterministic corpus
+  produced 1,062 cases, of which 1,060 are marked safe for QEMU.
+- Original-engine snapshot batch `relative_underflow_001` matched both new
+  cases with 0 mismatches and 0 errors.
+- Promoted the new pair into the QEMU smoke layer as
+  `picture_fuzz_relative_underflow_qemu`. The updated smoke report
+  `qemu_smoke_002.json` passed after running 235 local tests, mdBook,
+  opcode-evidence check, parser QEMU probes, command-resume probes,
+  raw-operand probes, and the new relative-underflow probes.
+
+## 2026-07-04: parser normalization and output-slot model
+
+Commands run from `/Users/peter/ai/agi/reverse`:
+
+- `dd if=build/cleanroom/AGI.decrypted.exe bs=1 skip=$((0x1b58)) count=180 2>/dev/null | ndisasm -b 16 -o 0x1958 -`
+- `dd if=build/cleanroom/AGI.decrypted.exe bs=1 skip=$((0x1aac)) count=260 2>/dev/null | ndisasm -b 16 -o 0x18ac -`
+- `dd if=build/cleanroom/AGI.decrypted.exe bs=1 skip=$((0x1b9d)) count=260 2>/dev/null | ndisasm -b 16 -o 0x199d -`
+- `dd if=build/cleanroom/AGI.decrypted.exe bs=1 skip=$((0x1c6b)) count=360 2>/dev/null | ndisasm -b 16 -o 0x1a6b -`
+- `dd if=build/cleanroom/AGI.decrypted.exe bs=1 skip=$((0x1dc7)) count=130 2>/dev/null | ndisasm -b 16 -o 0x1bc7 -`
+- `dd if=build/cleanroom/AGI.decrypted.exe bs=1 skip=$((0x1de4)) count=100 2>/dev/null | ndisasm -b 16 -o 0x1be4 -`
+- `xxd -g 1 -s 0x0940 -l 48 SQ2/AGIDATA.OVL`
+- `xxd -g 1 -s 0x0c70 -l 80 SQ2/AGIDATA.OVL`
+- `python3 -B -m unittest tests.test_words`
+
+Documented result:
+
+- Re-read action `0x75` at `0x1958`, parser helper `0x18ac`, normalization
+  helper `0x199d`, dictionary lookup helper `0x1a6b`, unknown-token helper
+  `0x1bc7`, and dictionary-entry advance helper `0x1be4`.
+- Added symbolic labels for the parser action/helper routines and data labels
+  for separator bytes `0x0c67`, ignored bytes `0x0c75`, parsed IDs `0x0c7b`,
+  parsed word pointers `0x0c8f`, dictionary base pointer `[0x0ca5]`, normalized
+  parse buffer `0x0ca7`, and current parse pointer `[0x0cd1]`.
+- Added local source-model helpers to `tools/inspect_words.py`:
+  `parser_separator_bytes()`, `parser_ignored_bytes()`,
+  `normalize_parser_text()`, and `parse_words()`.
+- Local tests now validate the SQ2 separator table (` ,.?!();:[]{}`), ignored
+  punctuation table (apostrophe, backtick, hyphen, double quote), separator
+  collapse, ignored-punctuation removal, case-insensitive lookup, zero-ID word
+  filtering, unknown-word reporting, and the ten-output-word limit.
+- The output-slot model corrects an easy-to-miss detail: ignored zero-ID
+  dictionary words such as `the`, `a`, and `i` do not increment the parser's
+  output index. An unknown word after ignored terms therefore records
+  `parsed_nonzero_word_count + 1`; for example a phrase shaped like
+  `the <unknown> look` reports output slot 1, not raw token ordinal 2.
+
+## 2026-07-04: heap formula test model
+
+Commands run from `/Users/peter/ai/agi/reverse`:
+
+- `dd if=build/cleanroom/AGI.decrypted.exe bs=1 skip=$((0x15d6)) count=260 2>/dev/null | ndisasm -b 16 -o 0x13d6 -`
+- `dd if=build/cleanroom/AGI.decrypted.exe bs=1 skip=$((0x16bd)) count=240 2>/dev/null | ndisasm -b 16 -o 0x14bd -`
+- `rg -n "bump|heap|0x13d6|0x14bd|memory" docs/src/runtime_model.md docs/src/symbolic_labels.md docs/src/clean_room_executable_notes.md`
+- `python3 -B -m unittest tests.test_heap`
+
+Documented result:
+
+- Rechecked the allocator helper `code.heap.allocate` (`0x13d6`) and the
+  heap-status action `code.heap.show_status_action` (`0x14bd`) against the
+  existing heap notes and symbolic labels.
+- Added `tools/agi_heap.py` as a local source-model helper for the bump heap:
+  allocation returns the old current pointer, advances the current pointer,
+  recomputes the free-byte count and byte variable 8 page value, and updates
+  the high-water pointer only when the new current pointer exceeds the prior
+  high-water value.
+- The helper also models fatal allocation overflow, one-shot temporary-mark
+  restore, dynamic reset to the room/reset mark, and the five heap-status
+  numbers printed by action `0x87`.
+- Added `tests/test_heap.py`; the focused suite passed 7 tests. This makes the
+  allocator/status formulas executable compatibility evidence while leaving
+  the visibly rendered out-of-memory path as optional future coverage.
+
+## 2026-07-04: bit-0x80 view mirror edge tests
+
+Commands run from `/Users/peter/ai/agi/reverse`:
+
+- `dd if=build/cleanroom/AGI.decrypted.exe bs=1 skip=$((0x5a7d)) count=420 2>/dev/null | ndisasm -b 16 -o 0x587d -`
+- `dd if=build/cleanroom/AGI.decrypted.exe bs=1 skip=$((0x5bac)) count=260 2>/dev/null | ndisasm -b 16 -o 0x59ac -`
+- `sed -n '2668,2734p' docs/src/clean_room_executable_notes.md`
+- `python3 -B -m unittest tests.test_graphics_rendering`
+
+Documented result:
+
+- Re-read `code.object.rewrite_frame_orientation` (`0x587d`) and the nearby
+  placement helpers before expanding local coverage for the view/cel mirror
+  model.
+- The source loop skips explicit leading transparent runs until it sees the
+  first nontransparent run. If the row terminator is reached first, it writes
+  an empty rebuilt row.
+- For rows with visible data, the helper emits the original implicit trailing
+  transparent width before reversing the counted run bytes. Widths larger than
+  15 are emitted as multiple transparent run bytes because a run length is only
+  four bits.
+- Added focused local tests for all-transparent rows, implicit transparent
+  padding, long transparent chunking, and reversal from the first visible run.
+  The graphics suite passed 57 tests after correcting one arithmetic mistake in
+  the expected transparent width.
+
+## 2026-07-04: object-overlay priority gate edge tests
+
+Commands run from `/Users/peter/ai/agi/reverse`:
+
+- `rg --files SQ2 build/cleanroom | rg "IBM|OBJ|OVL|AGI.decrypted"`
+- `ls -l SQ2 build/cleanroom`
+- `sed -n '700,770p' docs/src/clean_room_executable_notes.md`
+- `sed -n '2520,2550p' docs/src/clean_room_executable_notes.md`
+- `ndisasm -b 16 -o 0x9db0 SQ2/IBM_OBJS.OVL | sed -n '1,260p'`
+- `python3 -B -m unittest tests.test_graphics_rendering`
+
+Documented result:
+
+- Confirmed again that the draw entry is in `SQ2/IBM_OBJS.OVL`, not the base
+  executable image: entry `0x9db6` jumps to `0x9e35`.
+- The draw loop extracts each run byte as color/high nibble plus count/low
+  nibble. If the run color is the transparent nibble from frame control byte
+  `+0x02`, it advances by the run length without writing.
+- For nontransparent pixels, destination high nibbles above `0x20` are compared
+  directly with the object's shifted priority/control nibble. The `ja` branch
+  rejects only strictly greater values, so equal priority writes are allowed.
+- Destination high nibbles `<= 0x20` enter the downward scan at `0x9ec6`. If
+  the scan finds a high nibble above `0x20`, that value is compared with the
+  same inclusive rule; if the scan reaches the lower limit first, `CH` remains
+  zero and even priority 0 passes the local gate.
+- Rejection at `0x9ee5` increments the destination pointer and continues the
+  run loop, so a blocked pixel does not suppress later pixels in the same run.
+- Added local tests for equal scanned priority, no-hit priority 0, and
+  per-pixel run continuation. The graphics suite passed 60 tests.
+
+## 2026-07-04: input-word sequence matcher edge
+
+Commands run from `/Users/peter/ai/agi/reverse`:
+
+- `dd if=build/cleanroom/AGI.decrypted.exe bs=1 skip=$((0x0b5c)) count=220 2>/dev/null | ndisasm -b 16 -o 0x095c -`
+- `sed -n '336,420p' docs/src/logic_bytecode.md`
+- `sed -n '56,104p' docs/src/runtime_model.md`
+- `sed -n '5950,5985p' docs/src/clean_room_executable_notes.md`
+- `python3 -B -m unittest tests.test_words`
+- `python3 -B -m unittest tests.test_logic_interpreter_probe tests.test_words`
+- `python3 -B tools/logic_interpreter_probe.py --dos-prefix PU --output build/logic-interpreter-probes/batches/parser_unknown_terminator_001.json --boot-wait 5 --draw-wait 8 --stop-on-failure --case input_word_sequence_terminator_matches_unknown_word`
+- `python3 -B tools/logic_opcode_evidence.py`
+
+Documented result:
+
+- Re-read condition handler `code.logic.condition_input_word_sequence`
+  (`0x095c`). The handler first rejects when `data.words.parsed_count_or_error_position`
+  is zero, flag 4 is already set, or flag 2 is clear. Otherwise it walks the
+  variable-length operand word IDs against `data.words.parsed_ids`.
+- Operand word ID `0x0001` is a one-word wildcard. Operand word ID `0x270f`
+  immediately forces success, skips any remaining operand words, and sets flag
+  4 through the normal success path.
+- A non-terminator operand after all parsed words have been consumed fails. A
+  too-short operand list also fails because the parsed count remains nonzero
+  when the operand loop ends.
+- Added `InputWordSequenceResult` and `input_word_sequence_matches()` to
+  `tools/inspect_words.py`, with local tests for exact match, wildcard,
+  terminator skip, extra/non-terminator failure, too-short failure, flag gates,
+  and the unknown-token terminator edge.
+- The unknown-token edge is now dynamically confirmed: parsing `flarble` stores
+  a nonzero parser count/error-position and sets flag 2; condition `0x0e` with
+  only word ID `0x270f` matched in QEMU batch
+  `parser_unknown_terminator_001` with 1 match, 0 mismatches, and 0 errors.
+
+## 2026-07-04: compatibility suite manifest runner
+
+Commands run from `/Users/peter/ai/agi/reverse`:
+
+- `rg -n "compatibility suite|runner|manifest|broad suite|run_.*suite|snapshot|preset broad|parser_edges|raw_operand" tools tests docs/src/compatibility_testing.md PROGRESS.md AGENTS.md`
+- `ls tools tests`
+- `sed -n '1,180p' docs/src/compatibility_testing.md`
+- `sed -n '380,398p' PROGRESS.md`
+- `python3 -B -m unittest tests.test_compatibility_suite`
+- `python3 -B tools/compatibility_suite.py --dry-run`
+- `python3 -B tools/compatibility_suite.py --dry-run --include-qemu-smoke`
+- `python3 -B tools/compatibility_suite.py --report build/compatibility-suite/local_001.json`
+
+Documented result:
+
+- Added `tools/compatibility_suite.py`, a local-by-default manifest/runner for
+  the current compatibility layers. The default selection runs the full local
+  unit suite, `mdbook build docs`, and
+  `python3 -B tools/logic_opcode_evidence.py --check`.
+- QEMU checks are explicit opt-ins. The smoke layer includes parser edge
+  batches and targeted picture-fuzz scanner/raw-operand batches. The broad
+  layer includes the representative picture timed carousel and the current
+  view/object stress carousel.
+- Added `tests/test_compatibility_suite.py` to lock down manifest contents,
+  default layer selection, explicit QEMU layer selection, unknown-name
+  rejection, stop-on-first-failure behavior, and report writing without running
+  real subprocesses.
+- The focused runner tests passed. A real default runner invocation wrote
+  `build/compatibility-suite/local_001.json` after the local unit suite passed
+  with 230 tests, the mdBook built, and opcode evidence checked cleanly.
+
+## 2026-07-04: sound tone-output boundary model
+
+Commands run from `/Users/peter/ai/agi/reverse`:
+
+- `dd if=build/cleanroom/AGI.decrypted.exe bs=1 skip=$((0x821c)) count=220 2>/dev/null | ndisasm -b 16 -o 0x801c -`
+- `dd if=build/cleanroom/AGI.decrypted.exe bs=1 skip=$((0x82f3)) count=260 2>/dev/null | ndisasm -b 16 -o 0x80f3 -`
+- `dd if=build/cleanroom/AGI.decrypted.exe bs=1 skip=$((0x8362)) count=180 2>/dev/null | ndisasm -b 16 -o 0x8162 -`
+- `python3 -B -m unittest tests.test_sound_resources`
+
+Documented result:
+
+- Re-read `code.sound.driver_tick` (`0x801c`), tone output helper
+  `code.sound.driver_write_tone` (`0x80f3`), the selector-2 internal control
+  adjustment helper at `0x8145`, and the attenuation helper at `0x8162`.
+- Added `SoundToneOutput`, `sound_tone_output()`, and
+  `sound_stop_silence_output()` to `tools/agi_sound.py`.
+- For selectors `0` and `8`, the model reports whether the PC-speaker gate is
+  enabled and, when enabled, the source PIT divisor. A silent attenuation nibble
+  produces disabled gate state and no divisor.
+- For other selectors, the model reports the port-`0xc0` tone bytes: high tone
+  byte first, low tone byte only when the high byte's top three bits are not
+  all set. The stop-core path writes `0x9f`, `0xbf`, `0xdf`, and `0xff`.
+- Local sound tests now cover these tone/silence outputs in addition to the
+  prior resource parser, schedule, PC-speaker divisor, attenuation envelope,
+  and completion tests. `tests.test_sound_resources` passed with 16 tests.
+
+## 2026-07-04: cross-version workflow chapter
+
+Commands run from `/Users/peter/ai/agi/reverse`:
+
+- `sed -n '1,220p' docs/src/SUMMARY.md`
+- `sed -n '1,120p' docs/src/symbolic_labels.md`
+- `rg -n "cross-version|cross version|symbolic label|other games|future interpreter" docs/src AGENTS.md PROGRESS.md`
+
+Documented result:
+
+- Added `docs/src/cross_version_workflow.md` and linked it from the mdBook
+  summary.
+- The chapter defines the evidence package to collect for each future
+  interpreter/game pair, the structural anchors to use when mapping existing
+  symbolic labels to moved routines, the recommended source-first pass order,
+  compatibility suite tiers, and delta-recording rules.
+- The workflow explicitly avoids claiming that another interpreter has already
+  been compared. It moves the cross-version tracker from an empty placeholder to
+  a documented process that is blocked only on future local inputs.
+
+## 2026-07-04: compatibility suite QEMU smoke layer
+
+Commands run from `/Users/peter/ai/agi/reverse`:
+
+- `python3 -B tools/compatibility_suite.py --include-qemu-smoke --report build/compatibility-suite/qemu_smoke_001.json`
+
+Documented result:
+
+- A first sandboxed attempt reached the QEMU smoke layer but failed when QEMU
+  tried to bind the local VNC socket with `Operation not permitted`. This was a
+  sandbox permission failure, not an interpreter or fixture mismatch.
+- The rerun with local VNC/socket access passed and wrote
+  `build/compatibility-suite/qemu_smoke_001.json`.
+- The selected command set included the local unit suite, `mdbook build docs`,
+  `tools/logic_opcode_evidence.py --check`, parser-edge QEMU probes,
+  unknown-word terminator parser QEMU probe, picture command-resume fuzz QEMU
+  probes, and raw-operand picture fuzz QEMU probes.
+- Every selected command returned zero. The original-engine probe reports were:
+  `parser_edges_suite.json` with 3 matches, `parser_unknown_terminator_suite.json`
+  with 1 match, `command_resume_suite.json` with 3 matches, and
+  `raw_operand_suite.json` with 3 matches.
+
+## 2026-07-04: compatibility suite QEMU broad layer
+
+Commands run from `/Users/peter/ai/agi/reverse`:
+
+- `python3 -B tools/compatibility_suite.py --include-qemu-broad --report build/compatibility-suite/qemu_broad_002.json`
+
+Documented result:
+
+- The broad suite selection includes the local checks, all QEMU smoke checks,
+  and the broad QEMU resource sweeps.
+- The smoke checks repeated the same clean results as the dedicated smoke run:
+  parser edge probes matched 3/3, the unknown-word terminator probe matched
+  1/1, command-resume picture fuzz probes matched 3/3, raw-operand picture
+  fuzz probes matched 3/3, and relative-line underflow probes matched 2/2.
+- The suite-level broad picture carousel
+  `build/picture-carousel/batches/picture_carousel_broad_suite.json` matched
+  all 8 broad real-picture cases from one engine process.
+- The suite-level view/object stress carousel
+  `build/view-carousel/batches/view_carousel_stress_suite.json` matched all 19
+  current base-plus-stress cases from one engine process.
+- `build/compatibility-suite/qemu_broad_002.json` records return code 0 for
+  all selected commands.
+
+## 2026-07-04: object control-acceptance branch tests
+
+Commands run from `/Users/peter/ai/agi/reverse`:
+
+- `dd if=build/cleanroom/AGI.decrypted.exe bs=1 skip=$((0x58b8)) count=360 2>/dev/null | ndisasm -b 16 -o 0x56b8 -`
+- `python3 -B -m unittest tests.test_graphics_rendering`
+
+Documented result:
+
+- Re-read `code.object.control_acceptance` at `0x56b8`. The high-nibble scanner
+  resets its class-state bytes for each scanned cell. Classes `0x10`, `0x20`,
+  and `0x30` have explicit branches; other nonzero high nibbles fall through
+  after setting the final state to `(flag3=false, flag0=false)`.
+- Added local tests for that fall-through branch: it accepts with no rejection
+  bits, rejects when bit `0x0100` is set, and accepts when bit `0x0800` is set.
+- Added a local test for priority/control byte `0x0f`, which bypasses scanning
+  and clears both reported event flags when object byte `+0x02` is zero.
+- `tests.test_graphics_rendering` passed with 64 tests.

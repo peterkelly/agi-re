@@ -15,9 +15,11 @@ from agi_save import (  # noqa: E402
     SAVE_HEADER_LENGTH,
     SaveBlock,
     SaveGame,
+    SavePathValidationPlan,
     SOURCE_BACKED_FIXED_BLOCK_LENGTHS,
     load_save,
     parse_save,
+    save_path_validation_plan,
     serialize_save,
 )
 
@@ -98,6 +100,28 @@ class SaveResourceTests(unittest.TestCase):
         )
         with self.assertRaisesRegex(ValueError, "mismatched index"):
             serialize_save(SaveGame(None, header, mismatched_index))
+
+    def test_save_path_validation_plan_models_source_string_edges(self) -> None:
+        self.assertEqual(
+            save_path_validation_plan("   C:\\SQ2\\", current_drive_letter="d"),
+            SavePathValidationPlan("C:\\SQ2", "find_directory", "c", False, True),
+        )
+        self.assertEqual(
+            save_path_validation_plan("", current_directory="\\SQ2", current_drive_letter="c"),
+            SavePathValidationPlan("\\SQ2", "find_directory", "c", True, False),
+        )
+        self.assertEqual(
+            save_path_validation_plan("", current_directory="\\", current_drive_letter="c"),
+            SavePathValidationPlan("\\", "single_separator_accept", "c", True, False),
+        )
+        self.assertEqual(
+            save_path_validation_plan("/", current_drive_letter="e"),
+            SavePathValidationPlan("/", "single_separator_accept", "e", False, False),
+        )
+        self.assertEqual(
+            save_path_validation_plan("A:\\", current_drive_letter="c"),
+            SavePathValidationPlan("A:", "drive_available", "a", False, True),
+        )
 
 
 if __name__ == "__main__":

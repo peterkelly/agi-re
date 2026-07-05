@@ -10,6 +10,16 @@ from pathlib import Path
 SAVE_HEADER_LENGTH = 0x1F
 SAVE_BLOCK_COUNT = 5
 SOURCE_BACKED_FIXED_BLOCK_LENGTHS = (0x05E1, 0x0387, 0x0148, 0x00C8)
+SAVE_PATH_SEPARATORS = "\\/"
+
+
+@dataclass(frozen=True)
+class SavePathValidationPlan:
+    effective_path: str
+    check_kind: str
+    drive_letter: str
+    used_default_directory: bool
+    stripped_trailing_separator: bool
 
 
 @dataclass(frozen=True)
@@ -44,6 +54,48 @@ def u16le_bytes(value: int) -> bytes:
     if value < 0 or value > 0xFFFF:
         raise ValueError(f"value does not fit in a save-file length prefix: {value}")
     return bytes((value & 0xFF, value >> 8))
+
+
+def _source_lower_drive(char: str) -> str:
+    if "A" <= char <= "Z":
+        return chr(ord(char) + 0x20)
+    return char
+
+
+def save_path_validation_plan(
+    text: str,
+    *,
+    current_directory: str = "\\",
+    current_drive_letter: str = "c",
+) -> SavePathValidationPlan:
+    """Model the source-level path normalization before DOS availability checks."""
+    pos = 0
+    while pos < len(text) and text[pos] == " ":
+        pos += 1
+    effective = text[pos:]
+    used_default = False
+    if effective == "":
+        effective = current_directory
+        used_default = True
+
+    stripped = False
+    if len(effective) > 1 and effective[-1] in SAVE_PATH_SEPARATORS:
+        effective = effective[:-1]
+        stripped = True
+
+    if len(effective) >= 2 and effective[1] == ":":
+        drive_letter = _source_lower_drive(effective[0])
+    else:
+        drive_letter = current_drive_letter
+
+    if len(effective) == 1 and effective in SAVE_PATH_SEPARATORS:
+        check_kind = "single_separator_accept"
+    elif len(effective) == 2 and effective[1] == ":":
+        check_kind = "drive_available"
+    else:
+        check_kind = "find_directory"
+
+    return SavePathValidationPlan(effective, check_kind, drive_letter, used_default, stripped)
 
 
 def parse_save(data: bytes, *, path: Path | None = None) -> SaveGame:

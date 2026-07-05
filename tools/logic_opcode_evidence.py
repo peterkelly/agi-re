@@ -214,7 +214,7 @@ QEMU_CONDITIONS = {
     0x0B: "logic_interpreter_probe: object_left_rect_condition_true",
     0x0C: "logic_interpreter_probe: mapped_key_sets_status_byte",
     0x0D: "logic_interpreter_probe: raw_key_event_available_draws_after_typed_key",
-    0x0E: "logic_interpreter_probe: parse_string_slot_sets_input_word_sequence",
+    0x0E: "logic_interpreter_probe: parse_string_slot_sets_input_word_sequence, parser_edges_001, and parser_unknown_terminator_001",
     0x0F: "logic_interpreter_probe: set_string_from_message_equal_normalized",
     0x10: "logic_interpreter_probe: object_width_rect_condition_true",
     0x11: "logic_interpreter_probe: object_center_rect_condition_true",

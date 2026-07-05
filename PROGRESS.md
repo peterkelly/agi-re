@@ -257,45 +257,69 @@ better understood, or a new remaining-work item is discovered.
   - Remaining: full EGA behavior is the target; non-EGA adapter behavior should
     be documented only where it explains observed SQ2 behavior.
 - [~] Resource directories, volume records, and cache records
-  - Evidence: local resource parsers, loader labels, room-switch cache reset.
-  - Remaining: cache record layout polish and any loader error-path behavior
-    needed by compatibility tests.
+  - Evidence: local resource parsers, loader labels, room-switch cache reset,
+    and source-backed cache record layouts for logic, view, picture, and sound.
+  - Remaining: loader error-path behavior only where needed by compatibility
+    tests.
 - [x] Logic resource format, messages, dispatch, and control flow
   - Evidence: logic resource docs, interpreter source pass, QEMU opcode probes.
   - Remaining: keep opcode tracker aligned with new findings.
 - [~] Variables, flags, strings, parser words, and input buffers
   - Evidence: string/message/input probes, visible input-line refresh/erase
-    probes, and local parser notes.
-  - Remaining: broaden parser/vocabulary edge cases and any non-EGA input
-    paths needed to explain SQ2 behavior.
+    probes, local parser notes, local `WORDS.TOK` prefix-decoder and
+    tokenizer/output-slot tests, local source-modeled `input_word_sequence`
+    matcher tests, and QEMU parser-edge probes for two-word matching, wildcard
+    word ID `0x0001`, terminator word ID `0x270f`, and the unknown-token
+    terminator-only edge.
+  - Remaining: broaden vocabulary/tokenization edge cases only where needed for
+    future compatibility tests; non-EGA input paths remain out of the current
+    full-EGA target unless needed to explain SQ2 behavior.
 - [~] Picture resource decoding and drawing
   - Evidence: picture decoder notes, Python renderer, fuzz corpus, QEMU
     comparison harness, source-backed seed-fill span traversal, and QEMU
     seed-fill edge cases for full-height barriers and multi-seed fills, plus
     QEMU pattern mask-bypass, channel-mask, and interleaved
-    line/fill/pattern cases, real-picture snapshot batches for base pictures
-    1/45, the 8-picture broad preset, and all 74 valid local SQ2 pictures, and
-    a chunked timed polling carousel run covering all 74 valid local SQ2
-    pictures.
+    line/fill/pattern cases, command-byte scanner-resume cases, an
+    implementation-facing picture decoder lifecycle, real-picture snapshot
+    batches for base pictures 1/45, the 8-picture broad preset, and all 74
+    valid local SQ2 pictures, direct local tests for rare corner-path commands
+    `0xf4`/`0xf5`, and a chunked timed polling carousel run covering all 74
+    valid local SQ2 pictures, plus QEMU-validated raw-operand scanner cases for
+    `0xf0`, `0xf2`, and `0xf9`, and QEMU-validated relative-line underflow
+    cases for `0xf7`.
   - Remaining: finish edge-case semantics for valid EGA picture streams and
-    expand comparison fixtures, especially additional synthetic interleavings
-    and future cross-game/interpreter real-resource parity checks. Odd/even
-    visual-mask divergence is outside the full EGA target path unless another
-    observed SQ2 behavior requires it.
+    expand comparison fixtures, especially future cross-game/interpreter
+    real-resource parity checks and any valid synthetic interleavings not yet
+    represented by the fuzz corpus. Odd/even visual-mask divergence is outside
+    the full EGA target path unless another observed SQ2 behavior requires it.
 - [~] View resource decoding and cel drawing
   - Evidence: view layout notes, view/object snapshot batches, focused edge
-    placement captures including right/bottom placement-search cases, and
-    optional 17-case QEMU stress batch for larger cels plus transparent-color
-    variants.
-  - Remaining: broaden priority/control combinations, runtime animation state,
-    and formal implementation text.
+    placement captures including right/bottom placement-search cases, an
+    eight-case timed polling carousel, and a 19-case timed polling carousel for
+    larger cels plus transparent-color variants, source-backed reserved header
+    bytes `+0x00/+0x01`, plus an implementation-facing view/cel drawing
+    contract, and source-modeled bit-`0x80` mirror row edge tests for
+    all-transparent rows, implicit transparent padding, and long-run chunking.
+    Runtime frame-animation modes are covered under the object
+    movement/animation subsystem.
+  - Remaining: broaden priority/control combinations only where needed for the
+    final renderer compatibility suite.
 - [~] Object records, priority/control screens, and drawing pipeline
   - Evidence: object overlay probes, priority/control bit probes, labels, and
     implementation-facing drawing lifecycle state machine; bounds-only
     placement search now modeled from `code.object.place`, with a tested
-    predicate hook for collision/control rejection.
-  - Remaining: finish draw ordering, dirty-rectangle, and placement-search edge
-    semantics for full object-record collision/control fixtures.
+    predicate hook for collision/control rejection; update-list root ordering
+    is QEMU-backed, and in-root sort/draw order is source-modeled in local
+    tests; dirty-rectangle union is source-modeled in local tests; the
+    `code.object.control_acceptance` scan is source-modeled in local tests and
+    reconciled with the existing QEMU movement/control probes; object-overlay
+    priority-gate tests now cover inclusive equal-priority writes, downward
+    scan hits/misses, and per-pixel run continuation after rejection. Local
+    control-acceptance tests also pin the "other nonzero high nibble" final
+    state and priority-15 scan bypass/event-flag clear path from `0x56b8`.
+  - Remaining: optional direct placement-search fixtures that combine full
+    object records with control/collision rejection, if needed for the final
+    compatibility suite.
 - [~] Object movement, collision, animation, and boundary handling
   - Evidence: object movement QEMU batches, disassembly-backed scheduler, and
     implementation-facing motion state machine.
@@ -307,12 +331,12 @@ better understood, or a new remaining-work item is discovered.
     file envelope including byte-for-byte serialization, replay re-enable
     correction at `0x6927`, rollback probe for `0xab`/`0xac`, and
     source-backed restart/termination and save/restore file-error lifecycles,
-    plus dynamic original-engine save-write and restore probes over the
-    generated save envelope. The generated fixture now calls `0x8f("SQ2")`, so
-    `DS:0x0002` supplies both the `SQ2SG.N` filename prefix and the saved-state
-    signature checked by the restore selector.
-  - Remaining: representative observable file-error probes and any observable
-    restore/restart edge cases needed by compatibility tests.
+    plus dynamic original-engine save-write, restore, and restore-read-error UI
+    probes. The generated fixture now calls `0x8f("SQ2")`, so `DS:0x0002`
+    supplies both the `SQ2SG.N` filename prefix and the saved-state signature
+    checked by the restore selector.
+  - Remaining: any additional observable restore/restart edge cases needed by
+    compatibility tests.
 - [~] Text windows, status line, prompts, and interactive input
   - Evidence: message/string/numeric input probes, visible status/input-line
     probes, mapped-key/raw-key probes, prompt-marker behavior, input-width flag
@@ -323,53 +347,80 @@ better understood, or a new remaining-work item is discovered.
     normative spec.
 - [~] Menus and inventory UI
   - Evidence: inventory selection, menu setup, disabled/enabled item probes,
-    and a source-backed `code.menu.interact` movement dispatch table.
-  - Remaining: validate movement/navigation events dynamically with direct
-    event injection or a more precise QEMU input path; existing QEMU keyboard
-    attempts did not produce reusable movement evidence.
+    a source-backed `code.menu.interact` movement dispatch table, and an
+    implementation-facing menu/list data model plus interaction lifecycle.
+  - Remaining: optional dynamic validation of movement/navigation events with
+    direct event injection or a more precise QEMU input path; existing QEMU
+    keyboard attempts did not produce reusable movement evidence, but the
+    current movement semantics are source-backed.
 - [~] Sound and audio
   - Evidence: load/start/stop completion-flag behavior; source-backed sound
     cache/channel pointer setup; local parser/tests for the four-channel sound
     payload header, duration/tone/control event streams, active-channel
-    selection, countdown scheduling, flag-9 stop gate, and natural completion
-    ticks across all present SQ2 sound resources.
-  - Remaining: tone/pitch interpretation, attenuation/envelope side effects,
-    hardware driver output, and optional dynamic confirmation of natural sound
-    completion if that becomes useful.
+    selection, countdown scheduling, flag-9 stop gate, natural completion ticks
+    across all present SQ2 sound resources, and source-backed hardware driver
+    port-write behavior including the PC-speaker divisor formula and
+    tone/silence output boundary plus non-PC-speaker attenuation/envelope output
+    bytes.
+  - Remaining: analog waveform synthesis beyond the interpreter's port-output
+    boundary and optional dynamic confirmation of natural sound completion if
+    that becomes useful.
 - [~] DOS file I/O, logging, save descriptions, and path selection
   - Evidence: log-file QEMU content check, save/restore source map, selector
     path/slot source map, save-description buffer copy source map, corrected
     DOS wrapper symbolic-label map, source-backed file-error continuation
     behavior, structural parse/serialize tests over the present local SQ2 save
-    files, and a dynamic save-write QEMU probe whose output parses through the
-    source-backed envelope plus a dynamic restore QEMU probe using those bytes.
-    Source now explains the filename stem: `code.save.format_slot_filename`
-    uses `data.save.signature_prefix_0002`.
-  - Remaining: representative file-error UI probes and any path-validation edge
-    cases needed for the final compatibility suite.
+    files, a dynamic save-write QEMU probe whose output parses through the
+    source-backed envelope, a dynamic restore QEMU probe using those bytes, and
+    a representative restore-read error UI capture from a selector-visible
+    truncated save. Source now explains the filename stem:
+    `code.save.format_slot_filename` uses `data.save.signature_prefix_0002`,
+    `docs/src/runtime_model.md` now includes an implementation-facing
+    save/restore selector state machine, and local tests model
+    `code.dos.validate_path` string normalization/dispatch edges.
+  - Remaining: dynamic path-validation UI failures only if needed for the final
+    compatibility suite.
 - [~] Memory, heap, allocation, and diagnostics
   - Evidence: source-backed bump-heap helper map, room/reset and temporary mark
-    semantics, allocation failure path, high-water tracking, free-memory byte
-    update, and heap-status diagnostic formulas.
-  - Remaining: heap initialization details and any representative observable
-    out-of-memory UI behavior needed for final compatibility coverage.
+    semantics, startup base/current/limit initialization from DOS memory
+    allocation, allocation failure path, high-water tracking, free-memory byte
+    update, heap-status diagnostic formulas, and local heap formula tests for
+    allocation/free-byte/high-water, temporary mark restore, room-reset rewind,
+    and diagnostic values.
+  - Remaining: any representative observable out-of-memory UI behavior needed
+    for final compatibility coverage.
 - [~] Compatibility test suite and harnesses
   - Evidence: `tests/`, `tools/logic_interpreter_probe.py`,
     `tools/object_movement_probe.py`, `tools/object_overlay_probe.py`,
     `tools/picture_fuzz.py`, `tools/picture_batch.py`, QEMU snapshot support,
+    a 1,062-case picture fuzz corpus with 1,060 QEMU-safe cases and focused
+    original-engine batches,
     packed picture fixtures, two-picture key-driven `tools/picture_carousel.py`
     smoke validation, an eight-picture timed polling carousel validation from
     one engine process, and a chunked all-74-picture timed polling carousel
-    validation across five engine launches. A single all-74-picture carousel
-    hit an original-engine disk prompt after picture 19, so chunking is the
-    recommended path for large picture sweeps.
+    validation across five engine launches. The view/object carousel now
+    validates all 19 current base-plus-stress view cases from one engine
+    process. A single all-74-picture carousel hit an original-engine disk prompt
+    after picture 19, so chunking is the recommended path for large picture
+    sweeps. `tools/compatibility_suite.py` now provides a local-by-default
+    manifest/runner with opt-in QEMU smoke and broad layers; the QEMU smoke
+    manifest passed in `build/compatibility-suite/qemu_smoke_002.json` with
+    parser, command-resume, raw-operand, and relative-line-underflow
+    original-engine probes. The QEMU
+    broad manifest passed in `build/compatibility-suite/qemu_broad_002.json`,
+    including the smoke layer, the eight-picture timed carousel, and the
+    19-case view/object stress carousel.
   - Remaining: assemble a final broad suite that can validate a clean-room
     implementation against original-engine outputs; scale timed polling
-    carousel sweeps to view/resource batches and future interpreter versions.
-- [ ] Cross-version comparison workflow
-  - Evidence: symbolic labels are being curated for SQ2.
-  - Remaining: apply the labels and subsystem trackers to additional
-    interpreter versions bundled with other games.
+    carousel sweeps to additional resource batches and future interpreter
+    versions.
+- [~] Cross-version comparison workflow
+  - Evidence: symbolic labels are being curated for SQ2, and
+    `docs/src/cross_version_workflow.md` now defines the local evidence package,
+    label-mapping anchors, pass order, compatibility tiers, and delta-recording
+    rules for future interpreter/game versions.
+  - Remaining: apply the workflow to additional interpreter versions bundled
+    with other games once those local inputs are available.
 - [~] Final human-readable implementation spec
   - Evidence: mdBook chapters exist and are growing.
   - Remaining: convert source/evidence notes into polished, subsystem-oriented
@@ -377,17 +428,18 @@ better understood, or a new remaining-work item is discovered.
 
 ## Highest-Value Remaining Work
 
-1. Add optional dynamic probes for source-backed timing/hardware opcodes only
-   where the fixture would be representative rather than brittle (`0x6e`,
-   `0x83`, `0x8e`, `0xaa`, `0xad` are otherwise covered for the current spec
-   target).
-2. Add a representative file-error UI probe for one source-backed save/restore
-   failure path, now that the save/restore filename stem is source-explained and
-   dynamically covered by the signed-prefix round trip.
-3. Continue the picture/view renderer compatibility work with valid synthetic
-   resources and original-engine captures.
-4. Continue turning the remaining subsystem notes into implementation-ready
-   state machines, especially save/file selection, sound hardware output, heap
-   initialization, and menu movement/event delivery.
-5. Keep expanding the final compatibility suite as each subsystem solidifies,
-   using timed polling carousels where one-engine resource sweeps are practical.
+1. Apply the cross-version workflow when another local interpreter/game version
+   is available. This is the main remaining blocker for proving that symbolic
+   labels and compatibility tests transfer across builds.
+2. Continue source-first renderer work only when disassembly or a valid local
+   resource exposes a concrete edge not already modeled. Use QEMU as
+   confirmation/regression evidence.
+3. Continue converting dense evidence notes into implementation-ready contracts
+   in the subsystem chapters, especially when a section still reads like a
+   chronological investigation rather than a portable spec.
+4. Keep expanding `tools/compatibility_suite.py` when a new behavior is promoted
+   to reusable evidence. Re-run the smoke or broad QEMU layer whenever the
+   manifest changes.
+5. Treat non-EGA paths, analog waveform synthesis, menu arrow injection, invalid
+   path UI, and out-of-memory UI as optional/conditional work unless the final
+   compatibility target expands beyond current full-EGA valid-data behavior.

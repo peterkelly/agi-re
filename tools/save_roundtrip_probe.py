@@ -12,9 +12,14 @@ from dataclasses import asdict, dataclass
 from pathlib import Path
 
 from agi_graphics import PictureRenderer, compose_frame_on_picture, render_view_frame
-from agi_save import load_save
+from agi_save import (
+    SAVE_HEADER_LENGTH,
+    SOURCE_BACKED_FIXED_BLOCK_LENGTHS,
+    load_save,
+    u16le_bytes,
+)
 from compare_picture_capture import downsample_qemu_picture_nibbles
-from ppm_tools import read_ppm
+from ppm_tools import non_background_bbox, read_ppm, unique_colors
 from qemu_fixture import (
     copy_sq2_tree,
     if_then,
@@ -68,6 +73,23 @@ class SaveRoundTripResult:
     block_lengths: list[int] | None
     visual_status: str | None
     visual_mismatches: int | None
+    elapsed_seconds: float
+    error: str | None
+
+
+@dataclass(frozen=True)
+class RestoreReadErrorResult:
+    status: str
+    dos_dir: str
+    capture: str
+    save_file: str
+    description: str
+    save_length: int
+    first_block_declared_length: int
+    first_block_payload_prefix_hex: str
+    capture_sha256_rgb: str | None
+    capture_unique_colors: int | None
+    capture_non_background_bbox: list[int] | None
     elapsed_seconds: float
     error: str | None
 
@@ -157,20 +179,39 @@ def remove_existing_save_files(fixture: Path) -> None:
                 path.unlink()
 
 
+def save_description_header(description: str) -> bytes:
+    raw = description.encode("ascii", errors="replace").split(b"\0", 1)[0][:30]
+    return (raw + b"\0").ljust(SAVE_HEADER_LENGTH, b"\0")
+
+
+def truncated_restore_save_payload(description: str = "codex broken restore") -> bytes:
+    signature_prefix = SIGNATURE_MESSAGE.encode("ascii")[:7].ljust(7, b"\0")
+    return (
+        save_description_header(description)
+        + u16le_bytes(SOURCE_BACKED_FIXED_BLOCK_LENGTHS[0])
+        + signature_prefix
+    )
+
+
 def build_state_fixture(
     destination: Path,
     action_opcode: int,
     *,
     remove_saves: bool = True,
     save_input: Path | None = None,
+    save_bytes: bytes | None = None,
     save_stem: str = "SQ2SG",
     slot: int = 1,
 ) -> Path:
+    if save_input is not None and save_bytes is not None:
+        raise ValueError("provide either save_input or save_bytes, not both")
     copy_sq2_tree(destination)
     if remove_saves:
         remove_existing_save_files(destination)
     if save_input is not None:
         shutil.copy2(save_input, destination / f"{save_stem}.{slot}")
+    if save_bytes is not None:
+        (destination / f"{save_stem}.{slot}").write_bytes(save_bytes)
 
     payload = save_fixture_logic_payload() if action_opcode == SAVE_ACTION else restore_fixture_logic_payload()
     logic_record = volume_record(payload, volume=3)
@@ -203,6 +244,24 @@ def build_restore_fixture(
         RESTORE_ACTION,
         remove_saves=remove_saves,
         save_input=save_input,
+        save_stem=save_stem,
+        slot=slot,
+    )
+
+
+def build_restore_read_error_fixture(
+    destination: Path,
+    *,
+    description: str = "codex broken restore",
+    remove_saves: bool = True,
+    save_stem: str = "SQ2SG",
+    slot: int = 1,
+) -> Path:
+    return build_state_fixture(
+        destination,
+        RESTORE_ACTION,
+        remove_saves=remove_saves,
+        save_bytes=truncated_restore_save_payload(description),
         save_stem=save_stem,
         slot=slot,
     )
@@ -382,7 +441,13 @@ def compare_validation_capture(capture: Path) -> tuple[str, int]:
     return ("match" if mismatches == 0 else "mismatch", mismatches)
 
 
-def write_report(result: SaveRoundTripResult, output: Path) -> dict[str, object]:
+def capture_summary(capture: Path) -> tuple[str, int, list[int] | None]:
+    image = read_ppm(capture)
+    bbox = non_background_bbox(image)
+    return image.digest, len(unique_colors(image)), list(bbox) if bbox is not None else None
+
+
+def write_report(result: SaveRoundTripResult | RestoreReadErrorResult, output: Path) -> dict[str, object]:
     output.parent.mkdir(parents=True, exist_ok=True)
     report = {"result": asdict(result)}
     output.write_text(json.dumps(report, indent=2, sort_keys=True) + "\n", encoding="ascii")
@@ -472,6 +537,86 @@ def run_probe(
     return result
 
 
+def run_restore_read_error_probe(
+    fixture: Path,
+    dos_dir: str,
+    path_keys: str,
+    slot_keys: str,
+    description: str,
+    capture: Path,
+    snapshot_raw: Path,
+    snapshot_qcow: Path,
+    report_output: Path,
+    boot_wait: float,
+    draw_wait: float,
+    path_prompt_wait: float,
+    slot_wait: float,
+    confirmation_wait: float,
+    confirmation_keys: str,
+    key_delay: float,
+    save_stem: str,
+    slot: int,
+) -> RestoreReadErrorResult:
+    started = time.monotonic()
+    error: str | None = None
+    capture_sha256_rgb: str | None = None
+    capture_unique_colors: int | None = None
+    capture_non_background_bbox: list[int] | None = None
+    status = "error"
+
+    save_bytes = truncated_restore_save_payload(description)
+    save_file = fixture / f"{save_stem}.{slot}"
+
+    try:
+        build_restore_read_error_fixture(
+            fixture,
+            description=description,
+            remove_saves=True,
+            save_stem=save_stem,
+            slot=slot,
+        )
+        case = SnapshotFixtureCase(dos_dir, fixture, capture)
+        build_snapshot_boot_disk([case], snapshot_raw, snapshot_qcow)
+        run_restore_qemu_case(
+            snapshot_qcow,
+            dos_dir,
+            capture,
+            boot_wait,
+            path_prompt_wait,
+            path_keys,
+            slot_wait,
+            slot_keys,
+            confirmation_wait,
+            confirmation_keys,
+            key_delay,
+            draw_wait,
+        )
+        capture_sha256_rgb, capture_unique_colors, capture_non_background_bbox = capture_summary(
+            capture
+        )
+        status = "captured"
+    except Exception as exc:  # noqa: BLE001 - probe records exact local failure.
+        error = f"{type(exc).__name__}: {exc}"
+
+    result = RestoreReadErrorResult(
+        status,
+        dos_dir,
+        str(capture),
+        str(save_file),
+        description,
+        len(save_bytes),
+        SOURCE_BACKED_FIXED_BLOCK_LENGTHS[0],
+        save_bytes[SAVE_HEADER_LENGTH + 2 :].hex(),
+        capture_sha256_rgb,
+        capture_unique_colors,
+        capture_non_background_bbox,
+        round(time.monotonic() - started, 3),
+        error,
+    )
+    write_report(result, report_output)
+    return result
+
+
 def run_restore_probe(
     fixture: Path,
     dos_dir: str,
@@ -550,7 +695,7 @@ def run_restore_probe(
 
 def main() -> None:
     parser = argparse.ArgumentParser()
-    parser.add_argument("--mode", choices=["save", "restore"], default="save")
+    parser.add_argument("--mode", choices=["save", "restore", "restore-read-error"], default="save")
     parser.add_argument("--fixture", type=Path, default=DEFAULT_FIXTURE)
     parser.add_argument("--dos-dir", default="SVRT")
     parser.add_argument("--path-keys", default="\n")
@@ -603,7 +748,7 @@ def main() -> None:
             args.slot,
             args.keep_existing_saves,
         )
-    else:
+    elif args.mode == "restore":
         if args.save_input is None:
             parser.error("--mode restore requires --save-input")
         result = run_restore_probe(
@@ -626,8 +771,29 @@ def main() -> None:
             args.save_stem,
             args.slot,
         )
+    else:
+        result = run_restore_read_error_probe(
+            args.fixture,
+            args.dos_dir,
+            args.path_keys,
+            args.slot_keys,
+            args.description,
+            args.capture,
+            args.snapshot_raw,
+            args.snapshot_qcow,
+            args.output,
+            args.boot_wait,
+            args.draw_wait,
+            args.path_prompt_wait,
+            args.slot_wait,
+            args.confirmation_wait,
+            args.confirmation_keys,
+            args.key_delay,
+            args.save_stem,
+            args.slot,
+        )
     print(json.dumps(asdict(result), indent=2, sort_keys=True))
-    if result.status != "match":
+    if result.status in {"error", "mismatch"}:
         raise SystemExit(1)
 
 

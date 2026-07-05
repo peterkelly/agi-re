@@ -13,7 +13,7 @@ from collections import deque
 from dataclasses import dataclass
 from functools import lru_cache
 from pathlib import Path
-from typing import Callable, Iterable
+from typing import Callable, Iterable, Sequence
 
 from disassemble_logic import AGIDATA, SQ2, read_dir_entries, read_volume_payload, u16le
 
@@ -22,6 +22,10 @@ WIDTH = 0xA0
 HEIGHT = 0xA8
 DEFAULT_CELL = 0x4F
 DEFAULT_HORIZON = 0x24
+DEFAULT_PRIORITY_TABLE = tuple(
+    4 if y < 0x30 else min(14, 5 + (y - 0x30) // 12)
+    for y in range(HEIGHT)
+)
 
 
 PALETTE = [
@@ -82,6 +86,153 @@ class RenderedFrame:
     height: int
     control: int
     pixels: bytes
+
+
+@dataclass(frozen=True)
+class ObjectDrawCandidate:
+    object_no: int
+    baseline_y: int
+    flags: int
+    priority_byte: int = 0
+
+
+@dataclass(frozen=True)
+class DirtyRect:
+    left: int
+    bottom_y: int
+    width: int
+    height: int
+
+
+@dataclass(frozen=True)
+class ControlAcceptance:
+    accepted: bool
+    flag0_value: bool | None = None
+    flag3_value: bool | None = None
+
+
+def priority_value_to_sort_y(
+    priority_value: int,
+    table: Sequence[int] = DEFAULT_PRIORITY_TABLE,
+    after_table_value: int = 0,
+    direct_formula: bool = False,
+) -> int:
+    value = priority_value & 0xFF
+    if direct_formula:
+        return (value - 5) * 12 + 0x30
+    if value == 0:
+        return -1
+    if after_table_value < value:
+        return len(table)
+    for y in range(len(table) - 1, 0, -1):
+        if table[y] < value:
+            return y
+    return 0
+
+
+def object_update_root(candidate: ObjectDrawCandidate) -> int | None:
+    membership = candidate.flags & 0x0051
+    if membership == 0x0051:
+        return 0x16FF
+    if membership == 0x0041:
+        return 0x1703
+    return None
+
+
+def object_update_sort_key(
+    candidate: ObjectDrawCandidate,
+    table: Sequence[int] = DEFAULT_PRIORITY_TABLE,
+    after_table_value: int = 0,
+) -> int:
+    if candidate.flags & 0x0004:
+        return priority_value_to_sort_y(candidate.priority_byte, table, after_table_value)
+    return candidate.baseline_y
+
+
+def object_update_draw_order(
+    candidates: Sequence[ObjectDrawCandidate],
+    table: Sequence[int] = DEFAULT_PRIORITY_TABLE,
+    after_table_value: int = 0,
+) -> list[ObjectDrawCandidate]:
+    ordered: list[ObjectDrawCandidate] = []
+    indexed = list(enumerate(candidates))
+    for root in (0x1703, 0x16FF):
+        selected = [
+            (index, candidate)
+            for index, candidate in indexed
+            if object_update_root(candidate) == root
+        ]
+        selected.sort(key=lambda item: (object_update_sort_key(item[1], table, after_table_value), item[0]))
+        ordered.extend(candidate for _index, candidate in selected)
+    return ordered
+
+
+def dirty_rect_union(
+    current_left: int,
+    current_baseline_y: int,
+    current_width: int,
+    current_height: int,
+    saved_left: int,
+    saved_baseline_y: int,
+    saved_width: int,
+    saved_height: int,
+) -> DirtyRect:
+    current_top = current_baseline_y - current_height + 1
+    saved_top = saved_baseline_y - saved_height + 1
+    left = min(current_left, saved_left)
+    right = max(current_left + current_width, saved_left + saved_width)
+    bottom = max(current_baseline_y, saved_baseline_y)
+    top = min(current_top, saved_top)
+    return DirtyRect(left, bottom, right - left, bottom - top + 1)
+
+
+def control_acceptance_scan(
+    high_nibbles: Sequence[int],
+    object_flags: int,
+    priority_byte: int,
+    object_event_byte: int = 1,
+) -> ControlAcceptance:
+    """Model source helper 0x56b8 over an already-extracted scanline.
+
+    ``high_nibbles`` are high-nibble classes in the left-to-right order scanned
+    from the graphics/control buffer.  The source helper bypasses the scan
+    entirely when object priority byte ``+0x24`` is ``0x0f``.
+    """
+    class_bh = 0
+    class_bl = 0
+    accepted = True
+    if (priority_byte & 0xFF) != 0x0F:
+        class_bl = 1
+        for value in high_nibbles:
+            high = value & 0xF0
+            class_bh = 0
+            class_bl = 1
+            if high == 0x00:
+                accepted = False
+                break
+            if high == 0x30:
+                continue
+            class_bl = 0
+            if high == 0x10:
+                if object_flags & 0x0002:
+                    continue
+                accepted = False
+                break
+            if high == 0x20:
+                class_bh = 1
+                continue
+        else:
+            if class_bl == 1:
+                accepted = not bool(object_flags & 0x0800)
+            else:
+                accepted = not bool(object_flags & 0x0100)
+
+    flag0 = None
+    flag3 = None
+    if object_event_byte == 0:
+        flag3 = bool(class_bh)
+        flag0 = bool(class_bl)
+    return ControlAcceptance(accepted, flag0, flag3)
 
 
 def resource_payload(dir_name: str, resource_no: int) -> bytes:
@@ -155,6 +306,13 @@ class PictureRenderer:
             return None
         return self.payload[self.pos]
 
+    def read_raw_byte(self) -> int | None:
+        value = self.peek()
+        if value is None:
+            return None
+        self.pos += 1
+        return value
+
     def read_data_byte(self) -> int | None:
         value = self.peek()
         if value is None or value > 0xEF:
@@ -172,7 +330,7 @@ class PictureRenderer:
         return min(x, 0x9F), min(y, 0xA7)
 
     def set_visual(self) -> None:
-        value = self.read_data_byte()
+        value = self.read_raw_byte()
         if value is None:
             return
         mapped_low = value & 0x0F
@@ -188,7 +346,7 @@ class PictureRenderer:
         self.even_y_mask |= 0x0F
 
     def set_control(self) -> None:
-        value = self.read_data_byte()
+        value = self.read_raw_byte()
         if value is None:
             return
         high = (value << 4) & 0xF0
@@ -329,11 +487,19 @@ class PictureRenderer:
                 return
             dx = (value & 0x70) >> 4
             if value & 0x80:
-                dx = -dx
+                new_x = (x - dx) & 0xFF
+            else:
+                new_x = (x + dx) & 0xFF
+            if new_x > 0x9F:
+                new_x = 0x9F
             dy = value & 0x07
             if value & 0x08:
-                dy = -dy
-            new_point = (min(max(x + dx, 0), 0x9F), min(max(y + dy, 0), 0xA7))
+                new_y = (y - dy) & 0xFF
+            else:
+                new_y = (y + dy) & 0xFF
+            if new_y > 0xA7:
+                new_y = 0xA7
+            new_point = (new_x, new_y)
             self.draw_line((x, y), new_point)
             x, y = new_point
 
@@ -374,7 +540,7 @@ class PictureRenderer:
             queue.extend(((px - 1, py), (px + 1, py), (px, py - 1), (px, py + 1)))
 
     def set_pattern_mode(self) -> None:
-        value = self.read_data_byte()
+        value = self.read_raw_byte()
         if value is not None:
             self.pattern_mode = value
 

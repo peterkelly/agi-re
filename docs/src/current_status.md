@@ -5,43 +5,31 @@ engineering work.
 
 ## Current Focus
 
-The most recent work returned to the logic interpreter. The opcode catalog now
-has a test-backed coverage check against `tools/disassemble_logic.py`, and the
-QEMU-backed logic batches validate jump, false-branch, inversion, OR-group,
-variable, flag, comparison, arithmetic, selected object-field behavior,
-logic load/call variants, variable-backed resource/object variants, object
-rectangle predicates, string/message parsing, inventory/object marker
-operations, resource lifecycle paths, message display helpers, typed numeric
-input, string prompt editing, formatted text display, input-line/text-window
-dispatch, text/status configuration dispatch, diagnostic/status message
-actions, menu/list dispatch, sound load/clear dispatch, and additional
-object/view getter and bitfield dispatch behavior through visible output.
-The latest source-first pass refined the remaining lifecycle families and added
-QEMU coverage for room-switch re-entry: room switches intentionally return zero
-to force an immediate logic-0 re-entry, then logic 0 can dispatch the current
-room with `call_logic_var(v0)`. Follow-up QEMU probes now also validate current
-room `v0`, previous room `v1`, cleared boundary selector `v2`, and all four
-`v2` entry-boundary placements for object 0 on both immediate and
-variable-selected room-switch paths. A persistent object activated before the
-switch is also QEMU-validated as absent from the destination-room render. A
-follow-up source pass corrected the exact room-switch reset model: object bytes
-`+0x1e`, `+0x1f`, and `+0x20` are seeded to `1` rather than cleared, and the
-room cache reset preserves the first logic cache record while clearing
-view/picture/sound cache roots. The resource-event replay log is now
-source-mapped as a two-byte `(kind, value)` pair buffer with capacity/count,
-read/write cursors, recording gates, event kinds `0..8`, and a special
-four-pair transient-display-object packet for kind `5`. Menu arrow navigation
-consumes type-2 movement events, save/restore selection is separated from
-block I/O, restore replays saved resource events with recording disabled, and
-then reaches the post-table replay finish target at image `0x6927`, which calls
-`code.event.enable_recording` before rebinding active object views and
-refreshing display/input state. The earlier static scan missed this because
-linear disassembly from the event-kind jump table at `0x6915` treated the
-following `E8 43 07` bytes as table/data. Follow-up source inspection
-classified the visible row-interleaving in the `0x8c` replay fixture as a
-CGA-only color/display remapping after `[0x1130]` toggles, not as an EGA target
-behavior or as leaked unrecorded picture data. Sound completion flags are only
-set by the stop helper when active sound state is nonzero.
+The logic bytecode catalog is complete for the current SQ2 interpreter: all
+action and condition opcode rows have either QEMU-backed behavior evidence or a
+source-backed explanation where the behavior is outside the current full-EGA
+dynamic target. The main remaining work is no longer "find an opcode"; it is to
+keep converting the accumulated source/QEMU observations into implementation
+contracts, broaden renderer compatibility where valid local data still exposes
+edge cases, and keep the test harness ready for future interpreter versions.
+
+The current top-level compatibility runner is `tools/compatibility_suite.py`.
+The latest smoke report is
+`build/compatibility-suite/qemu_smoke_002.json`, covering local tests, mdBook,
+opcode-evidence freshness, parser QEMU probes, picture scanner command-resume
+probes, raw command-looking operands, and relative-line underflow. The latest
+broad report is `build/compatibility-suite/qemu_broad_002.json`, which includes
+the smoke layer plus the eight-picture timed carousel and the 19-case
+view/object stress carousel. Every selected command returned zero.
+
+Recent source-first renderer work corrected picture relative-line endpoint
+semantics: handler `0x665e` computes relative deltas in 8-bit coordinate
+registers, then clamps only above `x=0x9f` or `y=0xa7`. A negative underflow
+therefore reaches the right or bottom edge rather than zero. QEMU batch
+`relative_underflow_001` and the current smoke suite validate this. The object
+control-acceptance helper `0x56b8` also has tighter local source-model tests for
+the "other nonzero high nibble" branch and priority-15 scan bypass/event-flag
+clearing.
 
 ## Confirmed Motion and Object Findings
 
@@ -115,6 +103,18 @@ set by the stop helper when active sound state is nonzero.
 - Object overlay probes have a QEMU-backed 22-case batch in
   `build/object-overlay-probes/batches/view_cel_selection_002.json`; the batch
   matched with 22 matches, 0 mismatches, and 0 errors.
+- Picture renderer parity is much broader now: real-picture snapshot batches
+  cover pictures 1/45, the broad 8-picture preset, and all 74 valid local SQ2
+  picture resources. The chunked timed polling carousel also matched all 74
+  valid local SQ2 picture resources across five engine launches.
+- The active compatibility suite's broad picture carousel matches the 8-picture
+  preset from one engine process, and the view/object stress carousel matches
+  19 base-plus-stress view/cel cases.
+- Source-backed picture edge tests now include raw command-looking operands for
+  `0xf0`, `0xf2`, and `0xf9`, command-byte resume for coordinate/list readers,
+  byte-width diagonal-line accumulators, lower-right pattern linear writes,
+  pattern channel masks, seed-fill target-channel behavior, and relative-line
+  underflow for `0xf7`.
 - View 11 group/frame selection has been validated beyond the first cel:
   group 0 frame 1, group 1 frame 0, and group 1 frame 1 all match the local
   renderer.
@@ -147,127 +147,38 @@ set by the stop helper when active sound state is nonzero.
 
 ## Immediate Next Work
 
-Return to the logic interpreter:
+1. Keep source-first renderer work going only when disassembly reveals a
+   concrete valid-stream edge. Use QEMU as confirmation or regression coverage,
+   not as the primary discovery method.
+2. Continue turning dense subsystem notes into implementation-ready contracts in
+   `docs/src/runtime_model.md`, `docs/src/graphics_object_pipeline.md`, and
+   subsystem-specific chapters.
+3. Keep `tools/compatibility_suite.py` current as new local/QEMU evidence is
+   promoted. Re-run `--include-qemu-smoke` or `--include-qemu-broad` when the
+   manifest changes.
+4. Continue assigning symbolic labels for helpers, globals, dispatch tables, and
+   overlay entries so later interpreter versions can be compared by role rather
+   than by absolute address.
+5. Defer cross-version comparison and broader real-resource parity until
+   additional local interpreter/game inputs are available.
 
-1. Expand `tools/logic_interpreter_probe.py` beyond control-flow bytes into
-   additional action/condition groups that can expose state through pictures,
-   transient objects, variables, flags, strings, and object fields. The current
-   filtered QEMU batches cover the core variable/flag/comparison family,
-   selected object fields, call/load/resume smoke behavior, var-backed resource
-   setup, object predicates, string/message operations, and inventory marker
-   operations. The object/view follow-up adds QEMU value probes for
-   `0x31..0x35`, `0x37`, `0x45`, and `0x4d`; the root-partition follow-up
-   promotes `0x3a`, `0x3b`, and `0x3c` to behavior evidence through visible
-   update-list ordering. The bit-`0x2000` follow-up promotes `0x2d` and `0x2e`
-   through automatic direction/group selection on view 4 and view 5, including
-   sentinel and countdown-gate behavior. The subsequent
-   object-state/misc batch adds
-   QEMU-backed evidence for `0x22`, `0x24`, `0x28`, `0x7f`, `0x82`, `0x93`,
-   `0x94`, `0x9b`, and `0xaf`; notably, `0x22` clears bits but does not
-   immediately unlink an already activated current-cycle draw entry. The latest
-   small batch adds QEMU evidence for variable-selected view loading (`0x1f`);
-   the frame-timer batches add behavior evidence for object frame actions
-   `0x46..0x4c`, including visible mode coverage for `0x48`, `0x4a`, and
-   `0x4b`.
-2. Prefer QEMU fixture evidence for additional opcodes whose behavior can be made
-   visible. Resource lifecycle, message display, string/numeric input,
-   formatted/positioned text, input-line/window dispatch, text/status
-   configuration dispatch, selected diagnostics, menu dispatch, priority screen,
-   object diagnostics, log-file content, and sound load/clear/stop-flag behavior
-   now have targeted coverage; most remaining source-backed rows are
-   key-map event conversion, `0x74` string-table copying in a non-empty table,
-   selection UI, save/restore/restart, deeper room/system transition side
-   effects, and full interactive menu/audio paths.
-3. Extend the room-switch probes from the now-matched re-entry fixture. Useful
-   follow-ups are QEMU validation of restore replay for selected event-log
-   packets and object/resource reset details after the destination room logic
-   performs its own entry setup.
-4. For menu navigation, target type-2 movement event injection rather than
-   relying on QEMU monitor `sendkey down` to behave like the interpreter's
-   expected BIOS scan-word path.
-5. Continue assigning symbolic labels to interpreter helpers, object globals,
-   and scanner paths so later interpreter versions can be compared by role
-   rather than by absolute address.
+## Deferred Or Conditional Work
 
-## Remaining Source-Backed Families
+The remaining open rows in `PROGRESS.md` are mostly conditional:
 
-After the latest object/timing pass, the remaining source-backed action rows
-cluster into families that need specialized probes:
+- Cross-version comparison is blocked until additional local interpreter/game
+  inputs are available.
+- Non-EGA display/input paths are outside the current full-EGA compatibility
+  target unless another local interpreter version requires them.
+- Menu arrow navigation and a few UI paths would benefit from direct event
+  injection or a more precise keyboard harness; the source model is currently
+  stronger than the QEMU input path for those details.
+- Analog sound synthesis is outside the interpreter boundary currently being
+  specified; the useful model is the source-backed scheduler and port-output
+  behavior.
+- Out-of-memory, invalid-path, and other error UI cases should be added only if
+  they become necessary for the final compatibility suite.
 
-- **Room/resource lifecycle:** `0x12` and `0x13` are broad room/state switch
-  paths. Several early QEMU fixture attempts failed to produce stable reusable
-  evidence: direct room-variable assertions, target-logic drawing, and a
-  logic-0 re-entry fixture that restored the logic entry IP with `0x92` before
-  switching. The matched fixture now preserves the helper's zero-return path:
-  logic 0 sets an init flag before the switch, the main cycle immediately
-  re-enters logic 0, and logic 0 calls `call_logic_var(v0)` to invoke a
-  destination room logic that performs its own picture/view setup under flag 5.
-  This validates the room-switch re-entry/current-room dispatch shape for both
-  immediate and variable-selected room actions. A newer two-case batch
-  validates the current/previous/boundary variable update: both `0x12` and
-  `0x13` copy old `v0` to `v1`, write destination room 1 into `v0`, and clear
-  `v2`. Two four-case batches validate `v2` entry-boundary placement for both
-  immediate and variable-selected room switches: selector `1` sets object 0 Y
-  to `0xa7`, selector `2` sets X to `0`, selector `3` sets Y to `0x25`,
-  selector `4` sets X to `0xa0 - object_width`, and all four clear `v2`.
-  A two-case object-reset batch validates that a persistent object activated
-  before the switch is absent from the destination-room render for both
-  opcodes. Deeper side effects are source-backed from the latest disassembly
-  pass: every object record clears bits `0x0001`/`0x0040`, sets `0x0010`,
-  clears pointer fields `+0x08`/`+0x10`/`+0x14`, and stores `1` into
-  `+0x00`/`+0x01`/`+0x1e`/`+0x1f`/`+0x20`; room cache reset preserves the first
-  logic cache record and clears view, sound, and picture cache roots.
-  Destination logic load is source-mapped. Resource/event recording is also
-  source-mapped: `0x14`/`0x15`, `0x1e`/`0x1f`, `0x18`, `0x62`, picture
-  prepare/overlay/discard, view discard, and transient-display-object setup
-  feed restore replay through `code.event.record_pair`; actions `0x81`/`0xa2`
-  explicitly disable recording for temporary preview work. `0x15`, `0x1b`,
-  `0x1c`, `0x20`, and `0x99` also have targeted QEMU-backed lifecycle
-  fixtures.
-- **Text/window/input:** `0x65`, `0x66`, `0x67`, `0x68`, `0x6a`, `0x6b`,
-  `0x6c`, `0x6d`, `0x6e`, `0x6f`, `0x70`, `0x71`, `0x73`, `0x76`, `0x77`,
-  `0x78`, `0x79`, `0x89`, `0x8a`, `0x97`, `0x98`, `0x9a`, and `0xa9` now have
-  QEMU behavior or dispatch-smoke evidence. The string editor helper is
-  statically mapped at `code.input.edit_string` and dynamically validated for
-  accepting `look` into a string slot. The follow-up behavior batch validates
-  `0x6f` nonzero display-offset semantics, `0x79` mapped-key event conversion
-  through condition `0x0c`, and `0x74` string-table copying using a synthetic
-  fixture-local table entry because the sampled SQ2 table is zero-filled.
-- **Menus and inventory UI:** `0x7c` now has QEMU behavior evidence for
-  interactive Enter, interactive Escape, and noninteractive acknowledgement.
-  The selection result is absolute byte `DS:0x0022`, exposed as script variable
-  `0x19`. `0x9c..0xa1` now have behavior evidence for setup, Escape without
-  status, disabled-item Enter without status, re-enable, and one-item Enter via
-  condition `0x0c 7`. Further menu work should cover heading movement and
-  arrow-key navigation; a down-arrow QEMU fixture was attempted but did not
-  reach the expected second-item event. A separate raw-key mapping attempt for
-  `0x5000` with QEMU monitor `sendkey down` also failed to set a mapped status
-  byte, so this is currently an input-instrumentation gap. `0xa2` now has
-  view-resource display coverage. The source event path is now mapped more
-  tightly: BIOS keys drain into a 20-record queue, raw arrow/keypad words are
-  enqueued as type-2 movement events, display-adapter keypad bytes can be
-  remapped to type-2 movement events, and menu interaction dispatches movement
-  values 1..8 through a navigation table while persisting current heading/item
-  globals.
-- **Save/restore/restart/system:** `0x7d`, `0x7e`, `0x80`, `0x86`, `0x8b`,
-  `0x8c`, `0x8f`, `0x95`, and `0x96` now have focused QEMU coverage for
-  cancel/no-op/signature/gated-trace paths. `0x1d` now has priority-screen
-  return coverage. `0x90` has file-content evidence from a post-run DOS image:
-  the extracted `LOGFILE` contains the expected room/input/message record. The
-  source model now separates selector UI from file I/O: helper `0x85e5`
-  handles save/restore path selection and returns zero on cancel; save writes
-  length-prefixed engine/object/inventory/resource-event/logic-cache blocks;
-  restore reads the same block families and calls restore-time resource-event
-  replay at `0x681c`.
-- **Sound:** `0x62`, `0x63`, and `0x64` now have dispatch-smoke evidence using
-  load/start/stop on sound resource 1, and `0x64` has behavior evidence for
-  setting the completion flag configured by `0x63`. Exact audio output and
-  asynchronous playback lifetime remain source-backed. Source inspection shows
-  `0x63` stops prior sound before storing/clearing the completion flag and
-  calling the driver start helper for an already loaded sound record; `0x64`
-  sets the configured completion flag only when active-state word `[0x1258]`
-  is nonzero.
-- **Diagnostics/global toggles:** `0x83`, `0x84`, `0x87`, `0x88`, `0x8d`,
-  `0x8e`, `0xa3`, `0xa4`, and `0xaa..0xad` now have QEMU message or
-  dispatch-smoke evidence. `0x81` is covered together with `0xa2`; `0x85` now
-  has QEMU return-to-bytecode evidence for the object diagnostics display.
+Use `PROGRESS.md` as the completion dashboard and the subsystem chapters as the
+normative source. Use `docs/src/clean_room_executable_notes.md` when the exact
+evidence trail or command history is needed.

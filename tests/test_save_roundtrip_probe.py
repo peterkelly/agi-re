@@ -12,7 +12,13 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT / "tools"))
 
-from agi_save import SAVE_HEADER_LENGTH, SaveBlock, SaveGame  # noqa: E402
+from agi_save import (  # noqa: E402
+    SAVE_HEADER_LENGTH,
+    SOURCE_BACKED_FIXED_BLOCK_LENGTHS,
+    SaveBlock,
+    SaveGame,
+    parse_save,
+)
 from save_roundtrip_probe import SaveRoundTripResult  # noqa: E402
 from save_roundtrip_probe import (  # noqa: E402
     SAVED_MARKER_X,
@@ -25,10 +31,12 @@ from save_roundtrip_probe import (  # noqa: E402
     VALIDATION_VIEW_VAR,
     VALIDATION_X_VAR,
     VALIDATION_Y_VAR,
+    build_restore_read_error_fixture,
     build_restore_fixture,
     build_save_fixture,
     restore_fixture_logic_payload,
     save_fixture_logic_payload,
+    truncated_restore_save_payload,
     write_report,
 )
 
@@ -100,6 +108,35 @@ class SaveRoundTripProbeTests(unittest.TestCase):
             save.write_bytes(b"save bytes")
             fixture = build_restore_fixture(root / "fixture", save, save_stem="SG", slot=3)
             self.assertEqual((fixture / "SG.3").read_bytes(), b"save bytes")
+
+    def test_truncated_restore_save_payload_has_selector_signature_shape(self) -> None:
+        payload = truncated_restore_save_payload("broken")
+        self.assertEqual(len(payload), SAVE_HEADER_LENGTH + 2 + 7)
+        self.assertEqual(payload[:7], b"broken\0")
+        self.assertEqual(
+            payload[SAVE_HEADER_LENGTH : SAVE_HEADER_LENGTH + 2],
+            bytes(
+                [
+                    SOURCE_BACKED_FIXED_BLOCK_LENGTHS[0] & 0xFF,
+                    SOURCE_BACKED_FIXED_BLOCK_LENGTHS[0] >> 8,
+                ]
+            ),
+        )
+        self.assertEqual(payload[SAVE_HEADER_LENGTH + 2 :], b"SQ2\0\0\0\0")
+        with self.assertRaisesRegex(ValueError, "truncated"):
+            parse_save(payload)
+
+    def test_build_restore_read_error_fixture_writes_truncated_sq2_save(self) -> None:
+        with tempfile.TemporaryDirectory() as temp_dir:
+            fixture = build_restore_read_error_fixture(
+                Path(temp_dir),
+                description="bad",
+                save_stem="SQ2SG",
+                slot=1,
+            )
+            save_path = fixture / "SQ2SG.1"
+            self.assertEqual(save_path.read_bytes(), truncated_restore_save_payload("bad"))
+            self.assertTrue((fixture / "VOL.3").is_file())
 
     def test_write_report_serializes_probe_result(self) -> None:
         result = SaveRoundTripResult(

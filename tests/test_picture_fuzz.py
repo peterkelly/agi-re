@@ -59,6 +59,23 @@ class PictureFuzzTests(unittest.TestCase):
         self.assertIn("base_028_pattern_visual_disabled_control_only", case_ids)
         self.assertIn("base_029_pattern_control_disabled_visual_only", case_ids)
 
+    def test_base_cases_include_command_resume_cases(self) -> None:
+        case_ids = {case.case_id for case in base_cases()}
+        self.assertIn("base_030_line_pair_command_resume", case_ids)
+        self.assertIn("base_031_corner_command_resume", case_ids)
+        self.assertIn("base_032_fill_command_resume", case_ids)
+
+    def test_base_cases_include_raw_operand_cases(self) -> None:
+        case_ids = {case.case_id for case in base_cases()}
+        self.assertIn("base_033_raw_visual_operand", case_ids)
+        self.assertIn("base_034_raw_control_operand", case_ids)
+        self.assertIn("base_035_raw_pattern_mode_operand", case_ids)
+
+    def test_base_cases_include_relative_underflow_cases(self) -> None:
+        case_ids = {case.case_id for case in base_cases()}
+        self.assertIn("base_036_relative_x_underflow_wraps", case_ids)
+        self.assertIn("base_037_relative_y_underflow_wraps", case_ids)
+
     def test_random_generation_is_deterministic(self) -> None:
         left = generate_cases(8, seed=1234, include_unsafe=True)
         right = generate_cases(8, seed=1234, include_unsafe=True)

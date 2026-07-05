@@ -225,6 +225,29 @@ reader:
 The loaded resource payload returned by `0x2e32` does not include the 5-byte
 `VOL.*` record header; it begins at the resource-type-specific payload.
 
+## Resource cache records
+
+The four resource families keep separate singly linked cache lists. In every
+observed record, word `+0x00` is the next-record pointer. The lookup helpers
+walk the list for a matching resource number and also leave an insertion/link
+slot in a family-specific global so the loader can append a miss without
+rescanning.
+
+| Resource type | Root and insertion state | Lookup | Record size | Record fields |
+| --- | --- | --- | ---: | --- |
+| Logic | root `[0x0977]`, previous-link slot `[0x0983]` | `0x110f` | 10 bytes | `+0x00` next, `+0x02` logic number byte, `+0x03` message count byte, `+0x04` bytecode pointer (`payload + 2`), `+0x06` current instruction pointer, `+0x08` message offset table pointer |
+| View | root `[0x0ffa]`, previous-link slot `[0x1000]` | `0x3979` | 5 bytes | `+0x00` next, `+0x02` view number byte, `+0x03` payload pointer |
+| Picture | static first record/root `[0x120e]`, previous-link slot `[0x1214]` | `0x49e8` | 5 bytes | `+0x00` next, `+0x02` picture number byte, `+0x03` payload pointer |
+| Sound | static first record/root `[0x125a]`, previous-link slot `[0x1268]` | `0x50d8` | 14 bytes | `+0x00` next, `+0x02` sound number word, `+0x04` payload pointer, `+0x06`/`+0x08`/`+0x0a`/`+0x0c` channel stream pointers |
+
+View loader `0x39f7` allocates a 5-byte cache record on a miss and writes it
+through the link slot left in `[0x1000]`. Picture loader `0x4a3b` and sound
+loader `0x5126` use their static first records when the previous-link slot is
+zero, then allocate later records (`5` bytes for pictures and `14` bytes for
+sounds). Sound loader `0x5126` derives the four channel stream pointers by
+reading the first four little-endian words in the payload and adding each offset
+to the payload base.
+
 Early payload observations from these loaders:
 
 - Logic payloads begin with a little-endian offset. Loader `0x119a` treats
@@ -235,5 +258,6 @@ Early payload observations from these loaders:
   payload as offsets relative to the payload base and stores four derived
   pointers in its cache record.
 - View and picture loaders store the returned payload pointer directly in their
-  cache records. Further payload parsing is done by later routines and remains
-  to be decoded.
+  cache records. Later graphics/object routines parse view group/frame tables
+  and picture command streams as described in
+  [Graphics and Object Pipeline](./graphics_object_pipeline.md).

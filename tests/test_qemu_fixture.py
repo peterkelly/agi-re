@@ -22,6 +22,7 @@ from qemu_fixture import (  # noqa: E402
     build_picture_carousel_fixture,
     build_packed_picture_fixture,
     build_picture_timed_carousel_fixture,
+    build_view_timed_carousel_fixture,
     approach_first_object_until_near_action,
     assignn_action,
     build_synthetic_picture_persistent_object_fixture,
@@ -42,6 +43,8 @@ from qemu_fixture import (  # noqa: E402
     patch_logdir_entry_zero,
     picture_carousel_logic_payload,
     picture_timed_carousel_logic_payload,
+    view_carousel_case_actions,
+    view_timed_carousel_logic_payload,
     persistent_object_logic_payload,
     persistent_object_once_logic_payload,
     picture_logic_payload,
@@ -72,7 +75,7 @@ from qemu_fixture import (  # noqa: E402
     var_eq_imm_condition,
     volume_record,
 )
-from agi_graphics import PALETTE, picture_payload, render_picture  # noqa: E402
+from agi_graphics import PALETTE, picture_payload, render_picture, view_payload  # noqa: E402
 from compare_picture_capture import compare_picture_capture  # noqa: E402
 
 
@@ -382,6 +385,71 @@ class QemuFixtureTests(unittest.TestCase):
             self.assertEqual((entry1[1] << 8) | entry1[2], len(logic_record))
             self.assertEqual(entry45[0], 0x30)
             self.assertEqual((entry45[1] << 8) | entry45[2], len(logic_record) + len(first_record))
+
+    def test_view_carousel_case_actions_draw_picture_and_transient_view(self) -> None:
+        self.assertEqual(
+            view_carousel_case_actions(1, 11, 0, 0, 20, 80, 15),
+            bytes(
+                [
+                    0x03,
+                    SCRATCH_VAR,
+                    1,
+                    0x18,
+                    SCRATCH_VAR,
+                    0x19,
+                    SCRATCH_VAR,
+                    0x1A,
+                    0x1E,
+                    11,
+                    0x7A,
+                    11,
+                    0,
+                    0,
+                    20,
+                    80,
+                    15,
+                    15,
+                ]
+            ),
+        )
+
+    def test_view_timed_carousel_logic_sets_speed_delay_and_cases(self) -> None:
+        cases = [(1, 11, 0, 0, 20, 80, 15, None), (1, 0, 1, 0, 20, 80, 15, None)]
+        payload = view_timed_carousel_logic_payload(cases, delay_cycles=3, speed_value=1)
+        code_len = payload[0] | (payload[1] << 8)
+        code = payload[2 : 2 + code_len]
+        self.assertIn(bytes([0x03, SPEED_VAR, 1]), code)
+        self.assertIn(bytes([0x0C, 7]), code)
+        self.assertIn(bytes([0x01, CAROUSEL_DELAY_VAR]), code)
+        self.assertIn(bytes([0x1E, 11, 0x7A, 11, 0, 0, 20, 80, 15, 15]), code)
+        self.assertIn(bytes([0x1E, 0, 0x7A, 0, 1, 0, 20, 80, 15, 15]), code)
+        self.assertIn(bytes([0x03, CAROUSEL_INDEX_VAR, 1, 0x03, CAROUSEL_DELAY_VAR, 0]), code)
+
+    def test_view_timed_carousel_fixture_packs_selected_pictures_and_views(self) -> None:
+        cases = [(1, 11, 0, 0, 20, 80, 15, None), (1, 0, 1, 0, 20, 80, 15, None)]
+        with tempfile.TemporaryDirectory() as temp_dir:
+            fixture = build_view_timed_carousel_fixture(cases, Path(temp_dir) / "fixture", delay_cycles=3)
+            vol3 = (fixture / "VOL.3").read_bytes()
+            logic_record = volume_record(view_timed_carousel_logic_payload(cases, 3), volume=3)
+            picture_record = volume_record(picture_payload(1), volume=3)
+            view_11_record = volume_record(view_payload(11), volume=3)
+            self.assertTrue(vol3.startswith(logic_record + picture_record + view_11_record))
+            self.assertIn(volume_record(view_payload(0), volume=3), vol3)
+            self.assertFalse((fixture / "VOL.0").exists())
+            picdir = (fixture / "PICDIR").read_bytes()
+            viewdir = (fixture / "VIEWDIR").read_bytes()
+            picture_entry = picdir[1 * 3 : 1 * 3 + 3]
+            view11_entry = viewdir[11 * 3 : 11 * 3 + 3]
+            view0_entry = viewdir[0:3]
+            self.assertEqual(picture_entry[0], 0x30)
+            self.assertEqual((picture_entry[1] << 8) | picture_entry[2], len(logic_record))
+            self.assertEqual(view11_entry[0], 0x30)
+            self.assertEqual((view11_entry[1] << 8) | view11_entry[2], len(logic_record) + len(picture_record))
+            self.assertEqual(view0_entry[0], 0x30)
+            self.assertEqual(
+                (view0_entry[1] << 8) | view0_entry[2],
+                len(logic_record) + len(picture_record) + len(view_11_record),
+            )
 
     def test_synthetic_picture_view_fixture_patches_picture_and_logic(self) -> None:
         payload = bytes([0xFF])

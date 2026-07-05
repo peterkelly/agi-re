@@ -1294,6 +1294,42 @@ def base_cases() -> list[LogicInterpreterCase]:
             messages=["look"],
         ),
         _custom_case(
+            "input_word_sequence_matches_two_words",
+            "Condition 0x0e matches two parsed word IDs from one string slot.",
+            byte_action(0x72, 0, 1)
+            + byte_action(0x75, 0)
+            + if_then(input_word_sequence_condition(0x0002, 0x0005), draw_view11_at(50)),
+            50,
+            messages=["look get"],
+        ),
+        _custom_case(
+            "input_word_sequence_wildcard_matches_word",
+            "Condition 0x0e treats word ID 0x0001 as a wildcard for one parsed word.",
+            byte_action(0x72, 0, 1)
+            + byte_action(0x75, 0)
+            + if_then(input_word_sequence_condition(0x0002, 0x0001), draw_view11_at(50)),
+            50,
+            messages=["look get"],
+        ),
+        _custom_case(
+            "input_word_sequence_terminator_accepts_prefix",
+            "Condition 0x0e treats word ID 0x270f as a successful terminator after the preceding parsed words match.",
+            byte_action(0x72, 0, 1)
+            + byte_action(0x75, 0)
+            + if_then(input_word_sequence_condition(0x0002, 0x270F), draw_view11_at(50)),
+            50,
+            messages=["look get"],
+        ),
+        _custom_case(
+            "input_word_sequence_terminator_matches_unknown_word",
+            "Condition 0x0e treats word ID 0x270f as a successful terminator even after an unknown parsed token sets the parser error/count word.",
+            byte_action(0x72, 0, 1)
+            + byte_action(0x75, 0)
+            + if_then(input_word_sequence_condition(0x270F), draw_view11_at(50)),
+            50,
+            messages=["flarble"],
+        ),
+        _custom_case(
             "display_message_then_ack_continues_to_draw",
             "Action 0x65 displays a message, accepts Enter through the display helper, and returns to following bytecode.",
             byte_action(0x65, 1) + draw_view11_at(50),

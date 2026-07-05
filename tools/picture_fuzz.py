@@ -136,6 +136,14 @@ def base_cases() -> list[PictureFuzzCase]:
         _case("base_027_pattern_visual_control_channels", "Pattern plotting with both visual and control channels active writes both nibbles.", bytes([0xF2, 5, 0xF0, 3, 0xF9, 0x12, 0xFA, 40, 40, 0xFF]), "pattern"),
         _case("base_028_pattern_visual_disabled_control_only", "Pattern plotting after visual disable updates only the control channel.", bytes([0xF0, 6, 0xF1, 0xF2, 5, 0xF9, 0x12, 0xFA, 40, 40, 0xFF]), "pattern"),
         _case("base_029_pattern_control_disabled_visual_only", "Pattern plotting after control disable updates only the visual channel.", bytes([0xF2, 5, 0xF3, 0xF0, 6, 0xF9, 0x12, 0xFA, 40, 40, 0xFF]), "pattern"),
+        _case("base_030_line_pair_command_resume", "A command byte terminates an incomplete absolute-line coordinate pair and is then interpreted by the scanner.", bytes([0xF0, 2, 0xF6, 10, 0xF0, 3, 0xF6, 20, 20, 20, 20, 0xFF]), "scanner"),
+        _case("base_031_corner_command_resume", "A command byte terminates a corner path after one segment and is then interpreted by the scanner.", bytes([0xF0, 2, 0xF4, 10, 10, 20, 0xF0, 4, 0xF6, 30, 30, 30, 30, 0xFF]), "corner"),
+        _case("base_032_fill_command_resume", "A command byte terminates a seed-fill point list and is then interpreted by the scanner.", bytes([0xF0, 3, 0xF8, 0, 0, 0xF0, 4, 0xF6, 0, 0, 0, 0, 0xFF]), "fill"),
+        _case("base_033_raw_visual_operand", "Set-visual consumes a command-like byte as its raw color operand.", bytes([0xF0, 0xF2, 0xF6, 1, 1, 1, 1, 0xFF]), "scanner"),
+        _case("base_034_raw_control_operand", "Set-control consumes a command-like byte as its raw control operand.", bytes([0xF2, 0xF1, 0xF6, 1, 1, 1, 1, 0xFF]), "scanner"),
+        _case("base_035_raw_pattern_mode_operand", "Set-pattern-mode consumes a command-like byte as its raw mode operand.", bytes([0xF9, 0xFA, 0xF0, 4, 0xF6, 1, 1, 1, 1, 0xFF]), "scanner"),
+        _case("base_036_relative_x_underflow_wraps", "Relative X subtraction underflows the byte register and clamps to the right edge.", bytes([0xF0, 2, 0xF7, 0, 10, 0x90, 0xFF]), "line"),
+        _case("base_037_relative_y_underflow_wraps", "Relative Y subtraction underflows the byte register and clamps to the bottom edge.", bytes([0xF0, 2, 0xF7, 10, 0, 0x09, 0xFF]), "line"),
     ]
 
 

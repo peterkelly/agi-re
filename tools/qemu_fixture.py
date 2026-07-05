@@ -7,7 +7,7 @@ import argparse
 import shutil
 from pathlib import Path
 
-from agi_graphics import picture_payload
+from agi_graphics import picture_payload, view_payload
 from disassemble_logic import SQ2
 
 
@@ -321,6 +321,77 @@ def setup_transient_object_action(
     if control is None:
         control = priority
     return bytes([0x7A, view_no, group_no, frame_no, x, baseline_y, priority, control])
+
+
+def view_carousel_case_actions(
+    picture_no: int,
+    view_no: int,
+    group_no: int,
+    frame_no: int,
+    x: int,
+    baseline_y: int,
+    priority: int,
+    control: int | None = None,
+    scratch_var: int = SCRATCH_VAR,
+) -> bytes:
+    values = [picture_no, view_no, group_no, frame_no, x, baseline_y, priority, scratch_var]
+    if control is not None:
+        values.append(control)
+    if any(not 0 <= value <= 0xFF for value in values):
+        raise ValueError("view carousel operands must fit in one byte")
+    return (
+        load_show_picture_actions(picture_no, scratch_var)
+        + bytes([0x1E, view_no])
+        + setup_transient_object_action(view_no, group_no, frame_no, x, baseline_y, priority, control)
+    )
+
+
+def view_timed_carousel_logic_payload(
+    cases: list[tuple[int, int, int, int, int, int, int, int | None]],
+    delay_cycles: int = 20,
+    speed_value: int = 0,
+    scratch_var: int = SCRATCH_VAR,
+    index_var: int = CAROUSEL_INDEX_VAR,
+    delay_var: int = CAROUSEL_DELAY_VAR,
+    init_flag: int = DEFAULT_INIT_FLAG,
+    suppress_event_recording: bool = True,
+) -> bytes:
+    if not cases:
+        raise ValueError("view timed carousel requires at least one case")
+    if len(cases) > 0x100:
+        raise ValueError("view carousel index must fit in one byte")
+    values = [delay_cycles, speed_value, scratch_var, index_var, delay_var, init_flag]
+    for picture_no, view_no, group_no, frame_no, x, baseline_y, priority, control in cases:
+        values.extend([picture_no, view_no, group_no, frame_no, x, baseline_y, priority])
+        if control is not None:
+            values.append(control)
+    if any(not 0 <= value <= 0xFF for value in values):
+        raise ValueError("view timed carousel operands must fit in one byte")
+    if delay_cycles == 0:
+        raise ValueError("timed carousel delay must be nonzero")
+
+    setup = bytes([0x77])
+    if suppress_event_recording:
+        setup += set_flag_action(EVENT_RECORDING_BLOCK_FLAG)
+    setup += (
+        assignn_action(SPEED_VAR, speed_value)
+        + assignn_action(delay_var, 0)
+        + view_carousel_case_actions(*cases[0], scratch_var=scratch_var)
+        + assignn_action(index_var, 0)
+        + set_flag_action(init_flag)
+    )
+    code = if_then(not_flag_set_condition(init_flag), setup)
+    code += inc_var_action(delay_var)
+    for index, case in enumerate(cases[:-1]):
+        condition = all_conditions(var_eq_imm_condition(index_var, index), var_eq_imm_condition(delay_var, delay_cycles))
+        actions = (
+            view_carousel_case_actions(*cases[index + 1], scratch_var=scratch_var)
+            + assignn_action(index_var, index + 1)
+            + assignn_action(delay_var, 0)
+        )
+        code += if_then(condition, actions)
+    code += end_action()
+    return logic_resource(code)
 
 
 def move_object_to_action(
@@ -699,6 +770,42 @@ def build_picture_timed_carousel_fixture(
     logdir = (destination / "LOGDIR").read_bytes()
     (destination / "LOGDIR").write_bytes(patch_logdir_entry_zero(logdir, volume=3, offset=0))
     (destination / "PICDIR").write_bytes(picdir)
+    return destination
+
+
+def build_view_timed_carousel_fixture(
+    cases: list[tuple[int, int, int, int, int, int, int, int | None]],
+    destination: Path,
+    delay_cycles: int = 20,
+    speed_value: int = 0,
+) -> Path:
+    if not cases:
+        raise ValueError("view timed carousel requires at least one case")
+    copy_minimal_picture_tree(destination)
+    logic_record = volume_record(view_timed_carousel_logic_payload(cases, delay_cycles, speed_value), volume=3)
+    records = bytearray(logic_record)
+    picdir = (destination / "PICDIR").read_bytes()
+    viewdir = (destination / "VIEWDIR").read_bytes()
+
+    seen_pictures: set[int] = set()
+    seen_views: set[int] = set()
+    for picture_no, view_no, _group_no, _frame_no, _x, _baseline_y, _priority, _control in cases:
+        if picture_no not in seen_pictures:
+            offset = len(records)
+            records.extend(volume_record(picture_payload(picture_no), volume=3))
+            picdir = patch_dir_entry(picdir, picture_no, volume=3, offset=offset)
+            seen_pictures.add(picture_no)
+        if view_no not in seen_views:
+            offset = len(records)
+            records.extend(volume_record(view_payload(view_no), volume=3))
+            viewdir = patch_dir_entry(viewdir, view_no, volume=3, offset=offset)
+            seen_views.add(view_no)
+
+    (destination / "VOL.3").write_bytes(bytes(records))
+    logdir = (destination / "LOGDIR").read_bytes()
+    (destination / "LOGDIR").write_bytes(patch_logdir_entry_zero(logdir, volume=3, offset=0))
+    (destination / "PICDIR").write_bytes(picdir)
+    (destination / "VIEWDIR").write_bytes(viewdir)
     return destination
 
 

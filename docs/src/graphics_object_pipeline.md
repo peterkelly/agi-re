@@ -60,11 +60,12 @@ Afterward it clears word `[0x1216]`.
 
 Logic action `0x1a` (`show_picture_like`) enters at `0x4b82`. It clears flag 15 through `0x74d0`,
 calls `0x1f2b(0)`, calls display helper `0x5546`, and sets word `[0x1216] = 1`.
-The exact screen-visible distinction between actions `0x19` (`prepare_picture_var`) and
-`0x1a` (`show_picture_like`) still
-needs live confirmation, but statically `0x19` decodes the selected picture
-payload into the graphics buffer and `0x1a` performs a later display/finalize
-step.
+Source and QEMU resource-lifecycle probes agree on the screen-visible
+distinction: `0x19` decodes the selected picture payload into the logical
+graphics buffer, while `0x1a` copies/finalizes that logical state to the
+display. The `overlay_picture_var_composes_extra_picture` probe showed that an
+overlay performed through `0x1c` was not visible until a following `0x1a`
+refresh made the composed logical picture visible.
 
 Logic action `0x1c` (`overlay_picture_var`) also selects a cached picture-like
 payload into `[0x1377]`, but its helper path calls decoder entry `0x6440`
@@ -153,7 +154,9 @@ though both handlers are present in the interpreter dispatch table.
 it through display-dependent mapper `0x5685`, stores `AL` in `[0x136b]`, enables
 the low nibble of draw word `[0x1369]`, and updates the even/odd masks
 `[0x136d]` and `[0x136e]`. This is the low-nibble drawing channel used for
-visible picture color in the current model.
+visible picture color in the current model. This operand is a raw byte read, not
+the coordinate/data-byte reader, so a byte `>= 0xf0` immediately after `0xf0`
+is consumed as the visual operand rather than treated as a command.
 
 **`0xf1` (`disable_visual_draw_nibble`)**: Handler `0x64b5` clears the low
 nibble of `[0x1369]` and opens the low nibble in both write masks.
@@ -161,7 +164,8 @@ nibble of `[0x1369]` and opens the low nibble in both write masks.
 **`0xf2` (`set_control_draw_nibble`)**: Handler `0x64c7` reads one byte, shifts
 it into the high nibble, stores it in `[0x136c]`, enables the high nibble of
 `[0x1369]`, and updates both masks. This is the high-nibble drawing channel
-later consumed by object movement/control tests.
+later consumed by object movement/control tests. Like `0xf0`, this consumes a
+raw operand byte even when that byte is `>= 0xf0`.
 
 **`0xf3` (`disable_control_draw_nibble`)**: Handler `0x64ed` clears the high
 nibble of `[0x1369]` and opens the high nibble in both write masks.
@@ -186,8 +190,11 @@ coordinate pair, then consumes relative-step bytes while they are `<= 0xef`.
 Bits `0x70` encode an X delta magnitude shifted down four bits, bit `0x80`
 chooses subtraction instead of addition for X, bits `0x07` encode a Y delta
 magnitude, and bit `0x08` chooses subtraction instead of addition for Y. Each
-decoded endpoint is clamped to `x <= 0x9f` and `y <= 0xa7`, then connected with
-`0x66e1`.
+decoded endpoint is computed in the byte register holding the current
+coordinate, so subtraction can underflow to a high unsigned byte. The handler
+then only clamps values above the maximum (`x > 0x9f` to `0x9f`,
+`y > 0xa7` to `0xa7`); it does not separately clamp negative deltas to zero.
+The resulting endpoint is connected with `0x66e1`.
 
 **`0xf8` (`seed_fill`)**: Handler `0x66ab` repeatedly reads coordinate pairs
 and calls helper `0x533b`. The helper chooses exactly one expansion test channel
@@ -219,7 +226,8 @@ if it produces the same final logical buffer.
 `[0x15ee]`. The low three bits select one of eight pattern masks through the
 pointer table at `DS:0x1619`; bit `0x10` bypasses one mask test in the patterned
 plotter; bit `0x20` makes command `0xfa` consume an additional byte into
-`[0x15f8]` before each patterned draw.
+`[0x15f8]` before each patterned draw. The mode byte is also a raw operand
+byte, so command-looking values are legal operands for the source scanner.
 
 **`0xfa` (`pattern_plot`)**: Handler `0x64ff` repeatedly reads coordinate
 pairs, then calls helper `0x652a`. That helper clamps a small rectangle around
@@ -265,7 +273,13 @@ Coordinate readers are shared across the command handlers. Helper `0x66c1`
 reads X into `AH`, accepts bytes `<= 0xef`, clamps values above `0x9f` down to
 `0x9f`, and returns carry set on a command/sentinel byte. Helper `0x66d4` does
 the same for Y in `AL`, clamping above `0xa7`. Helper `0x66b8` reads a full
-X/Y pair by calling those two helpers.
+X/Y pair by calling those two helpers. Command/sentinel bytes are not consumed
+as drawing data by the coordinate helper that rejects them; control returns to
+the main scanner with that byte still pending in `AL`. Synthetic QEMU batch
+`command_resume_001` validates this scanner-resume contract for an incomplete
+absolute-line coordinate pair, a corner path, and a seed-fill point list.
+Focused batch `raw_operand_001` validates the complementary case: raw operands
+for `0xf0`, `0xf2`, and `0xf9` consume command-looking bytes as operands.
 
 Pixel writes converge on helper `0x52f9`. It treats word `[0x150b]` as
 `AH = x`, `AL = y`, computes `DI = y * 0xa0 + x`, selects masks from
@@ -292,7 +306,10 @@ point is then written through `0x52f9`.
 
 A synthetic absolute line from `(0,0)` to `(3,1)` plots `(0,0)`, `(1,0)`,
 `(2,1)`, and `(3,1)`; the same points are produced by the packed relative byte
-`0x31`. A screen-scale edge case from `(159,167)` to `(0,0)` proves the
+`0x31`. QEMU fuzz batch `relative_underflow_001` confirms the source-modeled
+relative-line underflow rule: from `(0,10)`, relative byte `0x90` draws to the
+right edge at `(159,10)`, and from `(10,0)`, relative byte `0x09` draws to the
+bottom edge at `(10,167)`. A screen-scale edge case from `(159,167)` to `(0,0)` proves the
 byte-width accumulator behavior: the drawn line includes `(25,0)` and `(25,1)`
 and does not include `(0,0)`. This was first exposed by QEMU fuzz cases
 `base_004_clamped_absolute` and `base_005_exact_edge_absolute`, both of which
@@ -512,8 +529,8 @@ The view-like payload layout is now partially pinned down by helpers `0x3ae7`,
 Observed structure:
 
 ```text
-payload + 0x00: unknown byte
-payload + 0x01: unknown byte
+payload + 0x00: reserved/unused by observed SQ2 interpreter paths; always 0x01 in local resources
+payload + 0x01: reserved/unused by observed SQ2 interpreter paths; always 0x01 in local resources
 payload + 0x02: group count
 payload + 0x03: u16 preview/display string offset, relative to payload base
 payload + 0x05: u16 group_offset[group_count], relative to payload base
@@ -529,6 +546,10 @@ frame + 0x03: row-terminated encoded pixel data
 
 The payload offset arithmetic is visible in the object helpers:
 
+- The inspected loader, object bind, group/frame select, and preview-text paths
+  do not read payload bytes `+0x00` or `+0x01`. A local census found both bytes
+  are `0x01` in all 203 valid SQ2 view resources, so they are modeled as
+  reserved header bytes for the current spec target.
 - `0x3ae7` copies `payload[0x02]` to object byte `+0x0b`.
 - `0x5edb`, used by view-resource preview actions, reads
   `u16(payload + 0x03)` and displays `payload + that_offset` through `0x1ce8`.
@@ -585,6 +606,12 @@ is `0x20` or lower, it scans downward in the same column until it finds a
 higher control/priority value or reaches the lower buffer limit, then uses that
 value for the same comparison. This ties object drawing to the high-nibble
 control data produced by picture decoding.
+The comparison is inclusive: an object priority/control nibble equal to the
+existing or scanned high nibble is allowed to draw. If the downward scan reaches
+the lower buffer limit without finding a high nibble above `0x20`, the
+comparison value is zero, so even a priority-0 draw can pass that local gate.
+When one pixel in a run is rejected, the draw routine advances to the next
+destination cell and continues the same run rather than aborting the run.
 
 QEMU probes using controlled synthetic pictures validate both priority-gate
 branches. On the default cleared picture buffer, whose high nibble is `4`, an
@@ -631,6 +658,9 @@ without changing the movement order. Full object-record collision/control
 fixtures can plug those predicates in as the local model grows.
 This does not yet replace the full object-record/update-list pipeline, but it
 captures the central `IBM_OBJS.OVL:0x9db6` pixel rule for focused tests.
+Those local tests now include the inclusive equal-priority case, a low-control
+cell whose downward scan finds equal priority, the no-scan-hit priority-0 case,
+and a multi-pixel run where one rejected pixel does not suppress later pixels.
 
 The persistent object-table path has also been validated for static drawing.
 A generated logic fixture using `load_view`, object resource/frame selection,
@@ -661,10 +691,13 @@ The observed rewrite is a horizontal row mirror over the run-length stream:
 6. End the rebuilt row with a zero terminator.
 
 The original leading transparent pixels therefore become implicit trailing
-transparent pixels after the reversed run bytes. This matches a QEMU fixture
-using view 0, group 1, frame 0: the on-disk frame has control byte `0x81`
-with cached orientation bits `0`, while selecting group 1 rewrites the control
-byte to `0x91` and mirrors the row pixels.
+transparent pixels after the reversed run bytes. If a row has no
+nontransparent runs, the rebuilt row is just the zero terminator. If the
+implicit transparent width exceeds 15 pixels, the helper emits multiple
+transparent run bytes before the reversed tail. This matches a QEMU fixture
+using view 0, group 1, frame 0: the on-disk frame has control byte `0x81` with
+cached orientation bits `0`, while selecting group 1 rewrites the control byte
+to `0x91` and mirrors the row pixels.
 
 Local SQ2 resource scans found frame control bytes with many low-nibble
 transparent values, including `0x0`, `0x1`, `0x2`, `0x3`, `0x5`, `0x6`, `0x7`,
@@ -680,9 +713,14 @@ color `8` and size `45x47`, and view 10/group 0/frame 0 with bit `0x80` and
 transparent color `10`. All matched the local renderer in the expanded object
 overlay batch. A later optional view stress batch broadened this again with
 larger cels and transparent colors `0`, `1`, `2`, `5`, `6`, `7`, `8`, `10`,
-`13`, `14`, and `15`; all 17 base-plus-stress cases matched QEMU.
+`13`, `14`, and `15`; all 17 base-plus-stress cases matched QEMU. Local tests
+also exercise the row-rewrite edge cases above directly, so the source-visible
+mirror contract is covered even when a particular row shape is rare in the
+current SQ2 resources.
 
-The exact meaning of the first two payload bytes remains open.
+No observed SQ2 path gives payload bytes `+0x00` and `+0x01` a runtime meaning.
+Keep them in the file-format model as reserved bytes so future cross-version
+comparisons can notice if another interpreter or game starts using them.
 
 ## Object activation and deactivation
 
@@ -864,18 +902,24 @@ the object's Y coordinate. It then computes the buffer offset for object X/Y,
 uses the selected frame width from object `+0x10`, scans high nibbles from the
 buffer segment at `[0x136f]`, and reacts to these classes:
 
-| High nibble | Observed behavior in `0x56b8` |
+| High nibble | Source behavior in `0x56b8` |
 | ---: | --- |
 | `0x00` | Rejects the proposed move immediately. |
-| `0x10` | Permits scanning to continue only when object flag bit `0x0002` is set. |
-| `0x20` | Records that this class was encountered, then continues. |
-| `0x30` | Continues without changing the tracked class state. |
+| `0x10` | Rejects unless object flag bit `0x0002` is set; when that bit is set, scanning continues and the current class state is `(flag3=false, flag0=false)`. |
+| `0x20` | Continues with current class state `(flag3=true, flag0=false)`. |
+| `0x30` | Continues with current class state `(flag3=false, flag0=true)`. |
+| Other nonzero high nibble | Continues with current class state `(flag3=false, flag0=false)`. |
 
-After the scan, object flag bits `0x0100` and `0x0800` can reject the final
-class state. For objects whose byte `+0x02` is zero, the helper also updates
-global flags 3 and 0 through `0x74ee`/`0x74f4` based on the scan result. The
-exact meaning of the nibble classes is still open, but the caller contract is
-clear: nonzero permits the proposed move, zero rejects it.
+The helper resets the class state at each scanned cell, so this is not an
+"encountered anywhere" latch. If the scan reaches the end of the frame width,
+object flag bit `0x0100` rejects states whose flag0 component is false, while
+object flag bit `0x0800` rejects states whose flag0 component is true. For
+objects whose byte `+0x02` is zero, the helper also writes global flags 3 and 0
+through `0x74ee`/`0x74f4` from the final class state. Priority/control byte
+`+0x24 == 0x0f` bypasses the scan and returns accepted with both global values
+clear when `+0x02 == 0`. The exact meaning of the nibble classes is still open,
+but the caller contract is clear: nonzero permits the proposed move, zero
+rejects it.
 
 QEMU movement probes refine this static reading:
 
@@ -1016,15 +1060,39 @@ The wrapper helpers around those roots are now distinct:
 | `0x6a8e` | Rebuilds and draws root `0x1703`, then rebuilds and draws root `0x16ff`, using `0x6a3d`/`0x6a26` followed by `0x045e`. |
 | `0x6aab` | Calls `0x0488` for root `0x1703`, then root `0x16ff`, refreshing dirty rectangles and updating saved-position state. |
 
-The shared builder `0x0358(root, callback)` scans all 43-byte object records,
-selects records accepted by the callback, sorts them, and inserts render/update
-nodes with `0x042f`. The sort key is either the object's Y-like field `+0x05`
-or, when object flag bit `0x0004` is set, a value derived from object byte
-`+0x24` through helper `0x4cbb`.
+The shared builder `0x0358(root, callback)` scans all 43-byte object records in
+object-table order and stores each accepted record with a draw key. The key is
+the object's baseline-like Y field `+0x05` unless object flag bit `0x0004` is
+set; fixed-priority records instead use `0x4cbb(object[+0x24])` as a Y-like
+key. The builder then performs a selection-sort style pass: on each pass it
+chooses the smallest remaining key, preserves the first object-table entry on
+ties, marks that entry consumed with key `0x00ff`, and inserts a node through
+`0x042f`.
 
-The list-processing helper `0x045e(root)` walks from the list tail backward. For
-each node it calls `0x9db0(node)`, then calls `0x9db6` with the object pointer
-stored at node `+0x04`.
+Helper `0x042f(root, object)` allocates a 16-byte render/update node, inserts it
+at the head of the list, and leaves the first inserted node as the root tail.
+Because `0x0358` inserts keys from low to high while `0x045e(root)` draws from
+the list tail backward through previous pointers, objects draw in ascending key
+order. Equal-key objects draw in object-table order, so a later object-table
+entry is drawn later and can cover earlier equal-key objects. Root order still
+dominates this in-root order: `0x6a8e` draws all root `0x1703` objects first,
+then all root `0x16ff` objects.
+
+Helper `0x4cbb(value)` has two source-visible modes. SQ2's observed normal mode
+has `[0x124a] == 0`, so it scans downward from index `0xa8` through the
+priority table rooted at `0x127a` and returns the first index whose byte is
+below `value`; `value == 0` returns `0xffff`. The default table initializer
+writes indices `0..0xa7`, so the byte at index `0xa8` is a one-past-table
+sentinel. In the local AGIDATA image that byte is zero, which makes positive
+fixed-priority values sort below ordinary baseline rows unless a future
+observation shows runtime code changing the sentinel. The alternate branch
+uses `(value - 5) * 12 + 0x30` when `[0x124a]` is nonzero; this branch remains
+source-present but no SQ2 write enabling it has been found.
+
+The list-processing helper `0x045e(root)` starts with the root tail pointer. For
+each node it calls `0x9db0(node)` to save the backing rectangle, then calls
+`0x9db6` with the object pointer stored at node `+0x04`, then follows the node's
+previous pointer.
 
 The render/update node allocator at `0x9097` creates a 16-byte node and stores
 its pointer back into object word `+0x14`.
@@ -1107,6 +1175,35 @@ logical graphics buffer to the selected graphics overlay:
   `+0x12`, and saved X/Y `+0x16/+0x18`; stores the current frame pointer into
   `+0x12`; computes the union rectangle covering both old and new frame
   footprints; and calls graphics-overlay entry `0x980c`.
+
+The dirty rectangle uses baseline-style object coordinates. The current
+footprint is:
+
+```text
+current_left   = object[+0x03]
+current_bottom = object[+0x05]
+current_width  = current_frame[+0x00]
+current_height = current_frame[+0x01]
+current_top    = current_bottom - current_height + 1
+```
+
+The saved footprint uses `object[+0x16]`, `object[+0x18]`, and the saved frame
+pointer from `object[+0x12]`. The display rectangle is:
+
+```text
+left   = min(current_left, saved_left)
+right  = max(current_left + current_width, saved_left + saved_width)
+bottom = max(current_bottom, saved_bottom)
+top    = min(current_top, saved_top)
+
+AH = left
+AL = bottom
+BL = right - left
+BH = bottom - top + 1
+```
+
+This is source-modeled locally by `dirty_rect_union()` in
+`tools/agi_graphics.py`.
 
 The common rectangle arguments to graphics-overlay entries `0x980c` and
 `0x9812` are:
@@ -1242,6 +1339,7 @@ The graphics/interpreter path now looks like this:
    object field `+0x10`, and later restore old rectangles when lists are
    flushed.
 
-The largest remaining unknowns in this area are the exact semantics of the two
-update-list roots, the first two bytes of view-like payloads, most bits in the
-frame control byte, and the display-specific packed-buffer variants.
+The largest remaining unknowns in this area are the final user-facing names for
+the two update-list root partitions, any frame control-byte bits not exercised
+by local SQ2 resources, and the display-specific packed-buffer variants outside
+the full EGA target path.

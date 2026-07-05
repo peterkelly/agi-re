@@ -40,6 +40,35 @@ Run all current local tests from the repository root:
 python3 -B -m unittest discover -s tests
 ```
 
+Run the current top-level compatibility suite manifest. By default this executes
+only deterministic local checks: the unit suite, `mdbook build docs`, and the
+opcode-evidence freshness check. QEMU smoke and broad resource sweeps are
+opt-in so a quick local run does not unexpectedly boot the original engine:
+
+```bash
+python3 -B tools/compatibility_suite.py --report build/compatibility-suite/local_001.json
+python3 -B tools/compatibility_suite.py --include-qemu-smoke --report build/compatibility-suite/qemu_smoke_002.json
+python3 -B tools/compatibility_suite.py --include-qemu-broad --report build/compatibility-suite/qemu_broad_002.json
+python3 -B tools/compatibility_suite.py --dry-run --include-qemu-smoke
+python3 -B tools/compatibility_suite.py --dry-run --include-qemu-broad
+```
+
+The first checked run of the default manifest passed after running 230 unit
+tests, building the mdBook, and checking generated opcode evidence.
+
+The current checked run of the QEMU smoke manifest passed in
+`build/compatibility-suite/qemu_smoke_002.json`. That run executed the local
+unit suite, mdBook build, opcode-evidence check, parser edge QEMU probes,
+unknown-word parser terminator QEMU probe, picture command-resume fuzz probes,
+raw-operand picture fuzz probes, and relative-line underflow fuzz probes. Every
+selected command returned zero.
+
+The current checked run of the QEMU broad manifest passed in
+`build/compatibility-suite/qemu_broad_002.json`. The broad selection includes
+the smoke layer plus the eight-picture timed carousel and the 19-case
+view/object stress carousel. Every selected command returned zero; the picture
+carousel matched all 8 cases and the view/object carousel matched all 19 cases.
+
 Generate current sample render outputs:
 
 ```bash
@@ -282,8 +311,23 @@ batch:
 python3 -B tools/view_batch.py --snapshot --include-stress --dos-prefix VXS --output build/view-batch/batches/view_stress_001.json --boot-wait 5 --draw-wait 8 --stop-on-failure
 ```
 
-The first stress run included the six built-in cases plus eleven large or
-transparent-color-focused cels; all 17 matched with 0 mismatches.
+The first stress run used the older six-case base plus eleven large or
+transparent-color-focused cels; all 17 matched with 0 mismatches. The current
+registry has eight base cases, so `--include-stress` now covers 19 total cases.
+
+Run the current base or base-plus-stress view cases through a timed polling
+carousel from one engine process:
+
+```bash
+python3 -B tools/view_carousel.py --fixture-root build/view-carousel/base-fixtures --dos-dir VCARBASE --output build/view-carousel/batches/view_carousel_base_001.json --boot-wait 5 --first-wait 3 --delay-cycles 120 --speed-value 1 --poll-interval 0.5 --poll-timeout 20
+python3 -B tools/view_carousel.py --include-stress --fixture-root build/view-carousel/stress-fixtures --dos-dir VCARSTR --output build/view-carousel/batches/view_carousel_stress_001.json --boot-wait 5 --first-wait 3 --delay-cycles 120 --speed-value 1 --poll-interval 0.5 --poll-timeout 20
+```
+
+The base carousel matched all 8 current base cases, and the base-plus-stress
+carousel matched all 19 current cases, both with 0 mismatches and 0 errors from
+one original-engine process. The carousel fixture packs only the generated
+logic plus selected picture/view payloads into `VOL.3`; keep `tools/view_batch.py`
+as the simpler one-fixture-per-case reference oracle.
 
 Run targeted object overlay priority, clipping, transparent-cel,
 priority-table, and persistent-object probes with controlled synthetic picture
@@ -368,6 +412,31 @@ objects, immediate-completion `move_object_to_var`, object rectangle predicates,
 custom message-table loading, string-slot normalization, dictionary parsing for
 `look`, input-word sequence testing, inventory/object marker predicates, and
 marker actions `0x5c..0x61`.
+
+Run the parser edge batch:
+
+```bash
+python3 -B tools/logic_interpreter_probe.py --dos-prefix PW --output build/logic-interpreter-probes/batches/parser_edges_001.json --boot-wait 5 --draw-wait 8 --stop-on-failure --case input_word_sequence_matches_two_words --case input_word_sequence_wildcard_matches_word --case input_word_sequence_terminator_accepts_prefix
+python3 -B tools/logic_interpreter_probe.py --dos-prefix PU --output build/logic-interpreter-probes/batches/parser_unknown_terminator_001.json --boot-wait 5 --draw-wait 8 --stop-on-failure --case input_word_sequence_terminator_matches_unknown_word
+```
+
+The three-case `parser_edges_001` batch and the one-case
+`parser_unknown_terminator_001` batch matched QEMU with 0 mismatches. They validate
+condition `0x0e` matching two parsed word IDs (`look get` -> `0x0002 0x0005`),
+word ID `0x0001` as a wildcard for one parsed word, and word ID `0x270f` as a
+successful terminator after a matching prefix. The follow-up unknown-token case
+confirms the source-modeled edge where parsing an unknown word sets flag 2 and a
+nonzero count/error-position, allowing a terminator-only pattern to match.
+
+Local `WORDS.TOK` decoder tests now cover the static vocabulary format used by
+those probes: the 26-entry big-endian letter-offset table, 1,099 decoded local
+entries, a zero `x` bucket, prefix-compressed phrase reconstruction, and the
+known IDs `anyword=0x0001`, `look=0x0002`, and `get=0x0005`. The same test
+module now covers the source-modeled parser normalization tables, case-
+insensitive dictionary lookup, zero-ID dictionary word filtering, unknown-word
+output-slot reporting, the ten-word parsed-output limit, and a local
+`input_word_sequence_matches()` model for exact, wildcard, terminator, failure,
+flag-gate, and unknown-token terminator cases.
 
 Run the room-switch re-entry batch:
 
@@ -457,6 +526,21 @@ partition, and `0x3c` performs the refresh pass that makes the partition order
 visible. The fixtures also preserve the stale drawing left behind when `0x25`
 rewrites current and saved coordinates after activation; that ghost is modeled
 as fixture setup, not as the root-partition behavior under test.
+
+Later source inspection of the shared update-list builder (`0x0358`), node
+inserter (`0x042f`), and draw walker (`0x045e`) pins down the in-root order used
+by future renderer tests: each root is selection-sorted by ascending baseline or
+reverse-priority key, equal keys preserve object-table order, and drawing walks
+from list tail toward head. Local tests in `tests/test_graphics_rendering.py`
+now model this ordering, including SQ2's observed one-past-table sentinel for
+the fixed-priority reverse mapping.
+
+Local graphics tests also model source helper `0x56b8`
+(`code.object.control_acceptance`) over extracted high-nibble scanlines. The
+current tests cover class-0 rejection, class-1 rejection and bit-`0x0002`
+bypass, final-state effects for bits `0x0100` and `0x0800`, the
+other-nonzero-class fall-through state, and priority-15 scan bypass with event
+flags cleared.
 
 Run the object bit-`0x2000` direction/group-selection follow-up batch:
 
@@ -742,6 +826,23 @@ message/ack/return behavior for `0x87`, `0x88`, and `0x8d`, and dispatch-smokes
 `0xaa`. Later focused probes or source passes promote `0x83`, `0x84`, `0x8e`,
 `0xab`, `0xac`, `0xad`, `0xa3`, and `0xa4` beyond this original smoke batch.
 
+The heap helper formulas are covered by:
+
+```bash
+python3 -B -m unittest tests.test_heap
+```
+
+This test module models the source-backed bump allocator and diagnostic
+formulas behind action `0x87`. It checks that allocation returns the old heap
+top, advances the current pointer, refreshes the free-memory page byte, updates
+the high-water mark only when the new top exceeds it, treats overflow as the
+interpreter's fatal allocation path, restores a nonzero temporary mark once,
+rewinds dynamic state to the room/reset mark, and computes the heap-status
+values from the same base/current/limit/high-water/reset globals observed in
+the disassembly. These are local source-model tests rather than visible QEMU
+UI captures; the existing diagnostics/system batch validates that the
+heap-status action displays and returns to bytecode.
+
 Run the menu/list and sound dispatch-smoke batch:
 
 ```bash
@@ -789,9 +890,15 @@ code. These tests validate the resource container and event stream shape; they
 also validate the source-backed event scheduling model. The schedule checks pin
 the one-tick first-record delay, sound 1's tick-40 natural termination, sound
 60's different one-channel and four-channel completion ticks, immediate
-completion when flag 9 is clear, and the 65,536-tick countdown wrap for a
-synthetic zero-duration event. They do not yet validate audible pitch,
-attenuation-envelope output, or hardware driver port effects.
+completion when flag 9 is clear, the 65,536-tick countdown wrap for a synthetic
+zero-duration event, and the source-backed tone-output boundary: PC-speaker
+divisor/silence-gate behavior, non-PC high/low tone byte writes, high-byte
+suppression of low-byte writes, and stop-core silence bytes. They also cover
+the non-PC-speaker attenuation output helper: default envelope table bytes,
+channel masks, selector `2` low-value lift, negative/positive delta clamps, and
+the `0x80` envelope terminator. They do not validate analog audible synthesis,
+but the driver port-write behavior is now source-backed in the runtime model
+and covered by local tests.
 
 The static save-file parser is covered by:
 
@@ -810,6 +917,14 @@ inconsistent data is rejected. This is structural compatibility evidence for
 the save-file container and a fixture-building primitive for later generated
 saves; it does not yet validate a full original-engine save/restore round trip
 from QEMU.
+
+The same test module now covers a source-modeled `code.dos.validate_path`
+planning helper for selector path edges. It models the string handling before
+the source delegates to DOS: leading spaces are skipped, an empty path is
+filled with the current directory, a trailing slash/backslash is stripped from
+multi-character paths, a single slash/backslash is accepted as a root path,
+two-character drive paths such as `A:` use the drive-availability probe, and
+other paths use DOS find-first with directory attributes.
 
 Run a dynamic original-engine save-write probe:
 
@@ -846,6 +961,24 @@ Earlier restore probes that merely matched code after `0x7e` were therefore
 ambiguous; the stronger `restore_roundtrip_sq2stem_006` probe matched X=50 with
 0 visual mismatches, while the failure path draws X=90. This validates an
 actual original-engine restore of the generated save state.
+
+Run a representative original-engine restore-read failure probe:
+
+```bash
+python3 -B tools/save_roundtrip_probe.py --mode restore-read-error --output build/save-roundtrip/restore_read_error_002.json --fixture build/save-roundtrip/restore-read-error-fixture --dos-dir RERR --capture build/save-roundtrip/restore_read_error_002.ppm --snapshot-raw build/save-roundtrip/snapshot/restore_read_error_002.raw --snapshot-qcow build/save-roundtrip/snapshot/restore_read_error_002.qcow2 --boot-wait 5 --draw-wait 8 --path-prompt-wait 8 --path-keys $'\n' --slot-wait 2 --slot-keys $'\n' --confirmation-wait 1 --confirmation-keys $'\n' --key-delay 0.12
+```
+
+The fixture writes a deliberately truncated `SQ2SG.1`: a 31-byte description
+header, little-endian declared first-block length `0x05e1`, and only seven
+payload bytes `SQ2\0\0\0\0`. The selector still lists the save because those
+seven bytes pass the source-backed `DS:0x0002` signature check. After one Enter
+at the directory prompt, one Enter at slot selection, and one Enter at the
+confirmation dialog, the original engine attempts the full first-block read and
+shows the persistent fatal dialog `Error in restoring game. Press ENTER to
+quit.` The stable 8-second capture was
+`build/save-roundtrip/restore_read_error_002.ppm`, with RGB SHA-256
+`556971f26fc34deb32497a9d10c08eedeb28f6bdb0957cd7676a8ef26830849c`, 3 unique
+colors, and non-background bounding box `(0, 136, 639, 399)`.
 
 Run the focused enabled trace-window case:
 
@@ -907,6 +1040,14 @@ flag configured by `0x63`, Escape menu exit without a status event, disabled
 menu-item Enter not setting a status event, and disable-then-enable restoring
 Enter selection.
 
+Menu movement and delivery now also have a source-backed implementation model
+in `docs/src/runtime_model.md`. Existing QEMU keyboard attempts did not produce
+a stable arrow-navigation fixture, so movement validation remains a useful
+future compatibility-suite addition. For the current EGA target, the movement
+contract is based on `code.menu.interact`, its dispatch table, and the local
+AGIDATA raw-key map, while Enter/Escape/item-enable behavior is dynamically
+validated by the menu batches above.
+
 To reproduce the `0x90` logfile-content check, run the log case alone, convert
 the post-run qcow2 disk to raw, and extract `LOGFILE` from the generated DOS
 directory:
@@ -951,6 +1092,9 @@ python3 -B tools/picture_fuzz.py compare-capture base_004_clamped_absolute build
 - The all-picture command census is fixed by tests. In the current local SQ2
   resources, commands `0xf4` and `0xf5` are not used by any valid picture
   payload even though the interpreter implements them.
+- Synthetic unit tests directly cover both rare corner-path commands:
+  `0xf4` starts with a vertical segment, then alternates horizontal/vertical;
+  `0xf5` starts with a horizontal segment, then alternates vertical/horizontal.
 - Synthetic picture bytecode tests lock down seed-fill channel priority:
   visual fill is the expansion-test channel when enabled, but accepted cells
   still use the normal pixel write path and can update both active nibbles;
@@ -963,6 +1107,9 @@ python3 -B tools/picture_fuzz.py compare-capture base_004_clamped_absolute build
   accumulator wrap observed in the executable and in QEMU fuzz captures.
 - Every valid view resource in SQ2 parses through the local view frame walker;
   the aggregate pass currently finds 2,066 frames and 50,640 rows.
+- All 203 valid local SQ2 view resources have reserved header bytes `01 01` at
+  payload offsets `+0x00/+0x01`; observed runtime paths begin meaningful view
+  parsing at byte `+0x02`.
 - Every decoded view row stays within its declared frame width. The largest
   observed cel dimensions are 88 by 129.
 - Two specific view cels, view 0 group 0 frame 0 and view 11 group 0 frame 0,
@@ -978,19 +1125,33 @@ python3 -B tools/picture_fuzz.py compare-capture base_004_clamped_absolute build
   priority/control `15`, the original-engine capture matched the local
   `compose_frame_on_picture()` output with 0 mismatches out of 26,880 logical
   pixels.
+- Source-modeled object-overlay priority tests cover the `IBM_OBJS.OVL:0x9e35`
+  pixel gate: higher existing priority rejects a write, equal priority permits
+  it, low-control cells scan downward for the comparison value, no scan hit
+  behaves like comparison value zero, and a rejected pixel does not abort the
+  rest of the run.
 - A generated picture-1 plus view-0/group-1/frame-0 fixture was run through the
   original interpreter in QEMU to validate the bit-`0x80` frame orientation
   rewrite path. The original-engine capture matched the local mirrored-frame
   output with 0 mismatches out of 26,880 logical pixels.
-- The current six-case view batch validates normal view drawing, cached and
-  mirrored bit-`0x80` orientation, left-edge clipping, top-edge placement, and
-  a low-priority object case. After modeling the top-edge adjustment, all six
-  cases match QEMU with 0 mismatches.
+- Source-modeled mirror edge tests now cover helper `0x587d` beyond the natural
+  resource sample: an all-transparent row rewrites to an empty row, implicit
+  trailing transparent width is emitted before reversed visible runs, widths
+  above 15 are chunked into multiple transparent runs, and reversal starts at
+  the first nontransparent run while preserving later explicit transparent
+  runs in the reversed tail.
+- The current eight-case view batch validates normal view drawing, cached and
+  mirrored bit-`0x80` orientation, left-edge clipping, top-edge placement,
+  right-edge placement, bottom-edge placement, and a low-priority object case.
+  The timed polling carousel `view_carousel_base_001` matched all eight from
+  one original-engine process with 0 mismatches.
 - The optional `--include-stress` view batch adds eleven larger or
   transparent-color-focused cels, including transparent colors `0`, `1`, `2`,
   `5`, `6`, `7`, `8`, `10`, `13`, `14`, and `15`, plus a bit-`0x80`
-  transparent-10 frame. QEMU batch `view_stress_001` matched all 17 total
-  cases with 0 mismatches and 0 errors.
+  transparent-10 frame. QEMU snapshot batch `view_stress_001` matched the
+  older 17-case set with 0 mismatches and 0 errors; timed polling carousel
+  `view_carousel_stress_001` matched the current 19-case set with 0 mismatches
+  and 0 errors from one original-engine process.
 - Local object-frame composition tests cover baseline placement, transparent
   pixels, direct high-priority rejection, and downward priority/control scanning
   from low-control cells. They also lock down the top-edge adjustment observed
@@ -1116,9 +1277,9 @@ python3 -B tools/picture_fuzz.py compare-capture base_004_clamped_absolute build
 - `tests/test_picture_fuzz.py` covers deterministic fuzz generation, manifest
   writing, Python render-result recording, scaled synthetic capture comparison
   without booting QEMU, QEMU unsafe-case rejection, and mocked batch reporting.
-- The current fuzz corpus command above generates 1,054 synthetic picture
-  cases: 30 curated base cases plus 1,024 deterministic random cases. Of those,
-  1,052 are marked safe for automated QEMU runs; the unsafe cases intentionally
+- The current fuzz corpus command above generates 1,062 synthetic picture
+  cases: 38 curated base cases plus 1,024 deterministic random cases. Of those,
+  1,060 are marked safe for automated QEMU runs; the unsafe cases intentionally
   include payloads such as no terminator or missing command operands that could
   make the original interpreter treat garbage memory as picture data. These
   unsafe cases are retained only as harness guardrails and are not part of the
@@ -1133,7 +1294,9 @@ python3 -B tools/picture_fuzz.py compare-capture base_004_clamped_absolute build
   `base_026_pattern_random_bypass_sequence`, plus
   `pattern_channel_masks_001` for `base_027_pattern_visual_control_channels`,
   `base_028_pattern_visual_disabled_control_only`, and
-  `base_029_pattern_control_disabled_visual_only`.
+  `base_029_pattern_control_disabled_visual_only`, plus `raw_operand_001` for
+  `base_033_raw_visual_operand`, `base_034_raw_control_operand`, and
+  `base_035_raw_pattern_mode_operand`.
 - The `seed_fill_edges_001` snapshot batch matched the original engine with 3
   matches, 0 mismatches, and 0 errors. The first two cases validate visible
   full-height barrier and multi-seed fill geometry. The third validates that a
@@ -1150,6 +1313,19 @@ python3 -B tools/picture_fuzz.py compare-capture base_004_clamped_absolute build
   EGA surface for pattern plotting with both channels active, visual disabled,
   and control disabled. The local renderer tests assert the corresponding
   control-buffer nibbles from the source-backed common pixel-writer path.
+- The `command_resume_001` snapshot batch matched the original engine with
+  3 matches, 0 mismatches, and 0 errors. These cases validate that command
+  bytes terminate and remain pending after an incomplete absolute-line
+  coordinate pair, a corner path segment list, or a seed-fill point list; the
+  scanner then interprets the same command byte normally.
+- The `raw_operand_001` snapshot batch matched the original engine with
+  3 matches, 0 mismatches, and 0 errors. These cases validate the complementary
+  scanner rule that `0xf0`, `0xf2`, and `0xf9` consume command-looking bytes as
+  raw one-byte operands instead of treating them as new commands.
+- The `relative_underflow_001` snapshot batch matched the original engine with
+  2 matches, 0 mismatches, and 0 errors. These cases validate that relative
+  line subtraction underflows in an 8-bit coordinate register and then clamps to
+  the right or bottom edge, not to zero.
 - A 16-case random QEMU batch covering line, corner, pattern, fill, and scanner
   categories also matched with 0 mismatches.
 - The fuzz pass exposed a diagonal-line mismatch for the two edge-line cases.
@@ -1173,6 +1349,9 @@ python3 -B tools/picture_fuzz.py compare-capture base_004_clamped_absolute build
 - Timed polling carousel batch `picture_carousel_broad_timed_poll_fast_001`
   matched the eight-picture broad preset from one engine process with
   8 matches, 0 mismatches, and 0 errors.
+- Suite-level timed polling carousel batch `picture_carousel_broad_suite`
+  matched the same eight-picture broad preset as part of
+  `qemu_broad_002.json`, also with 8 matches, 0 mismatches, and 0 errors.
 - Chunked timed polling carousel batch
   `picture_carousel_all_timed_poll_chunk16_001` matched all 74 valid local SQ2
   picture resources with 74 matches, 0 mismatches, and 0 errors across five
@@ -1188,7 +1367,7 @@ executable and QEMU captures.
 
 The view cel renderer is based on the row run-length format documented from the
 IBM object overlay and now has both a small QEMU validation batch and an
-optional 17-case stress batch for larger cels and transparent-color variants.
+optional 19-case stress carousel for larger cels and transparent-color variants.
 It still needs broader priority interactions with different picture control
 bands and runtime animated-object state changes.
 
@@ -1197,16 +1376,18 @@ QEMU fuzz coverage for scanner behavior, exact/right-lower-edge diagonal lines,
 visual/control seed fill, bounded fill barriers, pseudo-random pattern plotting,
 lower-right pattern edge wrapping, mask-bypass pattern plotting, interleaved
 line/fill/pattern streams, pattern channel-mask states, safe truncated
-coordinate data, and two real SQ2 picture resources. The seed-fill traversal
-class is source-backed as a
-horizontal span fill with deferred stack state; the local renderer uses a queue
-because the observable contract for valid finite data is the final connected
-region under the selected channel target test. Full-height narrow-barrier,
-multi-seed, and visible control-only barrier cases now match the original
-engine in QEMU. Fuzz cases should still expand toward more varied odd/even mask
-interactions outside the full EGA target path, additional interleavings, and
-future cross-game/interpreter real-resource coverage before picture hashes are
-treated as complete original-engine parity checks beyond this SQ2 executable.
+coordinate data with command-byte resume, raw command-looking operands,
+relative-line underflow, and every valid local SQ2 picture resource. The
+seed-fill traversal class is source-backed as a horizontal span fill with
+deferred stack state; the local renderer uses a queue because the observable
+contract for valid finite data is the final connected region under the selected
+channel target test. Full-height narrow-barrier, multi-seed, visible
+control-only barrier, and current all-picture SQ2 resource cases match the
+original engine in QEMU. Fuzz cases should still expand toward additional valid
+interleavings and future cross-game/interpreter real-resource coverage before
+picture hashes are treated as complete original-engine parity checks beyond
+this SQ2 executable. Odd/even mask divergence remains outside the full-EGA
+target unless another local interpreter version or SQ2 behavior requires it.
 
 Future tests should prefer focused fixtures: a room or script state that draws a
 single picture, a single moving object, or a known cel at a known screen
@@ -1241,6 +1422,20 @@ the static patch targeted the fixture file, while action `0xaa` reads the
 interpreter's runtime data segment at `0x0e72`. Source-backed disassembly now
 covers `0xaa`; dynamic validation would need to drive the save/restore selector
 path that populates the runtime save-description buffer.
+
+The remaining source-backed action rows have also been audited for whether a
+direct dynamic probe would be representative. `0x6e` is a CRT/display-register
+timing effect whose visible screenshot is not a stable semantic oracle for the
+full-EGA target. `0x83` selects object0/global direction mirroring at a
+pre-logic main-cycle point; script writes after that point are overwritten by
+the next mirror/restore path, so a bytecode-only fixture mostly measures the
+harness. `0x8e` resets event-pair capacity state, while the observable replay
+save/restore behavior already has QEMU evidence through `0xab` and `0xac`.
+`0xaa` needs the runtime save selector buffer rather than a static data-file
+patch. `0xad` depends on raw keyboard release timing in the IRQ hook. These
+opcodes remain covered for the current spec target by disassembly and adjacent
+observable behavior; promote a dynamic probe only if a future harness can drive
+the relevant runtime state directly.
 
 Current QEMU screenshots captured through `screendump` use full VGA-sized PPM
 frames. A generated picture-only SQ2 fixture produced a 640 by 400 capture.

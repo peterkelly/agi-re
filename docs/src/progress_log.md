@@ -15487,3 +15487,3295 @@ Progress updates and outcomes:
 
       Action/result: Added the save filename/signature prefix row to
       `docs/src/runtime_model.md`.
+
+2061. Reported: "I’m resuming from the PROGRESS-guided thread and picking up
+      the file-error UI probe work first. I’ll keep this source-led and use
+      QEMU as the representative observable check once the fixture is in
+      place."
+
+      Action/result: Confirmed the tree was clean apart from generated
+      artifacts and selected the save/restore file-error probe from
+      `PROGRESS.md`.
+
+2062. Reported: "I’ve verified the tree is clean apart from generated
+      inputs/artifacts, and the current tracker really does point to
+      save/restore failure behavior as the next high-value gap. I’m patching
+      the existing save-roundtrip harness rather than creating a one-off script,
+      so the evidence stays reusable for later interpreter versions."
+
+      Action/result: Inspected `tools/save_roundtrip_probe.py`,
+      `tests/test_save_roundtrip_probe.py`, and the existing source-backed
+      save/restore docs.
+
+2063. Reported: "The fixture shape is now clear from the source path: a
+      truncated save can still be listed by the restore selector if its 31-byte
+      description and first seven signature bytes look right. The actual
+      restore then asks the block reader for the full first block and trips the
+      documented read-error path."
+
+      Action/result: Added `restore-read-error` fixture support to
+      `tools/save_roundtrip_probe.py`.
+
+2064. Reported: "The harness now has a first-class `restore-read-error` mode
+      and unit coverage for the malformed-but-selector-visible save envelope.
+      I’m running the focused tests before spending QEMU time on it."
+
+      Action/result: `python3 -B -m unittest tests.test_save_roundtrip_probe`
+      passed with 8 tests.
+
+2065. Reported: "The source-backed fixture is ready, and the narrow test suite
+      is green. I’m launching the original engine with that fixture now; if the
+      local VNC bind is sandboxed again, I’ll rerun the same command with
+      approval escalation."
+
+      Action/result: Sandboxed QEMU launch failed to bind the local VNC socket,
+      as expected.
+
+2066. Reported: "As expected, the sandbox blocked QEMU’s VNC socket, not the
+      probe itself. I’m rerunning the exact same original-engine check outside
+      the sandbox so we can get the capture."
+
+      Action/result: The broad-key restore-read-error probe completed, but the
+      capture showed DOS because redundant Enters dismissed the fatal dialog.
+
+2067. Reported: "The original-engine run completed and produced a stable
+      capture: the 40-byte save fixture was accepted by the selector, then the
+      restore read failed on the declared 1505-byte first block. I’m converting
+      and inspecting the image so the docs can record exactly what was
+      observed."
+
+      Action/result: Converted and inspected `restore_read_error_001`; the
+      image showed the final DOS prompt rather than the error dialog.
+
+2068. Reported: "The first capture landed back at DOS, which is useful but not
+      the UI evidence I wanted. I’m tightening the capture timing now to see
+      whether the engine displays the restore-read error briefly before
+      terminating, or whether this path goes straight through cleanup too
+      quickly for a static end-state screenshot."
+
+      Action/result: A short final capture still landed at DOS, indicating the
+      key sequence rather than the wait duration needed correction.
+
+2069. Reported: "The short capture still shows DOS, which suggests the failure
+      path exits before the current harness’s final screenshot point. I’m going
+      to trace the prompt timing with intermediate screenshots rather than
+      guess from the final state."
+
+      Action/result: Started one-key-at-a-time restore UI timing captures.
+
+2070. Reported: "I’m narrowing where the interaction actually is: first I’ll
+      capture the restore prompt before sending any keys, then I’ll advance one
+      key at a time if needed. That should separate “we missed a brief error”
+      from “the prompt sequence is different for this failure fixture.”"
+
+      Action/result: Captured the restore directory prompt with the default
+      fixture directory in the input field.
+
+2071. Reported: "Good, the first prompt is visible and waiting for the restore
+      directory. The default path field is the fixture directory, so I’m sending
+      a single Enter next and capturing before any slot-selection keys."
+
+      Action/result: Captured the selector listing the truncated save as
+      `codex probe`.
+
+2072. Reported: "The selector lists the truncated save as expected, which
+      proves the malformed file passed the source-backed signature scan. I’m
+      sending the slot-selection Enter next and capturing immediately after
+      that transition."
+
+      Action/result: Captured the restore confirmation dialog naming
+      `\rera\sq2sg.1`.
+
+2073. Reported: "After slot selection, the engine shows the confirmation
+      dialog with the truncated save’s filename. I’m now using the exact
+      one-Enter-per-stage sequence; this avoids the earlier extra keys that were
+      spilling into DOS after the fatal restore path exited."
+
+      Action/result: Captured the restore-read error dialog:
+      `Error in restoring game. Press ENTER to quit.`
+
+2074. Reported: "That nailed it: with exactly one Enter at directory, slot, and
+      confirmation, the screenshot is the restore failure dialog: “Error in
+      restoring game. Press ENTER to quit.” I’m doing one stable timed run now
+      with a normal wait, then I’ll fold the command and hashes into the docs
+      and tracker."
+
+      Action/result: Stable 8-second capture `restore_read_error_002.ppm`
+      matched the quick dialog capture with RGB SHA-256
+      `556971f26fc34deb32497a9d10c08eedeb28f6bdb0957cd7676a8ef26830849c`.
+
+2075. Reported: "The stable run matches the quick capture exactly: same hash
+      and same dialog geometry after an 8-second wait, so this failure dialog is
+      persistent until Enter. I’m updating the reusable commands, evidence
+      notes, compatibility chapter, and `PROGRESS.md` now."
+
+      Action/result: Updated `AGENTS.md`, compatibility notes, clean-room
+      executable notes, and `PROGRESS.md` for the restore-read-error probe.
+
+2076. Reported: "The capture sequence also documents the UI lifecycle:
+      directory prompt, save selector row, restore confirmation, then the fatal
+      restore-read dialog. I’m making the docs reflect that nuance because it
+      matters for compatibility tests."
+
+      Action/result: Added prompt-sequence details and the stable capture hash
+      to `docs/src/compatibility_testing.md` and
+      `docs/src/clean_room_executable_notes.md`.
+
+2077. Reported: "The compatibility command should use single Enter keys, not
+      the broader redundant key sequence used for the success restore. I’m
+      recording that explicitly so future runs don’t accidentally advance past
+      the error dialog into DOS."
+
+      Action/result: Added the single-Enter restore-read-error command to
+      `AGENTS.md`.
+
+2078. Reported: "I’m also updating `PROGRESS.md` so the dashboard stops
+      advertising this as remaining work. The next queue item after this will
+      be graphics/view compatibility and spec polish unless the verification
+      pass uncovers a regression."
+
+      Action/result: Removed the representative file-error UI probe from the
+      highest-value remaining-work list.
+
+2079. Reported: "The tracker is updated: the file-error UI probe has moved
+      from “remaining” to evidence. I’m adding the historical log entries for
+      the QEMU attempts and then I’ll run the full verification suite for these
+      harness/docs changes."
+
+      Action/result: Completed progress-log entries through the stable
+      restore-read-error capture.
+
+2080. Reported: "The file-error work is documented and logged. I’m running the
+      standard local verification stack now: unit tests, opcode evidence check,
+      mdBook build, and whitespace diff check."
+
+      Action/result: Verification passed: 166 unit tests, opcode evidence
+      check, mdBook build, and `git diff --check`.
+
+2081. Reported: "Verification is clean: 166 unit tests passed, opcode evidence
+      check passed, mdBook built, and `git diff --check` found no whitespace
+      issues. I’m checking the resulting diff now, then I’ll continue down the
+      next `PROGRESS.md` item."
+
+      Action/result: Reviewed the diff and cleaned up long import/test lines.
+
+2082. Reported: "Readability cleanup is done. I’m rerunning the same
+      verification commands so the current working tree, not just the previous
+      one, is known good."
+
+      Action/result: Verification passed again with the same command set.
+
+2083. Reported: "The refreshed verification pass is clean again: 166 tests,
+      opcode evidence, mdBook, and diff whitespace all pass. I’m moving to the
+      next remaining item in `PROGRESS.md`, which is picture/view renderer
+      compatibility work."
+
+      Action/result: Re-read the graphics/view/object coverage and identified
+      that pattern and object-overlay edge cases are already broadly covered.
+
+2084. Reported: "The first remaining item is explicitly optional and already
+      says those opcodes are covered unless a representative dynamic fixture is
+      worth adding. I’m treating the concrete next work as graphics
+      compatibility: source/test review first, then one focused edge-case
+      addition rather than random probing."
+
+      Action/result: Inspected picture fuzz, renderer tests, and current
+      picture/view tracker entries.
+
+2085. Reported: "The picture side already has broad real-resource parity; the
+      remaining useful work is the thin edge around valid synthetic streams. I’m
+      looking at the renderer and fuzz corpus together so the next addition is
+      source-aligned and testable."
+
+      Action/result: Re-read pattern renderer tests, base fuzz cases, and
+      related source-backed documentation.
+
+2086. Reported: "One candidate edge is random pattern plotting state: it has
+      both a seed byte and per-plot mask logic, and those semantics are easy to
+      accidentally model incorrectly. I’m checking the disassembly around the
+      pattern handler before adding or changing any fixture."
+
+      Action/result: Disassembly at `0x64ff..0x6602` confirmed the existing
+      pattern-mode and random-seed model already matches documented tests and
+      QEMU coverage.
+
+2087. Reported: "The pattern/channel cases are already QEMU-covered, including
+      the `base_027..029` channel-mask trio. I’m shifting to the view/object
+      side of the same graphics item, where the tracker still calls out
+      priority/control combinations and placement semantics."
+
+      Action/result: Inspected `tools/view_batch.py`,
+      `tests/test_view_batch.py`, and compatibility notes for view/object
+      coverage.
+
+2088. Reported: "The view batch already covers clipping and transparency
+      stress, while object overlay probes carry the actual priority/control
+      visibility semantics. I’m reading that harness next; it looks like the
+      best place to add a focused priority-band fixture if there’s a real gap."
+
+      Action/result: Confirmed the object overlay harness already covers
+      threshold pairs, low/high nibble behavior, auto-priority rebuilds,
+      persistent objects, and selected group/frame offsets.
+
+2089. Reported: "The object overlay suite is already broader than the tracker
+      wording: it has threshold pairs, low/high nibble priority checks,
+      auto-priority rebuilds, persistent objects, and selected group/frame
+      offsets. Rather than duplicate that, I’m taking the next concrete tracker
+      item: make save/file selection more implementation-ready in the spec."
+
+      Action/result: Switched from adding duplicate graphics cases to improving
+      the save/file selector spec.
+
+2090. Reported: "The save section has the facts, but it is still compressed
+      into a few table rows. I’m going back to the selector disassembly and the
+      existing source notes, then I’ll turn that into an explicit
+      implementation-facing state machine."
+
+      Action/result: Re-read selector/path/slot disassembly around
+      `0x85e5`, `0x8705`, `0x8814`, and `0x8b9f`.
+
+2091. Reported: "The disassembly confirms the selector is a small UI state
+      machine around path editing, slot scanning, list interaction, optional
+      save-description editing, and caller-side file I/O. I’m adding that model
+      now, with the uncertain internals kept out of the normative contract."
+
+      Action/result: Added a save/restore selector state-machine table to
+      `docs/src/runtime_model.md`.
+
+2092. Reported: "The runtime model now has a selector state machine instead of
+      just a compact data row. I’m updating the dashboard to reflect that
+      save/file selection has moved forward, then I’ll verify the docs build
+      again."
+
+      Action/result: Updated `PROGRESS.md` to remove save/file selection from
+      the remaining implementation-ready state-machine examples.
+
+2093. Reported: "The remaining spec-polish examples are now sound hardware
+      output, heap initialization, and menu movement/event delivery. I’m adding
+      the corresponding progress-log entries and then running the documentation
+      checks."
+
+      Action/result: Ran `mdbook build docs` and `git diff --check`; both
+      passed.
+
+2094. Reported: "The latest docs build and whitespace check pass. The remaining
+      implementation-spec examples are now sound hardware output, heap
+      initialization, and menu movement/event delivery; I’m taking heap
+      initialization next because it is most likely to be source-complete
+      without fragile hardware/QEMU behavior."
+
+      Action/result: Began heap initialization source review.
+
+2095. Reported: "The heap notes cover allocation/reset well, but initialization
+      is still thin. I’m searching for the startup writes to the heap globals
+      rather than inferring them from the later allocator helpers."
+
+      Action/result: Found writes to heap globals around raw/image offsets
+      `0x1644`, `0x1669`, `0x1696`, and `0x4420..0x4431`.
+
+2096. Reported: "The byte search found startup writes to the heap globals
+      around raw offsets `0x1644`, `0x1669`, `0x1696`, and `0x4420..0x4431`.
+      I’m disassembling those local regions now to see which are true
+      initialization sites versus later helper writes."
+
+      Action/result: Disassembly showed `0x1644`, `0x1669`, and `0x1696` are
+      helper writes, while startup memory allocation at `0x43ea..0x4431` seeds
+      heap current/base/limit.
+
+2097. Reported: "The startup allocation path is source-backed now: DOS
+      `AH=48h` returns a memory segment, the interpreter converts it into a
+      DS-relative byte offset, seeds heap current/base from that, and computes
+      the limit from the requested paragraph count. I’m documenting that as the
+      missing heap-initialization contract."
+
+      Action/result: Added `code.startup.allocate_runtime_memory` and clarified
+      heap global labels in `docs/src/symbolic_labels.md`.
+
+2098. Reported: "The runtime model and symbol map now explain where heap
+      base/current/limit come from, not just how later allocation uses them. I’m
+      adding the clean-room evidence note with the exact searches and
+      disassembly observations."
+
+      Action/result: Added a heap startup initialization source-pass section to
+      `docs/src/clean_room_executable_notes.md`.
+
+2099. Reported: "The clean-room notes now show the exact startup allocator
+      evidence. I’m updating `PROGRESS.md` so heap initialization is no longer
+      listed as an open implementation-spec item."
+
+      Action/result: Updated `PROGRESS.md`; heap initialization is now evidence,
+      leaving only optional observable out-of-memory UI behavior for the memory
+      subsystem.
+
+2100. Reported: "Docs and whitespace are clean. I’m moving to sound hardware
+      output next, but I’ll keep it source-first: identify what the interpreter
+      hands to the hardware driver, and avoid trying to declare PC-speaker
+      electrical behavior unless the executable itself makes it clear."
+
+      Action/result: Began source-first sound driver output review.
+
+2101. Reported: "The sound model already covers stream parsing and scheduling;
+      the gap is the low-level write helpers. I’m disassembling
+      `driver_write_tone` and `driver_write_attenuation` now to decide what can
+      be specified portably."
+
+      Action/result: Disassembled the sound driver start/tick/stop/tone and
+      attenuation write helpers around raw/image regions `0x81a0..0x83f6`.
+
+2102. Reported: "The driver output path is now clearer:
+      PC-speaker-like selectors use PIT ports `0x43/0x42/0x61`, while other
+      selectors write encoded bytes to port `0xc0`. I’m going to capture the
+      portable part in code/tests too: the source-backed PC-speaker divisor
+      formula."
+
+      Action/result: Added `pc_speaker_divisor()` and
+      `pc_speaker_event_enabled()` to `tools/agi_sound.py`.
+
+2103. Reported: "I added a small source-backed helper for the PC-speaker
+      divisor formula and the simple attenuation gate. That gives the spec a
+      tested foothold for hardware output without pretending we have full
+      audible synthesis yet."
+
+      Action/result: Added a sound-resource unit test for sound 1's first event
+      divisor `10560` and its silent attenuation nibble.
+
+2104. Reported: "The sound-resource tests now include the hardware-facing
+      divisor/gate check. I’m running that focused suite before updating the
+      spec text."
+
+      Action/result: `python3 -B -m unittest tests.test_sound_resources` passed
+      with 10 tests.
+
+2105. Reported: "The focused sound tests pass with 10 tests. I’m updating the
+      sound runtime model now: event stream semantics, PC-speaker divisor
+      formula, silence gate, and the separate port-`0xc0` path for other
+      hardware selectors."
+
+      Action/result: Updated `docs/src/runtime_model.md` with the
+      hardware-output driver-interface model.
+
+2106. Reported: "The runtime model now distinguishes portable sound semantics
+      from hardware port writes. I’m recording the driver-output source pass in
+      the clean-room notes with the disassembly ranges and the new test
+      coverage."
+
+      Action/result: Added a sound hardware-output source-pass section to
+      `docs/src/clean_room_executable_notes.md`.
+
+2107. Reported: "The evidence note captures what the port writers do without
+      turning it into an overbroad audio spec. I’m tightening the symbol-map
+      descriptions for the two sound driver helpers to preserve the same
+      cross-version labels."
+
+      Action/result: Updated `code.sound.driver_write_tone` and
+      `code.sound.driver_write_attenuation` notes in
+      `docs/src/symbolic_labels.md`.
+
+2108. Reported: "The symbol map now has the port-writer details attached to the
+      existing labels. I’m updating the compatibility chapter and tracker next
+      so sound hardware output is no longer listed as an open spec-polish
+      example."
+
+      Action/result: Updated compatibility text and `PROGRESS.md` for the
+      source-backed sound hardware-output model.
+
+2109. Reported: "The highest-value spec-polish queue is down to menu
+      movement/event delivery. I’m logging the sound-output work and then
+      running the focused sound tests plus docs checks again."
+
+      Action/result: Finished the sound-output evidence updates and prepared
+      for verification.
+
+2110. Reported: "The sound work is logged. Since this touched code and docs,
+      I’m running the full local verification stack again, not just the focused
+      sound suite."
+
+      Action/result: Ran the full verification stack for the sound changes.
+
+2111. Reported: "Full verification is clean: 167 tests now pass, opcode
+      evidence passes, mdBook builds, and diff whitespace is clean. I’m moving
+      to the last named implementation-spec item: menu movement/event
+      delivery."
+
+      Action/result: Confirmed the last full verification pass and switched to
+      menu interaction analysis.
+
+2112. Reported: "I’m picking up from the verified sound-output pass and moving
+      into the remaining menu interaction item in `PROGRESS.md`. First I’m
+      re-reading the existing menu notes and labels so the next edits are
+      anchored in the disassembly trail, not just the test harness history."
+
+      Action/result: Re-read menu opcode prose, existing clean-room notes,
+      symbolic labels, compatibility notes, and `PROGRESS.md`.
+
+2113. Reported: "The existing menu chapter already has the core dispatch table,
+      so the gap is not “what does each arrow do?” so much as “what would an
+      implementer build from this?” I’m going to turn that into a runtime
+      state-machine description and then reassess `PROGRESS.md` for the next
+      highest-value item."
+
+      Action/result: Compared the existing menu evidence against
+      `docs/src/runtime_model.md` and identified the missing implementation
+      model.
+
+2114. Reported: "For the menu work I’m doing one source reread of
+      `code.menu.interact` itself before editing. The documentation already
+      says the dispatch table result; I want the state-machine text to reflect
+      the actual loop shape and persistence points."
+
+      Action/result: Disassembled the menu setup and interaction regions and
+      rechecked the local AGIDATA raw-key movement table.
+
+2115. Reported: "The source reread confirms the useful implementation shape:
+      menu setup owns circular heading/item lists, interaction is a modal event
+      loop, and selection only fires on Enter if the current item’s enable word
+      is nonzero. I’m adding that as a data model plus lifecycle, with the
+      failed QEMU arrow probe still treated as a test gap rather than a spec
+      blocker."
+
+      Action/result: Added menu/list data-model and interaction-lifecycle
+      tables to `docs/src/runtime_model.md`.
+
+2116. Reported: "The runtime model now has the menu lifecycle in
+      implementer-facing form. I’m tightening the tracker and symbolic label
+      file next so future cross-version work has stable names for the newly
+      documented helper/state fields."
+
+      Action/result: Added `code.menu.remember_item_and_restore_rect` plus
+      menu saved-rectangle globals to `docs/src/symbolic_labels.md`.
+
+2117. Reported: "Tiny correction while editing the label map: the existing
+      navigation row uses “last item” for movement value 4, so I’m patching
+      against the actual current text."
+
+      Action/result: Applied the symbolic-label update against the current
+      table text.
+
+2118. Reported: "The symbol map has the helper and rectangle globals now. I’m
+      updating `PROGRESS.md` so menu movement is marked as
+      implementation-specified from source, while leaving arrow-key dynamic
+      validation as an optional compatibility-suite gap."
+
+      Action/result: Updated `PROGRESS.md` and `docs/src/compatibility_testing.md`
+      to reflect source-backed menu movement semantics and remaining optional
+      dynamic validation.
+
+2119. Reported: "The menu item is now closed at the spec level:
+      source-backed lifecycle, labels, tracker, and compatibility notes are
+      aligned. I’m running the docs checks for this docs-only pass, then I’ll
+      pick the next item from `PROGRESS.md`."
+
+      Action/result: `mdbook build docs`, `git diff --check`, and
+      `python3 -B tools/logic_opcode_evidence.py --check` all passed.
+
+2120. Reported: "The menu docs pass is clean: mdBook builds, opcode evidence
+      still checks, and whitespace is clean. Next I’m moving to the first
+      concrete remaining renderer item: picture/view compatibility and
+      implementation-ready edge semantics."
+
+      Action/result: Began reviewing picture/view renderer documentation and
+      test coverage against `PROGRESS.md`.
+
+2121. Reported: "One search was noisy because I asked for a non-existent
+      chapter name and `rg` obediently threw the whole kitchen at me. The useful
+      signal is in `graphics_object_pipeline.md`, so I’m narrowing to the
+      renderer/model sections now."
+
+      Action/result: Re-read the graphics pipeline and compatibility sections
+      covering picture fuzz, view rendering, and object overlay coverage.
+
+2122. Reported: "The renderer docs show a good next target: SQ2 real pictures
+      never use corner-path commands `0xf4`/`0xf5`, so they’re easy to
+      under-specify unless synthetic fixtures cover them. I’m inspecting the
+      fuzz corpus generator and tests to see whether those paths are already
+      pinned down or need curated cases."
+
+      Action/result: Confirmed existing base cases already cover `0xf4` and
+      `0xf5` and that QEMU evidence exists for the safe base cases through
+      `base_020`.
+
+2123. Reported: "Corner paths are already in the base corpus and have been
+      through the “all safe base cases through base_020” QEMU batch. The more
+      useful next bit is to add explicit implementation tests for the
+      source-described command termination behavior and channel interleavings
+      around those paths."
+
+      Action/result: Chose command-byte scanner-resume as the next picture
+      compatibility expansion.
+
+2124. Reported: "I’m going to add three curated, safe picture fuzz cases around
+      command-byte termination and scanner resume. These are the sort of edge
+      cases a future engine can get wrong even when real SQ2 pictures happen
+      not to stress them."
+
+      Action/result: Added `base_030_line_pair_command_resume`,
+      `base_031_corner_command_resume`, and `base_032_fill_command_resume` to
+      `tools/picture_fuzz.py`.
+
+2125. Reported: "The new corpus entries are in place. I’m adding focused local
+      assertions so the Python renderer’s scanner behavior is locked down
+      independently of QEMU."
+
+      Action/result: Added local renderer and fuzz-corpus tests for the three
+      new command-resume cases.
+
+2126. Reported: "The local tests now pin the three scanner-resume contracts:
+      incomplete coordinate pair, corner path, and seed-fill point list. I’m
+      running the focused graphics/fuzz suites before asking QEMU for the
+      original-engine comparison."
+
+      Action/result: `python3 -B -m unittest tests.test_graphics_rendering
+      tests.test_picture_fuzz` passed with 51 tests; regenerated the fuzz corpus
+      with 1,057 cases and 1,055 safe for QEMU.
+
+2127. Reported: "Focused local tests pass, and the regenerated corpus now has
+      1,057 cases with 1,055 marked safe for QEMU. I’m running just the three
+      new curated cases through the snapshot harness so this becomes
+      original-engine evidence, not only a local assertion."
+
+      Action/result: Started QEMU snapshot batch `command_resume_001`.
+
+2128. Reported: "QEMU is running the three-case snapshot batch now. This is one
+      of the places where the snapshot path earns its keep: one boot, three
+      renderer edge cases."
+
+      Action/result: QEMU completed `command_resume_001` with 3 matches,
+      0 mismatches, and 0 errors.
+
+2129. Reported: "The QEMU batch matched all three new cases with zero
+      mismatches. I’m folding that evidence into the docs and tracker,
+      including the updated corpus counts."
+
+      Action/result: Updated `docs/src/graphics_object_pipeline.md`,
+      `docs/src/compatibility_testing.md`, `docs/src/clean_room_executable_notes.md`,
+      and `PROGRESS.md` with command-resume evidence and corpus counts.
+
+2130. Reported: "The graphics chapter and compatibility chapter now record the
+      scanner-resume evidence, and `PROGRESS.md` reflects the expanded fuzz
+      corpus. I’m updating the progress log before running the broader
+      verification stack."
+
+      Action/result: Updated this progress log for the menu and picture
+      scanner-resume work.
+
+2131. Reported: "The log is caught up through the QEMU batch. Since this
+      touched code, tests, and docs, I’m running the full local verification
+      stack now."
+
+      Action/result: `python3 -B -m unittest discover -s tests` passed with
+      171 tests; `python3 -B tools/logic_opcode_evidence.py --check`,
+      `mdbook build docs`, and `git diff --check` also passed.
+
+2132. Reported: "Full verification is clean after the scanner-resume expansion:
+      171 tests, opcode evidence, mdBook, and diff whitespace all pass. I’m
+      logging that and then moving to the next renderer-suite item: whether the
+      view/object sweeps can use the faster carousel strategy too."
+
+      Action/result: Recorded the verification result and began reviewing the
+      existing view/object batch harnesses for possible carousel reuse.
+
+2133. Reported: "The existing picture carousel already solved the “one engine
+      process, many resources” problem for pictures. I’m comparing it with the
+      current view batch harness to see whether a view carousel can be built
+      without disturbing the simpler reference snapshot tests."
+
+      Action/result: Re-read `tools/view_batch.py`, `tools/picture_carousel.py`,
+      and the view-batch tests.
+
+2134. Reported: "A view carousel is feasible without replacing the existing
+      view batch harness: a generated logic script can refresh the picture,
+      load the next view, draw one transient object, wait a fixed number of
+      cycles, then move on. I’m adding that as a separate timed/poll harness so
+      the current per-case snapshot batch stays as the simple reference oracle."
+
+      Action/result: Added `view_carousel_case_actions` and
+      `view_timed_carousel_logic_payload` to `tools/qemu_fixture.py`.
+
+2135. Reported: "The fixture generator now has a generic “view timed carousel”
+      logic payload. Next I’m adding the packed fixture builder so each carousel
+      directory carries only the needed pictures and views in `VOL.3`."
+
+      Action/result: Added `build_view_timed_carousel_fixture`, including
+      selected picture/view packing and `PICDIR`/`VIEWDIR` patching.
+
+2136. Reported: "The packed fixture builder is in place. I’m adding unit tests
+      around the emitted bytecode and packed directory entries before writing
+      the QEMU runner."
+
+      Action/result: Added fixture tests for view-carousel case actions, timed
+      logic, and packed picture/view records.
+
+2137. Reported: "The fixture-level tests now cover the view carousel payload
+      and packed `PICDIR`/`VIEWDIR` layout. I’m adding the actual
+      `view_carousel.py` runner, modeled on the timed polling picture
+      carousel."
+
+      Action/result: Added `tools/view_carousel.py`.
+
+2138. Reported: "The new runner is in place. I’m adding lightweight tests for
+      case conversion, chunk naming, report summaries, and mocked carousel
+      execution so regressions get caught without launching QEMU."
+
+      Action/result: Added `tests/test_view_carousel.py`.
+
+2139. Reported: "The tests are written. I’m checking the comparison dataclass
+      shape, then I’ll run the focused fixture/carousel tests and fix anything
+      the type/constructor assumptions missed."
+
+      Action/result: Checked `PictureCaptureComparison` and corrected the new
+      test constructor.
+
+2140. Reported: "Good catch: the capture comparison dataclass is simpler than
+      I first assumed, so the test is patched. I’m running the focused fixture,
+      view-batch, and carousel tests now."
+
+      Action/result: `python3 -B -m unittest tests.test_qemu_fixture
+      tests.test_view_batch tests.test_view_carousel` passed with 48 tests.
+
+2141. Reported: "The focused local tests pass. I’m running a tiny real QEMU
+      smoke for the new view carousel next: two view cases in one engine
+      process, polled against the existing local comparison model."
+
+      Action/result: Initial sandboxed QEMU run failed because VNC socket bind
+      was not permitted.
+
+2142. Reported: "The smoke run hit the sandbox on QEMU’s local VNC bind, not a
+      harness bug. I’m rerunning that exact view-carousel command with approval
+      so QEMU can open its local display socket."
+
+      Action/result: Approved rerun of `tools/view_carousel.py` matched both
+      smoke cases with 0 mismatches.
+
+2143. Reported: "The two-case view carousel smoke matched QEMU. Since the
+      harness is now proven, I’m going straight to the base eight view cases
+      from one engine process; that gives us useful suite evidence instead of
+      just a toy smoke."
+
+      Action/result: Started `view_carousel_base_001`.
+
+2144. Reported: "The base view carousel is halfway through and the first four
+      captures matched. I’m waiting on the remaining placement and priority
+      cases."
+
+      Action/result: `view_carousel_base_001` completed with 8 matches,
+      0 mismatches, and 0 errors.
+
+2145. Reported: "The full base view carousel matched all eight cases from a
+      single engine process. I also noticed the docs still mention an older “17
+      total” stress count while the current base-plus-stress list is 19, so I’m
+      checking and correcting that while I document the new carousel."
+
+      Action/result: Confirmed `base_cases()` has 8 entries and `stress_cases()`
+      has 11 entries, for 19 total current view cases.
+
+2146. Reported: "The current registry is 8 base cases plus 11 stress cases, 19
+      total. Before I change the text, I’m going to see whether the new
+      carousel can handle all 19 in one process; if it does, that is better
+      evidence than merely correcting the count."
+
+      Action/result: Started `view_carousel_stress_001`.
+
+2147. Reported: "The 19-case carousel is running; the first four matched. I’m
+      letting it continue through the edge placements and larger
+      transparent-color cels."
+
+      Action/result: Continued the 19-case QEMU run.
+
+2148. Reported: "The base eight and the first two stress cels have matched.
+      The carousel is still progressing cleanly, so I’m waiting for the
+      remaining nine stress cases."
+
+      Action/result: Continued the 19-case QEMU run through case 10.
+
+2149. Reported: "Sixteen of nineteen have matched. Only the last three
+      larger/transparent stress cases remain; this is looking like the right
+      fast path for future view sweeps."
+
+      Action/result: Continued the 19-case QEMU run through case 16.
+
+2150. Reported: "All nineteen poll comparisons matched; I’m just waiting for
+      the process to print the final summary and exit cleanly."
+
+      Action/result: `view_carousel_stress_001` completed with 19 matches,
+      0 mismatches, and 0 errors.
+
+2151. Reported: "The full 19-case view carousel matched from one engine
+      process. I’m documenting the new tool, the base and stress commands, and
+      cleaning up the stale 17-case wording."
+
+      Action/result: Started documentation updates for `tools/view_carousel.py`
+      and the corrected view-suite counts.
+
+2152. Reported: "I found the stale count in the compatibility chapter and
+      `PROGRESS.md`. I’m patching those now and adding `tools/view_carousel.py`
+      to the QEMU workflow notes so future agents use the faster path."
+
+      Action/result: Updated `AGENTS.md`.
+
+2153. Reported: "`AGENTS.md` now has the view carousel command. I’m updating
+      the compatibility narrative to distinguish the snapshot oracle from the
+      new one-process carousel evidence."
+
+      Action/result: Updated `docs/src/compatibility_testing.md`.
+
+2154. Reported: "The tracker now credits the 19-case view carousel. I’m adding
+      the chronological clean-room note with the exact commands and the QEMU
+      results."
+
+      Action/result: Updated `PROGRESS.md` and
+      `docs/src/clean_room_executable_notes.md`.
+
+2155. Reported: "The clean-room note records the new harness and the
+      socket-permission hiccup. I’m adding the user-facing progress updates to
+      the historical log now, then I’ll run the full test/docs checks."
+
+      Action/result: Updated this progress log for the view carousel work.
+
+2156. Reported: "The view-carousel work is logged. I’m running the full
+      verification stack again because this added a new tool, new fixture
+      helpers, tests, and docs."
+
+      Action/result: `python3 -B -m unittest discover -s tests` passed with
+      178 tests; opcode evidence, mdBook, and `git diff --check` also passed.
+
+2157. Reported: "Full verification is clean again: 178 tests, opcode evidence,
+      mdBook, and diff whitespace all pass. I’m checking the diff shape, then
+      I’ll pick the next remaining `PROGRESS.md` item."
+
+      Action/result: Reviewed `git status --short`, `git diff --stat`, the
+      progress-log tail, and the high-value remaining-work section.
+
+2158. Reported: "The diff is broad but coherent: restore/sound work, menu
+      runtime model, picture fuzz expansion, and the new view carousel. Next
+      I’m turning the picture/view renderer notes into a compact runtime-model
+      contract so implementation agents do not have to mine the long evidence
+      chapter for core behavior."
+
+      Action/result: Added picture decoder and view/cel drawing contracts to
+      `docs/src/runtime_model.md`.
+
+2159. Reported: "The runtime model now has compact picture-decoder and view/cel
+      drawing contracts. I’m updating `PROGRESS.md` so the remaining renderer
+      work points to new edge coverage, not missing baseline implementation
+      text."
+
+      Action/result: Updated `PROGRESS.md` for the new implementation-facing
+      renderer contracts.
+
+2160. Reported: "The clean-room note now records the renderer contract
+      synthesis as a documentation step. I’m logging these latest updates, then
+      I’ll run the docs checks for the new runtime-model text."
+
+      Action/result: Added the renderer contract synthesis section to
+      `docs/src/clean_room_executable_notes.md` and updated this progress log.
+
+2161. Reported: "The progress log is current through the renderer contract
+      work. This was docs-only after the last full test pass, so I’m running
+      mdBook, opcode evidence, and diff whitespace before continuing."
+
+      Action/result: `mdbook build docs`,
+      `python3 -B tools/logic_opcode_evidence.py --check`, and
+      `git diff --check` passed.
+
+2162. Reported: "Docs checks are clean. The next high-value gap in
+      `PROGRESS.md` is parser/input edge behavior, so I’m reading the parser
+      and input sections before deciding whether this wants a source pass,
+      tests, or a spec synthesis pass."
+
+      Action/result: Reviewed parser/input documentation, runtime-model notes,
+      compatibility coverage, `tools/inspect_words.py`, and existing logic
+      parser probes.
+
+2163. Reported: "The parser docs already state two interesting `said`-style
+      condition semantics that only have thin evidence: word id `0x0001` as a
+      wildcard and `0x270f` as a success terminator. I’m checking the local
+      vocabulary so I can add small QEMU probes for those without guessing."
+
+      Action/result: Used `tools/inspect_words.py` to confirm `look` is word ID
+      `0x0002` and `get` is word ID `0x0005`; avoided `around` because it maps
+      to `0x0000`.
+
+2164. Reported: "The local vocabulary gives `look` as word id `0x0002` and
+      `get` as `0x0005`. I’m adding three parser probes: exact two-word
+      matching, wildcard matching, and terminator-prefix matching."
+
+      Action/result: Added three parser-edge cases to
+      `tools/logic_interpreter_probe.py`.
+
+2165. Reported: "The parser cases are in the probe catalog. I’m updating the
+      catalog coverage test so those edge cases stay visible in the suite."
+
+      Action/result: Added the parser-edge case IDs to
+      `tests/test_logic_interpreter_probe.py`.
+
+2166. Reported: "The local catalog test now names the new parser cases. I’m
+      running that focused test first, then the three cases through the original
+      engine."
+
+      Action/result: The focused catalog test passed and QEMU batch
+      `parser_edges_001` started.
+
+2167. Reported: "The parser-edge QEMU batch is running from one snapshot. This
+      should tell us whether the wildcard and terminator rows are truly
+      observable behavior, not just source-model lore."
+
+      Action/result: `parser_edges_001` completed with 3 matches, 0 mismatches,
+      and 0 errors.
+
+2168. Reported: "The parser-edge batch matched all three cases. I’m updating
+      the runtime model and compatibility docs so wildcard and terminator
+      behavior are QEMU-backed now."
+
+      Action/result: Updated `docs/src/runtime_model.md`,
+      `docs/src/compatibility_testing.md`, and `PROGRESS.md`.
+
+2169. Reported: "The parser edge behavior is now reflected in the runtime
+      model, compatibility chapter, and tracker. I’m adding the chronological
+      evidence note with the vocabulary lookup and QEMU batch."
+
+      Action/result: Added a parser wildcard/terminator probe section to
+      `docs/src/clean_room_executable_notes.md`.
+
+2170. Reported: "The parser evidence note is in place. I’m updating the
+      progress log with the parser work and then I’ll run the focused
+      logic-probe tests plus docs checks."
+
+      Action/result: Updated this progress log for the parser-edge work.
+
+2171. Reported: "I’m picking up at the optional dynamic-probe audit. The
+      useful distinction here is whether a dynamic probe would prove normal AGI
+      semantics, or just poke timing/hardware plumbing in a brittle way; I’m
+      going to reflect that in the tracker so it stops looking like an
+      unfinished core opcode gap."
+
+      Action/result: Reviewed the current `PROGRESS.md` high-value list and
+      confirmed that the relevant opcode rows were already `[x]` source-backed
+      for the current spec target.
+
+2172. Reported: "The tracker confirms the opcodes themselves are already
+      covered; the remaining wording was carrying an “optional probes” task as
+      if it were core work. I’m going to turn that into a documented audit
+      result, then move back to the substantive renderer/suite/spec gaps."
+
+      Action/result: Reframed `PROGRESS.md` so renderer parity, subsystem spec
+      text, and compatibility-suite growth are the highest-value remaining
+      tasks.
+
+2173. Reported: "I found the existing compatibility note already explains why
+      the save-description and key-release cases are poor direct probes. I’m
+      adding one consolidated audit section now so the decision is explicit
+      instead of scattered across failed-fixture notes."
+
+      Action/result: Added a source-backed opcode audit paragraph to
+      `docs/src/compatibility_testing.md`.
+
+2174. Reported: "The high-value list is now aimed at work that will actually
+      move the spec forward. Next I’m putting the audit rationale into the
+      evidence trail, because future-us should not have to rediscover why those
+      five opcodes were left source-backed."
+
+      Action/result: Added the chronological clean-room audit section to
+      `docs/src/clean_room_executable_notes.md`.
+
+2175. Reported: "The compatibility chapter now makes the “not worth a brittle
+      QEMU probe” call concrete. I’m adding the same conclusion to the
+      chronological clean-room notes with the commands and rows I reviewed."
+
+      Action/result: Recorded the reviewed commands and per-opcode rationale
+      for `0x6e`, `0x83`, `0x8e`, `0xaa`, and `0xad`.
+
+2176. Reported: "That audit is now in the clean-room notes too. I’m logging
+      the user-facing updates themselves, then I’ll run the docs checks before
+      choosing the next PROGRESS item."
+
+      Action/result: Updated this progress log for the source-backed dynamic
+      probe audit.
+
+2177. Reported: "The checks passed. I’m moving into the renderer pipeline next,
+      with the source code as the first authority: draw ordering,
+      priority/control gating, and persistent-object behavior are the parts
+      still marked partial."
+
+      Action/result: Reviewed `docs/src/graphics_object_pipeline.md`,
+      `tools/object_overlay_probe.py`, and related renderer tests.
+
+2178. Reported: "The current docs already pin down a lot of overlay behavior,
+      including the two priority-gate branches and several persistent-object
+      priority bytes. The remaining weak spot I’m seeing is the
+      update-list/draw-order machinery around persistent objects, so I’m reading
+      that cluster in the executable next."
+
+      Action/result: Started source inspection around update-list roots,
+      dirty-rectangle helpers, and object overlay entries.
+
+2179. Reported: "One caution: those first `ndisasm` windows were too broad and
+      one of them used the project’s easy-to-trip offset convention poorly. I’m
+      rerunning the relevant slices with the EXE header offset accounted for,
+      then I’ll only document the corrected source observations."
+
+      Action/result: Discarded the exploratory offset-confused disassembly
+      windows and reran corrected slices with image offset plus EXE header skip.
+
+2180. Reported: "The corrected source slices confirm the docs are mostly
+      current: `0x6a8e` rebuilds/draws root `0x1703` first and root `0x16ff`
+      second, and `0x6aab` refreshes dirty rectangles in the same root order.
+      I’m checking the existing probe cases now to see whether adding a small
+      local model/test is better than another QEMU run."
+
+      Action/result: Reviewed existing root-partition QEMU cases and
+      compatibility notes.
+
+2181. Reported: "The QEMU evidence already covers the two-root partition. The
+      remaining source question is the in-root sort: whether objects are
+      ordered by baseline and how fixed-priority objects alter the key. I’m
+      reading the list-builder and insertion helpers (`0x0358..0x045e`) now,
+      since that should be answerable statically."
+
+      Action/result: Inspected shared update-list builder `0x0358`, node
+      insertion `0x042f`, draw walker `0x045e`, and reverse-priority helper
+      `0x4cbb`.
+
+2182. Reported: "The insertion/sort pass gives a nice precise result: each root
+      sorts by ascending key, where the key is baseline Y unless fixed-priority
+      bit `0x0004` is set, in which case it maps object `+0x24` back to a
+      Y-like row through `0x4cbb`. Equal keys are stable in object-table order,
+      and because drawing starts from the list tail, later table entries draw
+      later for equal keys."
+
+      Action/result: Identified the in-root draw-order contract from source.
+
+2183. Reported: "I’m going to add a small local model for the update-list draw
+      order rather than another QEMU fixture. It will encode the source-backed
+      root partition, stable ascending sort key, and fixed-priority key mapping,
+      which makes the renderer contract easier to reuse in future compatibility
+      tests."
+
+      Action/result: Checked existing renderer helpers and tests for a suitable
+      place to add the local model.
+
+2184. Reported: "There’s an interesting wrinkle in `0x4cbb`: the default-table
+      scan starts at index `0xa8`, one byte past the 168-row table, and the
+      local initial byte there is zero. I’m not going to over-model
+      fixed-priority sorting beyond the source-backed normal cases until I can
+      tie that byte to runtime initialization; the helper can still encode the
+      exact observed source behavior with a supplied sentinel."
+
+      Action/result: Inspected the bytes around `0x127a` and `0x1322`, then
+      treated the one-past-table value as an explicit helper parameter.
+
+2185. Reported: "The byte search shows `[0x124a]` is only cleared by the
+      table-rebuild helper in this executable; I don’t see a source write that
+      enables the direct formula path. For SQ2’s normal path, the table scan
+      behavior is the portable thing to document, including the sentinel byte
+      caveat."
+
+      Action/result: Searched source/docs for `0x124a` and found no SQ2 write
+      enabling the alternate direct formula branch.
+
+2186. Reported: "I’m adding the helper with an explicit `after_table_value`
+      parameter instead of hard-coding a meaning for the byte after `0x127a`.
+      For local SQ2’s initial data that byte is zero, and the tests will lock
+      down what that means without pretending it is a general AGI rule yet."
+
+      Action/result: Added `ObjectDrawCandidate` and update-list ordering
+      helpers to `tools/agi_graphics.py`.
+
+2187. Reported: "The source-order helper is in place. I’m adding focused tests
+      for the one-past-table sentinel, root ordering, stable equal-key ordering,
+      and fixed-priority sort keys."
+
+      Action/result: Added focused update-list ordering tests to
+      `tests/test_graphics_rendering.py`.
+
+2188. Reported: "The tests now capture the exact local ordering model. I’m
+      running the graphics test module before updating the docs, because this
+      is the kind of small helper where a one-line sort mistake would be easy
+      to miss by reading."
+
+      Action/result: `python3 -B -m unittest tests.test_graphics_rendering`
+      passed with 43 tests.
+
+2189. Reported: "The graphics tests pass. I’m documenting the in-root sorting
+      details now and adding stable labels for the shared list-builder helpers,
+      so the cross-version map has more than just the root wrappers."
+
+      Action/result: Updated `docs/src/symbolic_labels.md` with labels for
+      `0x0358`, `0x042f`, `0x045e`, `0x0488`, and `0x4cbb`.
+
+2190. Reported: "The label map now has the shared builder, insertion,
+      tail-to-head drawing, refresh helper, and reverse-priority helper. I’m
+      tightening the graphics chapter around those details next, including the
+      “later object wins on equal key” behavior."
+
+      Action/result: Expanded the update-list section in
+      `docs/src/graphics_object_pipeline.md`.
+
+2191. Reported: "The graphics chapter has the detailed source behavior. I’m
+      adding the short implementation-facing version to the runtime model so a
+      future clean-room engine gets the ordering rule without having to re-read
+      the evidence chapter."
+
+      Action/result: Updated `docs/src/runtime_model.md` with the concise
+      update-list ordering contract.
+
+2192. Reported: "The runtime model now has the concise draw-order contract. I’m
+      updating the compatibility chapter and tracker to show that draw ordering
+      has moved from “partial” to source-modeled plus QEMU-backed for the root
+      partition."
+
+      Action/result: Updated `docs/src/compatibility_testing.md` and
+      `PROGRESS.md`.
+
+2193. Reported: "The tracker now treats draw order as covered at the current
+      source/test level. I’m adding the chronological note with the corrected
+      disassembly offsets and the rejected first reads, since that is part of
+      the clean-room trail."
+
+      Action/result: Added the update-list draw-order source-model section to
+      `docs/src/clean_room_executable_notes.md`.
+
+2194. Reported: "The clean-room note is in place. I’m logging the working
+      updates themselves, then I’ll run docs/evidence checks and continue to
+      the next partial renderer item."
+
+      Action/result: Updated this progress log for the update-list draw-order
+      source-model work.
+
+2195. Reported: "I’ll pick up from the dirty-rectangle source model that was
+      mid-edit, get that tested and documented, then keep walking the remaining
+      `PROGRESS.md` items in order. I’ll also keep adding the work-log entries
+      as I go so the evidence trail stays continuous."
+
+      Action/result: Inspected the worktree, current high-value progress
+      tracker, graphics helper, and graphics tests before resuming edits.
+
+2196. Reported: "The worktree is still intentionally dirty from the accumulated
+      reverse-engineering changes. The current high-value list has four broad
+      tracks left, so I’m going to keep converting concrete source observations
+      into helpers/tests/docs before moving to broader sweeps."
+
+      Action/result: Confirmed remaining high-value tracks and located the
+      dirty-rectangle helper and object-pipeline documentation.
+
+2197. Reported: "The dirty-rectangle helper is present but not yet covered by
+      tests or prose. I’m going to wire that into the graphics tests first,
+      then carry the exact formula into the object pipeline chapter and runtime
+      model."
+
+      Action/result: Opened the relevant test and documentation sections for a
+      targeted dirty-rectangle update.
+
+2198. Reported: "I found the existing prose already had the broad
+      dirty-rectangle claim, but it stops before the actual coordinate math. I’m
+      adding the math as executable tests now, then I’ll make the prose precise
+      enough for a future implementation."
+
+      Action/result: Added `DirtyRect` and `dirty_rect_union()` imports plus
+      dirty-rectangle union tests to `tests/test_graphics_rendering.py`.
+
+2199. Reported: "The unit coverage now checks identical old/current footprints
+      and both orderings of an offset old/current footprint. I’m running the
+      focused graphics tests before touching the docs so the helper’s
+      coordinate convention is pinned down."
+
+      Action/result: `python3 -B -m unittest tests.test_graphics_rendering`
+      passed with 45 tests.
+
+2200. Reported: "The focused graphics tests pass. I’m taking one focused
+      disassembly slice for `0x5762` now so the documentation points to the
+      exact routine behind the helper rather than just inheriting the earlier
+      broad object-pipeline read."
+
+      Action/result: Ran an `ndisasm` read from image offset `0x5762`; the
+      first routine body confirmed the dirty-rectangle union and the command
+      also demonstrated that `ndisasm -e` is a skip offset rather than an end
+      offset.
+
+2201. Reported: "The focused `ndisasm` command confirmed the `0x5762` body,
+      though it also reminded me that `ndisasm -e` is a skip offset, not an end
+      offset, so the terminal dump kept going after the routine. I have the
+      needed first block; next I’m updating the docs and log with that caveat
+      instead of pretending the command was neatly bounded."
+
+      Action/result: Searched existing notes for disassembly conventions before
+      writing the new dirty-rectangle evidence note.
+
+2202. Reported: "I’m going to record that `ndisasm -e` lesson in the clean-room
+      note too, because these offset mechanics matter for later cross-version
+      work. Then I’ll keep pushing into the next object pipeline gap rather than
+      letting this become just a prose cleanup pass."
+
+      Action/result: Prepared documentation edits for the source-backed
+      dirty-rectangle formula.
+
+2203. Reported: "The object pipeline chapter now has the exact rectangle
+      formula and register arguments. I’m adding the shorter
+      implementation-facing version to the runtime model so the spec has both
+      evidence detail and a direct contract."
+
+      Action/result: Added the exact dirty-rectangle formula to
+      `docs/src/graphics_object_pipeline.md`.
+
+2204. Reported: "The runtime model now has the dirty-refresh contract in the
+      lifecycle table. I’m marking that piece as source-modeled in
+      `PROGRESS.md`, leaving the object-record collision/control fixture work
+      as the main remaining object-pipeline gap."
+
+      Action/result: Added the runtime-model dirty-refresh contract.
+
+2205. Reported: "`PROGRESS.md` now reflects the dirty-rectangle coverage. I’m
+      adding the chronological evidence note and the progress-log entries next,
+      then I’ll run the focused checks and move to the remaining
+      placement/collision-control work."
+
+      Action/result: Updated `PROGRESS.md` and added the dirty-rectangle source
+      model note to `docs/src/clean_room_executable_notes.md`.
+
+2206. Reported: "The clean-room note captures the exact routine behavior and
+      the `ndisasm` caveat. I’m updating the progress log with each user-facing
+      update from this stretch so the historical record stays complete."
+
+      Action/result: Updated this progress log with entries for the
+      dirty-rectangle source-model work.
+
+2207. Reported: "The dirty-rectangle documentation and log are in place. I’m
+      running the docs/evidence hygiene checks now; after that I’ll return to
+      the remaining object placement and collision/control semantics rather
+      than stopping on this checkpoint."
+
+      Action/result: Ran `mdbook build docs`,
+      `python3 -B tools/logic_opcode_evidence.py --check`, and
+      `git diff --check`; all passed.
+
+2208. Reported: "The book build, opcode-evidence check, and whitespace check
+      are clean. I’m moving to the remaining object-pipeline gap now: placement
+      acceptance, collision, and control-screen semantics from source first,
+      with QEMU only if we need an observable confirmation."
+
+      Action/result: Read current placement, collision, and control-acceptance
+      helper notes and local object-pipeline tests.
+
+2209. Reported: "The existing notes already cover a lot of `0x4719`/`0x56b8`,
+      and the remaining tracker wording is narrower than it first looked: we
+      need full object-record placement acceptance semantics polished, not a
+      brand-new discovery from scratch. I’m reading the current source-backed
+      helper descriptions against the local harnesses before deciding what
+      small model/test should come next."
+
+      Action/result: Reviewed current movement/control QEMU cases and the local
+      graphics helper surface.
+
+2210. Reported: "The harness already has QEMU movement cases for the important
+      control classes, but the local graphics helpers don’t yet expose the
+      `0x56b8` acceptance rule as a small deterministic model. I’m reading the
+      exact routine body now so I can add that kind of helper without inferring
+      from QEMU outcomes alone."
+
+      Action/result: Disassembled focused slices for
+      `code.object.control_acceptance` (`0x56b8`) and
+      `code.object.collision_test` (`0x4719`).
+
+2211. Reported: "The `0x56b8` source clarifies one correction: class `0x20` is
+      not a permanent “encountered anywhere” latch in the scan; the routine
+      resets its class state at each scanned cell, so the final scanned
+      non-rejected cell controls the post-scan flag gates. I’m adding a small
+      helper and tests for that exact source behavior."
+
+      Action/result: Added `ControlAcceptance` and
+      `control_acceptance_scan()` to `tools/agi_graphics.py`.
+
+2212. Reported: "The helper is in place as a scanline-level model of `0x56b8`,
+      including the priority-15 bypass and the global flag values for event byte
+      zero. I’m adding tests that exercise the source-only edge cases, including
+      the “last scanned class wins” correction."
+
+      Action/result: Added control-acceptance scan tests to
+      `tests/test_graphics_rendering.py`.
+
+2213. Reported: "The tests now lock down the class gates and the final-class
+      behavior for event flag updates. I’m running the focused graphics module
+      again; if it passes, I’ll correct the prose around `0x56b8` so it no
+      longer implies an accumulated class-2 latch."
+
+      Action/result: `python3 -B -m unittest tests.test_graphics_rendering`
+      passed with 47 tests.
+
+2214. Reported: "The focused tests pass with 47 graphics cases. I’m updating
+      the docs now to spell out `0x56b8` as a scanline state machine: zero
+      rejects, class 1 needs bit `0x0002`, class 2 and class 3 use different
+      post-scan gate bits, and the last scanned class state is what survives."
+
+      Action/result: Opened the symbolic label, graphics chapter, and runtime
+      model sections that describe object control acceptance.
+
+2215. Reported: "The symbolic label for `code.object.control_acceptance` already
+      exists, so I don’t need a new label. I’m revising its description and the
+      graphics chapter now, mainly replacing “encountered class 2” with
+      “current/final class state” to match the disassembly."
+
+      Action/result: Updated `docs/src/symbolic_labels.md`.
+
+2216. Reported: "The label map now says the routine is source-backed for the
+      final scanned class state. I’m updating the detailed graphics chapter and
+      runtime model next so the implementation contract is explicit."
+
+      Action/result: Updated `docs/src/graphics_object_pipeline.md` with the
+      source-backed `0x56b8` state machine.
+
+2217. Reported: "The graphics chapter now states the exact source scan
+      behavior, including the priority-15 bypass and the global flag updates.
+      I’m adding a compact version to the runtime model so implementers don’t
+      have to reconstruct it from the evidence chapter."
+
+      Action/result: Added the compact control-acceptance contract to
+      `docs/src/runtime_model.md`.
+
+2218. Reported: "The runtime model now has an implementation-ready acceptance
+      rule. I’m recording this as source-model progress in `PROGRESS.md` and
+      the clean-room notes, then I’ll run checks before selecting the next
+      `PROGRESS.md` item."
+
+      Action/result: Updated `PROGRESS.md`.
+
+2219. Reported: "`PROGRESS.md` now treats the control-acceptance scan as covered
+      at the source/local-test level, with only optional direct placement
+      fixtures left. I’m adding the evidence note with the `0x56b8` and
+      `0x4719` disassembly slices and the correction to the old wording."
+
+      Action/result: Added the control-acceptance source-model section to
+      `docs/src/clean_room_executable_notes.md`.
+
+2220. Reported: "The clean-room note captures the `0x56b8` model and the
+      correction to the earlier “encountered” language. I’m bringing the
+      progress log up to date for this object-acceptance pass before running
+      the next check set."
+
+      Action/result: Updated this progress log with entries for the
+      control-acceptance source-model work.
+
+2221. Reported: "The progress log is current through the control-acceptance
+      work. I’m running the standard docs/evidence/whitespace checks again,
+      then I’ll reassess `PROGRESS.md` for the next highest-value item."
+
+      Action/result: Ran `mdbook build docs`,
+      `python3 -B tools/logic_opcode_evidence.py --check`, and
+      `git diff --check`; all passed.
+
+2222. Reported: "The checks are clean again. The next broad high-value item is
+      picture/view renderer compatibility, so I’m scanning the docs and tests
+      for remaining provisional renderer semantics rather than inventing a new
+      probe from the outside."
+
+      Action/result: Searched current docs/tests for renderer unknowns and
+      remaining-work wording.
+
+2223. Reported: "The renderer chapter has one stale-looking provisional note:
+      the prepare-picture versus show-picture distinction says it still needs
+      live confirmation, even though later evidence and opcode coverage likely
+      already cover the mechanism. I’m checking the existing probe coverage and
+      source path before either correcting the wording or adding a narrow
+      confirmation."
+
+      Action/result: Located existing resource-lifecycle QEMU evidence for
+      `0x19`, `0x1a`, and `0x1c`.
+
+2224. Reported: "Existing evidence already confirms the picture lifecycle
+      distinction: `0x19`/`0x1c` decode into the logical buffer, and `0x1a` is
+      the visible refresh/finalization step. I’m removing the stale “needs live
+      confirmation” wording and pointing it at the existing resource-lifecycle
+      QEMU probe."
+
+      Action/result: Updated the picture-flow section in
+      `docs/src/graphics_object_pipeline.md`.
+
+2225. Reported: "That stale picture-lifecycle gap is now corrected using
+      existing source and QEMU evidence. The next concrete renderer unknown is
+      the first two bytes of view resources, so I’m going after the view-loader
+      source to see whether those bytes are actually used by the interpreter."
+
+      Action/result: Opened current view-layout docs, symbolic labels, and
+      disassembly around the view loader and frame selector.
+
+2226. Reported: "The view loader/binder source only touched payload `+0x02` and
+      later offsets in the slices so far. I’m reading the group/frame selector
+      and preview-text helper next; if those also skip `+0x00/+0x01`, the honest
+      conclusion is “reserved or unused by observed SQ2 interpreter paths”
+      rather than a fabricated meaning."
+
+      Action/result: Disassembled `code.object.select_group_table` and the
+      view preview/display helper, and inspected a sample view header.
+
+2227. Reported: "The selector and preview slices also skip bytes
+      `+0x00/+0x01`; the local view inspector shows view 0 has header
+      `01 01 ...`. I’m doing a local census across all present view resources
+      now, then I’ll update the spec to call those two bytes reserved/unused by
+      observed SQ2 runtime paths if the evidence supports that."
+
+      Action/result: Counted first-two-byte headers across all valid SQ2 view
+      resources; all 203 were `01 01`.
+
+2228. Reported: "All 203 valid local SQ2 view resources have header bytes
+      `01 01`. Since the inspected interpreter paths begin meaningful view
+      parsing at byte `+0x02`, I’m adding a small census test and changing the
+      docs from “unknown” to “reserved/unused by observed SQ2 code paths.”"
+
+      Action/result: Added a view-header reserved-byte census test to
+      `tests/test_graphics_rendering.py`.
+
+2229. Reported: "The view-header census test is in place. I’m running the
+      focused graphics tests again before editing the docs, because this is
+      exactly the sort of tiny claim that should be executable."
+
+      Action/result: `python3 -B -m unittest tests.test_graphics_rendering`
+      passed with 48 tests.
+
+2230. Reported: "The focused graphics suite passes with 48 tests. I’m updating
+      the view layout prose now: bytes `+0x00/+0x01` are stable `01 01` in SQ2
+      and appear unused by the observed loader/binder/preview paths, while byte
+      `+0x02` starts the meaningful layout."
+
+      Action/result: Updated the view payload layout in
+      `docs/src/graphics_object_pipeline.md`.
+
+2231. Reported: "The graphics chapter now treats the first two view bytes as
+      reserved, with both source-path and resource-census evidence. I’m adding
+      the same compact contract to the runtime model and updating the tracker."
+
+      Action/result: Updated `docs/src/runtime_model.md`.
+
+2232. Reported: "The runtime model now has the reserved-byte rule too. I’m
+      updating `PROGRESS.md` so view decoding reflects the source-backed header
+      interpretation rather than leaving that as an open unknown."
+
+      Action/result: Updated the view resource decoding evidence line in
+      `PROGRESS.md`.
+
+2233. Reported: "`PROGRESS.md` now records the view header bytes as
+      source-backed. I’m adding the clean-room evidence note for the disassembly
+      slices and the local resource census before running the check set."
+
+      Action/result: Added the view-header reserved-byte section to
+      `docs/src/clean_room_executable_notes.md`.
+
+2234. Reported: "The clean-room note now records the view-header evidence. I’m
+      adding one line to the compatibility coverage summary so the new
+      view-header census test is visible alongside the other local renderer
+      tests."
+
+      Action/result: Updated `docs/src/compatibility_testing.md`.
+
+2235. Reported: "The compatibility chapter now includes the view-header census.
+      I’m updating the progress log for the picture lifecycle cleanup and
+      view-header source pass, then I’ll run the standard checks again."
+
+      Action/result: Updated this progress log with entries for the
+      picture-lifecycle cleanup and view-header source-model work.
+
+2236. Reported: "The progress log is current through the view-header work. I’m
+      running the standard checks now, then I’ll continue into the next
+      remaining area from `PROGRESS.md`."
+
+      Action/result: Ran `mdbook build docs`,
+      `python3 -B tools/logic_opcode_evidence.py --check`, and
+      `git diff --check`; all passed.
+
+2237. Reported: "Checks are clean. The picture decoder still has two handlers
+      that local SQ2 never uses in real resources, `0xf4` and `0xf5`, so I’m
+      checking whether our synthetic coverage is balanced there before choosing
+      any new fuzz/QEMU work."
+
+      Action/result: Reviewed corner-path renderer code, fuzz cases, unit
+      tests, and coverage notes.
+
+2238. Reported: "Corner commands are already in the fuzz corpus and QEMU
+      coverage, but the focused graphics unit tests only assert the resume
+      behavior for `0xf4`; they don’t directly assert the full `0xf5` X-first
+      path. I’m adding a small deterministic local test for both corner
+      orientations so that rare-but-valid handlers have explicit regression
+      coverage."
+
+      Action/result: Located existing indirect `0xf4` tests through seed-fill
+      rectangle cases.
+
+2239. Reported: "I found the seed-fill tests use `0xf4` rectangles, so `0xf4`
+      has indirect coverage. I’m still adding direct corner-path tests because
+      they make the intended point set obvious and put `0xf5` on equal footing."
+
+      Action/result: Added direct `0xf4` and `0xf5` corner-path point-set tests
+      to `tests/test_graphics_rendering.py`.
+
+2240. Reported: "The direct corner-path tests are in place. I’m running the
+      focused graphics suite to make sure the expected point sets match the
+      existing renderer and source semantics."
+
+      Action/result: `python3 -B -m unittest tests.test_graphics_rendering`
+      passed with 50 tests.
+
+2241. Reported: "The graphics suite passes with 50 tests. I’m recording the new
+      direct `0xf4`/`0xf5` coverage in the testing chapter and tracker, then
+      I’ll keep moving through remaining renderer risk areas."
+
+      Action/result: Updated `docs/src/compatibility_testing.md`.
+
+2242. Reported: "The compatibility chapter now calls out direct corner-path unit
+      coverage. I’m updating `PROGRESS.md` and the clean-room notes with the
+      same small renderer-suite improvement."
+
+      Action/result: Updated the picture decoder evidence line in
+      `PROGRESS.md`.
+
+2243. Reported: "`PROGRESS.md` now includes the rare corner-path handlers in
+      picture evidence. I’m adding a short evidence note that this was a local
+      regression-coverage improvement, not a new QEMU observation."
+
+      Action/result: Added the direct corner-path unit-coverage note to
+      `docs/src/clean_room_executable_notes.md`.
+
+2244. Reported: "The clean-room note now distinguishes this as local regression
+      coverage for already-source-modeled handlers. I’m updating the progress
+      log and then running the normal check set."
+
+      Action/result: Updated this progress log with entries for the direct
+      corner-path coverage work.
+
+2245. Reported: "The log is current through the corner-path coverage. I’m
+      running the standard checks now before moving on again."
+
+      Action/result: Ran `mdbook build docs`,
+      `python3 -B tools/logic_opcode_evidence.py --check`, and
+      `git diff --check`; all passed.
+
+2246. Reported: "Checks are clean. The view item still says runtime animation
+      state needs broadening, so I’m checking what’s already source-backed and
+      QEMU-backed there before deciding whether the tracker wording is stale or
+      there is a real missing mode/edge."
+
+      Action/result: Reviewed frame-animation source/model notes, movement
+      probe cases, and test coverage.
+
+2247. Reported: "The animation side is not actually an uncovered view-decoder
+      gap anymore: modes `0..3`, interval seeding, and bit `0x0020` gating are
+      source-backed and QEMU-covered in the object movement harness. I’m
+      tightening `PROGRESS.md` so the view row’s remaining work is about
+      additional priority/control combinations, not animation state that is
+      already tracked elsewhere."
+
+      Action/result: Updated the view resource decoding row in `PROGRESS.md`.
+
+2248. Reported: "The tracker now no longer double-counts animation as a
+      view-decoder gap. I’m moving to another concrete partial item:
+      vocabulary/tokenization edge cases, checking whether there’s a small
+      source-backed local parser model we should expose for final compatibility
+      work."
+
+      Action/result: Reviewed parser/vocabulary docs and `tools/inspect_words.py`.
+
+2249. Reported: "The parser docs already have a good high-level model, but
+      `inspect_words.py` is only a utility without tests. I’m adding focused
+      local tests for the WORDS.TOK decoder so the vocabulary format evidence is
+      executable, especially the prefix compression and known IDs used by QEMU
+      parser probes."
+
+      Action/result: Confirmed no existing test module covered
+      `tools/inspect_words.py`.
+
+2250. Reported: "The local decoder reports 1,099 entries and the IDs used in
+      the QEMU parser cases: `anyword=0x0001`, `look=0x0002`, `get=0x0005`. I’m
+      adding a dedicated test module for those facts and the 26-letter offset
+      table."
+
+      Action/result: Added `tests/test_words.py`.
+
+2251. Reported: "The WORDS.TOK tests are in place. I’m running that new test
+      module and the graphics tests together, since both are affected by this
+      round of local compatibility coverage."
+
+      Action/result: `python3 -B -m unittest tests.test_words` passed with
+      3 tests, and `python3 -B -m unittest tests.test_graphics_rendering` passed
+      with 50 tests.
+
+2252. Reported: "The new WORDS.TOK tests pass, and the graphics suite still
+      passes. I’m documenting this as local parser-format coverage, then I’ll
+      keep working through the remaining tracker items."
+
+      Action/result: Started updating parser coverage docs.
+
+2253. Reported: "The compatibility paragraph I wanted has shifted a bit, so I’m
+      locating the parser section and applying the update against the current
+      text instead of forcing a stale patch."
+
+      Action/result: Located the parser edge section in
+      `docs/src/compatibility_testing.md`.
+
+2254. Reported: "I found the parser section. I’m adding the WORDS.TOK
+      decoder-test summary right after the QEMU parser edge paragraph so the
+      static vocabulary format and dynamic condition behavior sit together."
+
+      Action/result: Prepared the compatibility-testing update.
+
+2255. Reported: "The exact paragraph is in hand now. I’m patching against that
+      text and then I’ll update the tracker/notes for the new parser-format
+      tests."
+
+      Action/result: Updated `docs/src/compatibility_testing.md`.
+
+2256. Reported: "The compatibility chapter now links the WORDS.TOK decoder
+      tests to the QEMU parser probes. I’m updating `PROGRESS.md` and the
+      clean-room notes with this parser-format coverage."
+
+      Action/result: Updated the parser/input coverage line in `PROGRESS.md`.
+
+2257. Reported: "`PROGRESS.md` now reflects executable WORDS.TOK decoder
+      coverage. I’m adding the chronological note with the exact inspected IDs
+      and offsets."
+
+      Action/result: Added the WORDS.TOK decoder test section to
+      `docs/src/clean_room_executable_notes.md`.
+
+2258. Reported: "The parser-format evidence note is in place. I’m updating the
+      progress log for the animation-tracker cleanup and WORDS.TOK test work,
+      then I’ll run the standard checks plus the new parser test."
+
+      Action/result: Updated this progress log with entries for the animation
+      tracker cleanup and WORDS.TOK decoder tests.
+
+2259. Reported: "The progress log is current again. I’m running
+      docs/evidence/whitespace checks plus the new parser test module now."
+
+      Action/result: Ran `mdbook build docs`,
+      `python3 -B tools/logic_opcode_evidence.py --check`, `git diff --check`,
+      and `python3 -B -m unittest tests.test_words`; all passed.
+
+2260. Reported: "The check set passed. I’m moving to another tracker item with
+      a concrete “remaining” note: DOS save path validation. I’ll inspect the
+      existing source map and tests first, then decide whether a small local
+      model/test can close part of that gap."
+
+      Action/result: Reviewed path-selection docs, symbolic labels, progress
+      wording, and save-resource helpers.
+
+2261. Reported: "The save/restore state machine is well documented, but the
+      validator itself is still mostly a named box. I’m reading the `0x5bdd`
+      path validator source now and will turn any stable rule into a small
+      local helper/test if it’s straightforward."
+
+      Action/result: Disassembled `code.dos.validate_path` and neighboring DOS
+      helpers.
+
+2262. Reported: "The validator source gives a useful split: it normalizes the
+      path string before delegating to DOS. It skips leading spaces, fills an
+      empty path with the current directory, strips a trailing slash/backslash
+      when length is greater than one, accepts a single slash/backslash
+      immediately, treats `X:` as a drive-only check, and otherwise uses DOS
+      find-first with directory attributes. I’m going to model that source-level
+      classification locally, leaving actual DOS availability as an external
+      result."
+
+      Action/result: Read the separator table and drive helper source.
+
+2263. Reported: "The separator table at `0x135f` is exactly backslash and
+      slash, and the drive helper lowercases drive letters before probing DOS. I
+      need one more corrected slice for `0x5db2`; the earlier `dd` skip hit the
+      previous helper because I used the wrong file offset."
+
+      Action/result: Re-read `code.dos.get_current_directory` at the corrected
+      file offset.
+
+2264. Reported: "The corrected `0x5db2` slice shows the default path helper
+      writes a leading backslash, calls DOS get-current-directory, and may
+      switch that first separator to slash if the returned path contains one.
+      I’m adding a local “validation plan” helper now: it models source string
+      handling and says which DOS check the interpreter would perform, without
+      pretending to know host/DOS availability."
+
+      Action/result: Added `SavePathValidationPlan` and
+      `save_path_validation_plan()` to `tools/agi_save.py`.
+
+2265. Reported: "The path-validation planning helper is in `tools/agi_save.py`.
+      I’m adding unit tests for the source-visible edge cases: leading spaces,
+      empty-path defaulting, trailing separator stripping, single-root
+      acceptance, and drive-only classification."
+
+      Action/result: Opened and extended `tests/test_save_resources.py`.
+
+2266. Reported: "The save tests already cover the file envelope, so I’m
+      extending that module rather than creating a separate path test file."
+
+      Action/result: Added save path-validation plan tests.
+
+2267. Reported: "The path-validation edge tests are in place. I’m running the
+      save-resource tests now to make sure the new model matches the
+      source-derived expectations."
+
+      Action/result: `python3 -B -m unittest tests.test_save_resources` passed
+      with 7 tests.
+
+2268. Reported: "The save-resource tests pass with the new path-validation
+      cases. I’m documenting the validator as a source-level string-normalization
+      and DOS-check plan, and adding the missing symbolic label for
+      `code.dos.validate_path`."
+
+      Action/result: Updated `docs/src/symbolic_labels.md`.
+
+2269. Reported: "The path validator label is now in the cross-version map. I’m
+      updating the runtime model and compatibility chapter with the exact edge
+      behavior covered by the new helper/tests."
+
+      Action/result: Updated the save/restore selector state machine in
+      `docs/src/runtime_model.md`.
+
+2270. Reported: "The runtime model now spells out the path validator’s string
+      handling and DOS probe choices. I’m adding the same coverage note to the
+      compatibility chapter and tracker."
+
+      Action/result: Located the current save/restore section after an initial
+      stale patch context.
+
+2271. Reported: "That save/restore paragraph has shifted too; I’m locating the
+      restore-read-error section and patching the path-validation note into the
+      current wording."
+
+      Action/result: Opened the save/restore compatibility-testing section.
+
+2272. Reported: "I found the save/restore section. I’m inserting the
+      path-validation note after the structural save-resource test description,
+      before the dynamic QEMU save/restore probes."
+
+      Action/result: Updated `docs/src/compatibility_testing.md`.
+
+2273. Reported: "The compatibility chapter now captures the path validation
+      plan. I’m updating `PROGRESS.md` to narrow that remaining item, then I’ll
+      add the clean-room source note."
+
+      Action/result: Updated the DOS file I/O progress row in `PROGRESS.md`.
+
+2274. Reported: "The DOS path-validation row now treats the source-level string
+      rules as covered, leaving only optional dynamic UI failure cases. I’m
+      adding the source-note with the disassembly and test commands."
+
+      Action/result: Added the save path validation plan section to
+      `docs/src/clean_room_executable_notes.md`.
+
+2275. Reported: "The clean-room note captures the path validator’s source
+      behavior and the limits of the local helper. I’m updating the progress
+      log, then I’ll run the relevant tests and standard checks."
+
+      Action/result: Updated this progress log with entries for the save path
+      validation plan work.
+
+2276. Reported: "I’m picking this back up at the resource/cache layout work:
+      first I’m going to land the cache-record documentation update that the
+      disassembly already supports, then I’ll re-read `PROGRESS.md` and keep
+      walking the remaining checklist from the highest-value items down."
+
+      Action/result: Read the current tracker, resource chapter, progress log,
+      clean-room notes, and worktree status.
+
+2277. Reported: "The tracker confirms the opcode matrix itself is done, so I’m
+      staying in the subsystem-spec layer now: cache records, renderer edge
+      cases, UI/text/parser/save/audio contracts, and the compatibility suite.
+      The cache table is the next small concrete improvement because the
+      offsets are all source-backed."
+
+      Action/result: Re-read the remaining engine coverage areas in
+      `PROGRESS.md` and the existing resource-loader prose.
+
+2278. Reported: "I’m editing the mdBook resource chapter now. The important
+      implementation-facing point is that each resource family keeps a tiny
+      linked cache record with a different payload-specific layout, so I’m
+      documenting that as a table rather than leaving it scattered through
+      notes."
+
+      Action/result: Added the resource cache record table to
+      `docs/src/resource_files.md`.
+
+2279. Reported: "The resource chapter now has the cache-record table, and
+      `PROGRESS.md` no longer treats that layout as unresolved. I’m adding the
+      evidence note with the exact disassembly slices so future version
+      comparisons can map changed addresses back onto the same symbols."
+
+      Action/result: Updated `PROGRESS.md` and added a resource cache record
+      layout section to `docs/src/clean_room_executable_notes.md`.
+
+2280. Reported: "I’m also logging the working updates themselves. That log is
+      deliberately a narrative trail, so I’m adding both the status updates and
+      the concrete result behind each one before I move into the next tracker
+      item."
+
+      Action/result: Added the current resource-cache progress entries to this
+      log.
+
+2281. Reported: "The cache-record docs are in place. I’m running the standard
+      documentation/evidence checks now, then I’ll continue down `PROGRESS.md`
+      rather than pausing at this milestone."
+
+      Action/result: `mdbook build docs`,
+      `python3 -B tools/logic_opcode_evidence.py --check`, and
+      `git diff --check` all passed.
+
+2282. Reported: "The checks passed. I’m scanning for the next concrete gaps
+      that are both source-discoverable and useful for the final
+      implementation spec, starting with renderer and subsystem TODO language
+      rather than inventing new dynamic probes first."
+
+      Action/result: Searched `PROGRESS.md`, docs, tools, and tests for
+      remaining/provisional language and opened the graphics renderer model.
+
+2283. Reported: "The renderer chapter is mostly in good shape, but I found a
+      couple of stale “unknown” statements: view header bytes are now
+      reserved/unused, and the cache chapter still says view/picture parsing
+      remains to be decoded. I’ll clean those while I’m in this pass, then move
+      to an actual remaining edge."
+
+      Action/result: Identified stale wording in `resource_files.md` and the
+      graphics chapter summary.
+
+2284. Reported: "Before diving into new disassembly, I’m doing a small
+      documentation consistency pass. These aren’t new findings, just removing
+      old uncertainty that the later source work already settled."
+
+      Action/result: Updated the resource and graphics chapters to point at the
+      now-documented view/picture parsers and to remove view-header bytes from
+      the renderer unknown list.
+
+2285. Reported: "That stale wording is cleaned up. Next I’m going back to the
+      remaining renderer edge semantics; I’m going to inspect the picture draw
+      helpers around the less common command paths and compare them against the
+      current Python model before adding tests."
+
+      Action/result: Returned to source-first picture renderer inspection.
+
+2286. Reported: "I’m checking the local renderer tests against the
+      source-modeled command families now. The first useful target is not a big
+      new harness; it’s locking down byte-reader edge cases where a command
+      byte interrupts an active command and must be reprocessed by the
+      scanner."
+
+      Action/result: Reviewed existing graphics/fuzz tests and disassembled
+      picture scanner and draw helper slices around `0x6475`, `0x6494`,
+      `0x6603`, and `0x66ab`.
+
+2287. Reported: "The source exposed a real edge: not every operand uses the
+      coordinate/data reader. Commands `0xf0`, `0xf2`, and `0xf9` consume a raw
+      next byte, so a byte that looks like another command is data in that
+      position. The Python renderer currently treated those operands too
+      strictly, so I’m fixing that and adding regression tests."
+
+      Action/result: Added `PictureRenderer.read_raw_byte()` and changed
+      visual, control, and pattern-mode operands to consume raw bytes.
+
+2288. Reported: "The renderer now distinguishes raw single-byte operands from
+      coordinate/data operands. I’m running the graphics tests; if the hashes
+      stay stable, this should only add edge coverage and not change ordinary
+      SQ2 picture renders."
+
+      Action/result: `python3 -B -m unittest tests.test_graphics_rendering`
+      passed with 53 tests.
+
+2289. Reported: "The focused graphics suite passes with 53 tests, and the
+      existing real-picture hashes did not move. I’m going to turn this source
+      edge into reusable corpus coverage as well, so future renderer
+      comparisons don’t lose it."
+
+      Action/result: Opened the picture fuzz base-case registry and tests.
+
+2290. Reported: "I found the synthetic fuzz corpus has the right place for
+      this: the existing command-resume cases cover coordinate readers, but not
+      raw one-byte operands. I’m adding three safe base cases so the distinction
+      is visible in the reusable corpus."
+
+      Action/result: Added `base_033_raw_visual_operand`,
+      `base_034_raw_control_operand`, and
+      `base_035_raw_pattern_mode_operand` to `tools/picture_fuzz.py`, plus test
+      coverage in `tests/test_picture_fuzz.py`.
+
+2291. Reported: "The fuzz base cases now include raw
+      visual/control/pattern-mode operands. I’m running the picture-fuzz tests
+      next, then I’ll regenerate the corpus metadata so the documented counts
+      are real."
+
+      Action/result: `python3 -B -m unittest tests.test_picture_fuzz` passed
+      with 12 tests.
+
+2292. Reported: "The fuzz-tool tests pass. I’m regenerating the deterministic
+      corpus with the three new base cases, which should take it from 1,057 to
+      1,060 cases while keeping only the two intentional overread cases out of
+      QEMU."
+
+      Action/result: Regenerated `build/picture-fuzz/corpus`; it reported
+      1,060 cases and 1,058 safe for QEMU.
+
+2293. Reported: "The regenerated corpus reports 1,060 cases, 1,058 safe for
+      QEMU. Since this is a renderer edge and the harness already supports it,
+      I’m going to run the three new raw-operand cases through the original
+      engine as a focused snapshot batch."
+
+      Action/result: Started snapshot QEMU batch `raw_operand_001` for the
+      three new raw-operand cases.
+
+2294. Reported: "The QEMU snapshot batch is running from one boot and has
+      built all three fixtures. I’m waiting on the captures now; this is the
+      confirmation step, not the discovery step."
+
+      Action/result: Waited for the QEMU snapshot batch to finish.
+
+2295. Reported: "The original engine matched all three raw-operand cases with
+      zero mismatches. I’m documenting this as QEMU-confirmed picture semantics
+      and updating the corpus counts in the tracker and compatibility chapter."
+
+      Action/result: Opened the compatibility chapter, tracker, and notes for
+      updates.
+
+2296. Reported: "I’m updating the implementation-facing docs now: the nuance
+      is that “command bytes remain pending” applies to coordinate/list
+      readers, while raw one-byte operands are consumed as operands even if
+      they look like commands. That distinction matters for compatibility."
+
+      Action/result: Updated the picture decoder section of
+      `docs/src/graphics_object_pipeline.md`.
+
+2297. Reported: "The renderer chapter now states both sides of the scanner
+      rule. I’m adding the same contract to the runtime model and compatibility
+      chapter, then I’ll record the exact disassembly/QEMU commands in the
+      evidence notes."
+
+      Action/result: Updated `docs/src/runtime_model.md`.
+
+2298. Reported: "The runtime model has the raw-operand rule now. I’m updating
+      the compatibility chapter with the new 1,060-case corpus count and the
+      three-case QEMU batch result."
+
+      Action/result: Updated `docs/src/compatibility_testing.md`.
+
+2299. Reported: "The compatibility chapter now names the raw-operand batch.
+      I’m tightening the tracker too, so the dashboard reflects both the added
+      renderer evidence and the updated corpus size."
+
+      Action/result: Updated `PROGRESS.md`.
+
+2300. Reported: "The tracker is updated. I’m adding the clean-room evidence
+      entry now: disassembly slices, the renderer/test changes, corpus
+      regeneration, and the original-engine batch result."
+
+      Action/result: Added the picture raw-operand scanner edge section to
+      `docs/src/clean_room_executable_notes.md`.
+
+2301. Reported: "The evidence note is in place. I’m updating the progress log
+      with the whole raw-operand sequence before running the standard checks
+      again."
+
+      Action/result: Added the raw-operand progress entries to this log.
+
+2302. Reported: "The raw-operand checks passed. I’m moving to the next
+      high-value partial subsystem that is mostly source-discoverable:
+      sound/audio, specifically whether the remaining “pitch/envelope” wording
+      can be turned into a clearer driver-facing contract from the disassembly
+      and existing sound parser."
+
+      Action/result: Opened `tools/agi_sound.py`, sound-related docs, and the
+      current sound progress row.
+
+2303. Reported: "The sound docs already cover the gameplay contract and
+      PC-speaker divisor. The remaining wording is about the non-PC-speaker
+      attenuation/envelope helper, so I’m reading that exact source path now
+      rather than guessing from sound data alone."
+
+      Action/result: Disassembled `code.sound.driver_write_attenuation` and
+      nearby driver start/tick/tone helpers, and inspected AGIDATA bytes around
+      the default envelope table.
+
+2304. Reported: "The attenuation helper is clearer than the tracker implies:
+      it has a specific per-channel ramp table, sentinel byte `0x80`, clamp to
+      `0..15`, and selector-2 adjustment before the port write. I’m pulling the
+      tone helper slice too so the local model can cover both driver-facing
+      outputs."
+
+      Action/result: Re-ran the correctly aligned tone/helper disassembly and
+      scanned local SQ2 sound control/tone byte distributions.
+
+2305. Reported: "One oddity in the tone helper is that the event control
+      byte’s upper bits are not plainly reloaded before
+      `code.sound.driver_write_tone`; I’m not going to overclaim that path. The
+      attenuation helper, though, has enough direct state reads and writes to
+      model its output byte precisely."
+
+      Action/result: Limited the new model to the directly source-backed
+      attenuation/output-byte state machine.
+
+2306. Reported: "I’m going to add a small source-level model for attenuation
+      output rather than an audio synthesizer. It will model the state the
+      driver actually mutates and the byte it writes to port `0xc0`; audible
+      waveform reproduction can stay out of the portable spec."
+
+      Action/result: Added `SoundAttenuationState`,
+      `SoundAttenuationOutput`, default envelope decoding, channel masks, and
+      `sound_attenuation_output()` to `tools/agi_sound.py`.
+
+2307. Reported: "The attenuation helper is in `tools/agi_sound.py`. I’m adding
+      focused tests for the default envelope table, channel masks, selector-2
+      adjustment, negative/positive clamps, and the `0x80` envelope
+      terminator."
+
+      Action/result: Extended `tests/test_sound_resources.py` with attenuation
+      output tests.
+
+2308. Reported: "The sound tests now cover the driver-facing attenuation state
+      machine directly. I’m running that module to make sure the helper matches
+      the source-derived edge cases."
+
+      Action/result: `python3 -B -m unittest tests.test_sound_resources`
+      passed with 14 tests.
+
+2309. Reported: "The targeted sound tests pass. I’m updating the sound spec
+      text now: attenuation/envelope byte output is no longer an open semantic
+      gap, while actual audible synthesis remains hardware-specific and outside
+      the portable game-state contract."
+
+      Action/result: Opened the sound sections in the runtime model,
+      compatibility chapter, clean-room notes, and tracker.
+
+2310. Reported: "I’m patching the sound runtime model with the exact
+      attenuation helper: base attenuation, envelope index/value, default delta
+      table, `0x80` sentinel, channel mask, selector-2 lift, and final port
+      byte."
+
+      Action/result: Updated `docs/src/runtime_model.md`.
+
+2311. Reported: "The sound runtime model now has the driver-facing attenuation
+      contract. I’m adding a compatibility-suite note so the new local tests are
+      visible alongside the existing QEMU load/start/stop probes."
+
+      Action/result: Located the existing static sound-resource parser section
+      in `docs/src/compatibility_testing.md`.
+
+2312. Reported: "The compatibility chapter already had a sound-resource
+      section, so I’m extending that paragraph rather than adding a new one."
+
+      Action/result: Updated the compatibility-testing sound paragraph with
+      the new attenuation output coverage.
+
+2313. Reported: "The compatibility note is updated. I’m narrowing the sound row
+      in `PROGRESS.md`: envelope/attenuation byte behavior is covered now; what
+      remains is actual audible synthesis or optional dynamic timing
+      confirmation."
+
+      Action/result: Updated the sound/audio row in `PROGRESS.md`.
+
+2314. Reported: "The sound tracker now distinguishes driver-byte compatibility
+      from actual sound synthesis. I’m adding the clean-room note with the new
+      disassembly and table observations."
+
+      Action/result: Added the sound attenuation envelope source-model section
+      to `docs/src/clean_room_executable_notes.md`.
+
+2315. Reported: "The sound evidence note is in place. I’m adding the
+      corresponding progress-log entries, then I’ll run the standard checks and
+      continue to the next tracker item."
+
+      Action/result: Added the sound attenuation progress entries to this log.
+
+2316. Reported: "The sound checks passed. I’m moving next to
+      parser/vocabulary because that is another remaining partial area where
+      source inspection and local tests can improve the implementation spec
+      without needing a lot of emulator time."
+
+      Action/result: Searched parser/vocabulary docs, opened the WORDS.TOK
+      decoder and tests, and reviewed the runtime parser summary.
+
+2317. Reported: "The docs already separate direct string comparison from
+      `WORDS.TOK` parsing. I’m looking for a source-backed tokenization detail
+      that is useful enough to model locally, especially delimiters,
+      unknown-word behavior, and parser buffer limits."
+
+      Action/result: Located existing parser notes, data tables, and labels for
+      parsed-word buffers and normalized string comparison.
+
+2318. Reported: "The earlier notes already identified parser helper addresses,
+      so I’m re-reading those slices directly. If the normalization/token
+      buffers are as clear as the notes suggest, I’ll turn them into a small
+      local parser helper and tests."
+
+      Action/result: Disassembled action `0x75`, parser helper `0x18ac`,
+      normalization helper `0x199d`, and dictionary lookup helper `0x1a6b`.
+
+2319. Reported: "The tokenization source gives a neat implementation boundary:
+      normalize into a space-separated buffer, then lookup advances a global
+      pointer through that buffer one word at a time. I’m reading the two tail
+      helpers before I code the local model."
+
+      Action/result: Disassembled unknown-token truncation helper `0x1bc7` and
+      dictionary-entry advance helper `0x1be4`, and reviewed earlier parser
+      evidence notes.
+
+2320. Reported: "The parser source has one subtle correction worth preserving:
+      ignored dictionary words with ID zero do not advance the parsed output
+      index, so an unknown word after “the” reports output slot 1, not raw
+      token 2. I’m coding a local source-model helper for normalization and
+      parsed IDs."
+
+      Action/result: Added parser normalization and parsed-word helpers to
+      `tools/inspect_words.py`.
+
+2321. Reported: "The parser helper is added. I’m extending
+      `tests/test_words.py` now with source-visible normalization, zero-ID
+      filtering, unknown-slot reporting, and the 10-word parsed buffer limit."
+
+      Action/result: Added parser/tokenizer tests.
+
+2322. Reported: "The WORDS tests now exercise the parser model. I’m running
+      them; if any local word ID assumption is off, I’ll adjust from the decoded
+      file rather than guessing."
+
+      Action/result: First `tests.test_words` run found that `gem` has local
+      word ID `0x0174`, not the assumed ID.
+
+2323. Reported: "One assumption was off: `gem` decodes to `0x0174`, not the ID
+      I casually reused from older notes. I’m correcting the test to the local
+      dictionary value."
+
+      Action/result: Updated the test to assert the decoded `gem` ID from
+      `WORDS.TOK`.
+
+2324. Reported: "The parser test now references the decoded dictionary value
+      explicitly. I’m rerunning the WORDS tests."
+
+      Action/result: `python3 -B -m unittest tests.test_words` passed with
+      8 tests.
+
+2325. Reported: "The WORDS/parser tests pass. I’m updating the docs and
+      symbolic label map with the parser tables and the corrected “output slot”
+      wording for unknown words after ignored zero-ID terms."
+
+      Action/result: Began updating symbolic labels and parser documentation.
+
+2326. Reported: "I’m adding stable labels for the parser separator/ignored
+      tables, dictionary base pointer, normalized buffer, and parsed pointer
+      table. Those are exactly the sort of labels that will help when another
+      interpreter build moves the code."
+
+      Action/result: Added parser data labels to
+      `docs/src/symbolic_labels.md`.
+
+2327. Reported: "The data labels are in. I’m adding the companion routine
+      labels for parse action, normalization, dictionary lookup, unknown-token
+      truncation, and dictionary-entry advancement."
+
+      Action/result: Located the insertion point near input helpers.
+
+2328. Reported: "The label section had the view helper immediately after input
+      mapping, so I’m inserting the word-parser routines in that slot."
+
+      Action/result: Added parser routine labels to
+      `docs/src/symbolic_labels.md`.
+
+2329. Reported: "The routine labels are in. I noticed the parser’s
+      current-token pointer also deserves a data label, so I’m adding that
+      before updating the prose."
+
+      Action/result: Added `data.words.current_parse_pointer_0cd1` to the
+      symbolic label map.
+
+2330. Reported: "I’m updating the parser prose now, especially the zero-ID
+      filtering and unknown-word position semantics. This is a small wording
+      change, but it prevents a future implementation from reporting the wrong
+      parser slot."
+
+      Action/result: Updated the parser section in
+      `docs/src/runtime_model.md`.
+
+2331. Reported: "The runtime model now has the parser contract. I’m mirroring
+      the output-slot correction in the bytecode chapter where the lower-level
+      action `0x75` behavior is described."
+
+      Action/result: Located the parsed-input producer paragraph in
+      `docs/src/logic_bytecode.md`.
+
+2332. Reported: "That paragraph had a slightly different shape than my patch
+      context. I found it and am applying the correction directly."
+
+      Action/result: Updated the action `0x75` parser-result handling wording
+      in `docs/src/logic_bytecode.md`.
+
+2333. Reported: "The bytecode chapter is corrected. I’m updating the
+      compatibility chapter to mention the new local parser
+      normalization/output-slot tests."
+
+      Action/result: Opened the parser edge section in
+      `docs/src/compatibility_testing.md`.
+
+2334. Reported: "The compatibility chapter now points at the parser tests. I’m
+      updating `PROGRESS.md` so the variables/parser row reflects the new
+      source-modeled tokenizer coverage."
+
+      Action/result: Updated the variables/parser progress row.
+
+2335. Reported: "The tracker is updated. I’m adding the evidence note for the
+      parser source-model pass with the exact helper addresses and test
+      command."
+
+      Action/result: Added the parser normalization and output-slot model
+      section to `docs/src/clean_room_executable_notes.md`.
+
+2336. Reported: "The parser evidence note is now in the clean-room log. I’m
+      adding the progress-log entries for this parser pass, then I’ll run
+      checks and continue."
+
+      Action/result: Added the parser pass progress entries to this log.
+
+2337. Reported: "The parser progress log is current. I’m running the WORDS
+      tests and standard documentation/evidence checks now."
+
+      Action/result: Re-ran the parser tests and standard checks after the
+      parser pass.
+
+2338. Reported: "The parser checks passed. I’m doing a quick tracker audit now
+      so the next pass is guided by actual remaining gaps instead of inertia."
+
+      Action/result: Reviewed `PROGRESS.md`, the runtime model, symbolic labels,
+      and compatibility notes for the next high-value subsystem.
+
+2339. Reported: "The startup/display docs are already broader than I expected,
+      and the display globals are labeled. I’m going to avoid a speculative
+      startup pass for now and instead harden the final compatibility suite:
+      first by running the full local unit suite to catch integration fallout
+      from the new helpers."
+
+      Action/result: Started the full local unit suite.
+
+2340. Reported: "The full local suite passes: 205 tests, including the carousel
+      harness tests that build snapshot disks. That gives a good integration
+      checkpoint after the renderer, sound, and parser additions."
+
+      Action/result: `python3 -B -m unittest discover -s tests` passed with
+      205 tests.
+
+2341. Reported: "I’m going to strengthen the memory/heap row next with a small
+      local source model for allocator/status formulas. The docs already
+      describe them; adding executable tests makes those formulas part of the
+      compatibility suite rather than just prose."
+
+      Action/result: Began the heap formula test-model pass.
+
+2342. Reported: "The heap source pass matches the docs cleanly. I’m adding a
+      tiny `agi_heap` helper module with allocation, free-byte, mark/rewind,
+      reset, and diagnostic formulas, then focused tests to make those formulas
+      executable."
+
+      Action/result: Added `tools/agi_heap.py` with source-modeled heap helper
+      formulas.
+
+2343. Reported: "I’m picking up exactly where the compaction left off: the heap
+      helper has been added, and I’m turning that source-derived model into
+      tests and documentation now. After that I’ll keep working down
+      `PROGRESS.md` rather than stopping at this checkpoint."
+
+      Action/result: Inspected working-tree state and the memory/heap tracker
+      row.
+
+2344. Reported: "The working tree is in the expected state: lots of
+      reverse-engineering edits already staged only in the filesystem, no
+      commit. I’m going to keep the next edits tightly scoped: heap tests, the
+      evidence notes, and the progress dashboard."
+
+      Action/result: Read the relevant `PROGRESS.md`,
+      `compatibility_testing.md`, `progress_log.md`, and clean-room notes
+      sections.
+
+2345. Reported: "I’ve got the heap source model and the existing docs lined up.
+      Next I’m adding tests that pin the old-top return value, free-memory page
+      byte, temporary mark restore, room reset rewind, and diagnostic formulas."
+
+      Action/result: Added `tests/test_heap.py`.
+
+2346. Reported: "The heap tests are in. I’m doing one quick readability pass on
+      the helper itself before running them, mostly to keep the return-value
+      formulas easy to inspect later."
+
+      Action/result: Reformatted long return paths in `tools/agi_heap.py`.
+
+2347. Reported: "The helper now reads cleanly. I’m running the new focused heap
+      tests first, then I’ll document the source addresses and fold the result
+      into the progress tracker."
+
+      Action/result: `python3 -B -m unittest tests.test_heap` passed with
+      7 tests.
+
+2348. Reported: "The heap tests pass: 7 focused checks. I’m recording this as
+      executable compatibility evidence now, with the caveat that it models the
+      source formulas rather than a visible out-of-memory dialog."
+
+      Action/result: Began updating compatibility notes, clean-room notes, and
+      `PROGRESS.md` for the heap model.
+
+2349. Reported: "The heap evidence is now in the docs and dashboard. I’m
+      running the standard checks plus the full local suite so the new helper
+      lands on the same footing as the parser and renderer work."
+
+      Action/result: `mdbook build docs`,
+      `python3 -B tools/logic_opcode_evidence.py --check`,
+      `git diff --check`, and `python3 -B -m unittest discover -s tests`
+      passed; the full suite ran 212 tests.
+
+2350. Reported: "All checks passed, including the full suite now at 212 tests.
+      I’m moving back to the highest-value queue: renderer compatibility,
+      starting by auditing picture/view docs and tests for the next real
+      source-backed gap instead of inventing a random probe."
+
+      Action/result: Audited renderer docs, tests, and helpers for picture/view
+      coverage gaps.
+
+2351. Reported: "The renderer docs are dense, but a useful next gap stands out:
+      the view/cel side has good layout coverage and carousel validation, while
+      the low-level run decoder and mirror/orientation helpers could use more
+      executable tests tied to source offsets. I’m checking the disassembly and
+      local implementation around those routines now."
+
+      Action/result: Reviewed the view-frame decoder implementation, view/cel
+      documentation, graphics tests, and symbolic/evidence notes for the
+      bit-`0x80` mirror path.
+
+2352. Reported: "The mirror model is already QEMU-validated for real resources,
+      but the executable tests only cover one natural sample. I’m rereading
+      `code.object.rewrite_frame_orientation` so the next tests capture
+      source-visible edge cases like all-transparent rows and long implicit
+      transparent padding."
+
+      Action/result: Disassembled `0x587d` and nearby placement helpers and
+      re-read the earlier orientation-rewrite evidence note.
+
+2353. Reported: "The source confirms the important rewrite details: leading
+      transparent runs are skipped until the first visible run, all-transparent
+      rows collapse to an empty row, and implicit trailing transparency is
+      emitted in 15-pixel chunks before reversing the counted run bytes. I’m
+      adding those as direct local tests."
+
+      Action/result: Added focused mirror-row tests to
+      `tests/test_graphics_rendering.py`.
+
+2354. Reported: "The mirror edge tests are added. I’m running the graphics
+      suite now; if any expected run differs, I’ll go back to the 0x587d
+      instruction flow rather than massaging the tests."
+
+      Action/result: First graphics test run found an arithmetic mistake in one
+      expected transparent-run length.
+
+2355. Reported: "The failing mirror test was my arithmetic, not the model: that
+      row’s explicit width is 10, so the mirrored implicit transparent run is
+      10 pixels (`0x1a`), not 9. I’m correcting the expected byte and rerunning."
+
+      Action/result: Corrected the expected run byte; `python3 -B -m unittest
+      tests.test_graphics_rendering` passed with 57 tests.
+
+2356. Reported: "The graphics suite passes with 57 tests. I’m documenting the
+      new mirror edge coverage now so it’s clear these are source-derived
+      row-rewrite semantics, not just arbitrary Python behavior."
+
+      Action/result: Began documenting the mirror edge tests in the
+      compatibility chapter, graphics/object pipeline, clean-room notes, and
+      progress tracker.
+
+2357. Reported: "The view mirror edge pass is documented. I’m doing a quick
+      source/test scan around the object priority gate next; that’s the other
+      renderer edge called out in `PROGRESS.md`, and it’s tightly tied to valid
+      object/view drawing."
+
+      Action/result: Reviewed object priority-gate tests, graphics helper code,
+      symbolic/evidence notes, and attempted an initial base-executable slice.
+
+2358. Reported: "The priority-gate test coverage already has the main “higher
+      priority” and “scan downward” cases. I’m checking the overlay file
+      offsets carefully now, because this draw routine lives in the object
+      overlay rather than the base executable and I don’t want to cite the wrong
+      binary slice."
+
+      Action/result: Confirmed `SQ2/IBM_OBJS.OVL` contains the object-overlay
+      draw entry and re-read the earlier evidence note.
+
+2359. Reported: "The overlay disassembly shows a couple of priority-gate edges
+      worth pinning: a low-control destination can still draw if the downward
+      scan finds an equal priority, and rejected pixels inside a run don’t
+      abort the rest of the run. I’m adding local tests for those exact source
+      branches."
+
+      Action/result: Added object-overlay priority-gate edge tests to
+      `tests/test_graphics_rendering.py`.
+
+2360. Reported: "The priority-gate tests are in. I’m running the graphics suite
+      again; this gives us a tighter local oracle for object-over-picture
+      composition without launching QEMU."
+
+      Action/result: `python3 -B -m unittest tests.test_graphics_rendering`
+      passed with 60 tests.
+
+2361. Reported: "The graphics suite is now at 60 tests. I’m writing down the
+      object-overlay priority-gate edges with the `IBM_OBJS.OVL:0x9e35` branch
+      points, then I’ll run the standard checks again."
+
+      Action/result: Began documenting the object-overlay priority gate edge
+      tests and updating the progress tracker.
+
+2362. Reported: "The renderer edge docs are updated. I’m running the standard
+      doc/evidence checks and full test suite again before choosing the next
+      `PROGRESS.md` item."
+
+      Action/result: `mdbook build docs`,
+      `python3 -B tools/logic_opcode_evidence.py --check`,
+      `git diff --check`, and `python3 -B -m unittest discover -s tests`
+      passed; the full suite ran 219 tests.
+
+2363. Reported: "All checks passed; the full suite is now 219 tests. I’m
+      shifting back to picture bytecode next, looking for valid synthetic cases
+      that the source says are real but the current QEMU corpus may not
+      exercise, especially the rare `0xf4`/`0xf5` corner-path commands."
+
+      Action/result: Audited `tools/picture_fuzz.py`, picture fuzz tests, and
+      renderer docs; confirmed curated QEMU evidence already includes corner
+      path cases.
+
+2364. Reported: "The corner-path corpus is better covered than I first
+      suspected: both `0xf4` and `0xf5` are already in curated QEMU fuzz
+      evidence, plus local point-set tests. I’m moving to the parser/input side
+      now to see whether the source-backed tokenizer has a matching condition
+      model, since that is important for a portable implementation."
+
+      Action/result: Audited parser docs, `inspect_words.py`, parser tests, and
+      opcode evidence for condition `0x0e`.
+
+2365. Reported: "The parser docs already describe the wildcard and terminator
+      behavior, but I don’t see a small local matcher in the tools yet. I’m
+      rereading condition handler `0x095c` and will add that model if the
+      source shape is clean."
+
+      Action/result: Disassembled condition handler `0x095c` and re-read the
+      runtime/bytecode parser sections.
+
+2366. Reported: "The source shape is clean and a little subtle: the terminator
+      word `0x270f` succeeds immediately after the previous matches and skips
+      any remaining operand words, while an extra non-terminator after all
+      parsed words are consumed fails. I’m adding a small matcher helper and
+      tests for those cases."
+
+      Action/result: Added `input_word_sequence_matches()` and result dataclass
+      to `tools/inspect_words.py`.
+
+2367. Reported: "I’m making the matcher small but explicit: it takes the parsed
+      IDs plus parser flags, and returns whether the condition matches, whether
+      flag 4 would be set, and how many operand words were skipped after a
+      terminator or mismatch. That mirrors the handler’s control flow without
+      importing the whole logic VM."
+
+      Action/result: Completed the local matcher implementation.
+
+2368. Reported: "The matcher and tests are in. I included one source-derived
+      edge that is easy to miss: a terminator-only pattern can match an unknown
+      parse state because the parser count/error-position is nonzero and flag 2
+      is set."
+
+      Action/result: Added parser matcher tests to `tests/test_words.py`.
+
+2369. Reported: "The local WORDS suite passes with 13 tests. Because the
+      terminator-on-unknown behavior is surprising, I’m checking whether the
+      existing QEMU probe harness can validate it with one small generated
+      logic case."
+
+      Action/result: `python3 -B -m unittest tests.test_words` passed with
+      13 tests; inspected parser cases in `tools/logic_interpreter_probe.py`.
+
+2370. Reported: "The harness can validate this cheaply. I’m adding one
+      parser-edge fixture that parses an unknown word and then tests a
+      terminator-only `0x0e` pattern, which should draw if the source model is
+      right."
+
+      Action/result: Added
+      `input_word_sequence_terminator_matches_unknown_word` to
+      `tools/logic_interpreter_probe.py` and its harness test.
+
+2371. Reported: "The new parser-edge fixture is wired into the harness. I’m
+      running the relevant unit tests first, then I’ll use QEMU for just this
+      one behavior check."
+
+      Action/result: `python3 -B -m unittest tests.test_logic_interpreter_probe
+      tests.test_words` passed with 26 tests, and opcode evidence check passed.
+
+2372. Reported: "The parser and harness unit tests pass. I’m running the single
+      QEMU parser-edge case now to confirm the unknown-word terminator behavior
+      against the original engine."
+
+      Action/result: QEMU batch `parser_unknown_terminator_001` matched the
+      original engine with 1 match, 0 mismatches, and 0 errors.
+
+2373. Reported: "The QEMU probe matched: the original engine does draw for a
+      terminator-only word sequence after parsing an unknown token. I’m updating
+      the spec text and evidence trail because that’s a real compatibility
+      edge, not just a local helper detail."
+
+      Action/result: Updated parser/runtime/compatibility docs, symbolic
+      labels, `PROGRESS.md`, and opcode evidence generator.
+
+2374. Reported: "I’m also updating the generated opcode-evidence source entry
+      for condition `0x0e`, since the condition now has a richer QEMU-backed
+      edge case than the older one-line probe reference."
+
+      Action/result: Regenerated `docs/src/logic_opcode_evidence.md`.
+
+2375. Reported: "I’ve got the doc insertion points. The wording here needs to
+      be precise: `0x270f` is not “end of all parsed input”; it is an immediate
+      successful terminator for the condition pattern once the parser state is
+      otherwise eligible."
+
+      Action/result: Refined parser wording in the bytecode and runtime model.
+
+2376. Reported: "The parser spec text and label map are updated. I changed the
+      opcode-evidence generator too, so I’m regenerating its mdBook chapter
+      before continuing the evidence note."
+
+      Action/result: Ran `python3 -B tools/logic_opcode_evidence.py`.
+
+2377. Reported: "The opcode-evidence chapter is regenerated. I’m adding the
+      clean-room note and progress-log entries for the parser matcher/QEMU
+      confirmation now."
+
+      Action/result: Added the input-word sequence matcher evidence note and
+      progress-log entries.
+
+2378. Reported: "The parser matcher evidence is in. I’m running the standard
+      checks again, including the full suite, because this touched generated
+      opcode evidence, logic-probe cases, and parser helpers."
+
+      Action/result: `mdbook build docs`,
+      `python3 -B tools/logic_opcode_evidence.py --check`,
+      `git diff --check`, and `python3 -B -m unittest discover -s tests`
+      passed; the full suite ran 224 tests.
+
+2379. Reported: "The parser pass checks are clean; the full suite is now
+      224 tests. I’m looking at the compatibility-harness gap next: there are
+      many strong individual probes, but a single manifest/runner would make
+      the final suite easier to reproduce across future games and interpreter
+      versions."
+
+      Action/result: Audited existing compatibility docs, tools, tests, and
+      `PROGRESS.md` for a top-level suite runner gap.
+
+2380. Reported: "I’m going to add a lightweight suite manifest/runner rather
+      than another ad hoc command list. The default will run only local checks;
+      QEMU smoke and broad sweeps stay opt-in so future agents can choose the
+      right cost level."
+
+      Action/result: Added `tools/compatibility_suite.py`.
+
+2381. Reported: "The suite runner is in place. I’m adding tests around the
+      manifest and command selection/execution plumbing, with subprocess calls
+      mocked so the normal unit suite stays fast and deterministic."
+
+      Action/result: Added `tests/test_compatibility_suite.py`.
+
+2382. Reported: "The runner tests are ready. I’m running the focused suite tests
+      and doing a dry-run manifest check so we know the new tool is usable
+      without triggering QEMU by accident."
+
+      Action/result: `python3 -B -m unittest tests.test_compatibility_suite`
+      passed with 6 tests; dry-run output listed local checks by default and
+      included QEMU smoke only with `--include-qemu-smoke`.
+
+2383. Reported: "The suite manifest behaves as intended: local-only by default,
+      QEMU smoke opt-in. I’m running the default runner once now so it writes a
+      real report and proves the plumbing outside mocks."
+
+      Action/result: `python3 -B tools/compatibility_suite.py --report
+      build/compatibility-suite/local_001.json` passed, running 230 unit tests,
+      building mdBook, and checking opcode evidence.
+
+2384. Reported: "The default suite runner passed and wrote a local report under
+      `build/compatibility-suite/`. I’m documenting the runner in the
+      compatibility chapter and AGENTS so future work uses it as the top-level
+      entry point."
+
+      Action/result: Updated `AGENTS.md`, `docs/src/compatibility_testing.md`,
+      `PROGRESS.md`, and clean-room notes for the compatibility suite runner.
+
+2385. Reported: "The suite runner is documented. I’m running the standard
+      checks once more after the docs/AGENTS updates, then I’ll reassess
+      `PROGRESS.md` for what is genuinely left versus what is waiting on future
+      game/interpreter inputs."
+
+      Action/result: `mdbook build docs`,
+      `python3 -B tools/logic_opcode_evidence.py --check`,
+      `git diff --check`, and `python3 -B -m unittest discover -s tests`
+      passed; the full suite ran 230 tests.
+
+2386. Reported: "The checks pass again: mdBook, opcode evidence, diff check,
+      and 230 tests. I’m doing a tracker audit now to separate actionable SQ2
+      work from items that are intentionally waiting for future interpreter
+      versions or optional hardware paths."
+
+      Action/result: Reviewed the current `PROGRESS.md` remaining-work rows and
+      working-tree state.
+
+2387. Reported: "The audit shows most remaining SQ2 items are either optional
+      UI/hardware paths or future cross-version work. One still-actionable row
+      is sound: we have event scheduling and port-write formulas, but not a
+      compact implementation-facing “audible channel state” helper, so I’m
+      checking the current sound model before deciding how far that can be taken
+      cleanly from source."
+
+      Action/result: Reviewed `tools/agi_sound.py`, sound tests, sound docs,
+      and the existing driver-output source notes.
+
+2388. Reported: "The sound row is already stronger than it looked: scheduling,
+      PC-speaker divisor, non-PC tone bytes, and attenuation envelopes are all
+      source-backed. I’m checking the driver tick around `0x801c` to avoid
+      inventing an “audio synthesis” layer beyond what the interpreter actually
+      outputs."
+
+      Action/result: Disassembled `code.sound.driver_tick` and re-read runtime
+      sound documentation.
+
+2389. Reported: "There’s one sound improvement I can make without overreaching
+      into synthesis: model the actual non-PC tone bytes and stop-silence bytes
+      the driver writes, alongside the existing PC-speaker divisor. That keeps
+      the spec at the interpreter’s hardware-output boundary, which is what the
+      source directly gives us."
+
+      Action/result: Added `SoundToneOutput`, `sound_tone_output()`, and
+      `sound_stop_silence_output()` to `tools/agi_sound.py`.
+
+2390. Reported: "The sound tone-output helper is added. I’m extending the sound
+      tests to pin PC-speaker silence/enable state, non-PC high/low byte writes,
+      high-byte suppression of the low byte, and stop-core silence output."
+
+      Action/result: Added tone/silence output tests to
+      `tests/test_sound_resources.py`.
+
+2391. Reported: "The sound tests now cover the port-output boundary. I’m
+      running them to catch any mismatch against the source formulas."
+
+      Action/result: `python3 -B -m unittest tests.test_sound_resources` passed
+      with 16 tests.
+
+2392. Reported: "The sound tests pass at 16 cases. I’m updating the sound docs
+      to mark the port-output boundary as executable evidence, while keeping
+      physical waveform synthesis out of scope unless we later need it."
+
+      Action/result: Updated sound sections in the runtime model,
+      compatibility chapter, `PROGRESS.md`, and clean-room notes.
+
+2393. Reported: "The sound port-output model is documented. I’m running the
+      standard checks again; after that I’ll decide whether the remaining
+      `PROGRESS.md` rows need more SQ2 work or are genuinely deferred."
+
+      Action/result: `mdbook build docs`,
+      `python3 -B tools/logic_opcode_evidence.py --check`,
+      `git diff --check`, and `python3 -B -m unittest discover -s tests`
+      passed; the full suite ran 232 tests.
+
+2394. Reported: "The checks pass at 232 tests. The one fully blank tracker row
+      is cross-version workflow; we can’t apply it to another interpreter until
+      you provide one, but I can still document the repeatable workflow and what
+      evidence to capture so that row is no longer an empty placeholder."
+
+      Action/result: Reviewed mdBook summary, symbolic-label rules, and
+      existing cross-version references.
+
+2395. Reported: "I’m adding a dedicated cross-version workflow chapter to
+      mdBook. It won’t pretend we’ve compared another interpreter yet; it will
+      define the evidence package, label-mapping method, and compatibility-suite
+      layers to use when the next game/version arrives."
+
+      Action/result: Added `docs/src/cross_version_workflow.md`, linked it from
+      `docs/src/SUMMARY.md`, updated `PROGRESS.md`, and recorded the evidence
+      note.
+
+2396. Reported: "I’ve got the thread context and the AGENTS rules in hand. I’m
+      picking up at the compatibility-suite/QEMU smoke validation point: the
+      local suite was passing, but the QEMU smoke layer hit a sandbox VNC
+      socket bind error, so I’m going to rerun that through the approved
+      escalation path rather than treating it as an engine failure."
+
+      Action/result: Reran
+      `python3 -B tools/compatibility_suite.py --include-qemu-smoke --report
+      build/compatibility-suite/qemu_smoke_001.json` with local VNC/socket
+      access.
+
+2397. Reported: "The escalated run is past the local test/mdBook/opcode layers
+      and is now inside the QEMU smoke probes. Good sign so far: this is
+      exercising the same engine fixtures through the compatibility runner
+      rather than a one-off command."
+
+      Action/result: The local unit suite passed with 232 tests, mdBook built,
+      opcode evidence checked cleanly, and the parser-edge QEMU batch began.
+
+2398. Reported: "The parser edge smoke cases matched the original engine. The
+      run has moved on to the unknown-word terminator probe, which is the small
+      but important “condition terminator accepts this parser state” case we
+      added earlier."
+
+      Action/result: `parser_edges_suite.json` reported 3 matches, 0
+      mismatches, and 0 errors.
+
+2399. Reported: "The second parser QEMU probe matched too. Now it’s running
+      the picture fuzz smoke set that specifically checks command-resume
+      semantics for line, corner, and fill commands against the real
+      interpreter."
+
+      Action/result: `parser_unknown_terminator_suite.json` reported 1 match,
+      0 mismatches, and 0 errors.
+
+2400. Reported: "The command-resume fuzz cases matched all three. The final
+      smoke group is the raw-operand picture decoder behavior, which is useful
+      for valid-but-odd byte streams without wandering into exploit/garbage-
+      memory territory."
+
+      Action/result: `command_resume_suite.json` reported 3 matches, 0
+      mismatches, and 0 errors.
+
+2401. Reported: "The escalated QEMU smoke run finished successfully. I’m going
+      to fold that result back into the project docs/progress tracker now,
+      including the earlier sandbox-only failure so the evidence trail is
+      honest."
+
+      Action/result: `raw_operand_suite.json` reported 3 matches, 0
+      mismatches, and 0 errors; the compatibility-suite process exited zero.
+
+2402. Reported: "The JSON report confirms every selected layer returned `0`:
+      local unit tests, mdBook, opcode evidence, and all four QEMU smoke
+      commands. I’m updating the book and tracker with the suite-level result
+      rather than leaving those as isolated probe runs."
+
+      Action/result: Updated the compatibility chapter, progress tracker,
+      clean-room notes, and this progress log with the
+      `qemu_smoke_001.json` suite result.
+
+2403. Reported: "With the smoke layer recorded, I’m moving to the next
+      high-value item in `PROGRESS.md`: broad picture/view compatibility. First
+      I’m checking the suite manifest so I know exactly which QEMU batches
+      `--include-qemu-broad` will run."
+
+      Action/result: Confirmed that broad mode selects the local checks, QEMU
+      smoke layer, eight-picture broad carousel, and 19-case view/object stress
+      carousel.
+
+2404. Reported: "The broad flag includes the smoke layer plus two larger
+      resource sweeps: the eight-picture timed carousel and the current 19-case
+      view/object stress carousel. I’m going to run that as a suite report now;
+      it’s exactly the kind of reusable validation layer `PROGRESS.md` is
+      asking us to grow."
+
+      Action/result: Started
+      `python3 -B tools/compatibility_suite.py --include-qemu-broad --report
+      build/compatibility-suite/qemu_broad_001.json`.
+
+2405. Reported: "The broad suite is through the local layers and has started
+      the smoke probes. Since `--include-qemu-broad` deliberately includes
+      smoke too, this gives us a single report that proves both the targeted
+      edge probes and the larger resource carousels in one pass."
+
+      Action/result: The local unit suite passed with 232 tests, mdBook built,
+      opcode evidence checked cleanly, and the parser-edge smoke batch began.
+
+2406. Reported: "Smoke parser edges are matching again inside the broad run.
+      I’m letting it continue into the picture-fuzz probes and then the broader
+      picture/view carousel sweeps."
+
+      Action/result: Parser-edge smoke probes matched 3/3.
+
+2407. Reported: "The unknown-word terminator QEMU probe matched. The
+      command-resume picture fuzz batch is underway now; after that, the broad
+      resource sweeps should start."
+
+      Action/result: Unknown-word terminator smoke probe matched 1/1.
+
+2408. Reported: "Command-resume matched all three again. The raw-operand
+      picture fuzz smoke batch is running now; this is the last small probe
+      before the broad picture carousel."
+
+      Action/result: Command-resume picture fuzz smoke probes matched 3/3.
+
+2409. Reported: "The smoke layer is clean inside the broad run. We’re into the
+      eight-picture timed carousel now, which keeps one original-engine process
+      alive and polls captures until each expected picture appears."
+
+      Action/result: Raw-operand picture fuzz smoke probes matched 3/3; the
+      broad picture carousel began.
+
+2410. Reported: "Five of the eight broad-picture carousel captures have
+      matched so far. This is the useful fast path for future multi-game
+      sweeps, because we’re validating several real resources without rebooting
+      DOS per case."
+
+      Action/result: The broad picture carousel was progressing through the
+      expected SQ2 picture list.
+
+2411. Reported: "The broad picture carousel matched all eight. The view/object
+      stress carousel has started, and the first view case has already
+      matched."
+
+      Action/result: `picture_carousel_broad_suite.json` matched 8/8 with 0
+      mismatches and 0 errors; the view/object stress carousel began.
+
+2412. Reported: "The view carousel is progressing cleanly through normal and
+      clipping cases. I’m watching for priority/control edge cases later in the
+      sequence, since those are the ones most likely to reveal renderer-contract
+      mistakes."
+
+      Action/result: View/object stress carousel matched the first 6 cases.
+
+2413. Reported: "Twelve of nineteen view/object cases have matched, including
+      the low-priority and several transparent-color variants. The remaining
+      cases are the stress overlays and line/priority combinations."
+
+      Action/result: View/object stress carousel matched 12/19 cases.
+
+2414. Reported: "Seventeen of nineteen matched now. The broad suite is in the
+      final stretch of the view/object carousel."
+
+      Action/result: View/object stress carousel matched 17/19 cases.
+
+2415. Reported: "The broad suite exited cleanly. It matched all eight broad
+      picture cases and all nineteen current view/object stress cases from
+      one-engine carousel runs, so I’m recording that suite-level report next."
+
+      Action/result: `view_carousel_stress_suite.json` matched 19/19 with 0
+      mismatches and 0 errors; `qemu_broad_001.json` recorded return code 0
+      for every selected command.
+
+2416. Reported: "I’m folding the broad suite into the docs now. After that I’ll
+      go back to source-first renderer work, using these QEMU reports as
+      regression evidence rather than as the primary discovery method."
+
+      Action/result: Updated the compatibility chapter, progress tracker,
+      clean-room notes, and this progress log with the
+      `qemu_broad_001.json` suite result.
+
+2417. Reported: "The broad suite is documented. Next I’m going source-first
+      again: I’ll inspect the picture/view renderer progress rows and the
+      symbolic labels to find a concrete edge where the disassembly can still
+      sharpen the implementation contract."
+
+      Action/result: Re-read picture/view rows in `PROGRESS.md`, renderer
+      labels in `docs/src/symbolic_labels.md`, and graphics/compatibility docs.
+
+2418. Reported: "The tracker is now pointing at two renderer gaps: picture edge
+      semantics for valid streams, and broader view/object priority-control
+      interactions. I hit two stale chapter names while searching, so I’m
+      listing the docs and then I’ll drill into the current graphics chapter
+      plus the disassembly labels."
+
+      Action/result: Confirmed the active graphics docs live in
+      `docs/src/graphics_object_pipeline.md` and `docs/src/resource_files.md`.
+
+2419. Reported: "The existing docs already carry a lot of renderer detail. I’m
+      checking the local renderer code and tests for explicit gaps now, because
+      the best next step is likely to codify one source-backed edge as a
+      deterministic test/model rather than adding another broad capture."
+
+      Action/result: Reviewed `tools/agi_graphics.py`,
+      `tests/test_graphics_rendering.py`, `tests/test_picture_fuzz.py`, and
+      `tools/picture_fuzz.py`.
+
+2420. Reported: "The local picture renderer is fairly complete, but one place
+      worth source-checking is relative line decoding and clamping: it is simple
+      in Python, yet edge behavior around signed nibbles and boundaries is
+      exactly the sort of thing a future implementation can get subtly wrong.
+      I’m going back to the disassembly for `0xf7` and the shared line helper
+      before adding anything."
+
+      Action/result: Disassembled `code.picture.cmd_draw_relative_lines`
+      (`0x665e`) and `code.picture.draw_line` (`0x66e1`).
+
+2421. Reported: "The source confirms a boundary nuance in `0xf7`: negative
+      relative deltas are unsigned 8-bit subtraction, then clamped only on the
+      high side. That means underflow clamps to the right/bottom edge, not to
+      `0`, so the current Python helper is too “reasonable” for that edge. I’m
+      going to patch the renderer and add tests/fuzz cases from the
+      disassembly."
+
+      Action/result: Identified the source-backed relative-line underflow rule.
+
+2422. Reported: "I’m making the renderer match the source rather than the
+      intuitive clamp. The key edit is small: relative deltas wrap in an 8-bit
+      register before the helper clamps values above the screen maximum."
+
+      Action/result: Updated `PictureRenderer.draw_relative_lines()` and added
+      local graphics tests plus two curated picture-fuzz cases.
+
+2423. Reported: "The code and deterministic tests are patched. I’m running the
+      focused renderer/fuzz tests first; if those pass, I’ll run the new
+      two-case QEMU batch to confirm the source reading against the original
+      engine."
+
+      Action/result: `tests.test_graphics_rendering` passed with 62 tests and
+      `tests.test_picture_fuzz` passed with 13 tests.
+
+2424. Reported: "The focused local tests passed: graphics is at 62 tests and
+      picture fuzz at 13. Now I’m running the two new relative-underflow
+      picture fixtures in QEMU as confirmation, with source still being the
+      primary evidence."
+
+      Action/result: The first QEMU attempt failed before launching QEMU because
+      the on-disk fuzz corpus did not yet include the new base-case directories.
+
+2425. Reported: "The QEMU batch didn’t reach QEMU yet: the corpus on disk
+      predates the new base cases, so the harness couldn’t find their
+      `case.json` files. I’m regenerating the local fuzz corpus, then I’ll rerun
+      the same confirmation batch."
+
+      Action/result: Regenerated `build/picture-fuzz/corpus`; it now contains
+      1,062 cases, 1,060 marked safe for QEMU.
+
+2426. Reported: "The regenerated corpus now has 1,062 total cases, with 1,060
+      marked safe for QEMU. The two new relative-underflow cases are in that
+      safe set, so I’m rerunning the original-engine confirmation batch."
+
+      Action/result: `relative_underflow_001` matched both cases in QEMU with 0
+      mismatches and 0 errors.
+
+2427. Reported: "The original engine matched both relative-underflow fixtures.
+      Since this is a compact, source-backed renderer edge, I’m going to promote
+      it into the compatibility suite’s QEMU smoke layer so future runs don’t
+      lose it."
+
+      Action/result: Added `picture_fuzz_relative_underflow_qemu` to
+      `tools/compatibility_suite.py` and updated the suite manifest test.
+
+2428. Reported: "The new underflow probe is now part of the smoke manifest. I’m
+      running the suite-manifest tests and then I’ll produce a fresh smoke
+      report that includes this new command."
+
+      Action/result: `tests.test_compatibility_suite` passed and the smoke
+      dry-run listed the new relative-underflow command.
+
+2429. Reported: "The manifest tests pass and the dry-run shows the new
+      relative-underflow smoke command. I’m running the updated QEMU smoke suite
+      now so the report reflects the current manifest, not the previous one."
+
+      Action/result: Started
+      `python3 -B tools/compatibility_suite.py --include-qemu-smoke --report
+      build/compatibility-suite/qemu_smoke_002.json`.
+
+2430. Reported: "The updated smoke suite is through the expanded local tests:
+      235 unit tests now pass, reflecting the new renderer and suite tests.
+      It’s in the QEMU parser probes again."
+
+      Action/result: Local tests, mdBook, and opcode-evidence check completed
+      inside the smoke runner.
+
+2431. Reported: "Parser smoke is progressing normally. I’m waiting it through
+      to the new relative-line underflow QEMU command, which is the fresh
+      evidence this run is meant to capture."
+
+      Action/result: Parser-edge smoke was in progress.
+
+2432. Reported: "The parser QEMU probes matched. The suite is now in the
+      existing picture-fuzz smoke checks before it reaches the new underflow
+      pair."
+
+      Action/result: Parser-edge smoke matched 3/3 and unknown-word terminator
+      matched 1/1.
+
+2433. Reported: "Command-resume matched all three. Raw-operand smoke is running
+      now; after this, the updated suite should execute the new
+      relative-underflow command."
+
+      Action/result: Command-resume smoke matched 3/3.
+
+2434. Reported: "Raw-operand smoke matched, and the fresh relative-underflow
+      command is now running inside the suite report. This is the one that
+      proves the 8-bit wrap-and-clamp behavior against QEMU."
+
+      Action/result: Raw-operand smoke matched 3/3.
+
+2435. Reported: "The updated smoke suite passed, including the new
+      relative-underflow command. I’m updating the renderer prose,
+      compatibility evidence, and progress tracker so this edge is no longer
+      just a local code change."
+
+      Action/result: `qemu_smoke_002.json` exited zero; the relative-underflow
+      suite batch matched 2/2.
+
+2436. Reported: "One bit of bookkeeping: regenerating the corpus made the old
+      “1,060-case corpus” wording stale. The new state is 1,062 total cases,
+      1,060 safe for QEMU, so I’m correcting that wherever it matters."
+
+      Action/result: Searched active docs and tracker for stale corpus/report
+      wording.
+
+2437. Reported: "I found the expected stale corpus mentions in the progress
+      tracker, compatibility chapter, and earlier raw-operand notes. I’m
+      leaving historical progress-log entries alone unless they’re current
+      documentation, but I’ll update the active spec/tracker text and add a new
+      clean-room note for the relative-line source finding."
+
+      Action/result: Prepared documentation updates for the active
+      compatibility and progress surfaces.
+
+2438. Reported: "I’m also going to add the relative-underflow rule to the
+      compact runtime contract, not only the graphics chapter. That way a
+      future implementation has the high-level rule in the spec section and the
+      disassembly-backed detail in the evidence section."
+
+      Action/result: Located the exact runtime-model and graphics-pipeline
+      anchors.
+
+2439. Reported: "I’ve got the exact anchors. The docs update will say the
+      relative endpoint is produced by 8-bit register arithmetic, then clamped
+      only if it exceeds the screen maximum; that phrasing avoids implying a
+      symmetric clamp to zero."
+
+      Action/result: Updated `docs/src/graphics_object_pipeline.md` and
+      `docs/src/runtime_model.md`.
+
+2440. Reported: "That patch was too broad and one context line had drifted, so
+      I’m splitting it into smaller edits. Same content, just less brittle."
+
+      Action/result: Retried the documentation patch in smaller chunks.
+
+2441. Reported: "The renderer contract text is updated. I’m patching the
+      compatibility chapter next, including the current smoke report name and
+      the corpus count."
+
+      Action/result: Updated the compatibility-suite command and smoke report
+      description to `qemu_smoke_002.json`.
+
+2442. Reported: "The current smoke report now points to `qemu_smoke_002`. I’m
+      adding the specific relative-underflow batch to the picture-fuzz evidence
+      list."
+
+      Action/result: Added `relative_underflow_001` to the compatibility
+      chapter's fuzz evidence list.
+
+2443. Reported: "The edge batch is recorded. I’m correcting the corpus count in
+      the same chapter now."
+
+      Action/result: Updated the active fuzz corpus count to 1,062 cases, 1,060
+      QEMU-safe.
+
+2444. Reported: "Compatibility chapter is current. I’m updating `PROGRESS.md`
+      so the dashboard reflects both the new `0xf7` edge and the expanded smoke
+      suite."
+
+      Action/result: Updated the picture and compatibility-suite rows in
+      `PROGRESS.md`.
+
+2445. Reported: "The dashboard is updated. I’m adding the clean-room note with
+      the exact disassembly commands and QEMU confirmation for the underflow
+      rule."
+
+      Action/result: Added the clean-room note for the picture relative-line
+      underflow edge.
+
+2446. Reported: "The progress log is caught up through the underflow work. I’m
+      running the standard validation now: mdBook, opcode evidence freshness,
+      whitespace, and the full unit suite."
+
+      Action/result: `mdbook build docs`,
+      `python3 -B tools/logic_opcode_evidence.py --check`,
+      `git diff --check`, and `python3 -B -m unittest discover -s tests` passed;
+      the full unit suite ran 235 tests.
+
+2447. Reported: "Validation passed: mdBook, opcode evidence, diff check, and
+      235 unit tests are clean. I’m recording that result, then I’ll continue
+      with the next source-first renderer/object item from `PROGRESS.md`."
+
+      Action/result: Added the validation result to this progress log.
+
+2448. Reported: "For the next renderer-side gap, I’m looking at the object
+      placement/control acceptance path. The tracker says full object-record
+      placement fixtures are optional, but the disassembly may still let us
+      tighten the implementation-facing model without inventing new behavior."
+
+      Action/result: Re-read `tools/agi_graphics.py`, the control-acceptance
+      tests, graphics docs, and disassembly for `code.object.control_acceptance`
+      at `0x56b8`.
+
+2449. Reported: "The control-acceptance helper already has a good source model,
+      but I see a small unpinned edge in the local tests: high nibbles outside
+      `0x00..0x30` are treated as nonzero/pass-through classes with final state
+      `(flag3=false, flag0=false)`. I’m adding direct tests for that source
+      branch before hunting a larger placement fixture."
+
+      Action/result: Identified source-branch coverage for the other-nonzero
+      class state and priority-15 bypass path.
+
+2450. Reported: "The test anchor shifted a little, so I’m reading the immediate
+      test block and will insert the new cases at the right spot."
+
+      Action/result: Located the control-acceptance test block in
+      `tests/test_graphics_rendering.py`.
+
+2451. Reported: "Found the right insertion point. I’m adding the direct
+      source-branch tests now."
+
+      Action/result: Added local tests for other-nonzero high-nibble classes
+      and priority-15 scan bypass/event-flag clearing.
+
+2452. Reported: "The source-branch tests are in. I’m running the graphics suite
+      to make sure the local control-acceptance model still lines up cleanly."
+
+      Action/result: `python3 -B -m unittest tests.test_graphics_rendering`
+      passed with 64 tests.
+
+2453. Reported: "Graphics tests pass at 64. I’m documenting this as a local
+      source-model tightening rather than a QEMU result: it pins the remaining
+      class-state branches in `0x56b8`."
+
+      Action/result: Updated the progress tracker, compatibility chapter,
+      clean-room notes, and this progress log for the control-acceptance branch
+      tests.
+
+2454. Reported: "Since the broad suite includes the smoke layer,
+      `qemu_broad_001` is now slightly stale: it predates the
+      relative-underflow smoke command. I’m going to run a fresh broad report so
+      the top-level compatibility suite is current end to end."
+
+      Action/result: Started
+      `python3 -B tools/compatibility_suite.py --include-qemu-broad --report
+      build/compatibility-suite/qemu_broad_002.json`.
+
+2455. Reported: "The refreshed broad suite is through local checks with 237
+      tests now passing. It’s in the smoke probes first, and then it will rerun
+      the broad picture and view carousels."
+
+      Action/result: Local tests, mdBook, and opcode-evidence check completed
+      inside the refreshed broad runner.
+
+2456. Reported: "Parser edge smoke matched again inside the refreshed broad
+      suite. The run is continuing through the rest of smoke before the
+      resource carousels."
+
+      Action/result: Parser-edge QEMU probes matched 3/3.
+
+2457. Reported: "The unknown-word parser terminator probe matched.
+      Command-resume picture fuzz is running now."
+
+      Action/result: Unknown-word terminator probe matched 1/1.
+
+2458. Reported: "Command-resume matched. Raw operands are next, then the
+      refreshed relative-underflow pair."
+
+      Action/result: Command-resume picture fuzz probes matched 3/3.
+
+2459. Reported: "Raw operands matched. The relative-underflow pair is now
+      running as part of the refreshed broad suite."
+
+      Action/result: Raw-operand picture fuzz probes matched 3/3.
+
+2460. Reported: "The refreshed smoke layer, including relative underflow,
+      matched. The broad picture carousel has started and has already matched
+      its first two pictures."
+
+      Action/result: Relative-underflow probes matched 2/2 and the broad
+      picture carousel began.
+
+2461. Reported: "All eight picture carousel captures have appeared; it’s
+      printing the per-case match summary now before moving into the view/object
+      stress carousel."
+
+      Action/result: Broad picture carousel polling reached all 8 expected
+      captures.
+
+2462. Reported: "The broad picture carousel matched all eight. The view/object
+      carousel is underway and has matched the first four cases."
+
+      Action/result: `picture_carousel_broad_suite.json` matched 8/8 with 0
+      mismatches and 0 errors; view/object stress carousel began.
+
+2463. Reported: "Ten of nineteen view/object cases matched, including the
+      clipping set and low-priority case. The transparent-color stress cases are
+      next."
+
+      Action/result: View/object stress carousel matched 10/19 cases.
+
+2464. Reported: "Fifteen of nineteen matched. The broad suite is nearing the
+      end of the view/object carousel."
+
+      Action/result: View/object stress carousel matched 15/19 cases.
+
+2465. Reported: "All nineteen view/object captures have appeared; it’s
+      finishing the match summary now."
+
+      Action/result: View/object stress carousel polling reached all 19
+      expected captures.
+
+2466. Reported: "The refreshed broad suite exited cleanly: smoke, eight-picture
+      carousel, and nineteen view/object cases all matched. I’m checking the
+      report and then updating the docs from `qemu_broad_001` to the current
+      `qemu_broad_002`."
+
+      Action/result: Verified `qemu_broad_002.json` has return code 0 for every
+      selected command.
+
+2467. Reported: "The report confirms every selected command returned zero,
+      including the new `picture_fuzz_relative_underflow_qemu`. I’m updating
+      the report references and broad-suite note now."
+
+      Action/result: Updated compatibility docs, `PROGRESS.md`, and clean-room
+      notes to reference `qemu_broad_002.json`.
+
+2468. Reported: "The current broad report is documented. I’m adding the
+      matching progress-log entries for the refreshed broad run."
+
+      Action/result: Added this progress-log batch for the refreshed broad
+      compatibility run.
+
+2469. Reported: "With the suite current, I’m re-reading the remaining tracker
+      items. I’ll keep taking the next source-backed item that can be advanced
+      locally, and I’ll avoid turning optional future-version work into fake
+      completion."
+
+      Action/result: Re-read the remaining `PROGRESS.md` subsystem rows and
+      highest-value work list.
+
+2470. Reported: "The remaining list is now mostly conditional or future-input
+      work. One still-actionable item is the final spec polish: turning dense
+      notes into implementation-ready contracts. I’m going to start by checking
+      whether the graphics/runtime chapters now duplicate or conflict after the
+      new relative-line and control-acceptance additions."
+
+      Action/result: Searched active docs for stale report names, corpus counts,
+      relative-underflow wording, and provisional/remaining-risk language.
+
+2471. Reported: "I found one active prose section that is lagging behind the
+      evidence: the “Provisional areas” picture paragraph still says the
+      renderer has only two real SQ2 resources, even though we now have all 74
+      via snapshot/chunked carousel. I’m tightening that section so the
+      high-level status matches the tracker."
+
+      Action/result: Located the stale paragraph in
+      `docs/src/compatibility_testing.md`.
+
+2472. Reported: "This is exactly the kind of spec-polish work left in
+      PROGRESS: not new reversing, just removing stale or underspecified wording
+      so another implementer gets the right confidence level."
+
+      Action/result: Updated the provisional picture-renderer paragraph with
+      all-picture SQ2 coverage, raw operand, relative-underflow, and full-EGA
+      mask-scope wording.
+
+2473. Reported: "The provisional picture paragraph now reflects the current
+      all-picture SQ2 coverage and the new relative-underflow evidence. I’m
+      logging that polish pass."
+
+      Action/result: Added this progress-log entry for the compatibility prose
+      polish.
+
+2474. Reported: "Next I’m checking `current_status.md`, since that kind of
+      summary page often drifts while the detailed chapters stay accurate. If
+      it’s stale, I’ll bring it in line with the tracker and current suite
+      reports."
+
+      Action/result: Reviewed `docs/src/current_status.md` and found stale
+      focus/immediate-work text.
+
+2475. Reported: "`current_status.md` is indeed stale: it still says the
+      immediate focus is “return to the logic interpreter,” while the tracker
+      now says logic opcodes are covered and the active risk is renderer/spec
+      polish/future-version breadth. I’m going to rewrite the handoff sections
+      so the next agent starts from the actual current state."
+
+      Action/result: Updated the current-focus section with the completed logic
+      opcode state, current compatibility-suite reports, relative-line
+      underflow, and control-acceptance branch-test work.
+
+2476. Reported: "The top handoff summary is current now. I’m updating the
+      graphics findings and immediate-next-work sections so they don’t send the
+      next pass back toward already-completed opcode coverage."
+
+      Action/result: Updated confirmed graphics findings and immediate next
+      work in `docs/src/current_status.md`.
+
+2477. Reported: "`current_status.md` still has a long old “Remaining
+      Source-Backed Families” section underneath the handoff list. I’m checking
+      the headings so I can either trim or rewrite it without accidentally
+      dropping a useful later section."
+
+      Action/result: Confirmed the stale section was the final section of the
+      file.
+
+2478. Reported: "The stale “Remaining Source-Backed Families” section is the
+      final section, so I can replace it cleanly with a short deferred-work
+      summary that points back to `PROGRESS.md` for detail."
+
+      Action/result: Replaced the stale long section with a compact deferred or
+      conditional work summary.
+
+2479. Reported: "`current_status.md` is now a real handoff again: current suite
+      reports, renderer edge state, immediate next work, and deferred items are
+      all aligned with `PROGRESS.md`. I’m logging that documentation cleanup."
+
+      Action/result: Added this progress-log entry for the current-status
+      cleanup.
+
+2480. Reported: "I’m doing a quick stale-reference scan now. If the active docs
+      are clean, I’ll run validation again and then reassess whether the
+      remaining `PROGRESS.md` items are genuinely blocked on future inputs or
+      optional paths."
+
+      Action/result: Active summary/tracker docs had no stale
+      `qemu_smoke_001`/`qemu_broad_001` or old corpus-count references; old
+      references remain only in chronological logs.
+
+2481. Reported: "The active summary pages are clean: stale `qemu_smoke_001`/
+      `qemu_broad_001` and old corpus counts remain only in chronological logs,
+      where they describe what happened at the time. I’m running the standard
+      checks again after the handoff cleanup."
+
+      Action/result: `mdbook build docs`,
+      `python3 -B tools/logic_opcode_evidence.py --check`,
+      `git diff --check`, and `python3 -B -m unittest discover -s tests` passed;
+      the full unit suite ran 237 tests.
+
+2482. Reported: "The standard checks passed again: mdBook, opcode evidence,
+      diff check, and 237 tests. I’m updating `PROGRESS.md`’s high-value list
+      so it reflects the current local stopping point instead of implying there
+      is an obvious next SQ2 opcode batch still waiting."
+
+      Action/result: Rewrote the high-value remaining-work list to separate
+      future-version blockers, source-first renderer edges, spec polish,
+      compatibility-suite maintenance, and optional conditional paths.
+
+2483. Reported: "`PROGRESS.md` now separates real blockers from optional future
+      work: additional interpreter inputs, new source-discovered renderer edges,
+      continued spec polish, and manifest maintenance. I’m logging that and
+      then I’ll run one final validation/status pass."
+
+      Action/result: Added this progress-log entry before the final validation
+      pass.
+
+2484. Reported: "Final validation pass now: book, opcode-evidence check,
+      whitespace check, full unit suite, then I’ll inspect the worktree status."
+
+      Action/result: `mdbook build docs`,
+      `python3 -B tools/logic_opcode_evidence.py --check`,
+      `git diff --check`, and `python3 -B -m unittest discover -s tests` passed;
+      the full unit suite ran 237 tests.
+
+2485. Reported: "Final validation passed: mdBook, opcode evidence, diff check,
+      and 237 tests. I’m recording that result, then doing a last
+      status/diff-stat read."
+
+      Action/result: Added this final validation result to the progress log.
+
+2486. Reported: "Because the progress log changed after the validation pass,
+      I’m doing a lightweight final docs/whitespace check plus status/diff
+      stat."
+
+      Action/result: `mdbook build docs` and `git diff --check` passed. Git
+      status shows the expected in-progress tracked edits plus untracked
+      generated `build/` artifacts and new project files.
+
+2487. Reported: "The lightweight check passed too, and the worktree is in the
+      expected large in-progress state with generated `build/` artifacts
+      untracked. I’m adding one final progress-log note and then a last
+      mdBook/whitespace check so the log itself is covered."
+
+      Action/result: Added this final progress-log note before the last
+      lightweight check.
+
+2488. Reported: "I’ll stage the tracked project changes plus the new
+      docs/tests/tools, leaving generated `build/` artifacts and installer
+      images out of the commit. I’ll make the commit message explicit that the
+      work stops here because the remaining items are future-input dependent or
+      optional/conditional rather than a concrete local task."
+
+      Action/result: Began the commit turn by reviewing status, diff stat, and
+      this progress-log tail.

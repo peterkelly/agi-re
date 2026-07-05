@@ -353,10 +353,13 @@ at `DS:0x0c7b`; word `[0x0ca3]` is used as the parsed-word count. The handler
 returns false without consuming the word list when the parsed-word count is
 zero, when flag 4 is already set, or when flag 2 is clear. Otherwise it walks
 the operand word IDs and the parsed input words together. Operand word
-`0x270f` terminates the test successfully, and operand word `0x0001` behaves as
-a wildcard for a parsed word. On a full match the handler sets flag 4 and
-returns true; on a mismatch it skips the remaining operand words and returns
-false.
+`0x270f` terminates the test successfully and skips any remaining operand words;
+operand word `0x0001` behaves as a wildcard for one parsed word. On a full
+match the handler sets flag 4 and returns true; on a mismatch it skips the
+remaining operand words and returns false. Because parser failures store a
+nonzero count/error-position and set flag 2, a terminator-only pattern can
+match an unknown-token parse state; QEMU batch `parser_unknown_terminator_001`
+confirms this source-modeled edge.
 
 ### Parsed input producer
 
@@ -405,9 +408,12 @@ Parser result handling in `0x18ac`:
   normalized-word pointers are appended to `0x0c8f`.
 - Word ID zero is ignored; single-letter `a` and `i` followed by a space or
   terminator are handled this way, as are entries whose dictionary ID is zero.
-- An unrecognized token stores its pointer in `0x0c8f`, sets byte variable
-  `[0x0012]` and word `[0x0ca3]` to the one-based token position, and stops
-  parsing.
+  Ignored zero-ID words do not consume one of the ten parsed output slots.
+- An unrecognized token stores its pointer in the next `0x0c8f` output slot,
+  sets byte variable `[0x0012]` and word `[0x0ca3]` to
+  `parsed_nonzero_word_count + 1`, and stops parsing. Thus an unknown word
+  after ignored zero-ID words such as `the` still reports output slot 1, not
+  the raw token ordinal.
 - If at least one token position is produced, flag 2 is set. Condition `0x0e` (`input_word_sequence`)
   later sets flag 4 after a successful command-pattern match.
 

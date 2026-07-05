@@ -13,13 +13,22 @@ sys.path.insert(0, str(ROOT / "tools"))
 
 from agi_sound import (  # noqa: E402
     SoundChannel,
+    SoundAttenuationState,
     SoundEvent,
+    SoundToneOutput,
     active_sound_channel_indices,
+    default_attenuation_envelope,
+    pc_speaker_divisor,
+    pc_speaker_event_enabled,
     parse_sound,
     schedule_sound_channel,
+    sound_attenuation_output,
     sound_channel_offsets,
+    sound_channel_output_mask,
     sound_completion_tick,
     sound_payload,
+    sound_stop_silence_output,
+    sound_tone_output,
 )
 from disassemble_logic import SQ2, read_dir_entries, read_volume_payload  # noqa: E402
 
@@ -64,6 +73,104 @@ class SoundResourceTests(unittest.TestCase):
         self.assertEqual(channels[0].events[0].control_byte, 0x9F)
         self.assertEqual(channels[0].events[0].attenuation, 0x0F)
         self.assertEqual(channels[0].terminator_offset, 13)
+
+    def test_pc_speaker_divisor_matches_source_shift_add(self) -> None:
+        payload = sound_payload(1)
+        event = parse_sound(payload)[0].events[0]
+        self.assertEqual(pc_speaker_divisor(event.tone_word), 10560)
+        self.assertFalse(pc_speaker_event_enabled(event))
+        self.assertTrue(pc_speaker_event_enabled(SoundEvent(1, 0x1234, 0x90)))
+
+    def test_tone_output_models_pc_speaker_and_non_pc_port_bytes(self) -> None:
+        silent = sound_tone_output(SoundEvent(1, 0x8037, 0x9F), hardware_selector=0)
+        self.assertEqual(silent, SoundToneOutput((), None, False))
+
+        enabled = sound_tone_output(SoundEvent(1, 0x8037, 0x90), hardware_selector=0)
+        self.assertEqual(enabled, SoundToneOutput((), 10560, True))
+
+        non_pc = sound_tone_output(SoundEvent(1, 0x8037, 0x90), hardware_selector=2)
+        self.assertEqual(non_pc, SoundToneOutput((0x80, 0x37), None, None))
+
+        high_suppresses_low = sound_tone_output(SoundEvent(1, 0xE037, 0x90), hardware_selector=2)
+        self.assertEqual(high_suppresses_low, SoundToneOutput((0xE0,), None, None))
+
+    def test_stop_silence_output_matches_source_stop_core(self) -> None:
+        self.assertEqual(sound_stop_silence_output(hardware_selector=0), SoundToneOutput((), None, False))
+        self.assertEqual(
+            sound_stop_silence_output(hardware_selector=2),
+            SoundToneOutput((0x9F, 0xBF, 0xDF, 0xFF), None, None),
+        )
+
+    def test_attenuation_envelope_and_channel_masks_match_source_tables(self) -> None:
+        envelope = default_attenuation_envelope()
+        self.assertEqual(envelope[:8], (0xFE, 0xFD, 0xFE, 0xFF, 0x00, 0x00, 0x01, 0x01))
+        self.assertEqual(envelope[-1], 0x80)
+        self.assertEqual(
+            [sound_channel_output_mask(index) for index in range(4)],
+            [0x90, 0xB0, 0xD0, 0xF0],
+        )
+
+    def test_attenuation_output_silence_and_selector_adjustment(self) -> None:
+        silent = sound_attenuation_output(
+            0,
+            SoundAttenuationState(base_attenuation=0x0F, envelope_index=0xFFFF, envelope_value=0),
+            hardware_selector=2,
+        )
+        self.assertEqual(silent.port_byte, 0x9F)
+
+        adjusted = sound_attenuation_output(
+            0,
+            SoundAttenuationState(base_attenuation=3, envelope_index=0xFFFF, envelope_value=0),
+            hardware_selector=2,
+        )
+        self.assertEqual(adjusted.port_byte, 0x95)
+
+        unadjusted = sound_attenuation_output(
+            0,
+            SoundAttenuationState(base_attenuation=3, envelope_index=0xFFFF, envelope_value=0),
+            hardware_selector=1,
+        )
+        self.assertEqual(unadjusted.port_byte, 0x93)
+
+    def test_attenuation_envelope_delta_is_from_base_value(self) -> None:
+        first = sound_attenuation_output(
+            0,
+            SoundAttenuationState(base_attenuation=5, envelope_index=0, envelope_value=5),
+            hardware_selector=1,
+        )
+        self.assertEqual(first.port_byte, 0x93)
+        self.assertEqual(first.state, SoundAttenuationState(5, 1, 3))
+
+        second = sound_attenuation_output(0, first.state, hardware_selector=1)
+        self.assertEqual(second.port_byte, 0x92)
+        self.assertEqual(second.state, SoundAttenuationState(5, 2, 2))
+
+    def test_attenuation_envelope_clamps_and_terminates(self) -> None:
+        negative = sound_attenuation_output(
+            0,
+            SoundAttenuationState(base_attenuation=1, envelope_index=0, envelope_value=1),
+            hardware_selector=1,
+        )
+        self.assertEqual(negative.port_byte, 0x90)
+        self.assertEqual(negative.state, SoundAttenuationState(1, 1, 0))
+
+        positive = sound_attenuation_output(
+            0,
+            SoundAttenuationState(base_attenuation=14, envelope_index=0, envelope_value=14),
+            hardware_selector=1,
+            envelope_table=(2,),
+        )
+        self.assertEqual(positive.port_byte, 0x9F)
+        self.assertEqual(positive.state, SoundAttenuationState(14, 1, 15))
+
+        stopped = sound_attenuation_output(
+            0,
+            SoundAttenuationState(base_attenuation=6, envelope_index=0, envelope_value=4),
+            hardware_selector=1,
+            envelope_table=(0x80,),
+        )
+        self.assertEqual(stopped.port_byte, 0x94)
+        self.assertEqual(stopped.state, SoundAttenuationState(4, 0xFFFF, 4))
 
     def test_driver_channel_count_depends_on_hardware_selector(self) -> None:
         self.assertEqual(active_sound_channel_indices(0), (0,))
