@@ -1,8 +1,8 @@
 # Resource file notes
 
 This page records clean-room observations about the SQ2 resource directory and
-volume files. It is based on local `SQ2/*DIR`, `SQ2/VOL.*`, `SQ2/AGIDATA.OVL`,
-and the decrypted executable.
+volume files. It is based on local files from an explicitly selected SQ2 game
+directory (`*DIR`, `VOL.*`, `AGIDATA.OVL`) and the decrypted executable.
 
 ## Directory file loading
 

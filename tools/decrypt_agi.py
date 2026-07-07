@@ -21,6 +21,8 @@ from __future__ import annotations
 import argparse
 from pathlib import Path
 
+from project_paths import game_dir
+
 
 KEY_FILE_OFFSET = 0x41
 KEY_SIZE = 0x80
@@ -86,13 +88,18 @@ def describe_mz(data: bytes) -> list[str]:
 
 def main() -> int:
     parser = argparse.ArgumentParser()
-    parser.add_argument("--loader", default="SQ2/SIERRA.COM")
-    parser.add_argument("--payload", default="SQ2/AGI")
+    parser.add_argument("--game-dir", type=Path)
+    parser.add_argument("--loader")
+    parser.add_argument("--payload")
     parser.add_argument("--output", default="build/cleanroom/AGI.decrypted.exe")
     args = parser.parse_args()
 
-    loader = Path(args.loader).read_bytes()
-    payload = Path(args.payload).read_bytes()
+    selected_game = args.game_dir or (game_dir() if args.loader is None or args.payload is None else None)
+    loader_path = Path(args.loader) if args.loader is not None else selected_game / "SIERRA.COM"
+    payload_path = Path(args.payload) if args.payload is not None else selected_game / "AGI"
+
+    loader = loader_path.read_bytes()
+    payload = payload_path.read_bytes()
     decoded = transform(loader, payload)
 
     output = Path(args.output)

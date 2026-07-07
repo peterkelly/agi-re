@@ -1,7 +1,8 @@
 # Decrypted AGI executable notes
 
 This page records observations from `build/cleanroom/AGI.decrypted.exe`, the
-MZ image reproduced from local `SQ2/AGI` bytes by `tools/decrypt_agi.py`.
+MZ image reproduced from local SQ2 `AGI` bytes by `tools/decrypt_agi.py` with
+an explicit `--game-dir`/`AGI_GAME_DIR`.
 
 ## Address model
 
@@ -176,7 +177,7 @@ The observed restore destinations mirror the saved blocks:
 0x0985
 ```
 
-The checked-in local SQ2 saves `SQ2/SQ2SG.1` through `SQ2/SQ2SG.11` all match
+The local SQ2 saves `SQ2SG.1` through `SQ2SG.11` all match
 this envelope: a 31-byte description/header, four fixed-size blocks with
 lengths `1505`, `903`, `328`, and `200`, and a fifth variable-size block. The
 parser and serializer in `tools/agi_save.py` round-trip those saves

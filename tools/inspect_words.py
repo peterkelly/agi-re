@@ -5,13 +5,11 @@ from __future__ import annotations
 
 import argparse
 from dataclasses import dataclass
-from pathlib import Path
 
-from disassemble_logic import AGIDATA
+from disassemble_logic import AGIDATA, SQ2
 
 
-ROOT = Path(__file__).resolve().parents[1]
-WORDS = ROOT / "SQ2" / "WORDS.TOK"
+WORDS = SQ2 / "WORDS.TOK"
 
 
 @dataclass(frozen=True)

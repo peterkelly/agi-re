@@ -13,9 +13,11 @@ from collections import Counter
 from dataclasses import dataclass
 from pathlib import Path
 
+from project_paths import game_dir
+
 
 ROOT = Path(__file__).resolve().parents[1]
-SQ2 = ROOT / "SQ2"
+SQ2 = game_dir()
 AGIDATA = SQ2 / "AGIDATA.OVL"
 
 

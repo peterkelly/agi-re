@@ -22,11 +22,12 @@ from agi_save import (  # noqa: E402
     save_path_validation_plan,
     serialize_save,
 )
+from disassemble_logic import SQ2  # noqa: E402
 
 
 def sq2_save_paths() -> list[Path]:
     return sorted(
-        (ROOT / "SQ2").glob("SQ2SG.*"),
+        SQ2.glob("SQ2SG.*"),
         key=lambda path: int(path.suffix[1:]) if path.suffix[1:].isdigit() else 999,
     )
 
@@ -57,7 +58,7 @@ class SaveResourceTests(unittest.TestCase):
                 self.assertEqual(serialize_save(load_save(path)), path.read_bytes())
 
     def test_save_description_is_header_prefix(self) -> None:
-        save = load_save(ROOT / "SQ2" / "SQ2SG.2")
+        save = load_save(SQ2 / "SQ2SG.2")
         self.assertEqual(save.description, "before entering lake")
         self.assertEqual(save.description_bytes, b"before entering lake")
 

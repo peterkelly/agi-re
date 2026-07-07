@@ -9,9 +9,10 @@ import time
 from dataclasses import dataclass
 from pathlib import Path
 
+from project_paths import dos_image
 
-DEFAULT_DOS_IMAGE = Path("build/dos622/dos622.img")
-DOS_IMAGE_OFFSET = "32256"
+DEFAULT_DOS_IMAGE = dos_image()
+DOS_IMAGE_OFFSET = "auto"
 
 
 @dataclass(frozen=True)
@@ -32,7 +33,26 @@ def fixture_input_files(fixture: Path) -> list[Path]:
     return sorted(path for path in fixture.iterdir() if path.is_file() and path.suffix.lower() != ".ppm")
 
 
-def mtools_image(raw_image: Path, offset: str = DOS_IMAGE_OFFSET) -> str:
+def detect_partition_offset(raw_image: Path) -> str:
+    """Return the byte offset of the first partition in a raw disk image."""
+    mbr = raw_image.read_bytes()[:512]
+    if len(mbr) < 512 or mbr[510:512] != b"\x55\xaa":
+        return "0"
+    for table_offset in range(0x1BE, 0x1FE, 16):
+        entry = mbr[table_offset : table_offset + 16]
+        partition_type = entry[4]
+        first_lba = int.from_bytes(entry[8:12], "little")
+        sectors = int.from_bytes(entry[12:16], "little")
+        if partition_type and first_lba and sectors:
+            return str(first_lba * 512)
+    return "0"
+
+
+def mtools_image(raw_image: Path, offset: str | int | None = DOS_IMAGE_OFFSET) -> str:
+    if offset == "auto":
+        offset = detect_partition_offset(raw_image)
+    if offset is None or str(offset) in ("", "0"):
+        return str(raw_image)
     return f"{raw_image}@@{offset}"
 
 

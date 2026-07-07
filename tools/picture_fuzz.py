@@ -18,7 +18,14 @@ from agi_graphics import HEIGHT, PALETTE, WIDTH, PictureRenderer, RenderedPictur
 from compare_picture_capture import downsample_qemu_picture_nibbles
 from ppm_tools import read_ppm
 from qemu_fixture import build_synthetic_picture_fixture
-from qemu_snapshot import SnapshotFixtureCase, build_snapshot_boot_disk, run_snapshot_qemu_cases
+from qemu_snapshot import (
+    DEFAULT_DOS_IMAGE,
+    DOS_IMAGE_OFFSET,
+    SnapshotFixtureCase,
+    build_snapshot_boot_disk,
+    mtools_image,
+    run_snapshot_qemu_cases,
+)
 
 
 DEFAULT_CORPUS = Path("build/picture-fuzz/corpus")
@@ -26,8 +33,6 @@ DEFAULT_FIXTURES = Path("build/picture-fuzz/fixtures")
 DEFAULT_BATCH_RESULTS = Path("build/picture-fuzz/batches")
 DEFAULT_SNAPSHOT_RAW = Path("build/picture-fuzz/snapshot/picture_fuzz.raw")
 DEFAULT_SNAPSHOT_QCOW = Path("build/picture-fuzz/snapshot/picture_fuzz.qcow2")
-DOS_IMAGE = Path("build/dos622/dos622.img")
-DOS_IMAGE_OFFSET = "32256"
 
 
 @dataclass(frozen=True)
@@ -345,7 +350,7 @@ def monitor_type(proc: subprocess.Popen[str], text: str, delay: float = 0.03) ->
 
 
 def copy_fixture_to_dos(fixture: Path, dos_dir: str) -> None:
-    image = f"{DOS_IMAGE}@@{DOS_IMAGE_OFFSET}"
+    image = mtools_image(DEFAULT_DOS_IMAGE, DOS_IMAGE_OFFSET)
     created = subprocess.run(
         ["mmd", "-i", image, f"::/{dos_dir}"],
         check=False,
@@ -375,7 +380,7 @@ def run_qemu_fixture(fixture: Path, dos_dir: str, capture: Path, boot_wait: floa
         "-boot",
         "c",
         "-drive",
-        "file=build/dos622/dos622.img,format=raw,if=ide,index=0,media=disk",
+        f"file={DEFAULT_DOS_IMAGE},format=raw,if=ide,index=0,media=disk",
         "-display",
         "vnc=127.0.0.1:5",
         "-monitor",

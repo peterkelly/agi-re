@@ -4,7 +4,11 @@
 
 This is a project to perform a clean room reverse engineering of AGI (Adventure Game Interpreter), a game engine created by Sierra on-line in the 1980s.
 
-This effort uses the game Space Quest 2 (located in the SQ2 directory).
+The current evidence set was built primarily from Space Quest 2, but game files
+are private local inputs under `games/` or another path supplied explicitly to
+the tools. Do not assume SQ2 as a default; AGI games and interpreter versions
+will be compared across separate directories such as `games/SQ2`, `games/LSL1`,
+or `games/KQ4`.
 
 While others have reverse engineered AGI before and there is plenty of documentation and source code available online, in this project we are explicitly not consulting any existing materials. This is an experiment to explore the reverse engineering capabilities of Codex, and using existing documentation or source code would work against that goal.
 
@@ -35,16 +39,22 @@ The output of this project is a human-readable spec that contains sufficient inf
 - Use only local project files, locally installed tools, and observations produced during this project.
 - Do not consult external AGI documentation, AGI source code, online walkthroughs, or prior AGI reverse-engineering material.
 - When using general-purpose tool documentation or emulator help, avoid AGI-specific resources.
-- Prefer evidence from the SQ2 files, disassembly, debugger/emulator traces, generated screenshots, and locally written analysis tools.
+- Prefer evidence from explicitly selected local game files, disassembly,
+  debugger/emulator traces, generated screenshots, and locally written analysis
+  tools.
 - Mark uncertain interpretations as hypotheses until verified by another observation.
 
 ## Local inputs and generated artifacts
 
-- The game files are in `SQ2/`.
-- MS-DOS 6.22 installer floppy images are in `002962_ms_dos_622/`.
+- Game files are not committed. Keep private local copies under `games/` or
+  another ignored path and pass the selected copy with `--game-dir PATH` or
+  `AGI_GAME_DIR=PATH`.
+- Do not use a default game directory in scripts. SQ2 is one local evidence
+  input, not the project default.
 - Generated artifacts belong under `build/`.
 - Generated render/test fixtures belong under `build/rendered/` unless the user explicitly asks to preserve them elsewhere.
-- The installed DOS hard disk image is `build/dos622/dos622.img`.
+- The reproducible FreeDOS hard disk image is generated at
+  `build/freedos/freedos.img` by `python3 -B tools/setup_freedos_image.py`.
 - Treat `build/` as disposable/generated unless the user explicitly asks to preserve or commit artifacts from it.
 
 ## Static analysis tools
@@ -53,33 +63,40 @@ The output of this project is a human-readable spec that contains sufficient inf
 - Use `ndisasm`, `rizin`, `radare2`, `xxd`, `hexdump`, and local scripts for executable/resource inspection.
 - Existing local scripts in `tools/` are part of the clean-room evidence trail. Reuse and extend them when appropriate.
 - When adding analysis scripts, make them deterministic and document what local files and offsets they use.
+- Scripts that inspect game resources must require `--game-dir PATH` or
+  `AGI_GAME_DIR=PATH`. Do not add implicit `games/SQ2` or `SQ2/` fallbacks.
 
 ## Dynamic analysis with QEMU
 
 - QEMU may be used for dynamic checks of the DOS executable and interpreter behavior.
-- The DOS image at `build/dos622/dos622.img` is bootable and has SQ2 copied to `C:\SQ2`.
+- Build the local FreeDOS image with
+  `python3 -B tools/setup_freedos_image.py --force`. To copy a private game
+  for manual runs, add `--copy-game --game-dir games/SQ2 --dos-game-dir SQ2`
+  or choose another game path/name explicitly.
+- The default QEMU image for harnesses is `build/freedos/freedos.img`; override
+  it with `AGI_DOS_IMAGE=/path/to/image.img` when needed.
 - Use this command for monitor-driven runs and screenshots:
 
 ```bash
 qemu-system-i386 -m 16 -boot c \
-  -drive file=build/dos622/dos622.img,format=raw,if=ide,index=0,media=disk \
+  -drive file=build/freedos/freedos.img,format=raw,if=ide,index=0,media=disk \
   -display vnc=127.0.0.1:5 -monitor stdio
 ```
 
 - In the QEMU monitor, use `sendkey` to type DOS commands and `screendump path.ppm` to capture VGA output.
-- Convert screenshots with ImageMagick, for example `magick build/dos622/screen.ppm build/dos622/screen.png`.
+- Convert screenshots with ImageMagick, for example `magick build/qemu/screen.ppm build/qemu/screen.png`.
 - Inspect PPM screenshots and generated renders with `python3 -B tools/inspect_ppm.py path.ppm`.
 - QEMU can expose a host directory to DOS as a secondary writable FAT hard disk:
 
 ```bash
 qemu-system-i386 -m 16 -boot c \
-  -drive file=build/dos622/dos622.img,format=raw,if=ide,index=0,media=disk \
+  -drive file=build/freedos/freedos.img,format=raw,if=ide,index=0,media=disk \
   -drive file=fat:rw:build/qemu-share,format=raw,if=ide,index=1,media=disk \
   -display vnc=127.0.0.1:5 -monitor stdio
 ```
 
 - With that command DOS sees the host directory as `D:`. A fixture under `build/qemu-share/PIC001` can be run with `D:`, `cd \PIC001`, `SIERRA`.
-- Caveat: QEMU `savevm` does not work with writable vvfat (`fat:rw:`), and the generated AGI fixtures do not return to DOS after drawing. For true no-reboot batches, use a QEMU snapshot at the DOS prompt and a disposable qcow2 clone of `build/dos622/dos622.img` with prebuilt fixtures copied into the boot partition. The secondary `D:` qcow2/FAT-disk probe was not usable from DOS; preloading fixtures onto disposable `C:` qcow2 did work.
+- Caveat: QEMU `savevm` does not work with writable vvfat (`fat:rw:`), and the generated AGI fixtures do not return to DOS after drawing. For true no-reboot batches, use a QEMU snapshot at the DOS prompt and a disposable qcow2 clone of `build/freedos/freedos.img` with prebuilt fixtures copied into the boot partition. The secondary `D:` qcow2/FAT-disk probe was not usable from DOS; preloading fixtures onto disposable `C:` qcow2 did work.
 - Build and run a one-boot view/object snapshot batch with `python3 -B tools/view_batch.py --snapshot --dos-prefix VS --output build/view-batch/batches/view_snapshot.json --boot-wait 5 --draw-wait 8`.
 - Build and run a one-boot real-picture snapshot batch with `python3 -B tools/picture_batch.py --snapshot --dos-prefix PB --output build/picture-batch/batches/picture_base_001.json --boot-wait 5 --draw-wait 8 --stop-on-failure`.
 - Run the broader representative real-picture snapshot preset with `python3 -B tools/picture_batch.py --preset broad --snapshot --dos-prefix PB --output build/picture-batch/batches/picture_broad_001.json --boot-wait 5 --draw-wait 8 --stop-on-failure`.
@@ -93,7 +110,10 @@ qemu-system-i386 -m 16 -boot c \
 - For all-present SQ2 picture carousel evidence, use chunked timed polling: `python3 -B tools/picture_carousel.py --preset all --mode timed --poll --chunk-size 16 --delay-cycles 120 --speed-value 1 --fixture-root build/picture-carousel/timed-all-poll-chunk16-fixtures --dos-dir PICALL --output build/picture-carousel/batches/picture_carousel_all_timed_poll_chunk16_001.json --boot-wait 5 --first-wait 3 --poll-interval 0.5 --poll-timeout 20`. This matched all 74 present pictures. A single 74-picture carousel matched the first 19 pictures, then the original engine showed a disk prompt over picture 19 despite an intact generated `VOL.3`, so use chunks for large sweeps.
 - Current timed polling view/object carousel evidence: `python3 -B tools/view_carousel.py --include-stress --fixture-root build/view-carousel/stress-fixtures --dos-dir VCARSTR --output build/view-carousel/batches/view_carousel_stress_001.json --boot-wait 5 --first-wait 3 --delay-cycles 120 --speed-value 1 --poll-interval 0.5 --poll-timeout 20`. This matched all 19 current base-plus-stress view cases from one engine process. The simpler per-case snapshot oracle remains `tools/view_batch.py`.
 - The older key/status-byte carousel path remains useful as a prototype but is not broad-suite evidence: mapped function-key base smoke matched two pictures, while broader key-driven sweeps stalled or left input/UI artifacts.
-- If future multi-game/interpreter batches need more DOS space, create a larger formatted bootable DOS test image or purpose-built large fixture image; simply growing `build/dos622/dos622.img` is not enough because the FAT partition geometry must also change.
+- If future multi-game/interpreter batches need more DOS space, create a
+  larger formatted bootable DOS test image or purpose-built large fixture
+  image; simply appending bytes to an existing FAT image is not enough because
+  the partition/filesystem geometry must also change.
 - Run targeted object overlay priority/clipping/persistent-object probes with `python3 -B tools/object_overlay_probe.py --dos-prefix OP --output build/object-overlay-probes/batches/name.json --boot-wait 5 --draw-wait 8`.
 - Generate original-engine fixture game directories with `python3 -B tools/qemu_fixture.py picture N --output build/qemu-fixtures/picture_NNN`.
 - Compare original-engine picture captures with the local renderer using `python3 -B tools/compare_picture_capture.py N capture.ppm`.
@@ -109,16 +129,19 @@ qemu-system-i386 -m 16 -boot c \
 
 ## Working with the DOS image
 
-- The DOS partition starts at sector 63, so the mtools byte offset is `32256`.
+- The generated FreeDOS image may use a different partition offset from older
+  local images. Use `tools/qemu_snapshot.py` helpers or
+  `tools/setup_freedos_image.py --print-mtools-image` to get the correct mtools
+  target.
 - List the DOS root with:
 
 ```bash
-mdir -i build/dos622/dos622.img@@32256 ::
+mdir -i "$(python3 -B tools/setup_freedos_image.py --print-mtools-image --output build/freedos/freedos.img)" ::
 ```
 
-- Copy files into the image with `mcopy -i build/dos622/dos622.img@@32256 ...`.
-- Create directories with `mmd -i build/dos622/dos622.img@@32256 ::/NAME`.
-- SQ2 can be launched inside DOS with:
+- Copy files into the image with `mcopy -i IMAGE_TARGET ...`.
+- Create directories with `mmd -i IMAGE_TARGET ::/NAME`.
+- If a game was copied to `C:\SQ2`, it can be launched inside DOS with:
 
 ```bat
 cd \SQ2

@@ -18779,3 +18779,325 @@ Progress updates and outcomes:
 
       Action/result: Began the commit turn by reviewing status, diff stat, and
       this progress-log tail.
+
+2489. Reported: "I’ll treat this as a repo hygiene/setup task: first I’ll audit
+      what `build/` contains and what tracked files still point at it or the
+      old MS-DOS installers, then I’ll replace those assumptions with a
+      reproducible FreeDOS setup path before deleting anything."
+
+      Action/result: Started the build/MS-DOS cleanup pass by scanning active
+      scripts, tests, docs, and git status.
+
+2490. Reported: "FreeDOS’ official download page currently presents FreeDOS
+      1.4 as the stable release, with a separate July 2026 test distribution. I
+      plan to make the setup script pin stable 1.4 by default, with URL and
+      checksum overrides so we can update it cleanly later."
+
+      Action/result: Chose FreeDOS 1.4 LiteUSB as the reproducible default for
+      the setup script and planned override flags for future releases.
+
+2491. Reported: "I found the new external game copy under `games/SQ2`, and the
+      only untracked top-level directories right now are `games/`, `build/`, and
+      `002962_ms_dos_622/`. I’ll keep `games/` ignored and private, and make
+      the scripts look there only through a configurable path."
+
+      Action/result: Confirmed the game data is outside tracked files and added
+      ignore rules for private/generated directories.
+
+2492. Reported: "I’m going to add a small path helper rather than sprinkling
+      new literals around: game data should come from `AGI_GAME_DIR`, while QEMU
+      defaults should move from the old MS-DOS image to a generated FreeDOS
+      image."
+
+      Action/result: Added `tools/project_paths.py` and began replacing direct
+      `SQ2/` and `build/dos622/dos622.img` assumptions in active tooling.
+
+2493. Reported: "For the disk image setup, I’m aiming for a script that
+      downloads the FreeDOS USB image, verifies its checksum, extracts the raw
+      image, and optionally copies a local game directory into it. I’m also
+      teaching the QEMU helpers to detect the FAT partition offset instead of
+      assuming the old sector-63 layout."
+
+      Action/result: Added mtools partition-offset auto-detection to the QEMU
+      snapshot helpers and started the FreeDOS setup script.
+
+2494. Reported: "Understood. I’m correcting the half-step I made before the
+      interruption: no `games/SQ2` fallback. The tooling can accept
+      `AGI_GAME_DIR` and I’ll add explicit `--game-dir` where practical, but an
+      omitted game directory should fail loudly instead of silently picking SQ2."
+
+      Action/result: Removed the implicit SQ2 default and made `game_dir()`
+      require either `--game-dir PATH` or `AGI_GAME_DIR=PATH`.
+
+2495. Reported: "I’m going to use a single project-level `--game-dir PATH`/
+      `AGI_GAME_DIR` mechanism for the existing tools. A few scripts import
+      shared resource helpers before their own argument parsing runs, so the
+      helper will consume the global `--game-dir` option early; that keeps the
+      existing tool surface working without copying path plumbing through every
+      file."
+
+      Action/result: Implemented project-wide early consumption of
+      `--game-dir` for tools that import resource helpers before their own
+      parsers run.
+
+2496. Reported: "Now I’m adding the FreeDOS image builder. It won’t copy a game
+      unless a game directory is explicitly supplied, which keeps the base DOS
+      setup separate from whichever interpreter/game we’re examining."
+
+      Action/result: Added `tools/setup_freedos_image.py` to download and
+      verify FreeDOS LiteUSB, extract the raw image, patch prompt boot files,
+      and optionally copy an explicit local game directory.
+
+2497. Reported: "Small cleanup while I’m here: the setup script should not
+      inspect game options unless `--copy-game` is used, so I’m trimming an
+      unnecessary check from its entrypoint."
+
+      Action/result: Removed an unnecessary entrypoint check from the FreeDOS
+      setup script.
+
+2498. Reported: "I’m tightening `decrypt_agi.py` as well: if someone provides
+      explicit loader/payload paths, it should not unnecessarily demand a game
+      directory; otherwise it derives those paths from the required game
+      parameter."
+
+      Action/result: Updated `tools/decrypt_agi.py` so `--loader`/`--payload`
+      may be explicit, while path derivation requires `--game-dir` or
+      `AGI_GAME_DIR`.
+
+2499. Reported: "For the setup script specifically, I’m making `--game-dir` an
+      explicit documented option because it only matters when `--copy-game` is
+      requested. That avoids hidden behavior in the bootstrap path."
+
+      Action/result: Added explicit `--game-dir` handling to
+      `tools/setup_freedos_image.py` for `--copy-game` runs.
+
+2500. Reported: "I’m doing another pass over hard-coded paths now. The goal is
+      not to rewrite historical evidence notes, but active scripts and setup
+      docs should no longer imply SQ2 is the default or that the old MS-DOS
+      image is required."
+
+      Action/result: Scanned active scripts/tests/docs for old SQ2, MS-DOS, and
+      `build/dos622` assumptions.
+
+2501. Reported: "I caught a small Python standard-library slip in the setup
+      script before running it: URL parsing lives in `urllib.parse`, not
+      `urllib.request`. Tiny, but exactly the kind of tiny that ruins a
+      bootstrap script at step one."
+
+      Action/result: Fixed the FreeDOS setup script to use
+      `urllib.parse.urlparse`.
+
+2502. Reported: "I’m updating the project-facing instructions next. This is
+      where I’m making the multi-game expectation explicit: `games/` is a
+      private local area, tools require `--game-dir` or `AGI_GAME_DIR`, and
+      generated DOS images live under disposable `build/`."
+
+      Action/result: Added root `README.md` and updated `AGENTS.md` for
+      explicit game directories, ignored private game data, and FreeDOS image
+      setup.
+
+2503. Reported: "I noticed the new docs want `--print-mtools-image` to be a
+      harmless query when the image already exists. I’m adjusting the script so
+      that option can be used safely in mtools examples without re-downloading
+      or re-extracting anything."
+
+      Action/result: Made `tools/setup_freedos_image.py --print-mtools-image`
+      return the existing image target without rebuilding when possible.
+
+2504. Reported: "One more nicety: querying the image target should not require
+      mtools to already be installed. I’m moving that requirement to the
+      setup/copy path."
+
+      Action/result: Delayed the mtools requirement check until the setup
+      script actually needs to modify the image.
+
+2505. Reported: "I’m now updating the mdBook-facing setup references.
+      Historical command logs can keep their old paths, but the current
+      compatibility chapter should teach the new explicit game-directory
+      workflow."
+
+      Action/result: Updated active mdBook pages and `PROGRESS.md` to clarify
+      explicit `--game-dir`/`AGI_GAME_DIR` selection and remove old active
+      setup assumptions.
+
+2506. Reported: "The docs now distinguish 'this evidence came from SQ2' from
+      'the tooling should choose SQ2 automatically.' I’m doing one more
+      active-reference scan before I remove the generated directories."
+
+      Action/result: Scanned active instructions and compatibility commands for
+      stale default-game and old DOS-image assumptions.
+
+2507. Reported: "I’m adding a small unit test for the no-default rule. That way
+      a future cleanup can’t quietly reintroduce `games/SQ2` as a fallback
+      while we’re focusing on other interpreter versions."
+
+      Action/result: Added `tests/test_project_paths.py` covering required game
+      parameters, environment selection, and global `--game-dir` consumption.
+
+2508. Reported: "At this point the generated outputs have been replaced by
+      rebuild instructions and the old installer path is no longer needed for
+      setup. I’m removing only `build/` and `002962_ms_dos_622/`, leaving
+      `games/` alone and ignored."
+
+      Action/result: Removed `build/` and `002962_ms_dos_622/`; retained the
+      private ignored `games/` directory.
+
+2509. Reported: "The old generated directories are gone. I’m logging the
+      setup/cleanup steps now before validation, so the historical record
+      includes both the path-policy correction and the artifact removal."
+
+      Action/result: Added progress-log entries for the FreeDOS setup and
+      cleanup pass before validation.
+
+2510. Reported: "Validation pass now: syntax, unit tests with an explicit
+      `AGI_GAME_DIR`, mdBook, opcode evidence, and whitespace. If anything
+      still assumes a default game, this should flush it out quickly."
+
+      Action/result: `python3 -B -m py_compile`,
+      `AGI_GAME_DIR=games/SQ2 python3 -B -m unittest discover -s tests`,
+      `mdbook build docs`,
+      `AGI_GAME_DIR=games/SQ2 python3 -B tools/logic_opcode_evidence.py
+      --check`, and `git diff --check` all passed. The unit suite ran 242
+      tests.
+
+2511. Reported: "Validation passed: syntax compile, mdBook, opcode evidence,
+      whitespace, and the full unit suite with `AGI_GAME_DIR=games/SQ2` all
+      succeeded. I’m checking the post-test worktree now, including whether any
+      generated docs/build output appeared."
+
+      Action/result: Post-validation status showed the intended tracked edits
+      and new files, plus only a generated `tools/__pycache__/` cache.
+
+2512. Reported: "The checks created only Python bytecode under
+      `tools/__pycache__`; I’m cleaning that generated cache out of the
+      worktree. `build/` and the old installer directory remain removed."
+
+      Action/result: Removed `tools/__pycache__/`.
+
+2513. Reported: "I’m adding the official FreeDOS download link to the README so
+      the default URL/checksum choice is traceable without burying it inside
+      the script. Then I’ll do the final lightweight checks again because the
+      progress log and README changed after the first validation pass."
+
+      Action/result: Linked the README setup section to the official FreeDOS
+      download page before the final lightweight validation pass.
+
+2514. Reported: "I’ll run the base FreeDOS setup first, without copying any
+      game data, since that should prove the reproducible image bootstrap path
+      independently of SQ2/LSL/KQ inputs. If the sandbox blocks the download,
+      I’ll rerun with the required network approval."
+
+      Action/result: The sandboxed download failed with DNS resolution blocked,
+      as expected for network-restricted shell commands.
+
+2515. Reported: "The first run reached the expected sandbox network wall: DNS
+      resolution failed while downloading the FreeDOS zip. I’m rerunning the
+      same setup command with network escalation so it can actually fetch the
+      official image."
+
+      Action/result: The escalated download succeeded, but the script rejected
+      the cached zip because the baked-in SHA-256 was wrong.
+
+2516. Reported: "The escalated download worked, and the failure is useful: my
+      baked-in SHA-256 was wrong. The downloaded file matches FreeDOS’ official
+      `verify.txt` value for `FD14-LiteUSB.zip`, so I’m correcting the script
+      to the official hash and rerunning."
+
+      Action/result: Corrected `FREEDOS_LITEUSB_SHA256` to
+      `857dcd2ebf9d3d094320154db5fb5b830acba6fb98f981a95a0ca7ab3350338b`.
+
+2517. Reported: "The cached zip is already present from the successful
+      download, so the rerun should verify and extract without needing another
+      network fetch. After that I’ll inspect the image with mtools and, if
+      promising, do a quick QEMU boot screenshot."
+
+      Action/result: `python3 -B tools/setup_freedos_image.py --force`
+      completed, extracted `FD14LITE.img` to `build/freedos/freedos.img`, and
+      auto-detected the mtools target `build/freedos/freedos.img@@32256`.
+
+2518. Reported: "The setup script now completes: it extracted `FD14LITE.img` to
+      `build/freedos/freedos.img`, and auto-detected the FAT partition at
+      `@@32256`. I’m checking the filesystem contents next, then I’ll try a
+      QEMU boot."
+
+      Action/result: `mdir` showed FreeDOS boot files, patched
+      `AUTOEXEC.BAT`/`FDAUTO.BAT`, and about 13 MB free on the image.
+
+2519. Reported: "The image has the expected FreeDOS boot files and our patched
+      `AUTOEXEC.BAT`/`FDAUTO.BAT`. I’m booting it under QEMU now and will
+      capture the VGA output so we can see whether it lands somewhere usable."
+
+      Action/result: The sandbox blocked binding QEMU's local VNC socket.
+
+2520. Reported: "QEMU itself started, but the sandbox blocked binding the local
+      VNC socket. I’m rerunning QEMU with escalation for the local display
+      socket so I can capture a screenshot."
+
+      Action/result: QEMU booted the generated FreeDOS image with local VNC
+      enabled.
+
+2521. Reported: "QEMU is running now. I’m giving FreeDOS a few seconds to
+      finish booting, then I’ll ask the monitor for a screenshot and shut it
+      down cleanly."
+
+      Action/result: Captured `build/freedos/boot.ppm` and shut QEMU down.
+
+2522. Reported: "The screenshot was captured. I’m shutting QEMU down, then I’ll
+      convert the PPM to PNG so we can inspect what FreeDOS actually displayed."
+
+      Action/result: Converted `build/freedos/boot.ppm` to
+      `build/freedos/boot.png`; the screenshot shows FreeDOS at a plain
+      `C:\>` prompt.
+
+2523. Reported: "The boot screenshot is good: FreeDOS reaches a plain `C:\>`
+      prompt. I’m going to test the optional explicit game-copy path too, since
+      that’s the README path people will use for manual engine runs."
+
+      Action/result: Checked `games/SQ2` size and file count before the copy
+      test.
+
+2524. Reported: "The local SQ2 copy is small enough for the LiteUSB image, so
+      I’m rerunning setup with an explicit game directory and DOS target name."
+
+      Action/result:
+      `python3 -B tools/setup_freedos_image.py --force --copy-game --game-dir
+      games/SQ2 --dos-game-dir SQ2` completed and copied the game to `C:\SQ2`.
+
+2525. Reported: "The explicit `--copy-game --game-dir games/SQ2` path completed
+      too. I’m checking the DOS directory listing, then I’ll do one launch
+      screenshot of `C:\SQ2\SIERRA` under FreeDOS."
+
+      Action/result: `mdir` confirmed the SQ2 files inside `C:\SQ2` with about
+      12 MB free remaining.
+
+2526. Reported: "The copied game directory looks right inside the FreeDOS
+      image. I’m booting QEMU again and launching `SIERRA` from `C:\SQ2` to
+      confirm the generated image is actually usable for our engine runs."
+
+      Action/result: Booted the image in QEMU, typed `cd \SQ2` and `SIERRA`
+      through the monitor, and captured `build/freedos/sq2_freedos.ppm`.
+
+2527. Reported: "FreeDOS boots, and the copied SQ2 run reaches the game title
+      screen under QEMU. I’m recording the checksum correction and validation
+      screenshots in the progress log, then I’ll run a small final check on the
+      edited script/docs."
+
+      Action/result: Converted `build/freedos/sq2_freedos.ppm` to
+      `build/freedos/sq2_freedos.png`; the screenshot shows the SQ2 title
+      screen under FreeDOS.
+
+2528. Reported: "I’ll add a short 'manual image use' section to the README:
+      mtools target discovery, copying files/directories into the FAT image,
+      and the exact QEMU command plus monitor basics."
+
+      Action/result: Added README instructions for `--print-mtools-image`,
+      `mdir`, `mmd`, `mcopy`, manual QEMU boot, monitor `sendkey`,
+      `screendump`, and ImageMagick conversion.
+
+2529. Reported: "I found the current FreeDOS section; it has launch basics but
+      not enough mtools detail. I’m adding concrete copy/list examples that use
+      the script’s `--print-mtools-image` output so nobody has to remember the
+      partition offset."
+
+      Action/result: Expanded the README FreeDOS image section with concrete
+      mtools examples that derive the image target from the setup helper.

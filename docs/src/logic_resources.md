@@ -3,7 +3,8 @@
 This page records clean-room observations about logic resource payloads after
 they have been loaded from `VOL.*` by the generic resource reader. It is based
 on the local SQ2 resource files, `SQ2/AGIDATA.OVL`, and the decrypted
-executable.
+executable. Current tools require the game directory to be selected explicitly
+with `--game-dir PATH` or `AGI_GAME_DIR=PATH`.
 
 ## Loader path
 

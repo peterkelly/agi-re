@@ -12,7 +12,13 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT / "tools"))
 
-from qemu_snapshot import SnapshotFixtureCase, dos_key_name, fixture_input_files, mtools_image  # noqa: E402
+from qemu_snapshot import (  # noqa: E402
+    SnapshotFixtureCase,
+    detect_partition_offset,
+    dos_key_name,
+    fixture_input_files,
+    mtools_image,
+)
 
 
 class QemuSnapshotTests(unittest.TestCase):
@@ -25,7 +31,22 @@ class QemuSnapshotTests(unittest.TestCase):
             self.assertEqual([path.name for path in fixture_input_files(fixture)], ["OBJECT", "VOL.0"])
 
     def test_mtools_image_uses_partition_offset(self) -> None:
-        self.assertEqual(mtools_image(Path("disk.raw")), "disk.raw@@32256")
+        self.assertEqual(mtools_image(Path("disk.raw"), "32256"), "disk.raw@@32256")
+
+    def test_mtools_image_omits_zero_partition_offset(self) -> None:
+        self.assertEqual(mtools_image(Path("floppy.img"), "0"), "floppy.img")
+
+    def test_mtools_image_auto_detects_first_mbr_partition(self) -> None:
+        with tempfile.TemporaryDirectory() as temp_dir:
+            image = Path(temp_dir) / "disk.raw"
+            mbr = bytearray(512)
+            mbr[0x1BE + 4] = 0x06
+            mbr[0x1BE + 8 : 0x1BE + 12] = (2048).to_bytes(4, "little")
+            mbr[0x1BE + 12 : 0x1BE + 16] = (4096).to_bytes(4, "little")
+            mbr[510:512] = b"\x55\xaa"
+            image.write_bytes(bytes(mbr))
+            self.assertEqual(detect_partition_offset(image), "1048576")
+            self.assertEqual(mtools_image(image), f"{image}@@1048576")
 
     def test_snapshot_case_defaults_to_no_post_launch_input(self) -> None:
         case = SnapshotFixtureCase("CASE", Path("fixture"), Path("capture.ppm"))

@@ -1,6 +1,8 @@
 # SIERRA.COM loader decompilation notes
 
 This note summarizes the current clean-room understanding of `SQ2/SIERRA.COM`.
+Current tooling derives this path from an explicitly selected game directory,
+not from a repository-default SQ2 copy.
 It is derived from local bytes, `ndisasm`, Rizin output, and the reproducible
 transform in `tools/decrypt_agi.py`.
 
@@ -149,8 +151,8 @@ while source_segment < source_end_segment:
     source_segment += 8
 ```
 
-Applying this transform to `SQ2/AGI` with the key table from
-`SQ2/SIERRA.COM` file offset `0x0041` produces
+Applying this transform to the selected SQ2 `AGI` with the key table from
+`SIERRA.COM` file offset `0x0041` produces
 `build/cleanroom/AGI.decrypted.exe`, a valid DOS MZ executable.
 
 ## MZ transfer routine
@@ -225,4 +227,3 @@ HGC_OBJS.OVL
 AGIDATA.OVL
 AGI.EXE
 ```
-

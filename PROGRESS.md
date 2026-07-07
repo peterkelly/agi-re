@@ -5,6 +5,11 @@ engineering project. It is intentionally more compact than the mdBook evidence
 chapters: use it to see what is done, what is partial, and what still needs
 work.
 
+The current evidence set remains SQ2-centered, but tooling must not default to
+SQ2. Select the local game/interpreter input explicitly with `--game-dir PATH`
+or `AGI_GAME_DIR=PATH` so future LSL1/KQ4/etc. comparisons can reuse the same
+tracker shape.
+
 Update this file whenever an opcode changes status, a major engine subsystem is
 better understood, or a new remaining-work item is discovered.
 

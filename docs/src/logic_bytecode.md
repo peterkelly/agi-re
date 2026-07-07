@@ -3,7 +3,8 @@
 This page records clean-room observations about the interpreter for logic
 payload bytecode. It is based on local disassembly of
 `build/cleanroom/AGI.decrypted.exe`, the runtime tables in `SQ2/AGIDATA.OVL`,
-and decoded SQ2 logic payloads.
+and decoded SQ2 logic payloads from an explicitly selected local game
+directory.
 
 For a compact generated coverage index that lists every action opcode, every
 known condition opcode, operand shapes, and current evidence level, see
