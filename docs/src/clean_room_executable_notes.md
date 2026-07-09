@@ -7900,3 +7900,135 @@ Documented result:
 - Added a local test for priority/control byte `0x0f`, which bypasses scanning
   and clears both reported event flags when object byte `+0x02` is zero.
 - `tests.test_graphics_rendering` passed with 64 tests.
+
+## 2026-07-07: Gold Rush AGI v3 resource compression first pass
+
+Context:
+
+- The user identified `games/GR` as a local Gold Rush data set using AGI
+  interpreter version 3 and asked for a source-first comparison with the SQ2
+  version 2 interpreter.
+- The known QEMU BIOS text-rendering problem was set aside as an on-screen text
+  caveat. Dynamic checks, if needed later, should use the FreeDOS image path
+  rather than the old MS-DOS image.
+
+Commands run from `/Users/peter/ai/agi/reverse`:
+
+- `git status --short`
+- `rg --files`
+- `ls -la games && ls -la games/GR && ls -la games/SQ2`
+- `file games/GR/AGI games/SQ2/AGI`
+- `xxd -g 1 -l 64 games/GR/AGI`
+- `xxd -g 1 -l 64 games/GR/GRDIR`
+- `python3 -B tools/decrypt_agi.py --game-dir games/SQ2 --output build/cleanroom/SQ2_AGI.decrypted.exe`
+- `dd if=games/GR/AGI bs=1 skip=$((0x30a0+0x200)) count=760 2>/dev/null | ndisasm -b 16 -o 0x30a0 -`
+- `dd if=games/GR/AGI bs=1 skip=$((0x44d0+0x200)) count=520 2>/dev/null | ndisasm -b 16 -o 0x44d0 -`
+- `dd if=games/GR/AGI bs=1 skip=$((0x07d0+0x200)) count=720 2>/dev/null | ndisasm -b 16 -o 0x07d0 -`
+- `dd if=games/GR/AGI bs=1 skip=$((0x9a40+0x200)) count=420 2>/dev/null | ndisasm -b 16 -o 0x9a40 -`
+- `dd if=games/GR/AGI bs=1 skip=$((0x33c0+0x200)) count=520 2>/dev/null | ndisasm -b 16 -o 0x33c0 -`
+- `dd if=games/GR/AGI bs=1 skip=$((0x0200+0x200)) count=520 2>/dev/null | ndisasm -b 16 -o 0x0200 -`
+- `xxd -g 1 -s 0xf50 -l 128 games/GR/AGIDATA.OVL`
+- `strings -a -t d games/GR/AGIDATA.OVL`
+- `strings -a -t d games/SQ2/AGIDATA.OVL`
+- `python3 -B tools/agi_resources.py --game-dir games/GR --summary --kind logic --number 0`
+- `python3 -B tools/agi_resources.py --game-dir games/GR --kind picture --number 1`
+- `python3 -B tools/agi_resources.py --game-dir games/GR --kind view --number 0`
+- `python3 -B tools/agi_resources.py --game-dir games/SQ2 --summary --kind logic --number 0`
+- `python3 -B tools/disassemble_logic.py --game-dir games/GR --stats`
+- `python3 -B -m unittest tests/test_agi_resources.py`
+- `AGI_GAME_DIR=games/SQ2 python3 -B -m unittest tests/test_logic_doc_coverage.py tests/test_sound_resources.py`
+- `AGI_GAME_DIR=games/SQ2 python3 -B -m unittest discover -s tests`
+
+Documented result:
+
+- `games/GR/AGI` is already an MZ executable. `games/SQ2/AGI` remains an
+  encrypted/data file and was decrypted to
+  `build/cleanroom/SQ2_AGI.decrypted.exe` for comparison.
+- GR `AGIDATA.OVL` contains `Version 3.002.149`; SQ2 `AGIDATA.OVL` contains
+  `Version 2.936`.
+- GR uses a combined `GRDIR`. Its first four little-endian words are section
+  offsets: logic `0x0008`, picture `0x02e7`, view `0x05c6`, and sound
+  `0x08c6`. The resulting section counts are 245 logic entries, 245 picture
+  entries, 256 view entries, and 51 sound entries.
+- The GR directory loader at image `0x44de` first formats a combined directory
+  name using the runtime prefix and `"%sdir"`, then falls back to separate
+  `logdir`, `picdir`, `viewdir`, and `snddir` files if the combined open
+  fails.
+- The v3 absent-entry helper at image `0x4599` rejects only exact
+  `ff ff ff`. This differs from SQ2 v2's high-nibble `0xf` rejection.
+- GR image `0x33c2` opens sixteen volume handles using `"%svol.%d"`. This
+  explains observed local directory entries pointing at `GRVOL.9` through
+  `GRVOL.12`.
+- The v3 generic record reader at image `0x30d0` reads a 7-byte header:
+  `12 34`, a metadata/volume byte, an expanded little-endian length, and a
+  stored little-endian length.
+- Metadata bit `0x80` selects the picture-nibble transform at image `0x9a5b`.
+  Otherwise equal expanded/stored lengths are read directly, and unequal
+  lengths use the dictionary decompressor at image `0x07f4`.
+- The dictionary decompressor uses 9-bit initial codes, reset code `0x100`,
+  end code `0x101`, and grows to 10 and 11 bits. The picture-nibble transform
+  expands packed color/control nibbles after picture commands `0xf0` and
+  `0xf2` back into ordinary byte operands.
+- Added `tools/agi_resources.py` with split v2 and combined v3 container
+  detection, v3 dictionary expansion, v3 picture-nibble expansion, and a small
+  CLI summary/inspection mode.
+- Added `tests/test_agi_resources.py`. The new focused tests passed.
+- Extended `tools/disassemble_logic.py` so logic payload loading uses
+  `tools/agi_resources.py`; v3 combined games select action table base
+  `0x0440` and condition table base `0x0762`.
+- The decoded GR logic census had no parse errors. The v3 dispatcher supports
+  action slots through `0xb5` and condition slots through `0x25`, but this
+  Gold Rush data set uses action opcodes only through `0xa9` and condition
+  opcodes only through `0x0e`.
+- Focused regression checks passed: `tests/test_agi_resources.py`, plus
+  `tests/test_logic_doc_coverage.py` and `tests/test_sound_resources.py` with
+  `AGI_GAME_DIR=games/SQ2`.
+- A full local unit-suite run with `AGI_GAME_DIR=games/SQ2` currently fails in
+  older fixture builders because the private game files are read-only and
+  copied fixtures try to overwrite files such as `LOGDIR` and `VOL.3` without
+  changing destination permissions. This appears unrelated to the new GR
+  resource parser and should be handled separately if full-suite green status
+  is needed before the next commit.
+
+## 2026-07-07: Version ledger and read-only fixture copy fix
+
+Context:
+
+- The user asked for a `Versions` documentation chapter to track differences
+  between observed interpreter versions.
+- The user also clarified that generated test/original-engine fixtures should
+  never modify private files under `games/`; fixture builders should copy the
+  selected game into `build/` and modify that generated copy.
+
+Commands run from `/Users/peter/ai/agi/reverse`:
+
+- `rg -n "fixture|LOGDIR|VOL\\.3|games/|AGI_GAME_DIR|copytree|copy2|chmod|write_bytes|open\\(" tests tools docs/src PROGRESS.md AGENTS.md`
+- `sed -n '1,260p' tools/qemu_fixture.py`
+- `sed -n '620,980p' tools/qemu_fixture.py`
+- `sed -n '1,520p' tests/test_qemu_fixture.py`
+- `rg -n "shutil\\.copy|copytree|copy2|LOGDIR\\)\\.write|VOL\\.3\\)\\.write|PICDIR\\)\\.write|VIEWDIR\\)\\.write|AGIDATA\\.OVL\\)\\.write|destination / \\\"LOGDIR\\\"|fixture / \\\"LOGDIR\\\"|games/" tools tests`
+- `AGI_GAME_DIR=games/SQ2 python3 -B -m unittest tests/test_qemu_fixture.py`
+- `mdbook build docs`
+- `AGI_GAME_DIR=games/SQ2 python3 -B -m unittest discover -s tests`
+
+Documented result:
+
+- Added `docs/src/versions.md` and linked it from `docs/src/SUMMARY.md`.
+  The chapter currently records SQ2 / AGI 2.936 and Gold Rush / AGI 3.002.149
+  differences: executable form, resource container, compression/transform
+  paths, dispatch-table range, and generated-fixture readiness.
+- Updated `tools/qemu_fixture.py` so generated fixture copies are writable even
+  when the selected game input is read-only. The shared copy primitive now
+  cleans generated destinations, preserves `.ppm` capture files, copies source
+  files, and adds owner read/write permission on the copy before patching.
+- Added a fixture-destination guard: paths under repository `games/` are
+  rejected before any generated directory is created or patched. Destinations
+  that are the selected game directory, a child of it, or a parent of it are
+  rejected for the same reason.
+- Added focused tests proving that a read-only copied `LOGDIR` can be patched
+  in the fixture copy, that a destination under `games/` is rejected, and that
+  a destination parent of the selected game is rejected.
+- Updated `AGENTS.md` to state the immutable-`games/` rule explicitly.
+- Verification passed: `mdbook build docs`, the focused
+  `tests/test_qemu_fixture.py` slice, and the full local unit suite with
+  `AGI_GAME_DIR=games/SQ2` (`251` tests).

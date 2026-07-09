@@ -49,6 +49,9 @@ The output of this project is a human-readable spec that contains sufficient inf
 - Game files are not committed. Keep private local copies under `games/` or
   another ignored path and pass the selected copy with `--game-dir PATH` or
   `AGI_GAME_DIR=PATH`.
+- Treat `games/` as immutable evidence input. Generated fixtures must copy the
+  selected game into `build/` and patch that writable copy; never point a
+  fixture builder at a directory under `games/`.
 - Do not use a default game directory in scripts. SQ2 is one local evidence
   input, not the project default.
 - Generated artifacts belong under `build/`.

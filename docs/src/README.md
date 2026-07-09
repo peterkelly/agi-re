@@ -23,6 +23,8 @@ Current documentation:
 - Stable symbolic names for routines, tables, and globals are tracked in
   [Symbolic Labels](./symbolic_labels.md), so later interpreter versions can be
   compared without relying on matching offsets.
+- Version-specific differences between local interpreter/game inputs are tracked
+  in [Versions](./versions.md).
 - Notes on directory and volume resource files are in
   [Resource Files](./resource_files.md).
 - A higher-level implementation model of the observed runtime data types and

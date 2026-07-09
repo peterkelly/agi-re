@@ -225,6 +225,107 @@ reader:
 The loaded resource payload returned by `0x2e32` does not include the 5-byte
 `VOL.*` record header; it begins at the resource-type-specific payload.
 
+## Gold Rush / AGI v3 resource container comparison
+
+Gold Rush (`games/GR`) uses interpreter version string `Version 3.002.149` in
+`AGIDATA.OVL` and changes the resource container without changing the decoded
+logic/picture/view/sound payload categories. Unlike SQ2, `games/GR/AGI` is
+already an MZ executable, so no SIERRA.COM decrypt step was needed before
+disassembling it.
+
+The v3 game directory is a single combined `GRDIR` file instead of four split
+directory files. Its first eight bytes are four little-endian section offsets:
+
+| Header word | Section | Offset | Entry count | Present entries |
+| --- | --- | ---: | ---: | ---: |
+| `+0` | logic | `0x0008` | 245 | 182 |
+| `+2` | picture | `0x02e7` | 245 | 186 |
+| `+4` | view | `0x05c6` | 256 | 247 |
+| `+6` | sound | `0x08c6` | 51 | 44 |
+
+The section payloads are still 3-byte directory entries using the same packed
+volume/offset calculation as SQ2. The absent-entry test changed, though:
+SQ2's shared check rejects any entry whose first byte has high nibble `0xf`,
+while the v3 shared check at GR image `0x4599` rejects only the exact byte
+sequence `ff ff ff`.
+
+GR image `0x44de` is the v3 directory loader corresponding to SQ2
+`code.resource.load_all_directories`. It formats a combined directory filename
+from the runtime prefix and the `"%sdir"` string in `AGIDATA.OVL`. When the
+combined file opens, the loader reads it whole and stores section-base pointers
+derived from the first four header words. If the combined open fails, the same
+routine falls back to separate `logdir`, `picdir`, `viewdir`, and `snddir`
+loads.
+
+The v3 volume files are named with a prefix, for example `GRVOL.0` through
+`GRVOL.12`. GR image `0x33c2` opens sixteen possible volume handles by
+formatting `"%svol.%d"`, so higher volume numbers are part of the observed v3
+container design rather than malformed directory entries.
+
+The v3 generic reader starts at GR image `0x30d0`, with a retry wrapper at
+`0x30ac`. It reads a 7-byte record header:
+
+```text
+byte 0: 0x12
+byte 1: 0x34
+byte 2: metadata/volume byte
+byte 3: expanded length low byte
+byte 4: expanded length high byte
+byte 5: stored length low byte
+byte 6: stored length high byte
+byte 7..: stored bytes
+```
+
+If metadata bit `0x80` is clear, the metadata byte must equal the directory
+entry volume. If metadata bit `0x80` is set, the reader records a
+picture-specific transform flag, masks the metadata byte to its low nibble, and
+then compares that low nibble with the directory entry volume.
+
+After allocation, v3 has three payload paths:
+
+| Condition | Transform | GR image offset | Observed resource families |
+| --- | --- | --- | --- |
+| metadata bit `0x80` set | picture nibble expansion | `0x9a5b` | pictures |
+| expanded length equals stored length | direct read | `0x607d` DOS read wrapper | a few logic/sound resources |
+| expanded length differs from stored length | dictionary expansion | `0x07f4` | most logic, all views, most sounds |
+
+The dictionary path is a bitstream decoder with 9-bit initial codes, growth to
+10 and 11 bits, reset code `0x100`, and end code `0x101`. Dictionary entries
+are prefix/suffix pairs; after each ordinary code the decoder adds
+`previous_string + first_byte(current_string)` at the next dictionary slot.
+
+The picture path is not the same dictionary compression. It is a nibble
+realigner: when the stream emits picture command `0xf0` or `0xf2`, the next
+color/control operand is packed into one nibble. The transform expands those
+nibbles back into ordinary byte-sized picture command operands and stops after
+emitting `0xff`.
+
+`tools/agi_resources.py` implements the observed split v2 and combined v3
+container formats. Local tests in `tests/test_agi_resources.py` currently
+validate:
+
+- SQ2 detection as split-directory/direct-record layout.
+- GR detection as combined-directory/7-byte-record layout.
+- Synthetic dictionary reset/literal/end expansion.
+- Synthetic `0xf0`/`0xf2` picture-nibble expansion.
+- All present GR resources expanding to their header-declared lengths.
+
+The full GR transform census from the local parser is:
+
+| Resource family | Direct | Dictionary | Picture nibble |
+| --- | ---: | ---: | ---: |
+| logic | 2 | 180 | 0 |
+| picture | 0 | 0 | 186 |
+| view | 0 | 247 | 0 |
+| sound | 3 | 41 | 0 |
+
+The logic disassembler now uses `tools/agi_resources.py` for payload loading.
+For GR it uses AGIDATA dispatch table bases `0x0440` for actions and `0x0762`
+for conditions. The GR dispatcher supports action opcodes through `0xb5` and
+condition opcodes through `0x25`, but the decoded Gold Rush scripts observed so
+far only use action opcodes through `0xa9` and condition opcodes through
+`0x0e`.
+
 ## Resource cache records
 
 The four resource families keep separate singly linked cache lists. In every

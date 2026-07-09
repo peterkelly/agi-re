@@ -416,3 +416,33 @@ Address columns use these meanings:
 | `data.event.recording_enabled` | global `[0x170d]` | Word gate checked by `code.event.record_pair` after flag 7. |
 | `data.event.pair_high_water` | global `[0x170f]` | Maximum observed pair count; heap/status display uses it and overflow error reporting passes it as context. |
 | `data.motion.direction_table` | data `0x0a85` | Nine-word direction lookup used by `code.motion.compute_direction`. |
+
+## Gold Rush / AGI v3 Address Associations
+
+These are the first non-SQ2 mappings for existing or newly introduced symbolic
+labels. They are loaded-image offsets in `games/GR/AGI` unless otherwise
+noted. The GR executable has the same `0x200`-byte MZ header size as the
+decrypted SQ2 executable, so file offsets are image offsets plus `0x200`.
+
+| Label | GR address | Notes/evidence |
+| --- | --- | --- |
+| `code.logic.action_dispatch` | image `0x02bc` | Same structural role as SQ2 `0x02c4`, but the v3 max-action check accepts opcodes through `0xb5` and dispatches through AGIDATA table `0x0440`. |
+| `table.logic.action_dispatch` | `AGIDATA.OVL:0x0440` | Four-byte v3 action table. `tools/disassemble_logic.py --game-dir games/GR --stats` parsed all present GR logic resources with this base. |
+| `code.logic.condition_dispatch` | image `0x0a31` | Same structural role as SQ2 `0x07e3`, but the v3 condition max check accepts opcodes through `0x25` and dispatches through AGIDATA table `0x0762`. |
+| `table.logic.condition_dispatch` | `AGIDATA.OVL:0x0762` | Four-byte v3 condition table. Gold Rush scripts observed so far only use conditions through `0x0e`. |
+| `code.resource.load_all_directories` | image `0x44de` | v3 combined-directory loader. Formats `"%sdir"`, reads a whole combined directory, derives four section pointers from the first eight bytes, and falls back to separate `logdir`/`picdir`/`viewdir`/`snddir` loads if the combined open fails. |
+| `code.resource.dir_entry_or_null` | image `0x4599` | v3 shared absent-entry helper. Returns null only for exact `ff ff ff`, unlike SQ2's high-nibble `0xf` check. |
+| `code.resource.logic_dir_entry` | image `0x45bc` | Uses v3 logic directory base `[0x0fda]`; missing-resource string `logic` at `AGIDATA.OVL:0x0f5e`. |
+| `code.resource.view_dir_entry` | image `0x45f0` | Uses v3 view directory base `[0x0fdc]`; missing-resource string `view` at `AGIDATA.OVL:0x0f64`. |
+| `code.resource.picture_dir_entry` | image `0x4624` | Uses v3 picture directory base `[0x0fde]`; missing-resource string `picture` at `AGIDATA.OVL:0x0f69`. |
+| `code.resource.sound_dir_entry` | image `0x4658` | Uses v3 sound directory base `[0x0fe0]`; missing-resource string `sound` at `AGIDATA.OVL:0x0f71`. |
+| `code.resource.open_volume_handles` | image `0x33c2` | Opens sixteen possible prefixed volume files with `"%svol.%d"`, explaining observed `GRVOL.9` through `GRVOL.12` entries. |
+| `code.resource.close_volume_handles` | image `0x341c` | Closes the sixteen v3 handle slots and resets them to `0xffff`. |
+| `code.resource.read_volume_payload_retry` | image `0x30ac` | v3 retry wrapper around `code.resource.read_volume_payload_once`. |
+| `code.resource.read_volume_payload_once` | image `0x30d0` | v3 generic reader. Decodes 7-byte record headers, allocates expanded length, and selects direct, dictionary, or picture-nibble payload paths. |
+| `code.resource.decompress_lzw_like` | image `0x07f4` | General v3 dictionary decompressor for compressed logic/view/sound records. Uses reset code `0x100`, end code `0x101`, and 9-to-11-bit codes. |
+| `code.resource.decompress_picture_nibble` | image `0x9a5b` | v3 picture transform that expands packed nibbles after `0xf0`/`0xf2` into ordinary byte operands and stops after emitting `0xff`. |
+| `data.resource.logic_dir` | GR data `[0x0fda]` | Loaded v3 logic directory section pointer. |
+| `data.resource.view_dir` | GR data `[0x0fdc]` | Loaded v3 view directory section pointer. |
+| `data.resource.picture_dir` | GR data `[0x0fde]` | Loaded v3 picture directory section pointer. |
+| `data.resource.sound_dir` | GR data `[0x0fe0]` | Loaded v3 sound directory section pointer. |

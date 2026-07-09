@@ -19101,3 +19101,347 @@ Progress updates and outcomes:
 
       Action/result: Expanded the README FreeDOS image section with concrete
       mtools examples that derive the image target from the setup helper.
+
+2530. Reported: "Got it: any dynamic validation I do from here will use the
+      FreeDOS setup, and I’ll keep MS-DOS out of the workflow unless you
+      explicitly ask for historical comparison. I’m going to continue the GR v3
+      pass source-first and only use QEMU/FreeDOS if I need behavior
+      confirmation."
+
+      Action/result: Started the Gold Rush / AGI v3 comparison as a static
+      disassembly/resource-format pass.
+
+2531. Reported: "The repo is clean apart from an untracked `run.sh`, and
+      `games/GR` is present with the combined `GRDIR`/`GRVOL.*` layout. I’m
+      checking the existing docs and resource scripts now so the v3 notes land
+      in the right places and the tooling follows the game-dir parameterization
+      rule."
+
+      Action/result: Checked `git status --short`, listed project files, and
+      inventoried `games/GR` and `games/SQ2`.
+
+2532. Reported: "The existing resource chapter is SQ2/v2-specific, so I’ll add
+      a GR/v3 section rather than disturb the v2 evidence. One useful contrast
+      already holds up: SQ2 resource records are direct 5-byte-header payloads,
+      while GR records use a 7-byte header with expanded and stored lengths plus
+      transform selection."
+
+      Action/result: Read the resource, symbolic-label, and progress-tracker
+      chapters plus current resource-related scripts.
+
+2533. Reported: "I’m going back to the disassembly now, particularly the GR
+      directory loader and the two decompression call sites. The goal is to turn
+      the first-pass observations into a concrete parser/decompressor, so we can
+      inspect GR logic resources directly instead of treating compression as a
+      black box."
+
+      Action/result: Verified the GR executable header and regenerated the
+      decrypted SQ2 executable for side-by-side static comparison.
+
+2534. Reported: "I’ve confirmed the old offset rule still applies to GR: the
+      MZ header is `0x200` bytes, so the stable “image offset” documentation
+      maps to file offset `image + 0x200`. I’m using `dd` slices with explicit
+      image origins to avoid the earlier `ndisasm -e` ambiguity."
+
+      Action/result: Disassembled focused GR windows around image offsets
+      `0x30a0`, `0x44d0`, `0x07d0`, and `0x9a40`.
+
+2535. Reported: "The GR decompression paths are now clear enough to model
+      locally. The “general” path is a reset-capable 9-to-11-bit dictionary
+      stream with `0x100` as reset and `0x101` as end; the picture path is a
+      nibble realigner that packs the color byte after `0xf0` and `0xf2` into
+      half-bytes, then expands them back to ordinary picture opcodes."
+
+      Action/result: Interpreted GR image `0x07f4` as the dictionary
+      decompressor and GR image `0x9a5b` as the picture-nibble transform.
+
+2536. Reported: "I’m going to add a small resource module now rather than fold
+      this into the SQ2-only disassembler. It will autodetect split v2
+      directories versus combined v3 directories, require an explicit game path
+      at the CLI, and expose the GR decompression routines as reusable code for
+      later interpreter-version comparisons."
+
+      Action/result: Added `tools/agi_resources.py` with v2/v3 directory
+      detection, v3 record reading, dictionary expansion, and picture-nibble
+      expansion.
+
+2537. Reported: "The first reusable parser/decompressor is in place. I’m
+      running it against GR and SQ2 now; the useful check is that GR
+      logic/view/sound payloads expand to plausible resource bytes, and picture
+      resources expand back into the same ordinary picture opcode stream shape
+      the v2 renderer already understands."
+
+      Action/result: The first CLI run exposed an argument-order bug: the
+      project-wide `--game-dir` option was parsed after the tool's local
+      argparse parser.
+
+2538. Reported: "Tiny CLI snag: the project-wide `--game-dir` consumer needs to
+      run before this tool’s own `argparse` parser. I’m fixing that plumbing
+      now; the resource code itself hasn’t run yet."
+
+      Action/result: Moved `configured_game_dir()` before local argument
+      parsing in `tools/agi_resources.py`.
+
+2539. Reported: "The new code expands every present GR resource successfully:
+      182 logic entries, 186 pictures, 247 views, and 44 sounds. The transform
+      census is useful too: all pictures use the nibble path; logic/view mostly
+      use the dictionary path; a few logic/sound resources are direct because
+      stored length equals expanded length."
+
+      Action/result: Ran the GR parser over all present entries; the transform
+      census was direct `5`, dictionary `468`, picture-nibble `186`.
+
+2540. Reported: "I’ve added focused tests for the two decompression primitives
+      plus GR/SQ2 container detection. Now I’m running the new test file first,
+      then I’ll run the normal local suite with the explicit SQ2 game path so I
+      don’t mask any regressions in the older tooling."
+
+      Action/result: Added `tests/test_agi_resources.py`; the new focused tests
+      passed. The full suite exposed an unrelated read-only fixture-copy
+      permission problem.
+
+2541. Reported: "The new GR tests pass. The full existing suite hits an
+      unrelated fixture-copy problem: the private game files are read-only, and
+      several fixture builders copy them into temp dirs and then try to
+      overwrite `LOGDIR` or `VOL.3` without changing permissions. I’m not going
+      to blur that into the GR compression change unless it becomes necessary,
+      but I’ll record it as a verification caveat."
+
+      Action/result: Recorded the full-suite failure as a fixture permission
+      caveat rather than a GR parser failure.
+
+2542. Reported: "There’s another version-level difference beyond compression:
+      the GR v3 dispatcher tables are larger. The action dispatcher checks
+      through `0xb5` and calls AGIDATA table `0x0440`; the condition dispatcher
+      checks through `0x25` and calls table `0x0762`. SQ2 v2 topped out at
+      `0xaf` actions and `0x12` conditions, so I’m doing a quick decoded-logic
+      census to see which of those newer slots are actually used in Gold Rush."
+
+      Action/result: Disassembled GR dispatch code and ran a decoded-logic
+      census using v3 table bases; all present GR logic parsed without errors.
+
+2543. Reported: "I’m also extending the local logic disassembler just enough to
+      consume the new resource module. That gives us an immediate cross-version
+      sanity check: decoded GR logic can be walked with the v3 table bases,
+      while SQ2 still uses the existing v2 table bases."
+
+      Action/result: Updated `tools/disassemble_logic.py` to use
+      `tools/agi_resources.py` for logic payload loading and to select v3 table
+      bases for combined-directory games.
+
+2544. Reported: "The disassembler now has format-aware payload loading and
+      table-base selection. I’m checking it on SQ2 first for backward
+      compatibility, then on GR to confirm that compressed logic disassembles
+      without parse errors."
+
+      Action/result: Disassembled SQ2 and GR logic 0 and ran
+      `tools/disassemble_logic.py --game-dir games/GR --stats` successfully.
+
+2545. Reported: "The logic disassembler can now walk GR’s compressed logic
+      resources. A decoded census found no parse errors across the present GR
+      logic scripts; interestingly, although the v3 dispatcher supports action
+      slots through `0xb5` and condition slots through `0x25`, this Gold Rush
+      data set only uses action opcodes through `0xa9` and conditions through
+      `0x0e`."
+
+      Action/result: Confirmed the GR logic opcode-use range from the stats
+      output and kept the extra v3 slots marked as not yet behavior-specified.
+
+2546. Reported: "I’m updating the docs now: resource format chapter,
+      executable notes, symbolic labels, progress dashboard, and progress log.
+      I’ll keep the GR sections explicitly marked as v3/Gold Rush observations
+      rather than rewriting the SQ2-centered spec as if every version behaves
+      identically."
+
+      Action/result: Added a Gold Rush / AGI v3 resource-container comparison
+      section and a clean-room evidence note.
+
+2547. Reported: "The evidence notes now capture the key commands, offsets, and
+      the full-suite caveat. I’m adding the GR address associations to the
+      symbolic label map next so future v3/v2 comparisons can refer to stable
+      routine names rather than raw offsets."
+
+      Action/result: Added initial GR / AGI v3 symbolic label associations for
+      dispatch tables, resource loaders, decompression routines, and directory
+      globals.
+
+2548. Reported: "The symbolic map now has a GR/v3 association section for the
+      resource loader, decompression routines, dispatch tables, and moved
+      globals. I’m updating `PROGRESS.md` so the dashboard reflects that
+      cross-version work has actually started rather than being purely future
+      work."
+
+      Action/result: Updated `PROGRESS.md` with Gold Rush v3 resource coverage,
+      v3 opcode-table caveats, and next highest-value work.
+
+2549. Reported: "`PROGRESS.md` now points at the next GR/v3 work directly, and
+      it records the current full-suite blocker as a separate fixture permission
+      issue. I’m appending the progress-log entries for this pass before
+      running mdBook."
+
+      Action/result: Appended the progress-log entries for the Gold Rush v3
+      resource/decompression pass.
+
+2550. Reported: "The documentation trail is updated. I’m running the book build
+      and focused tests now; after that I’ll check the diff for accidental
+      noise, especially because `build/` is disposable and `run.sh` was already
+      untracked."
+
+      Action/result: `mdbook build docs`, `tests/test_agi_resources.py`, and
+      focused SQ2 logic/sound tests all passed.
+
+2551. Reported: "The book builds cleanly and the focused tests pass. The only
+      untracked file unrelated to me is still `run.sh`; the new untracked files
+      are the resource module and its tests. I’m doing a final diff scan for
+      accuracy before I wrap up."
+
+      Action/result: Reviewed `git diff --stat`, selected diffs, and a GR
+      parser summary command.
+
+2552. Reported: "The diff scan looks coherent. One small thing I noticed from
+      the stat: untracked files don’t show in `git diff --stat`, so I’m
+      checking the new resource module and tests directly before the final
+      status."
+
+      Action/result: Read `tools/agi_resources.py`,
+      `tests/test_agi_resources.py`, and the final `git status --short`.
+
+2553. Reported: "I spotted two housekeeping bits before closing: make
+      split-directory detection case-insensitive like the file opener, and log
+      the final verification updates too. Then I’ll rerun the focused checks."
+
+      Action/result: Made split-directory detection case-insensitive in
+      `tools/agi_resources.py` and recorded the final verification updates in
+      this progress log.
+
+2554. Reported: "Everything I changed still verifies: mdBook passes, the new
+      GR resource tests pass, and the existing SQ2 logic/sound focused tests
+      pass. I’m checking final status now."
+
+      Action/result: Final status showed modified docs/tooling plus new
+      `tools/agi_resources.py` and `tests/test_agi_resources.py`; pre-existing
+      untracked `run.sh` remains unrelated.
+
+2555. Reported: "I’ll wire this in at two levels: first the documentation
+      chapter and summary entry, then the fixture builders/tests that currently
+      mutate copied read-only game files. I’ll start by finding the fixture code
+      paths that touch `games/` or preserve read-only permissions."
+
+      Action/result: Searched docs, tests, and tools for fixture builders,
+      `LOGDIR`/`VOL.3` patching, game-directory references, and copy/write
+      operations.
+
+2556. Reported: "I found the likely permission caveat called out in
+      `PROGRESS.md`, and the fixture tooling is centered in
+      `tools/qemu_fixture.py` plus the probe wrappers. I’m reading those paths
+      now so the fix lands in the shared primitive instead of scattering chmods
+      through tests."
+
+      Action/result: Read `tools/qemu_fixture.py`, related tests, and wrapper
+      probe code that uses `copy_sq2_tree()`.
+
+2557. Reported: "The shared fixture builder is SQ2-v2-specific right now and
+      writes patched `LOGDIR`/`PICDIR`/`VOL.3` into whatever destination it’s
+      given. The change I’m aiming for is to make the fixture destination a
+      fresh, writable copy under `build/`, leaving `games/*` as immutable
+      inputs."
+
+      Action/result: Identified `copy_sq2_tree()` and
+      `copy_minimal_picture_tree()` as the shared copy points that should make
+      generated copies writable.
+
+2558. Reported: "I’m also going to add a guard so fixture builders refuse
+      destinations inside `games/`. That makes the intended contract
+      executable: `games/` is evidence input, `build/` is where experimental
+      copies and mutations happen."
+
+      Action/result: Planned a fixture-destination guard before patching copy
+      logic.
+
+2559. Reported: "The docs already have a cross-version workflow chapter, so the
+      new `Versions` chapter can be the dashboard: one row per observed
+      interpreter/game version plus concrete deltas like resource container,
+      compression, dispatch-table size, and fixture status. I’m adding that as
+      a lightweight reference rather than burying it in the long evidence log."
+
+      Action/result: Read the existing mdBook summary, cross-version workflow,
+      current status, and GR resource-container notes to shape the new chapter.
+
+2560. Reported: "I’ve got the edit shape now. I’m patching the fixture copy
+      primitive to: clean generated destinations safely, copy source game files
+      as writable files, preserve `.ppm` captures, and fail fast if someone
+      points a fixture builder at `games/`."
+
+      Action/result: Updated `tools/qemu_fixture.py` with writable-copy
+      helpers, generated-destination cleanup, `.ppm` preservation, and a guard
+      rejecting destinations under `games/`.
+
+2561. Reported: "The core fixture copy path is patched. I’m adding focused
+      tests for the two failure modes we care about: copied files from
+      read-only game inputs must be writable, and generated fixtures must not
+      be allowed inside `games/`."
+
+      Action/result: Added tests in `tests/test_qemu_fixture.py` for read-only
+      source-file copying and `games/` destination rejection.
+
+2562. Reported: "The fixture tests now cover the read-only-input bug directly.
+      I’m running that slice before updating the docs so I can record the
+      actual result rather than a hopeful one."
+
+      Action/result: Ran
+      `AGI_GAME_DIR=games/SQ2 python3 -B -m unittest tests/test_qemu_fixture.py`;
+      all 39 tests passed.
+
+2563. Reported: "The new chapter is in the book index, and `AGENTS.md` now
+      states the immutable-`games/` rule explicitly. I’m updating the
+      high-level tracker and evidence notes next, including the fact that the
+      earlier fixture-copy permission caveat is now addressed in the shared
+      builder."
+
+      Action/result: Added `docs/src/versions.md`, linked it from
+      `docs/src/SUMMARY.md`, updated the docs README, and recorded the
+      immutable input rule in `AGENTS.md`.
+
+2564. Reported: "The tracker still had the fixture permission problem listed as
+      future work, so I’m changing that from a blocker into a completed
+      infrastructure note. After that I’ll run the broader suite to see whether
+      this uncovers anything else."
+
+      Action/result: Updated `PROGRESS.md` and
+      `docs/src/clean_room_executable_notes.md` for the fixture-copy fix before
+      broad verification.
+
+2565. Reported: "The code and docs are patched; now I’m verifying the book and
+      the local suite. The important check is whether the full suite gets past
+      the old read-only fixture-copy failure."
+
+      Action/result: Ran `mdbook build docs` and
+      `AGI_GAME_DIR=games/SQ2 python3 -B -m unittest discover -s tests`.
+      mdBook passed, and the full local suite passed 250 tests.
+
+2566. Reported: "Good result: mdBook passes, and the full local unit suite now
+      passes 250 tests. I’m recording that in the clean-room notes and progress
+      log so the previous caveat is closed rather than just fixed in code."
+
+      Action/result: Updated `PROGRESS.md` and
+      `docs/src/clean_room_executable_notes.md` with the successful full-suite
+      verification.
+
+2567. Reported: "One extra safety check fell out of the diff scan: the guard
+      should also reject destinations that are parents of the selected game
+      directory, because the cleanup step could otherwise delete the input. I’m
+      adding that small hardening now."
+
+      Action/result: Hardened the fixture-destination guard and added a test
+      that rejects parent directories of the selected game input.
+
+2568. Reported: "The guard is now a little harder to misuse, and I added a test
+      for that parent-directory case. I’m rerunning the focused fixture tests
+      and the full suite once more because this is exactly the kind of safety
+      code where "probably fine" is too breezy."
+
+      Action/result: Reran
+      `AGI_GAME_DIR=games/SQ2 python3 -B -m unittest tests/test_qemu_fixture.py`
+      and `AGI_GAME_DIR=games/SQ2 python3 -B -m unittest discover -s tests`;
+      the focused fixture slice passed 40 tests and the full local suite passed
+      251 tests.

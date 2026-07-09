@@ -4,6 +4,7 @@
 from __future__ import annotations
 
 import argparse
+import stat
 import shutil
 from pathlib import Path
 
@@ -11,6 +12,8 @@ from agi_graphics import picture_payload, view_payload
 from disassemble_logic import SQ2
 
 
+ROOT = Path(__file__).resolve().parents[1]
+GAMES_ROOT = ROOT / "games"
 SCRATCH_VAR = 250
 DEFAULT_INIT_FLAG = 199
 SPEED_VAR = 0x0A
@@ -689,21 +692,80 @@ def patch_dir_entry(directory: bytes, resource_no: int, volume: int, offset: int
     return bytes(patched)
 
 
-def copy_sq2_tree(destination: Path) -> None:
+def _is_relative_to(path: Path, parent: Path) -> bool:
+    try:
+        path.relative_to(parent)
+        return True
+    except ValueError:
+        return False
+
+
+def _resolved(path: Path) -> Path:
+    return path.expanduser().resolve(strict=False)
+
+
+def _make_writable(path: Path) -> None:
+    try:
+        path.chmod(path.stat().st_mode | stat.S_IWUSR)
+    except FileNotFoundError:
+        return
+
+
+def _remove_fixture_child(path: Path) -> None:
+    _make_writable(path)
+    if path.is_dir() and not path.is_symlink():
+        for child in path.rglob("*"):
+            _make_writable(child)
+        shutil.rmtree(path)
+    else:
+        path.unlink()
+
+
+def _validate_fixture_destination(destination: Path) -> None:
+    resolved_destination = _resolved(destination)
+    resolved_games = _resolved(GAMES_ROOT)
+    if _is_relative_to(resolved_destination, resolved_games):
+        raise ValueError("fixture destination must not be inside games/; use build/ for generated fixtures")
+    resolved_game = _resolved(SQ2)
+    if (
+        resolved_destination == resolved_game
+        or _is_relative_to(resolved_destination, resolved_game)
+        or _is_relative_to(resolved_game, resolved_destination)
+    ):
+        raise ValueError("fixture destination must not modify the selected game directory")
+
+
+def _prepare_fixture_destination(destination: Path, preserve_ppm: bool = True) -> None:
+    _validate_fixture_destination(destination)
     destination.mkdir(parents=True, exist_ok=True)
+    for path in destination.iterdir():
+        if preserve_ppm and path.is_file() and path.suffix.lower() == ".ppm":
+            continue
+        _remove_fixture_child(path)
+
+
+def _copy_game_file(source: Path, destination: Path) -> None:
+    if destination.exists():
+        _remove_fixture_child(destination)
+    shutil.copy2(source, destination)
+    destination.chmod(destination.stat().st_mode | stat.S_IRUSR | stat.S_IWUSR)
+
+
+def copy_game_tree(destination: Path, *, minimal_files: set[str] | None = None) -> None:
+    _prepare_fixture_destination(destination)
     for source in SQ2.iterdir():
         if source.is_file():
-            shutil.copy2(source, destination / source.name)
+            if minimal_files is not None and source.name.upper() not in minimal_files:
+                continue
+            _copy_game_file(source, destination / source.name)
+
+
+def copy_sq2_tree(destination: Path) -> None:
+    copy_game_tree(destination)
 
 
 def copy_minimal_picture_tree(destination: Path) -> None:
-    destination.mkdir(parents=True, exist_ok=True)
-    for path in destination.iterdir():
-        if path.is_file() and path.suffix.lower() != ".ppm":
-            path.unlink()
-    for source in SQ2.iterdir():
-        if source.is_file() and source.name.upper() in MINIMAL_PICTURE_FIXTURE_FILES:
-            shutil.copy2(source, destination / source.name)
+    copy_game_tree(destination, minimal_files=MINIMAL_PICTURE_FIXTURE_FILES)
 
 
 def build_picture_fixture(picture_no: int, destination: Path) -> Path:

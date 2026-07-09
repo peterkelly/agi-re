@@ -4,14 +4,17 @@
 from __future__ import annotations
 
 import sys
+import stat
 import tempfile
 import unittest
 from pathlib import Path
+from unittest import mock
 
 
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT / "tools"))
 
+import qemu_fixture  # noqa: E402
 from qemu_fixture import (  # noqa: E402
     DEFAULT_INIT_FLAG,
     CAROUSEL_DELAY_VAR,
@@ -303,6 +306,41 @@ class QemuFixtureTests(unittest.TestCase):
         patched = patch_dir_entry(original, resource_no=2, volume=3, offset=0x12345)
         self.assertEqual(patched[:6], bytes([0xFF] * 6))
         self.assertEqual(patched[6:9], bytes([0x31, 0x23, 0x45]))
+
+    def test_copy_game_tree_makes_read_only_inputs_writable_in_fixture(self) -> None:
+        with tempfile.TemporaryDirectory() as temp_dir:
+            root = Path(temp_dir)
+            source = root / "source-game"
+            source.mkdir()
+            for name in ("LOGDIR", "VOL.3"):
+                path = source / name
+                path.write_bytes(b"source")
+                path.chmod(stat.S_IRUSR | stat.S_IRGRP | stat.S_IROTH)
+
+            destination = root / "build" / "fixture"
+            with mock.patch.object(qemu_fixture, "SQ2", source):
+                qemu_fixture.copy_sq2_tree(destination)
+
+            copied = destination / "LOGDIR"
+            self.assertTrue(copied.stat().st_mode & stat.S_IWUSR)
+            copied.write_bytes(b"patched")
+            self.assertEqual(copied.read_bytes(), b"patched")
+
+    def test_copy_game_tree_rejects_games_directory_destination(self) -> None:
+        destination = ROOT / "games" / "_codex_fixture_guard"
+        with self.assertRaisesRegex(ValueError, "games/"):
+            qemu_fixture.copy_sq2_tree(destination)
+        self.assertFalse(destination.exists())
+
+    def test_copy_game_tree_rejects_parent_of_selected_game(self) -> None:
+        with tempfile.TemporaryDirectory() as temp_dir:
+            root = Path(temp_dir)
+            source = root / "source-game"
+            source.mkdir()
+            with mock.patch.object(qemu_fixture, "SQ2", source):
+                with self.assertRaisesRegex(ValueError, "selected game"):
+                    qemu_fixture.copy_sq2_tree(root)
+            self.assertTrue(source.exists())
 
     def test_synthetic_picture_fixture_patches_logdir_picdir_and_vol3(self) -> None:
         payload = bytes([0xF0, 0x02, 0xF6, 0, 0, 1, 1, 0xFF])

@@ -13,6 +13,12 @@ from collections import Counter
 from dataclasses import dataclass
 from pathlib import Path
 
+from agi_resources import (
+    ResourceEntry,
+    detect_layout,
+    read_directory_entries,
+    read_resource_payload,
+)
 from project_paths import game_dir
 
 
@@ -71,12 +77,29 @@ def read_volume_payload(volume: int, offset: int) -> bytes:
     return data[start : start + length]
 
 
+def logic_directory_entries() -> list[ResourceEntry | tuple[int, int] | None]:
+    layout = detect_layout(SQ2)
+    if layout.version == "v2_split":
+        return read_dir_entries(SQ2 / "LOGDIR")
+    return read_directory_entries(SQ2, "logic")
+
+
 def logic_payload(logic_no: int) -> bytes:
-    entries = read_dir_entries(SQ2 / "LOGDIR")
+    layout = detect_layout(SQ2)
+    entries = logic_directory_entries()
     entry = entries[logic_no]
     if entry is None:
         raise ValueError(f"logic {logic_no} is absent")
+    if layout.version != "v2_split":
+        return read_resource_payload(SQ2, "logic", logic_no)
     return read_volume_payload(*entry)
+
+
+def dispatch_table_layout() -> tuple[int, int, int, int]:
+    layout = detect_layout(SQ2)
+    if layout.version == "v3_combined":
+        return 0x0440, 0xB6, 0x0762, 0x26
+    return 0x061D, 0xB0, 0x08FD, 0x13
 
 
 COND_NAMES = {
@@ -403,11 +426,12 @@ def main() -> None:
     args = parser.parse_args()
 
     agidata = AGIDATA.read_bytes()
-    action_table = load_table(agidata, 0x061D, 0xB0)
-    cond_table = load_table(agidata, 0x08FD, 0x13)
+    action_base, action_count, cond_base, cond_count = dispatch_table_layout()
+    action_table = load_table(agidata, action_base, action_count)
+    cond_table = load_table(agidata, cond_base, cond_count)
 
     if args.stats:
-        entries = read_dir_entries(SQ2 / "LOGDIR")
+        entries = logic_directory_entries()
         action_counts: Counter[int] = Counter()
         cond_counts: Counter[int] = Counter()
         errors: list[tuple[int, int, str]] = []
@@ -415,7 +439,7 @@ def main() -> None:
             if entry is None:
                 continue
             try:
-                payload = read_volume_payload(*entry)
+                payload = logic_payload(logic_no)
             except ValueError as exc:
                 errors.append((logic_no, 0, str(exc)))
                 continue
@@ -478,7 +502,7 @@ def main() -> None:
 
     logic_numbers = args.logic
     if args.limit is not None:
-        entries = read_dir_entries(SQ2 / "LOGDIR")
+        entries = logic_directory_entries()
         logic_numbers = [idx for idx in range(min(args.limit, len(entries))) if entries[idx] is not None]
     if not logic_numbers:
         logic_numbers = [0]

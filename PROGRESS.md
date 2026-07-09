@@ -31,6 +31,14 @@ better understood, or a new remaining-work item is discovered.
 - Main remaining risk areas: full picture/view renderer edge behavior, text and
   input UI details, sound/audio semantics, final compatibility suite breadth,
   and turning the accumulated notes into implementation-ready subsystem specs.
+- Cross-version comparison has begun with Gold Rush (`games/GR`) / AGI v3:
+  resource directory and volume compression differences are source-backed,
+  locally decoded, and documented. The v3 logic dispatcher tables are mapped
+  well enough to parse all present GR logic resources, but the extra v3 opcode
+  slots above the SQ2 v2 ranges are not yet behavior-specified.
+- Generated original-engine fixture builders now treat `games/` as immutable:
+  they copy the selected game input to a generated destination, make copied
+  files writable, and reject fixture destinations under `games/`.
 
 ## Logic Structural Bytes
 
@@ -255,8 +263,11 @@ better understood, or a new remaining-work item is discovered.
     `docs/src/progress_log.md`.
   - Remaining: keep updated continuously.
 - [~] Executable and overlay symbolic map
-  - Evidence: `docs/src/symbolic_labels.md`.
-  - Remaining: continue assigning role-based labels for cross-version work.
+  - Evidence: `docs/src/symbolic_labels.md`, now including initial Gold Rush
+    / AGI v3 address associations for resource loading, decompression, and
+    dispatch tables.
+  - Remaining: continue assigning role-based labels for cross-version work,
+    especially where later interpreters add features or move routines.
 - [~] Startup, command-line flags, adapter selection, and display modes
   - Evidence: startup parser, display-mode `0x8c`, CGA/EGA overlay notes.
   - Remaining: full EGA behavior is the target; non-EGA adapter behavior should
@@ -264,8 +275,12 @@ better understood, or a new remaining-work item is discovered.
 - [~] Resource directories, volume records, and cache records
   - Evidence: local resource parsers, loader labels, room-switch cache reset,
     and source-backed cache record layouts for logic, view, picture, and sound.
+    Gold Rush / AGI v3 coverage now includes combined `GRDIR` sections,
+    7-byte volume headers, prefixed `GRVOL.N` files, dictionary decompression,
+    and picture-nibble expansion in `tools/agi_resources.py`.
   - Remaining: loader error-path behavior only where needed by compatibility
-    tests.
+    tests; apply the v3 parser to additional games/interpreters as local inputs
+    are selected.
 - [x] Logic resource format, messages, dispatch, and control flow
   - Evidence: logic resource docs, interpreter source pass, QEMU opcode probes.
   - Remaining: keep opcode tracker aligned with new findings.
@@ -414,7 +429,10 @@ better understood, or a new remaining-work item is discovered.
     original-engine probes. The QEMU
     broad manifest passed in `build/compatibility-suite/qemu_broad_002.json`,
     including the smoke layer, the eight-picture timed carousel, and the
-    19-case view/object stress carousel.
+    19-case view/object stress carousel. Generated fixture copies now preserve
+    private game inputs as read-only evidence and make only the generated copy
+    writable; `AGI_GAME_DIR=games/SQ2 python3 -B -m unittest discover -s tests`
+    passed 251 tests after this fix.
   - Remaining: assemble a final broad suite that can validate a clean-room
     implementation against original-engine outputs; scale timed polling
     carousel sweeps to additional resource batches and future interpreter
@@ -423,9 +441,13 @@ better understood, or a new remaining-work item is discovered.
   - Evidence: symbolic labels are being curated for SQ2, and
     `docs/src/cross_version_workflow.md` now defines the local evidence package,
     label-mapping anchors, pass order, compatibility tiers, and delta-recording
-    rules for future interpreter/game versions.
-  - Remaining: apply the workflow to additional interpreter versions bundled
-    with other games once those local inputs are available.
+    rules for future interpreter/game versions. The first application to
+    Gold Rush / AGI v3 has mapped the changed resource container and the moved
+    v3 dispatch/resource routines. `docs/src/versions.md` now keeps the concise
+    per-version difference ledger.
+  - Remaining: continue the GR v3 comparison beyond containers into opcode
+    deltas, loader error paths, object/view/picture runtime changes, and then
+    repeat the workflow for additional local games/interpreter versions.
 - [~] Final human-readable implementation spec
   - Evidence: mdBook chapters exist and are growing.
   - Remaining: convert source/evidence notes into polished, subsystem-oriented
@@ -433,9 +455,9 @@ better understood, or a new remaining-work item is discovered.
 
 ## Highest-Value Remaining Work
 
-1. Apply the cross-version workflow when another local interpreter/game version
-   is available. This is the main remaining blocker for proving that symbolic
-   labels and compatibility tests transfer across builds.
+1. Continue the Gold Rush / AGI v3 comparison from the newly decoded resources:
+   map v3 opcode-table additions, verify which behavior changed versus SQ2 v2,
+   and start adding multi-version tests around resource decoding.
 2. Continue source-first renderer work only when disassembly or a valid local
    resource exposes a concrete edge not already modeled. Use QEMU as
    confirmation/regression evidence.

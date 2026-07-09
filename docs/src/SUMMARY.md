@@ -8,6 +8,7 @@
 - [Decrypted AGI Executable](./agi_executable.md)
 - [Symbolic Labels](./symbolic_labels.md)
 - [Cross-Version Workflow](./cross_version_workflow.md)
+- [Versions](./versions.md)
 - [Resource Files](./resource_files.md)
 - [Runtime Model](./runtime_model.md)
 - [Graphics and Object Pipeline](./graphics_object_pipeline.md)
