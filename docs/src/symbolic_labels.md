@@ -438,6 +438,31 @@ decrypted SQ2 executable, so file offsets are image offsets plus `0x200`.
 | `opcode.action.clear_key_release_event_gate` | table slot `0xb5`, image `0x63b0` | GR-only action slot. Stores zero in `data.input.key_release_enqueue_gate_0405`; GR action `0xad` stores one in the same byte. |
 | `code.menu.interact` | image `0x9724` | GR address association for the interactive menu path. Tests `data.menu.interaction_gate_0403` before drawing/waiting; returns immediately while the gate is zero. |
 | `code.input.keyboard_irq_hook` | image `0x63b8` | GR keyboard interrupt hook. Tests `data.input.key_release_enqueue_gate_0405` before enqueueing `(type=2, value=0)` on selected key-release paths. |
+| `code.input.set_line_config` | image `0x7c24` | GR association for SQ2 action `0x6f`. Stores the same input-line row/bounds roles at relocated globals and computes display offset `[0x11b1] = arg0 << 3` without SQ2's display-mode-2 branch. |
+| `code.input.edit_string` | image `0x0fb7` | GR association for SQ2 image `0x0da9`; blocking string editor used by GR prompt actions `0x73` and `0x76`. |
+| `code.input.handle_input_char` | image `0x3961` | GR association for SQ2 image `0x3652`; visible/source input buffer character helper. |
+| `code.input.erase_input_line` | image `0x3a29` | GR association for SQ2 action `0x8a`. Loops on visible input length `[0x0e19]`; no SQ2 display-mode-2/input-width skip branch. |
+| `code.input.refresh_input_line` | image `0x3a48` | GR association for SQ2 action `0x89`. Calls the relocated source-to-visible helper when input is enabled; no SQ2 alternate display-mode-2/input-width path. |
+| `code.input.append_source_to_visible` | image `0x3a5e` | GR association for SQ2 image `0x37a5`; appends source input buffer bytes into the visible buffer. |
+| `code.input.show_prompt_marker` | image `0x3ab0` | GR association for SQ2 image `0x37f7`; draws prompt marker byte `[0x03f7]` when marker state `[0x0dc3]` is clear and the byte is nonzero. |
+| `code.input.erase_prompt_marker` | image `0x3ad9` | GR association for SQ2 image `0x382e`; clears the prompt-marker visible state and backspaces the marker when configured. |
+| `code.input.prompt_marker_visible_state` | image `0x3b00` | GR association for SQ2 helper `0x3863`; returns prompt-marker visible word `[0x0dc3]`. |
+| `code.input.set_prompt_marker_char` | image `0x3b43` | GR association for SQ2 action `0x6c`; stores the first byte of a resolved message in prompt-marker byte `[0x03f7]`. |
+| `code.input.redraw_input_line` | image `0x3b66` | GR association for SQ2 image `0x38d7`; redraws the configured input row, prompt marker, fixed prompt string, and visible input buffer. |
+| `code.input.set_width_flag_action` | image `0x5286` | GR maps SQ2 action `0xa3` to the generic no-op/return handler. |
+| `code.input.clear_width_flag_action` | image `0x5286` | GR maps SQ2 action `0xa4` to the generic no-op/return handler. |
+| `code.input.map_key_event` | image `0x4e98` | GR association for SQ2 action `0x79`; same three-operand key/event mapping shape, but scans `0x31` four-byte slots instead of SQ2's `0x27`. QEMU probe `build/gr-v3-behavior/key_map_capacity_qemu_pic001_002.json` validates slot 48 with a typed-key positive case and no-key control. |
+| `code.text.close_window_state` | image `0x21a2` | GR association for SQ2 action `0xa9`. Restores a saved rectangle when `data.text.window_active_0b24` is nonzero and clears that active flag; it does not clear a GR input-width flag. |
+| `code.text.restore_saved_rectangle` | image `0x582b` | GR association for SQ2 image `0x560c`; rectangle restore helper consumed by `code.text.close_window_state`. |
+| `code.room.switch_room_action` | image `0x19d4` | GR association for SQ2 action `0x12`; calls `code.room.remap_reserved_room_target` before the relocated room-switch helper `0x1a0a`. |
+| `code.room.remap_reserved_room_target` | image `0x0062` | GR-only helper used by action `0x12`: bytes `0x7e..0x80` return `0x49`; all other target bytes pass through unchanged. QEMU probe `build/gr-v3-behavior/room_remap_all_qemu_pic001_001.json` validates `0x7e`, `0x7f`, and `0x80` as aliases for `0x49` with matching nonblank captures. |
+| `code.inventory.show_selection_action` | image `0x351e` | GR association for SQ2 action `0x7c`; relocated carried-item selector plus temporary word `data.inventory.selection_event_gate_0dc1`. |
+| `code.save.save_game_state` | image `0x29e5` | GR association for SQ2 action `0x7d`; relocated five-block save writer with an XOR pass over the object/inventory chunk before and after save-file writes. |
+| `code.save.object_inventory_xor_range` | image `0x07bc` | GR helper called by save and object/inventory setup paths. XORs bytes in a caller-supplied range with repeating key bytes at `0x072c` until a zero key byte. |
+| `data.save.object_inventory_block_start_07d6` | GR data `[0x07d6]` | Pointer to the GR save block that is XOR-transformed before writing and transformed again before returning from action `0x7d`. |
+| `data.save.object_inventory_block_length_07da` | GR data `[0x07da]` | Length of the GR save block rooted at `data.save.object_inventory_block_start_07d6`; save action `0x7d` writes this as the third length-prefixed state block. |
+| `data.save.object_inventory_xor_key_072c` | GR image `0x072c..0x0766` | Observed 59-byte sequence used by `code.save.object_inventory_xor_range`; helper wraps when it reaches the zero byte at image `0x0767`. |
+| `code.restart.confirm_restart_action` | image `0x26e0` | GR association for SQ2 action `0x80`; records prompt-marker visible state before confirmation, then redraws after accepted restart or after canceled restart only when the marker had been visible. |
 | `code.resource.load_all_directories` | image `0x44de` | v3 combined-directory loader. Formats `"%sdir"`, reads a whole combined directory, derives four section pointers from the first eight bytes, and falls back to separate `logdir`/`picdir`/`viewdir`/`snddir` loads if the combined open fails. |
 | `code.resource.dir_entry_or_null` | image `0x4599` | v3 shared absent-entry helper. Returns null only for exact `ff ff ff`, unlike SQ2's high-nibble `0xf` check. |
 | `code.resource.logic_dir_entry` | image `0x45bc` | Uses v3 logic directory base `[0x0fda]`; missing-resource string `logic` at `AGIDATA.OVL:0x0f5e`. |
@@ -487,7 +512,7 @@ decrypted SQ2 executable, so file offsets are image offsets plus `0x200`.
 | `code.object.insert_update_node_head` | image `0x0428` | GR address association for SQ2 image `0x042f`; normalized static comparison matches. |
 | `code.object.draw_update_list_tail_to_head` | image `0x0457` | GR address association for SQ2 image `0x045e`; normalized static comparison matches, but GR calls main-image rectangle save/draw routines instead of SQ2 overlay entries. |
 | `code.object.refresh_update_list_saved_pos` | image `0x0481` | GR address association for SQ2 image `0x0488`; normalized static comparison matches. |
-| `code.object.frame_timer_update` | image `0x055c` | GR address association for SQ2 image `0x0563`; differs by an extra helper-gated branch before using the four-plus-group direction table. |
+| `code.object.frame_timer_update` | image `0x055c` | GR address association for SQ2 image `0x0563`; differs by gating direction-to-loop selection for views with more than four loops on flag `0x14` and treating exactly-four-loop views as a no-auto-select case in that branch. |
 | `code.object.advance_frame_by_mode` | image `0x4b0e` | GR address association for SQ2 image `0x48b3`; apparent straight-line differences are embedded jump-table bytes, while manually inspected branch bodies match as relocated skeletons. |
 | `code.object.collision_test` | image `0x4974` | GR address association for SQ2 image `0x4719`; normalized static comparison matches. |
 | `code.object.control_acceptance` | image `0x58e5` | GR address association for SQ2 image `0x56b8`; normalized static comparison matches. |
@@ -502,7 +527,7 @@ decrypted SQ2 executable, so file offsets are image offsets plus `0x200`.
 | `code.object.set_root_16ff_membership` | image `0x6eda` | GR address association for SQ2 image `0x6b62`; normalized static comparison matches. |
 | `code.motion.update_objects` | image `0x1720` | GR address association for SQ2 image `0x150a`; normalized static comparison matches. |
 | `code.motion.pre_mode_and_boundary_update` | image `0x0654` | GR address association for SQ2 image `0x0644`; normalized static comparison matches. |
-| `code.motion.dispatch_mode_step` | image `0x068a` | GR address association for SQ2 image `0x067a`; GR accepts one additional object mode selector before falling through to the same boundary-check tail. |
+| `code.motion.dispatch_mode_step` | image `0x068a` | GR address association for SQ2 image `0x067a`; GR accepts motion mode `4` and dispatches it to the same target-direction helper as mode `3` before falling through to the same boundary-check tail. |
 | `code.motion.rectangle_boundary_check` | image `0x06eb` | GR address association for SQ2 image `0x06d9`; apparent straight-line differences are embedded direction jump-table bytes, while manually inspected post-table body matches as a relocated skeleton. |
 | `code.object.save_rect_overlay_entry` | image `0x5b67` | GR packages the rectangle-save routine in the main executable image; SQ2 reaches this role through `IBM_OBJS.OVL:0x9db0`. |
 | `code.object.restore_rect_overlay_entry` | image `0x5ba6` | GR packages the rectangle-restore routine in the main executable image; SQ2 reaches this role through `IBM_OBJS.OVL:0x9db3`. |
@@ -513,3 +538,13 @@ decrypted SQ2 executable, so file offsets are image offsets plus `0x200`.
 | `data.resource.sound_dir` | GR data `[0x0fe0]` | Loaded v3 sound directory section pointer. |
 | `data.menu.interaction_gate_0403` | GR data `[0x0403]` | Word written by GR-only action `0xb1`; `code.menu.interact` returns immediately while this word is zero. |
 | `data.input.key_release_enqueue_gate_0405` | GR data `[0x0405]` | Byte set by GR action `0xad`, cleared by GR-only action `0xb5`, and tested by `code.input.keyboard_irq_hook` before selected key-release event enqueue. |
+| `data.input.prompt_marker_char` | GR data `[0x03f7]` | Relocated prompt-marker byte used by GR input-line redraw helpers. |
+| `data.input.visible_buffer` | GR data `[0x0dc5]` | Relocated visible input buffer used by GR `code.input.handle_input_char` and refresh helpers. |
+| `data.input.source_buffer` | GR data `[0x0def]` | Relocated accepted/source input buffer used by GR refresh and parser paths. |
+| `data.input.visible_length` | GR data `[0x0e19]` | Relocated visible input length tested by GR input erase/append helpers. |
+| `data.input.display_offset` | GR data `[0x11b1]` | Relocated display offset written by GR action `0x6f`; computed as `arg0 << 3`. |
+| `data.text.input_line_enabled` | GR data `[0x03f3]` | Relocated input-line enabled word controlled by GR actions `0x77` and `0x78`. |
+| `data.text.window_active_0b24` | GR data `[0x0b24]` | Relocated active text-window state consumed and cleared by GR `code.text.close_window_state`. |
+| `data.text.window_saved_lower_right_0b2a` | GR data `[0x0b2a]` | Relocated packed saved-window rectangle word passed to GR rectangle restore helper. |
+| `data.text.window_saved_upper_left_0b2c` | GR data `[0x0b2c]` | Relocated packed saved-window rectangle word passed to GR rectangle restore helper. |
+| `data.inventory.selection_event_gate_0dc1` | GR data `[0x0dc1]` | Temporary word set while GR's interactive carried-item selector waits/handles events and cleared before action `0x7c` returns. |

@@ -927,6 +927,19 @@ multi-character paths, a single slash/backslash is accepted as a root path,
 two-character drive paths such as `A:` use the drive-availability probe, and
 other paths use DOS find-first with directory attributes.
 
+It also covers the source-modeled Gold Rush / AGI v3 object/inventory save
+transform. The helper `gr_v3_object_inventory_save_xor()` applies the observed
+59-byte repeating XOR sequence from GR image `0x072c`; tests prove the
+transform round-trips, wraps after byte 58, and rejects an empty generic key.
+This is not yet a full original-engine GR save extraction, but it makes the
+version-specific third-block encoding executable in the local compatibility
+model.
+
+`tests/test_restart_model.py` covers the source-backed Gold Rush / AGI v3
+restart prompt-marker redraw branch. The tested truth table is: accepted
+restart redraws the marker, canceled restart redraws only when the marker was
+visible before entry.
+
 Run a dynamic original-engine save-write probe:
 
 ```bash
@@ -1394,6 +1407,32 @@ Future tests should prefer focused fixtures: a room or script state that draws a
 single picture, a single moving object, or a known cel at a known screen
 position. Those captures can then be compared against QEMU screenshots before
 being promoted from provisional renderer tests to compatibility tests.
+
+Gold Rush / AGI v3 now has a first targeted behavior probe:
+
+```bash
+python3 -B tools/gr_v3_behavior_probe.py --game-dir games/GR --picture 1 --run-qemu --output build/gr-v3-behavior/room_remap_all_qemu_pic001_001.json
+```
+
+This probe builds four copied v3 fixtures under `build/`: one switches to room
+`0x49`, and the others switch to alias targets `0x7e`, `0x7f`, and `0x80`.
+All fixtures patch logic `0x49` to draw the same picture and keep a minimal
+logic-0 dispatcher tail `call_logic_var(v0)`. The QEMU result is promoted
+because all alias captures match the direct-room capture and are nonblank.
+Earlier equal all-black captures from a missing dispatcher tail are kept only
+as harness lessons in the chronological notes.
+
+The same v3 probe tool also validates the expanded GR key-map capacity:
+
+```bash
+python3 -B tools/gr_v3_behavior_probe.py --probe key-map-capacity --game-dir games/GR --picture 1 --fixture-root build/gr-v3-behavior/key-map-capacity-fixtures --dos-prefix GRK --run-qemu --output build/gr-v3-behavior/key_map_capacity_qemu_pic001_002.json --boot-wait 5 --draw-wait 8
+```
+
+The fixture fills 48 dummy `0x79` key-map slots, places typed `x` in slot 48,
+and checks the resulting status byte by drawing original GR picture 1. QEMU
+promotes the result only when the keyed capture matches a direct picture draw
+and the no-key control does not. In the promoted run the direct and keyed
+captures are nonblank with 14 unique colors, while the no-key capture is blank.
 
 Recent attempted-but-not-promoted logic fixtures:
 

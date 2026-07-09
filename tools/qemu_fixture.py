@@ -8,8 +8,9 @@ import stat
 import shutil
 from pathlib import Path
 
+from agi_resources import ResourceDirectoryLayout, ResourceFormatError, detect_layout, read_directory_entries, volume_path
 from agi_graphics import picture_payload, view_payload
-from disassemble_logic import SQ2
+from project_paths import game_dir as configured_game_dir
 
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -673,6 +674,20 @@ def volume_record(payload: bytes, volume: int) -> bytes:
     return b"\x12\x34" + bytes([volume]) + u16le(len(payload)) + payload
 
 
+def v3_volume_record(payload: bytes, volume: int, *, metadata: int | None = None) -> bytes:
+    """Build an observed v3 direct/uncompressed volume record."""
+    if not 0 <= volume <= 0x0F:
+        raise ValueError("volume number must fit in one nibble")
+    if metadata is None:
+        metadata = volume
+    if not 0 <= metadata <= 0x7F:
+        raise ValueError("direct v3 metadata must fit in 7 bits")
+    if metadata & 0x0F != volume:
+        raise ValueError("direct v3 metadata low nibble must match directory volume")
+    length = len(payload)
+    return b"\x12\x34" + bytes([metadata]) + u16le(length) + u16le(length) + payload
+
+
 def patch_logdir_entry_zero(logdir: bytes, volume: int, offset: int) -> bytes:
     return patch_dir_entry(logdir, 0, volume, offset)
 
@@ -685,6 +700,38 @@ def patch_dir_entry(directory: bytes, resource_no: int, volume: int, offset: int
     entry_offset = resource_no * 3
     if entry_offset + 3 > len(directory):
         raise ValueError("resource number is outside directory")
+    patched = bytearray(directory)
+    patched[entry_offset] = (volume << 4) | ((offset >> 16) & 0x0F)
+    patched[entry_offset + 1] = (offset >> 8) & 0xFF
+    patched[entry_offset + 2] = offset & 0xFF
+    return bytes(patched)
+
+
+def patch_combined_dir_entry(
+    directory: bytes,
+    layout: ResourceDirectoryLayout,
+    kind: str,
+    resource_no: int,
+    volume: int,
+    offset: int,
+) -> bytes:
+    if layout.version != "v3_combined":
+        raise ValueError("combined directory patching requires a v3 combined layout")
+    if layout.section_offsets is None or layout.section_ends is None:
+        raise ResourceFormatError("combined directory layout is missing section offsets")
+    if kind not in layout.section_offsets:
+        raise ValueError(f"unknown resource kind: {kind}")
+    if not 0 <= volume <= 0x0F:
+        raise ValueError("volume number must fit in one nibble")
+    if not 0 <= offset <= 0x0FFFFF:
+        raise ValueError("resource offset must fit in 20 bits")
+
+    section_start = layout.section_offsets[kind]
+    section_end = layout.section_ends[kind]
+    entry_offset = section_start + resource_no * 3
+    if entry_offset + 3 > section_end:
+        raise ValueError("resource number is outside combined directory section")
+
     patched = bytearray(directory)
     patched[entry_offset] = (volume << 4) | ((offset >> 16) & 0x0F)
     patched[entry_offset + 1] = (offset >> 8) & 0xFF
@@ -721,22 +768,23 @@ def _remove_fixture_child(path: Path) -> None:
         path.unlink()
 
 
-def _validate_fixture_destination(destination: Path) -> None:
+def _validate_fixture_destination(destination: Path, source_game: Path | None = None) -> None:
     resolved_destination = _resolved(destination)
     resolved_games = _resolved(GAMES_ROOT)
     if _is_relative_to(resolved_destination, resolved_games):
         raise ValueError("fixture destination must not be inside games/; use build/ for generated fixtures")
-    resolved_game = _resolved(SQ2)
-    if (
-        resolved_destination == resolved_game
-        or _is_relative_to(resolved_destination, resolved_game)
-        or _is_relative_to(resolved_game, resolved_destination)
-    ):
-        raise ValueError("fixture destination must not modify the selected game directory")
+    if source_game is not None:
+        resolved_game = _resolved(source_game)
+        if (
+            resolved_destination == resolved_game
+            or _is_relative_to(resolved_destination, resolved_game)
+            or _is_relative_to(resolved_game, resolved_destination)
+        ):
+            raise ValueError("fixture destination must not modify the selected game directory")
 
 
-def _prepare_fixture_destination(destination: Path, preserve_ppm: bool = True) -> None:
-    _validate_fixture_destination(destination)
+def _prepare_fixture_destination(destination: Path, source_game: Path | None = None, preserve_ppm: bool = True) -> None:
+    _validate_fixture_destination(destination, source_game)
     destination.mkdir(parents=True, exist_ok=True)
     for path in destination.iterdir():
         if preserve_ppm and path.is_file() and path.suffix.lower() == ".ppm":
@@ -751,21 +799,68 @@ def _copy_game_file(source: Path, destination: Path) -> None:
     destination.chmod(destination.stat().st_mode | stat.S_IRUSR | stat.S_IWUSR)
 
 
-def copy_game_tree(destination: Path, *, minimal_files: set[str] | None = None) -> None:
-    _prepare_fixture_destination(destination)
-    for source in SQ2.iterdir():
+def copy_game_tree(destination: Path, *, game_dir: Path | None = None, minimal_files: set[str] | None = None) -> None:
+    source_game = Path(game_dir) if game_dir is not None else None
+    _validate_fixture_destination(destination, source_game)
+    if source_game is None:
+        source_game = configured_game_dir()
+    _prepare_fixture_destination(destination, source_game)
+    for source in source_game.iterdir():
         if source.is_file():
             if minimal_files is not None and source.name.upper() not in minimal_files:
                 continue
             _copy_game_file(source, destination / source.name)
 
 
-def copy_sq2_tree(destination: Path) -> None:
-    copy_game_tree(destination)
+def copy_sq2_tree(destination: Path, *, game_dir: Path | None = None) -> None:
+    copy_game_tree(destination, game_dir=game_dir)
 
 
-def copy_minimal_picture_tree(destination: Path) -> None:
-    copy_game_tree(destination, minimal_files=MINIMAL_PICTURE_FIXTURE_FILES)
+def copy_minimal_picture_tree(destination: Path, *, game_dir: Path | None = None) -> None:
+    copy_game_tree(destination, game_dir=game_dir, minimal_files=MINIMAL_PICTURE_FIXTURE_FILES)
+
+
+def build_v3_logic_fixture(
+    logic_payload: bytes,
+    destination: Path,
+    *,
+    logic_no: int = 0,
+    game_dir: Path | None = None,
+    volume: int | None = None,
+) -> Path:
+    copy_game_tree(destination, game_dir=game_dir)
+    patch_v3_logic_resource(destination, logic_payload, logic_no=logic_no, volume=volume)
+    return destination
+
+
+def patch_v3_logic_resource(
+    destination: Path,
+    logic_payload: bytes,
+    *,
+    logic_no: int = 0,
+    volume: int | None = None,
+) -> Path:
+    layout = detect_layout(destination)
+    if layout.version != "v3_combined":
+        raise ValueError("v3 logic patching requires a v3 combined-directory game")
+    entries = read_directory_entries(destination, "logic")
+    if volume is None:
+        if logic_no >= len(entries) or entries[logic_no] is None:
+            raise ValueError("logic resource has no existing volume; pass an explicit volume")
+        volume = entries[logic_no].volume
+
+    target_volume = volume_path(destination, layout, volume)
+    offset = target_volume.stat().st_size
+    with target_volume.open("ab") as handle:
+        handle.write(v3_volume_record(logic_payload, volume=volume))
+
+    if layout.directory_path is None:
+        raise ResourceFormatError("combined directory layout is missing a directory path")
+    directory = layout.directory_path.read_bytes()
+    layout.directory_path.write_bytes(
+        patch_combined_dir_entry(directory, layout, "logic", logic_no, volume=volume, offset=offset)
+    )
+    return destination
 
 
 def build_picture_fixture(picture_no: int, destination: Path) -> Path:
@@ -1059,6 +1154,13 @@ def main() -> None:
     synthetic_picture_view.add_argument("--control", type=int)
     synthetic_picture_view.add_argument("--output", type=Path)
 
+    v3_logic = subparsers.add_parser("v3-logic")
+    v3_logic.add_argument("payload", type=Path)
+    v3_logic.add_argument("--logic", type=int, default=0)
+    v3_logic.add_argument("--volume", type=int)
+    v3_logic.add_argument("--game-dir", type=Path)
+    v3_logic.add_argument("--output", type=Path)
+
     args = parser.parse_args()
     if args.command == "picture":
         output = args.output or Path("build/qemu-fixtures") / f"picture_{args.picture:03d}"
@@ -1079,6 +1181,16 @@ def main() -> None:
             args.priority,
             output,
             args.control,
+        )
+        print(output)
+    elif args.command == "v3-logic":
+        output = args.output or Path("build/qemu-fixtures") / f"v3_logic_{args.logic:03d}"
+        build_v3_logic_fixture(
+            args.payload.read_bytes(),
+            output,
+            logic_no=args.logic,
+            game_dir=args.game_dir,
+            volume=args.volume,
         )
         print(output)
     elif args.command == "synthetic-picture":

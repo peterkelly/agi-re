@@ -10,7 +10,7 @@ not external AGI documentation.
 | Local input | Version evidence | Executable form | Resource container | Fixture status |
 | --- | --- | --- | --- | --- |
 | `games/SQ2` | `AGIDATA.OVL` string `Version 2.936` | `AGI` is decrypted from the loader-managed local bytes before disassembly | Split `LOGDIR`, `PICDIR`, `VIEWDIR`, `SNDDIR`; `VOL.N` files; 5-byte record headers; direct resource payloads | Current generated QEMU fixtures target this v2 split layout |
-| `games/GR` | `AGIDATA.OVL` string `Version 3.002.149` | `AGI` is already an MZ executable | Combined `GRDIR`; prefixed `GRVOL.N` files; 7-byte record headers; dictionary and picture-nibble transforms | Decoding/parsing is implemented locally; generated QEMU fixture writing is not yet version-3-aware |
+| `games/GR` | `AGIDATA.OVL` string `Version 3.002.149` | `AGI` is already an MZ executable | Combined `GRDIR`; prefixed `GRVOL.N` files; 7-byte record headers; dictionary and picture-nibble transforms | Decoding/parsing is implemented locally; generated direct-record logic fixtures can patch copied v3 directories/volumes under `build/` |
 
 ## SQ2 / AGI 2.936
 
@@ -73,12 +73,52 @@ Source-backed GR-only action slot notes:
 | `0xb4` | `reserved_noop_v3_2varargs` | Table entry declares two variable operands via metadata `0xc0`, but the handler is the generic no-op/return handler. |
 | `0xb5` | `clear_key_release_event_gate` | Stores zero in byte `[0x0405]`. GR action `0xad` sets the same byte to one, and the keyboard IRQ hook tests it before enqueueing a type-2 zero event on selected key-release paths. |
 
+Source-backed shared action deltas, relative to SQ2 / AGI 2.936:
+
+| Area | Opcodes | Observed GR / AGI 3.002.149 difference |
+| --- | --- | --- |
+| Input line and prompts | `0x6f`, `0x73`, `0x76`, `0x77`, `0x78`, `0x89`, `0x8a`, `0xa3`, `0xa4`, `0xa9` | GR keeps the normal EGA-style input-line model but removes SQ2's display-mode-2/input-width branches. It computes the display offset as `arg0 << 3`, always uses the normal prompt/editor path for string and number prompts, maps the SQ2 input-width set/clear actions to no-op, and closes active text-window state without clearing a width flag. |
+| Key and menu events | `0x79`, `0xad`, `0xb1`, `0xb5` | GR expands the script key-map table from `0x27` to `0x31` four-byte slots. A QEMU fixture validates slot 48 by filling 48 dummy slots, mapping typed `x` in the final slot, and comparing against a direct nonblank picture draw; the no-key control remains blank. GR also replaces SQ2's incrementing key-release byte `[0x1530]` with set/clear byte `[0x0405]`, and adds menu interaction gate word `[0x0403]`. |
+| Room and state actions | `0x12`, `0x7c`, `0x7d`, `0x80`, `0x84` | GR remaps immediate room targets `0x7e..0x80` to `0x49` before the ordinary room-switch helper; the decoded local GR scripts do contain those operands. The carried-item selector sets temporary word `[0x0dc1]` while handling a flag-13 input path and clears it on return. Save wraps the object/inventory chunk in an XOR pass before and after writing the save envelope; the observed transform uses a 59-byte sequence from image `0x072c`, now modeled by `gr_v3_object_inventory_save_xor()`. Restart records prompt-marker visibility before confirmation; accepted restart redraws the marker, and canceled restart redraws only if it had been visible. Action `0x84` preserves object 0 motion mode `4` instead of always clearing byte `+0x22`. |
+| Object animation and motion | frame timer, motion dispatch | GR gates the direction-to-loop table for views with more than four loops on flag `0x14`, treats exactly-four-loop views as not using that table in the observed branch, and dispatches motion mode `4` to the same target-direction helper used by mode `3`. |
+
+The first dynamic v3 behavior probe is `tools/gr_v3_behavior_probe.py`. The
+room-remap probe patches a copied GR game so logic 0 switches once and then
+continues dispatching `call_logic_var(v0)`, while logic `0x49` draws a fixed
+picture. Under QEMU, direct target `0x49` and alias target `0x7e` produced
+identical nonblank captures first; the expanded run then validated alias targets
+`0x7e`, `0x7f`, and `0x80` against direct target `0x49` in
+`build/gr-v3-behavior/room_remap_all_qemu_pic001_001.json`.
+
+The same probe tool now includes `--probe key-map-capacity`. The promoted run
+`build/gr-v3-behavior/key_map_capacity_qemu_pic001_002.json` builds three
+copied GR fixtures: a direct picture draw, a slot-48 key-map fixture that sends
+`x`, and the same slot-48 fixture without a key. QEMU reports the keyed capture
+matching the direct draw and the no-key capture not matching, with the no-key
+capture blank. This confirms the observed `0x31` slot loop bound has an
+observable event-mapping consequence in the original GR interpreter.
+
 The GR condition dispatcher compares predicate bytes with `0x26`, matching the
 loose bound shape also seen in SQ2, but only the first 19 entries
 `0x00..0x12` are structured table records in the observed `AGIDATA.OVL`. Bytes
 after that overlap punctuation/filename/string data and zeros, so they are
 treated as reserved/unconfirmed rather than implemented predicates. Local GR
 scripts observed so far use conditions only through `0x0e`.
+
+Generated v3 logic fixtures can be built with:
+
+```bash
+python3 -B tools/qemu_fixture.py v3-logic payload.bin \
+  --game-dir games/GR \
+  --logic 0 \
+  --output build/qemu-fixtures/gr_logic_000
+```
+
+This copies the selected v3 game to the generated output directory, appends a
+direct/uncompressed v3 record to the existing prefixed volume for the selected
+logic resource, and patches that logic entry inside the combined directory. It
+does not yet pack generated v3 picture or view payloads; those should be added
+only when a targeted behavioral probe needs them.
 
 The static GR/SQ2 comparison report currently lives at
 `build/gr-sq2-static/opcode_static_report.md`. Source-level comparison found
@@ -95,7 +135,7 @@ only that generated copy is modified. This matters because private game inputs
 may intentionally be read-only and because each interpreter version can require
 different container-writing rules.
 
-Current fixture writers still assume the SQ2/v2 split-directory format. Before
-using generated fixtures with a v3 game, add a writer that can produce a valid
-combined directory, prefixed volume records, and any required v3 transform or
-direct-read headers for the target interpreter.
+Current v2 fixture writers still assume the SQ2-style split-directory format.
+The v3 path currently supports direct/uncompressed logic-record replacement in
+a copied combined-directory game. Future v3 picture/view probes may need
+additional fixture packing for picture-nibble or view/general transforms.

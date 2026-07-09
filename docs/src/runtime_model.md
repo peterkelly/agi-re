@@ -363,6 +363,12 @@ Save/restore selector state machine:
 | Save-description edit | In save mode, accepting an empty-description slot opens a second 31-character modal editor for the save description. | Enter stores the accepted description; Escape/cancel abandons the selection. | Accepted text fills the 31-byte save header buffer `data.save.header_description_buffer_1c6c` before action `0x7d` creates the file. Restore mode never writes this buffer from the selector. |
 | Caller confirmation and I/O | The selector has restored modal state and returned to action `0x7d` or `0x7e`. | Save and restore each display their caller-side confirmation text before doing DOS file I/O. | Save create/write failures are recoverable and continue after `0x7d`; restore open failure is recoverable and continues after `0x7e`; restore read failure displays the fatal restore-error dialog and exits through cleanup. |
 
+Gold Rush / AGI v3 keeps the five-block save-envelope shape but changes the
+object/inventory block written from `[0x07d6]` with length `[0x07da]`: action
+`0x7d` applies a repeating 59-byte XOR sequence observed at image `0x072c`
+before the save path and applies the same transform again before return, so the
+on-disk block is transformed while runtime memory is restored.
+
 Restart, save/restore, and termination lifecycle:
 
 | Transition | Trigger | State effects | Continuation |
@@ -375,6 +381,12 @@ Restart, save/restore, and termination lifecycle:
 | Restore success | `0x7e` reads all five state blocks | Restores scalar/object/inventory/event/cache state from the save file, restores display adapter/mode bytes, adjusts hardware-mode flag 11, replays saved resource-event pairs with recording disabled only during replay, refreshes display/resource state, clears the caller return pointer, and refreshes menu/list state. | The action returns zero, so execution restarts through the restored state rather than continuing after the restore opcode. |
 | Restore read failure | `0x7e` fails any length-prefixed block read | Closes the save file, displays the restore-error message, then enters `code.system.exit_with_cleanup`. | Terminates the DOS process through `int 21h AH=0x4c`; this is not a recoverable restore failure in the observed source. |
 | Confirmed exit or fatal helper | `0x86(1)`, confirmed `0x86(0)`, verification failure, allocation failure, or restore read failure | `code.system.exit_with_cleanup` closes the log file if open, restores interrupt hooks and timer state, sets the BIOS video mode from the saved mode byte, and calls the DOS terminate wrapper with exit code zero. | DOS process exits. |
+
+Gold Rush / AGI v3 changes the prompt-marker redraw branch in action `0x80`.
+It records `data.input.prompt_marker_visible_state` before erasing the marker;
+after confirmation it redraws the marker when restart was accepted or, for a
+canceled restart, only when the marker had been visible before entry. The local
+truth-table helper `gr_v3_restart_redraws_prompt_marker()` models this branch.
 
 Picture decoder lifecycle:
 
@@ -432,6 +444,13 @@ Motion and animation lifecycle:
 | Proposed move | Direction and step produce candidate X/Y | Accept/reject tests | Candidate is clamped to screen/horizon bounds; boundary globals are recorded when a clamp survives. |
 | Accepted or restored | Control/collision tests complete | Next cycle | Accepted moves keep the candidate coordinates. Rejected moves restore saved coordinates, clear boundary code, and run placement search. |
 | Frame callback | Bit `0x0020` set and frame timer reaches zero | Frame mode handler | Mode byte `+0x23` advances or wraps frames, with one-callback startup delay bit `0x1000` where applicable. |
+
+Gold Rush / AGI 3.002.149 source comparison adds two version-specific motion
+notes. First, object motion mode `4` dispatches to the same target-direction
+helper as mode `3`; SQ2 treats modes above `3` as no autonomous-mode dispatch.
+Second, GR's automatic direction-to-loop selection gates the more-than-four-loop
+table on flag `0x14` and does not use that table for exactly-four-loop views in
+the observed branch. These are not yet QEMU-validated with v3 fixtures.
 
 Text/input UI lifecycle:
 

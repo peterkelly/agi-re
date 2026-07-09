@@ -8271,3 +8271,448 @@ Verification after the documentation/tooling updates:
 - `AGI_GAME_DIR=games/SQ2 python3 -B tools/compatibility_suite.py` passed
   the same 251 tests and mdBook build.
 - `git diff --check` passed.
+
+## 2026-07-09: Gold Rush / SQ2 shared action delta source pass
+
+Context:
+
+- The user asked to update `PROGRESS.md` with the planned GR/SQ2 comparison
+  items, then continue.
+- This pass used local disassembly first. No external AGI documentation/source
+  and no QEMU confirmation were used.
+- Inputs were the already generated `build/gr-sq2-static/*_agi_image.ndisasm`
+  files plus exact-offset disassembly from local executable bytes where linear
+  `ndisasm` swallowed handler-entry bytes as neighboring inline data.
+
+Commands run from `/Users/peter/ai/agi/reverse`:
+
+- `git status --short`
+- `sed -n '1,260p' PROGRESS.md`
+- `sed -n '1,260p' docs/src/versions.md`
+- `sed -n '1,260p' docs/src/symbolic_labels.md`
+- `sed -n '1,220p' docs/src/progress_log.md`
+- `sed -n '1,260p' tools/compare_gr_sq2_static.py`
+- `tail -n 180 docs/src/clean_room_executable_notes.md`
+- `rg -n "0x6f|0x73|0x76|0x77|0x78|0x79|0x7c|0x7d|0x80|0x84|0x89|0x8a|0xa3|0xa4|0xa9|0xad|0xb1|0xb5|Gold Rush|GR / SQ2|v3" docs/src/logic_bytecode.md docs/src/versions.md docs/src/clean_room_executable_notes.md docs/src/symbolic_labels.md PROGRESS.md`
+- Local Python using `tools.compare_gr_sq2_static.load_table` to print the
+  SQ2/GR action-table entries for the changed shared action set.
+- `sed -n '8548,8628p' build/gr-sq2-static/sq2_agi_image.ndisasm`
+- `sed -n '8768,8855p' build/gr-sq2-static/gr_agi_image.ndisasm`
+- `sed -n '10900,11040p' build/gr-sq2-static/sq2_agi_image.ndisasm`
+- `sed -n '11272,11445p' build/gr-sq2-static/gr_agi_image.ndisasm`
+- Exact-offset local Python disassembly for handlers `0x175c`, `0x19d4`,
+  `0x31d8`, `0x351e`, `0x2753`, `0x29e5`, `0x2472`, `0x26e0`, `0x7041`,
+  and `0x73b9`.
+- `AGI_GAME_DIR=games/GR python3 -B tools/disassemble_logic.py --limit 256 | rg "switch_room_like|0x12|\\broom"`
+- Exact-offset local Python disassembly for GR helpers `0x0062`, `0x07bc`,
+  `0x169b`, `0x11b3`, `0x341c`, `0x9648`, `0x3b00`, and `0x3ab0`.
+- `rg -n "0dc1|DC1|\\[0xdc1\\]|03f9|0dc3|0dc5" build/gr-sq2-static/gr_agi_image.ndisasm docs/src/symbolic_labels.md docs/src/clean_room_executable_notes.md`
+- Exact-offset local Python disassembly for SQ2/GR
+  `code.object.frame_timer_update`, `code.motion.pre_mode_and_boundary_update`,
+  `code.motion.dispatch_mode_step`, and
+  `code.motion.rectangle_boundary_check`.
+- Local Python byte dump of the SQ2 and GR motion-mode dispatch tables at image
+  offsets `0x06ad` and `0x06bd`.
+
+Input/text cluster observations:
+
+- GR action-table entries match SQ2 parser contracts for actions `0x6f`,
+  `0x73`, `0x76`, `0x77`, `0x78`, `0x89`, `0x8a`, `0xa3`, `0xa4`, and
+  `0xa9`, but the handler bodies remove SQ2's display-mode-2/input-width
+  branches.
+- SQ2 `0x6f` at image `0x78f0` stores input-line bounds and computes display
+  offset `[0x1379]` with an alternate display-mode-2 branch. GR `0x6f` at
+  image `0x7c24` stores relocated globals and computes display offset
+  `[0x11b1] = arg0 << 3` unconditionally.
+- SQ2 string/number prompt actions `0x73` and `0x76` have alternate paths for
+  display mode `[0x1130] == 2` when input-width word `[0x0d0f] == 0`. GR
+  prompt handlers `0x0e92` and `0x756b` use the normal prompt/editor path only.
+- SQ2 `0x77`, `0x78`, `0x89`, and `0x8a` test display mode and input-width
+  state before clearing/redrawing/refreshing/erasing. GR handlers `0x3b0c`,
+  `0x3b2e`, `0x3a48`, and `0x3a29` use the normal relocated input buffers and
+  visible row helpers without those special branches.
+- SQ2 actions `0xa3` and `0xa4` set/clear word `[0x0d0f]`; GR maps both table
+  entries to the generic no-op/return handler `0x5286`.
+- SQ2 action `0xa9` at `0x1f2b` restores active saved-window state and clears
+  both `[0x0d0f]` and `[0x0d1d]`. GR action `0xa9` at `0x21a2` restores the
+  relocated active saved-window rectangle and clears only active word
+  `[0x0b24]`.
+
+Event/key/menu observations:
+
+- SQ2 action `0x79` at image `0x4c3d` reads a two-byte key word and one mapped
+  value, then scans up to `0x27` four-byte slots rooted at `[0x0145]` for the
+  first empty key word. GR action `0x79` at `0x4e98` is the same shape but
+  scans up to `0x31` slots.
+- SQ2 action `0xad` at `0x602f` increments byte `[0x1530]`. The SQ2 keyboard
+  IRQ hook tests `[0x1530] != 0` before enqueueing `(type=2, value=0)` on
+  selected tracked-key release paths.
+- GR action `0xad` at `0x63a8` sets byte `[0x0405] = 1`; GR-only action
+  `0xb5` at `0x63b0` clears the same byte. GR keyboard IRQ hook `0x63b8`
+  tests `[0x0405]` before the selected key-release enqueue.
+- GR-only action `0xb1` at `0x970b` stores its immediate operand in word
+  `[0x0403]`. GR menu interaction routine `0x9724` returns immediately while
+  `[0x0403] == 0`, so this is a separate interaction gate after menu request
+  state has been set.
+
+Room/inventory/save/restart/object-state observations:
+
+- SQ2 action `0x12` at image `0x175c` reads the immediate room byte and calls
+  room-switch helper `0x1792`. GR action `0x12` at `0x19d4` calls helper
+  `0x0062` first: bytes below `0x7e` or above `0x80` pass through unchanged,
+  while bytes `0x7e`, `0x7f`, and `0x80` return `0x49`.
+- Decoded local GR scripts contain `switch_room_like(#126)`,
+  `switch_room_like(#127)`, and `switch_room_like(#128)`, so the GR remap is
+  live behavior for this interpreter/game pair, not dead code.
+- SQ2 action `0x7c` at `0x31d8` enters the carried-item selector through the
+  established text/input save-restore path. GR action `0x7c` at `0x351e`
+  follows the relocated skeleton but clears word `[0x0dc1]` before return. The
+  selector helper sets `[0x0dc1] = 1` while handling the flag-13 interactive
+  input path, so the current label is a temporary selector/input gate.
+- SQ2 save action `0x7d` at `0x2753` writes the known five-block envelope.
+  GR save action `0x7d` at `0x29e5` writes the relocated five-block envelope
+  but calls helper `0x07bc` over the object/inventory chunk before and after
+  the save writes. Helper `0x07bc` XORs a caller-supplied byte range with
+  repeating key bytes at image `0x072c` until the key byte is zero.
+- SQ2 restart action `0x80` at `0x2472` redraws the prompt marker at the end of
+  the accepted path. GR restart action `0x80` at `0x26e0` first records the
+  prompt-marker visible word through helper `0x3b00`, erases the marker, and
+  redraws it when restart was accepted or, after a canceled restart, only if
+  the marker had been visible before entry.
+- SQ2 action `0x84` at `0x7041` sets `[0x0139] = 1` and clears object 0 byte
+  `+0x22` unconditionally. GR action `0x84` at `0x73b9` sets `[0x0139] = 1`
+  but skips the clear when object 0 byte `+0x22` is already `4`.
+
+Object/motion observations:
+
+- SQ2 `code.object.frame_timer_update` at `0x0563` uses the direction-to-loop
+  table for object views with group count byte `+0x0b >= 4` when bit `0x2000`
+  is clear. GR `0x055c` keeps the two/three-group table path, but the
+  four-plus path is now split: exactly four groups leaves the default local
+  group value unchanged, and more than four groups uses the direction table
+  only when flag `0x14` is set.
+- SQ2 `code.motion.dispatch_mode_step` at `0x067a` accepts modes `1..3` after
+  decrementing object byte `+0x22`. GR `0x068a` accepts modes `1..4`. The GR
+  jump table at `0x06bd` maps mode `1` to random motion, mode `2` to
+  approach-first-object, and both modes `3` and `4` to the target-direction
+  helper.
+- The surrounding GR pre-mode/boundary and rectangle-boundary helpers remain
+  relocated skeletons of the SQ2 logic after accounting for embedded jump-table
+  bytes in linear disassembly.
+
+Documentation/tooling updates from this pass:
+
+- Updated `PROGRESS.md` with the requested ordered comparison queue, then
+  replaced the queue with source-pass status and the remaining v3 fixture work.
+- Refined `tools/compare_gr_sq2_static.py` changed-action notes so regenerated
+  reports describe the now-source-backed deltas.
+- Updated `docs/src/versions.md`, `docs/src/logic_bytecode.md`,
+  `docs/src/runtime_model.md`, and `docs/src/symbolic_labels.md` with the
+  source-backed GR/SQ2 differences and new GR address associations.
+
+## v3 Direct Logic Fixture Writer
+
+Goal: turn the source-backed Gold Rush / AGI v3 deltas into testable behavior
+without modifying private inputs under `games/`.
+
+Commands and local reads:
+
+- `sed -n '1,1240p' tools/qemu_fixture.py`
+- `sed -n '1,760p' tools/agi_resources.py`
+- `sed -n '1,620p' tests/test_qemu_fixture.py`
+- `sed -n '1,90p' tools/project_paths.py`
+- `rg -n "copy_game_tree|build_.*fixture|patch_dir_entry|SQ2|AGI_GAME_DIR|--game-dir|detect_layout|v3|GRDIR|GRVOL" tools tests docs/src PROGRESS.md`
+- Local Python `detect_layout(games/GR)` / `read_directory_entries(...)`
+  inspection.
+- `AGI_GAME_DIR=games/GR python3 -B tools/disassemble_logic.py --stats`
+- Local Python count of GR combined-directory slots and present entries.
+- `python3 -B -m py_compile tools/qemu_fixture.py tools/agi_resources.py`
+- `AGI_GAME_DIR=games/SQ2 python3 -B -m unittest tests/test_qemu_fixture.py tests/test_agi_resources.py`
+
+Observations:
+
+- `tools/qemu_fixture.py` previously imported `SQ2` from
+  `tools/disassemble_logic.py`, which made fixture construction depend on the
+  selected game at module import time and hid an SQ2-oriented source path inside
+  copy helpers.
+- The copy path now accepts `game_dir=...` explicitly or uses
+  `AGI_GAME_DIR` through `project_paths.game_dir()` only when the caller omits
+  a source. Fixture destinations are still rejected under `games/` and when
+  they would overwrite the selected source game.
+- Existing v2 fixture builders retain the split-directory `VOL.3` packing
+  behavior. The compatibility alias `copy_sq2_tree()` remains for older probes,
+  but it no longer imports or references a global SQ2 path.
+- Added `v3_volume_record(...)` for the observed direct/uncompressed v3 header:
+  `12 34 metadata expanded_len stored_len payload`. The writer uses equal
+  expanded and stored lengths and keeps the metadata low nibble aligned with the
+  patched directory volume.
+- Added `patch_combined_dir_entry(...)` for v3 combined directories. It uses
+  the section offsets and section ends recovered by `detect_layout()` and
+  patches the selected resource entry at `section_offset + resource_no * 3`.
+- Added `build_v3_logic_fixture(...)`. It copies the selected v3 game into the
+  generated destination, detects the copied combined layout, appends a direct
+  record to the existing prefixed volume for the selected logic resource, and
+  patches that logic entry in the combined directory.
+- Added `python3 -B tools/qemu_fixture.py v3-logic payload.bin --game-dir ...`
+  as a reusable CLI wrapper for the direct logic fixture path.
+- The test fixture uses a tiny synthetic `GRDIR`/`GRVOL.1` layout, not private
+  game files, to prove the direct-record append and directory patch can be read
+  back through `read_volume_record(...)`.
+- The current local GR combined-directory counts are: logic `245` slots /
+  `182` present, picture `245` slots / `186` present, view `256` slots /
+  `247` present, and sound `51` slots / `44` present.
+
+Status:
+
+- Basic v3 logic fixture writing is implemented and covered by focused unit
+  tests.
+- Generated v3 picture/view packing is intentionally still absent. Add it only
+  when a targeted behavior probe needs generated picture or view payloads
+  rather than original game resources.
+- Verification after the CLI/docs update:
+  `python3 -B -m py_compile tools/qemu_fixture.py tools/agi_resources.py`,
+  `AGI_GAME_DIR=games/SQ2 python3 -B -m unittest discover -s tests`
+  (`254` tests), `mdbook build docs`,
+  `AGI_GAME_DIR=games/SQ2 python3 -B tools/compatibility_suite.py`, and
+  `git diff --check` all passed.
+
+## Gold Rush v3 Room-Remap Behavior Probe
+
+Goal: convert the source-backed GR action `0x12` room-target remap into an
+original-engine compatibility check.
+
+Commands and local reads:
+
+- `AGI_GAME_DIR=games/GR python3 -B tools/disassemble_logic.py 73`
+- `AGI_GAME_DIR=games/GR python3 -B tools/disassemble_logic.py 0`
+- `python3 -B tools/setup_freedos_image.py --force`
+- `python3 -B tools/gr_v3_behavior_probe.py --game-dir games/GR --output build/gr-v3-behavior/room_remap_build_001.json`
+- `python3 -B tools/gr_v3_behavior_probe.py --game-dir games/GR --run-qemu --output build/gr-v3-behavior/room_remap_qemu_001.json --boot-wait 5 --draw-wait 8`
+- `python3 -B tools/gr_v3_behavior_probe.py --probe direct-draw --game-dir games/GR --picture 1 --fixture-root build/gr-v3-behavior/direct-draw-fixtures --output build/gr-v3-behavior/direct_draw_pic001_qemu_001.json --run-qemu --boot-wait 5 --draw-wait 8`
+- `python3 -B tools/gr_v3_behavior_probe.py --game-dir games/GR --picture 1 --run-qemu --output build/gr-v3-behavior/room_remap_dispatch_qemu_pic001_001.json --boot-wait 5 --draw-wait 8`
+- `python3 -B tools/gr_v3_behavior_probe.py --game-dir games/GR --picture 1 --run-qemu --output build/gr-v3-behavior/room_remap_all_qemu_pic001_001.json --boot-wait 5 --draw-wait 8`
+- `python3 -B tools/inspect_ppm.py` on the generated QEMU captures.
+
+Probe construction:
+
+- A direct draw sanity fixture patches GR logic `0` to `picture_logic_payload(1)`.
+  QEMU capture `build/gr-v3-behavior/direct-draw-fixtures/direct_draw/qemu_capture.ppm`
+  was nonblank (`14` unique colors), proving that direct v3 logic replacement
+  executes under the original GR interpreter.
+- The first room-remap fixture pair only patched logic `0` to switch rooms and
+  logic `0x49` to draw a marker picture. It produced equal but all-black
+  captures. This was not accepted as evidence.
+- The failure exposed an important harness requirement: replacing logic `0`
+  removes the original global dispatch tail. GR logic `0` normally reaches
+  `call_logic_var(v0)` near bytecode offset `0x0ca0`, so a custom logic `0`
+  that switches rooms must also continue dispatching the current room.
+- The corrected `switch_room_payload()` fires the switch once behind guard
+  variable `v250`, then executes `call_logic_var(v0)` and `end` on each cycle.
+  Logic `0x49` in both fixtures is patched to draw picture `1`.
+
+QEMU result:
+
+- Report:
+  `build/gr-v3-behavior/room_remap_dispatch_qemu_pic001_001.json`.
+- Direct target fixture: logic `0` uses `switch_room_like(#0x49)`.
+- Alias target fixtures: logic `0` uses `switch_room_like(#0x7e)`,
+  `switch_room_like(#0x7f)`, or `switch_room_like(#0x80)`.
+- All fixtures patch logic `0x49` to the same picture-display payload.
+- The expanded QEMU report is
+  `build/gr-v3-behavior/room_remap_all_qemu_pic001_001.json`; all alias
+  captures match direct target `0x49`.
+- The four QEMU captures are byte-identical:
+  `45518c409f738a1fb2f4233db202f64d2e0e94011a9559e8ace0d952362814ab`.
+- `inspect_ppm` reports all four captures as `640x400`, `14` unique colors,
+  and non-background bounding box `(0, 0, 639, 399)`.
+
+Conclusion:
+
+- The source-backed GR helper `code.room.remap_reserved_room_target` is now
+  dynamically validated for `0x7e`, `0x7f`, and `0x80` all mapping to `0x49`.
+- Final verification for this pass:
+  `python3 -B -m py_compile tools/gr_v3_behavior_probe.py tools/qemu_fixture.py tools/agi_resources.py`,
+  `AGI_GAME_DIR=games/SQ2 python3 -B -m unittest discover -s tests`
+  (`257` tests), `mdbook build docs`,
+  `AGI_GAME_DIR=games/SQ2 python3 -B tools/compatibility_suite.py`, and
+  `git diff --check` all passed.
+
+## Gold Rush v3 Key-Map Capacity Behavior Probe
+
+Goal: convert the source-backed GR action `0x79` key-map capacity delta into an
+observable original-engine check.
+
+Commands and local reads:
+
+- `rg -n "00004E9[0-9A-F]|00004EA[0-9A-F]|00004EB[0-9A-F]|00004EC[0-9A-F]|00004ED[0-9A-F]|00004EE[0-9A-F]|00004EF[0-9A-F]" build/gr-sq2-static/gr_agi_image.ndisasm`
+- `rg -n "000063A[0-9A-F]|000063B[0-9A-F]|000063C[0-9A-F]|000063D[0-9A-F]|000063E[0-9A-F]" build/gr-sq2-static/gr_agi_image.ndisasm`
+- `rg -n "0000970[0-9A-F]|0000971[0-9A-F]|0000972[0-9A-F]|0000973[0-9A-F]|0000974[0-9A-F]|0000975[0-9A-F]|0000976[0-9A-F]" build/gr-sq2-static/gr_agi_image.ndisasm`
+- `python3 -B tools/gr_v3_behavior_probe.py --probe key-map-capacity --game-dir games/GR --picture 1 --fixture-root build/gr-v3-behavior/key-map-capacity-fixtures --dos-prefix GRK --run-qemu --output build/gr-v3-behavior/key_map_capacity_qemu_pic001_002.json --boot-wait 5 --draw-wait 8`
+- `python3 -B tools/inspect_ppm.py` on each generated capture.
+
+Source observations:
+
+- GR action `0x79` at image `0x4e98` reads two operand bytes into a little-endian
+  key/event word, reads one mapped status value, then scans slots rooted at
+  `[0x0145]`.
+- The GR loop compares `DI` with `0x31`, so it can fill slots `0..48`.
+  The SQ2 source-backed comparison showed the same handler shape but a loop
+  bound of `0x27`, so SQ2 fills slots `0..38`.
+- GR action `0xad` at image `0x63a8` stores byte `[0x0405] = 1`, GR-only action
+  `0xb5` at image `0x63b0` stores `[0x0405] = 0`, and the GR keyboard IRQ hook
+  at `0x63b8` tests `[0x0405]` before enqueueing a type-2 zero event on the
+  selected scan-code release path.
+- GR-only action `0xb1` at image `0x970b` stores its immediate operand into word
+  `[0x0403]`; `code.menu.interact` at `0x9724` returns immediately while that
+  word is zero.
+
+Probe construction:
+
+- The new `key_map_capacity_payload()` emits 48 dummy `0x79` mappings, then
+  emits `0x79('x', 0, 7)` as the 49th mapping. The generated payload has
+  `49` occurrences of opcode `0x79`, and the target mapping appears after
+  `48` earlier mapping opcodes.
+- The positive fixture patches copied GR logic `0` with that payload, sends
+  typed key `x` through the QEMU monitor, and draws original GR picture `1`
+  only when status byte `7` is observed.
+- The direct fixture patches logic `0` to draw picture `1` immediately.
+- The no-key control uses the same slot-48 mapping payload but sends no key.
+
+QEMU result:
+
+- Report:
+  `build/gr-v3-behavior/key_map_capacity_qemu_pic001_002.json`.
+- Expected matches: `slot_48_key_map` should match `direct_picture`;
+  `slot_48_no_key` should not.
+- The report matches those expectations exactly.
+- Direct and keyed captures are byte-identical PPM files with SHA-256
+  `45518c409f738a1fb2f4233db202f64d2e0e94011a9559e8ace0d952362814ab`.
+- `inspect_ppm` reports direct and keyed captures as `640x400`, `14` unique
+  colors, and non-background bounding box `(0, 0, 639, 399)`.
+- The no-key capture has one unique color and no non-background bounding box.
+
+Conclusion:
+
+- The source-backed GR key-map loop bound of `0x31` is now dynamically validated
+  for the final slot, showing that a mapping beyond SQ2's `0x27` slot count is
+  observable through the original GR interpreter's event/status path.
+- The `[0x0405]` key-release gate and `[0x0403]` menu-interaction gate remain
+  source-backed; add raw scan-code/menu timing probes only if the final spec
+  needs observable confirmation for those gate paths.
+- Final verification for this pass:
+  `AGI_GAME_DIR=games/SQ2 python3 -B -m unittest discover -s tests`
+  (`259` tests), `mdbook build docs`,
+  `python3 -B -m py_compile tools/gr_v3_behavior_probe.py tools/qemu_fixture.py tools/agi_resources.py`,
+  `git diff --check`, and
+  `AGI_GAME_DIR=games/SQ2 python3 -B tools/compatibility_suite.py` all passed.
+
+## Gold Rush v3 Save Object/Inventory XOR Model
+
+Goal: turn the source-backed GR save transform into implementation-ready helper
+code and tests.
+
+Commands and local reads:
+
+- `sed -n '1,260p' tools/save_roundtrip_probe.py`
+- `sed -n '1,240p' tools/agi_save.py`
+- `python3 -B tools/disassemble_logic.py --game-dir games/GR --limit 256 | rg "verify_game_signature|save_game_state|restore_game_state|copy_save_description|0x8f|0x7d|0x7e|0xaa"`
+- Exact-offset local Python/`ndisasm` reads for GR image offsets `0x29e5`,
+  `0x2aba`, `0x2b5b`, `0x2b7c`, `0x07bc`, and `0x2792`.
+- Local Python byte read of the sequence starting at image `0x072c`.
+- `AGI_GAME_DIR=games/SQ2 python3 -B -m unittest tests/test_save_resources.py`
+- `python3 -B -m py_compile tools/agi_save.py`
+
+Source observations:
+
+- GR save action `0x7d` at image `0x29e5` begins by computing
+  `[0x07d6] + [0x07da]`, then calls helper `0x07bc(start=[0x07d6],
+  end=[0x07d6]+[0x07da])`.
+- The same action calls `0x07bc` over the same range again at `0x2b61` before
+  returning, after the selector/file I/O cleanup path.
+- The write sequence calls length-prefixed writer `0x2b7c` for five blocks. The
+  third call writes start `[0x07d6]` with length `[0x07da]`, so the XORed range
+  is exactly the third saved state block.
+- Helper `0x07bc` initializes `DI = 0x072c`, XORs each byte in the caller range
+  with byte `[DI]`, increments both pointers, and when byte `[DI]` is zero it
+  resets `DI` to `0x072c`.
+- The first zero byte after `0x072c` is at image `0x0767`, making the observed
+  repeating sequence 59 bytes long:
+
+```text
+1e 2a e4 01 46 fc eb 4f 8a 44 1e 2a e4 01 46 fc
+8a 44 1e 2a e4 01 46 fa eb 3d 8a 44 1e 2a e4 29
+46 fc eb ec 8a 44 1e 2a e4 29 46 fc eb 29 8a 44
+1e 2a e4 29 46 fc eb b2 48 3d 07
+```
+
+Implementation/test updates:
+
+- Added `GR_V3_OBJECT_INVENTORY_XOR_KEY`,
+  `xor_with_repeating_key(...)`, and
+  `gr_v3_object_inventory_save_xor(...)` to `tools/agi_save.py`.
+- Added tests proving the GR transform round-trips, wraps at byte 59, and
+  rejects an empty generic XOR key.
+
+Conclusion:
+
+- The GR v3 save transform is now source-backed and executable in the local
+  save helper model. The current model describes the on-disk third block as the
+  XOR-transformed form of the runtime object/inventory block, with the second
+  in-memory pass restoring runtime bytes before action return.
+- A future QEMU save-file extraction probe can directly compare a generated GR
+  save's third block against this transform once the GR-specific save prompt
+  sequence/signature setup is worth automating.
+- Final verification for this pass:
+  `AGI_GAME_DIR=games/SQ2 python3 -B -m unittest discover -s tests`
+  (`262` tests), `mdbook build docs`,
+  `python3 -B -m py_compile tools/agi_save.py tools/gr_v3_behavior_probe.py tools/qemu_fixture.py tools/agi_resources.py`,
+  `git diff --check`, and
+  `AGI_GAME_DIR=games/SQ2 python3 -B tools/compatibility_suite.py` all passed.
+
+## Gold Rush v3 Restart Prompt-Marker Truth Table
+
+Goal: correct and model the GR-specific prompt-marker redraw branch in action
+`0x80`.
+
+Commands and local reads:
+
+- `rg -n "GR restart|prompt-marker visible|redraws? (the )?marker|only if.*visible|restart preserves prompt|0x0403|0x0405|0x26e0" docs/src PROGRESS.md tools tests`
+- Exact-offset local Python/`ndisasm` reads for GR image offsets `0x26e0`,
+  `0x3b00`, `0x3ab0`, and `0x3ad9`.
+- `AGI_GAME_DIR=games/SQ2 python3 -B -m unittest tests/test_restart_model.py`
+- `python3 -B -m py_compile tools/agi_restart.py`
+
+Source observations:
+
+- GR action `0x80` at image `0x26e0` calls helper `0x3b00` and stores the
+  current prompt-marker visible word from `[0x0dc3]` in a local before erasing
+  the marker through `0x3ad9`.
+- After confirmation/reset work, the branch at `0x276f` calls
+  `code.input.show_prompt_marker` (`0x3ab0`) when the confirmation result is
+  nonzero, or when the confirmation result is zero and the saved visible word
+  is nonzero.
+- Therefore the redraw predicate is:
+
+```text
+restart_was_accepted OR prompt_marker_was_visible_before_entry
+```
+
+Implementation/test updates:
+
+- Added `tools/agi_restart.py` with
+  `gr_v3_restart_redraws_prompt_marker(accepted, marker_was_visible)`.
+- Added `tests/test_restart_model.py` covering all four truth-table rows.
+
+Conclusion:
+
+- The earlier shorthand "redraws only if it had been visible" was too narrow.
+  The source-backed GR v3 model is: accepted restart redraws the marker; canceled
+  restart redraws only when the marker had been visible on entry.
+  A QEMU probe remains optional because this is a text/prompt-marker effect and
+  the disassembly branch is direct.
+- Final verification for this pass:
+  `AGI_GAME_DIR=games/SQ2 python3 -B -m unittest discover -s tests`
+  (`263` tests), `mdbook build docs`,
+  `python3 -B -m py_compile tools/agi_restart.py tools/agi_save.py tools/gr_v3_behavior_probe.py tools/qemu_fixture.py tools/agi_resources.py tools/compare_gr_sq2_static.py`,
+  `git diff --check`, and
+  `AGI_GAME_DIR=games/SQ2 python3 -B tools/compatibility_suite.py` all passed.

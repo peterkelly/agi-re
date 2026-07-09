@@ -12,15 +12,18 @@ ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT / "tools"))
 
 from agi_save import (  # noqa: E402
+    GR_V3_OBJECT_INVENTORY_XOR_KEY,
     SAVE_HEADER_LENGTH,
     SaveBlock,
     SaveGame,
     SavePathValidationPlan,
     SOURCE_BACKED_FIXED_BLOCK_LENGTHS,
+    gr_v3_object_inventory_save_xor,
     load_save,
     parse_save,
     save_path_validation_plan,
     serialize_save,
+    xor_with_repeating_key,
 )
 from disassemble_logic import SQ2  # noqa: E402
 
@@ -123,6 +126,26 @@ class SaveResourceTests(unittest.TestCase):
             save_path_validation_plan("A:\\", current_drive_letter="c"),
             SavePathValidationPlan("A:", "drive_available", "a", False, True),
         )
+
+    def test_gr_v3_object_inventory_xor_round_trips(self) -> None:
+        plain = bytes(range(128))
+        encoded = gr_v3_object_inventory_save_xor(plain)
+
+        self.assertNotEqual(encoded, plain)
+        self.assertEqual(gr_v3_object_inventory_save_xor(encoded), plain)
+
+    def test_gr_v3_object_inventory_xor_uses_observed_59_byte_key(self) -> None:
+        self.assertEqual(len(GR_V3_OBJECT_INVENTORY_XOR_KEY), 59)
+        plain = bytes(range(61))
+        encoded = gr_v3_object_inventory_save_xor(plain)
+
+        self.assertEqual(encoded[0], plain[0] ^ GR_V3_OBJECT_INVENTORY_XOR_KEY[0])
+        self.assertEqual(encoded[58], plain[58] ^ GR_V3_OBJECT_INVENTORY_XOR_KEY[58])
+        self.assertEqual(encoded[59], plain[59] ^ GR_V3_OBJECT_INVENTORY_XOR_KEY[0])
+
+    def test_xor_with_repeating_key_rejects_empty_key(self) -> None:
+        with self.assertRaises(ValueError):
+            xor_with_repeating_key(b"data", b"")
 
 
 if __name__ == "__main__":

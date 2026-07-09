@@ -11,6 +11,10 @@ SAVE_HEADER_LENGTH = 0x1F
 SAVE_BLOCK_COUNT = 5
 SOURCE_BACKED_FIXED_BLOCK_LENGTHS = (0x05E1, 0x0387, 0x0148, 0x00C8)
 SAVE_PATH_SEPARATORS = "\\/"
+GR_V3_OBJECT_INVENTORY_XOR_KEY = bytes.fromhex(
+    "1e2ae40146fceb4f8a441e2ae40146fc8a441e2ae40146faeb3d8a44"
+    "1e2ae42946fcebec8a441e2ae42946fceb298a441e2ae42946fcebb2483d07"
+)
 
 
 @dataclass(frozen=True)
@@ -54,6 +58,17 @@ def u16le_bytes(value: int) -> bytes:
     if value < 0 or value > 0xFFFF:
         raise ValueError(f"value does not fit in a save-file length prefix: {value}")
     return bytes((value & 0xFF, value >> 8))
+
+
+def xor_with_repeating_key(data: bytes, key: bytes) -> bytes:
+    if not key:
+        raise ValueError("xor key must not be empty")
+    return bytes(value ^ key[index % len(key)] for index, value in enumerate(data))
+
+
+def gr_v3_object_inventory_save_xor(data: bytes) -> bytes:
+    """Apply the observed Gold Rush v3 object/inventory save-block transform."""
+    return xor_with_repeating_key(data, GR_V3_OBJECT_INVENTORY_XOR_KEY)
 
 
 def _source_lower_drive(char: str) -> str:

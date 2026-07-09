@@ -218,6 +218,174 @@ Progress updates and outcomes:
     The fixture correctly contained payload `f0 02 f6 ef ef 00 00 ff` and
     patched `PICDIR[0]` to the synthetic picture in `VOL.3`.
 
+## Gold Rush / SQ2 Shared Delta Source Pass
+
+User request:
+
+> Update PROGRESS.md to include these items, then proceed.
+
+Progress updates and outcomes:
+
+1. Reported: "Picking this back up at the documentation point. I've already got
+   the source-level findings for the first input/text cluster, so I'm going to
+   fold those into `PROGRESS.md`, the version notes, symbolic labels, and the
+   clean-room log before moving to the next cluster."
+
+   Action/result: Re-read `PROGRESS.md`, `docs/src/versions.md`,
+   `docs/src/symbolic_labels.md`, and `docs/src/progress_log.md`.
+
+2. Reported: "I'm going to keep this pass source-first as requested. The plan
+   is to use the changed opcode entry addresses as anchors, inspect the
+   corresponding disassembly in both interpreters, and only mark behavior as
+   done when it is backed by those snippets rather than a black-box run."
+
+   Action/result: Re-read `tools/compare_gr_sq2_static.py`, the end of
+   `docs/src/clean_room_executable_notes.md`, and the current GR/SQ2 docs
+   references for changed actions.
+
+3. Reported: "Tiny tooling snag: importing the logic disassembler directly
+   needs the `tools/` path on `PYTHONPATH`. I'm rerunning with that local path
+   added; no project behavior involved."
+
+   Action/result: Retried a local table-print helper with `tools/` added to
+   `sys.path`.
+
+4. Reported: "That script has import-time argument handling, so I'm leaving it
+   alone rather than leaning on it as a library. I'll print the table addresses
+   without importing it."
+
+   Action/result: Printed SQ2 and GR action-table entries for the changed
+   shared opcodes using `tools.compare_gr_sq2_static.load_table`.
+
+5. Reported: "For the event/key/menu cluster, `0xad`, `0xb1`, and `0xb5`
+   already have a good source pass in the notes; the missing piece is mostly
+   `0x79`, where the static report says the table capacity changed. I'm
+   reading both key-map handlers and their consumers now."
+
+   Action/result: Compared SQ2 `0x4c3d` and GR `0x4e98`, confirming that GR
+   scans `0x31` key-map slots where SQ2 scans `0x27`.
+
+6. Reported: "`0x79` is now clear: the write logic is otherwise the same, but
+   GR scans more four-byte key-map slots before giving up. I'm moving to the
+   room/inventory/save/restart/object-state cluster, where the deltas are small
+   entry-path changes but touch bigger subsystems."
+
+   Action/result: Began reading handlers for `0x12`, `0x7c`, `0x7d`, `0x80`,
+   and `0x84`.
+
+7. Reported: "The first room-switch read landed in a neighboring helper, so
+   I'm tightening the address search around `0x175c`/`0x19d4` and the remaining
+   changed handlers. The disassembly is linear, so exact address anchors matter
+   here."
+
+   Action/result: Switched from nearby `sed` ranges to exact-offset local
+   disassembly for action handlers.
+
+8. Reported: "One caveat surfaced: linear `ndisasm` sometimes swallows
+   handler-entry bytes as prior inline data. For those entries I'm switching to
+   exact-offset disassembly, which is the safer way to read handlers that sit
+   beside tables."
+
+   Action/result: Exact-offset disassembly recovered the correct SQ2 `0x12`
+   handler at image `0x175c`.
+
+9. Reported: "There's a genuinely version-specific Gold Rush quirk in `0x12`:
+   its entry calls a tiny local helper that remaps immediate room bytes
+   `0x7e..0x80` to `0x49` before entering the normal room-switch path. I'm
+   checking whether the local GR scripts actually use that range before I
+   describe the risk level."
+
+   Action/result: Disassembled local GR logic resources and found
+   `switch_room_like(#126)`, `#127`, and `#128`, proving the remap is live in
+   this data set.
+
+10. Reported: "The room remap is not just dead code: the decoded local GR
+    scripts do contain `switch_room_like(#126)`, `#127`, and `#128`, and the GR
+    handler redirects those immediates to room `#73`. I'll record that as an
+    observed v3/GR-specific compatibility detail rather than a portable rule."
+
+    Action/result: Added the remap to the version/evidence notes.
+
+11. Reported: "For inventory/save/restart, most differences are relocated state
+    addresses plus a couple of extra guard/cleanup writes. The save action has
+    an extra XOR pass over the inventory/object chunk before and after the file
+    writes; I'm tracking that separately because it can matter for v3 save-file
+    compatibility."
+
+    Action/result: Read GR helper `0x07bc`, documenting its repeating-key XOR
+    behavior over a caller-supplied byte range.
+
+12. Reported: "The object/motion deltas are nicely bounded: GR gates part of
+    direction-to-loop selection on flag `0x14`, treats exactly-four-loop views
+    differently from SQ2, and lets motion mode `4` fall into the same
+    target-direction path as mode `3`. Those are now concrete enough to
+    document as source-backed v3 deltas."
+
+    Action/result: Read frame-timer and motion-dispatch routines and decoded
+    the GR motion-mode jump table.
+
+13. Reported: "I have enough source evidence for the planned queue now. I'm
+    switching into documentation/tooling updates: the version ledger gets the
+    portable summary, the evidence log gets the offsets and commands, and the
+    static report notes get sharper names for the same deltas."
+
+    Action/result: Updated `tools/compare_gr_sq2_static.py` changed-action
+    notes.
+
+14. Reported: "The progress tracker is the next file: I'm changing the queue
+    from 'do these four passes' to 'source pass complete; remaining work is
+    targeted behavioral fixtures and more version samples.'"
+
+    Action/result: Started updating `PROGRESS.md`.
+
+15. Reported: "The patch missed on a line wrap; nothing changed there yet. I'm
+    applying the tracker update in smaller chunks so it lands cleanly."
+
+    Action/result: Successfully updated the logic-action comparison,
+    object-runtime comparison, and highest-value remaining-work sections in
+    `PROGRESS.md`.
+
+16. Reported: "`PROGRESS.md` now reflects the planned items and the source pass
+    status. I'm adding the same findings to the `Versions` chapter so the
+    differences are visible in the mdBook, not only in the tracker."
+
+    Action/result: Added shared-action and object/motion delta tables to
+    `docs/src/versions.md`.
+
+17. Reported: "The logic bytecode chapter gets a compact cross-version note
+    next. This keeps the opcode catalog portable: SQ2 behavior remains the
+    baseline rows, and GR differences are called out as version associations."
+
+    Action/result: Added a shared-opcode GR/SQ2 note to
+    `docs/src/logic_bytecode.md`.
+
+18. Reported: "I'm also touching the runtime model briefly so a future
+    implementer sees the GR motion-mode caveat next to the generic motion
+    lifecycle, not only in the version ledger."
+
+    Action/result: Added a GR-specific motion note to
+    `docs/src/runtime_model.md`.
+
+19. Reported: "Now the symbolic label map: I'm adding GR address associations
+    for the handlers I just used, and tightening the existing object/motion
+    notes so later version comparisons can match by label instead of address."
+
+    Action/result: Added GR input/text, room, inventory, save, restart, and
+    data-global associations to `docs/src/symbolic_labels.md`.
+
+20. Reported: "Next is the evidence log. I'm appending the exact source pass:
+    commands, handler addresses, and the conclusions, with uncertainty
+    separated from observed behavior."
+
+    Action/result: Added a new clean-room evidence section to
+    `docs/src/clean_room_executable_notes.md`.
+
+21. Reported: "The evidence log is updated. I'm adding the user-facing progress
+    updates to the progress log now, since the project instructions explicitly
+    keep that historical trail."
+
+    Action/result: Added this progress-log section.
+
 23. Reported: "To isolate whether this is the line algorithm or the coordinate
     clamp, I'm adding an exact-boundary version of the same test using
     `(0x9f,0xa7) -> (0,0)`. If that matches, the gap is in out-of-range
@@ -19827,3 +19995,1162 @@ Progress updates and outcomes:
       status check."
 
       Action/result: Added the final verification progress-log entries.
+
+2614. Reported: "I've got the thread back in my head. I'm continuing on the v3
+      fixture writer path now: first removing the remaining hidden
+      selected-game coupling in the fixture tool, then adding a direct-record
+      v3 resource patch path we can use for Gold Rush probes."
+
+      Action/result: Resumed from the top `PROGRESS.md` item and inspected the
+      existing v2 fixture builder, v3 resource parser, and fixture tests.
+
+2615. Reported: "The fixture code has a clean insertion point: the old v2
+      record writer and directory patcher can stay as-is, while v3 gets its
+      own combined-directory patcher and direct-record writer. I'm going to
+      keep the old function names for existing callers, but route source-game
+      selection through an explicit parameter or `AGI_GAME_DIR`."
+
+      Action/result: Confirmed `tools/qemu_fixture.py` still imported a global
+      `SQ2` path from `tools/disassemble_logic.py` and identified the copy
+      helpers as the place to parameterize source selection.
+
+2616. Reported: "I'm editing the fixture tool now. The useful shape is:
+      `copy_game_tree(..., game_dir=...)` for any evidence input, old v2
+      helpers unchanged for current SQ2 harnesses, and a new v3 helper that
+      appends a direct uncompressed record to an existing prefixed volume and
+      patches the combined directory."
+
+      Action/result: Removed the qemu-fixture module's import-time dependency
+      on `SQ2`, added explicit source-game selection, and added v3 direct
+      record / combined-directory patch helpers.
+
+2617. Reported: "The synthetic test game for v3 is tiny, but it exercises the
+      same directory shape Gold Rush uses: one `GRDIR`, prefixed `GRVOL.1`,
+      section offsets in the first eight bytes, and exact `ff ff ff` absent
+      entries. That gives us a local test without touching private game files."
+
+      Action/result: Added fixture tests for v3 direct-record wrapping,
+      combined-section entry patching, and logic-record replacement in a
+      synthetic Gold Rush-style resource container.
+
+2618. Reported: "The first pass of the code is in place. I'm running the
+      focused tests now; if the direct-record assumption or any import cleanup
+      is wrong, this should catch it before I write docs around it."
+
+      Action/result: Ran `python3 -B -m py_compile tools/qemu_fixture.py
+      tools/agi_resources.py`, which passed, and a focused unittest run, which
+      found a missing `end_action` import in the new test.
+
+2619. Reported: "The focused suite found only a test import miss
+      (`end_action`), not a resource-format issue. I'm fixing that and
+      rerunning."
+
+      Action/result: Imported `end_action` in `tests/test_qemu_fixture.py` and
+      reran the focused fixture/resource tests successfully.
+
+2620. Reported: "The focused fixture/resource tests are green. I'm doing a
+      quick source scan next for stale `SQ2` assumptions in the fixture path,
+      then I'll update `PROGRESS.md` and the docs with exactly what changed
+      and what remains provisional."
+
+      Action/result: Scanned the fixture code and docs for stale selected-game
+      assumptions; remaining fixture-module SQ2 references are compatibility
+      names or v2-specific fixture paths rather than import-time defaults.
+
+2621. Reported: "The scan shows the fixture module itself no longer imports
+      `SQ2`, and the remaining SQ2 references there are compatibility-oriented
+      function names or v2-specific fixture builders. I'm updating the tracker
+      now so the next work item becomes targeted v3 behavior probes, not
+      'build the v3 writer.'"
+
+      Action/result: Updated `PROGRESS.md` to mark the basic v3 direct logic
+      fixture writer as available and to make targeted GR behavior probes the
+      top remaining item.
+
+2622. Reported: "One more small improvement before the docs: I'm adding a CLI
+      entry for the v3 logic fixture writer, so it's not just a Python helper.
+      It will still require an explicit selected game via `--game-dir` or
+      `AGI_GAME_DIR`; no default game path."
+
+      Action/result: Added `tools/qemu_fixture.py v3-logic` with payload,
+      logic-number, optional volume, explicit game directory, and output
+      arguments.
+
+2623. Reported: "The CLI is in place too. I'm moving the documentation from
+      'not v3-aware yet' to the more precise state: basic v3 direct logic
+      fixtures exist; picture/view v3 fixture packing and the behavioral
+      probes are still next."
+
+      Action/result: Updated `docs/src/versions.md` and `AGENTS.md` with the
+      v3 direct logic fixture command and current limitations.
+
+2624. Reported: "The evidence notes now record the commands and the decision
+      boundary for v3 fixtures. I'm appending the matching progress-log
+      entries, then I'll run the full local checks."
+
+      Action/result: Added this v3 fixture writer progress-log block.
+
+2625. Reported: "The tracker and docs are caught up. I'm running the
+      regression set now: full unit suite with explicit SQ2 input, mdBook
+      build, compatibility wrapper, and whitespace checks."
+
+      Action/result: Ran
+      `AGI_GAME_DIR=games/SQ2 python3 -B -m unittest discover -s tests`
+      (`254` tests), `mdbook build docs`,
+      `AGI_GAME_DIR=games/SQ2 python3 -B tools/compatibility_suite.py`, and
+      `git diff --check`; all passed.
+
+2626. Reported: "The full unit suite is now 254 tests and passed; mdBook and
+      the compatibility wrapper passed too, and `git diff --check` is clean.
+      I'm doing a final compile/status pass after the CLI addition so the
+      close-out is precise."
+
+      Action/result: Ran `python3 -B -m py_compile tools/qemu_fixture.py
+      tools/agi_resources.py` successfully and inspected `git status --short`
+      plus `git diff --stat`.
+
+2627. Reported: "The final status picked up a generated `tools/__pycache__`
+      from the test runs. I'm removing only that generated cache, then I'll
+      record the verification results in the log."
+
+      Action/result: Removed generated `tools/__pycache__` and recorded the
+      final verification result in `docs/src/clean_room_executable_notes.md`.
+
+2628. Reported: "The v3 fixture writer is done and verified, so I'm rolling
+      straight into the first targeted delta: GR's `switch_room_like
+      #0x7e..0x80` remap. I'll start source-first by making the generated
+      fixtures for `#0x7e` and `#0x49`, then use QEMU only if the existing
+      harness/image is ready to compare their visible result."
+
+      Action/result: Inspected `games/GR`, QEMU snapshot helpers, and the
+      current FreeDOS build state.
+
+2629. Reported: "There isn't currently a `build/freedos/freedos.img`, so a
+      QEMU confirmation would need the FreeDOS setup step before it can run.
+      I'm still going to prepare the source-level fixture/test pieces first;
+      if the image setup is quick and local, I'll use it for confirmation."
+
+      Action/result: Confirmed the build directory lacked the FreeDOS image and
+      read `tools/setup_freedos_image.py` / README setup notes.
+
+2630. Reported: "For the room-remap probe, the cleanest observable check is
+      pairwise: build one fixture whose first logic switches to `0x49`, and
+      another whose first logic switches to `0x7e`. If GR really remaps `0x7e`
+      to `0x49`, those two generated copies should converge to the same room
+      behavior under the original engine."
+
+      Action/result: Disassembled GR logic `73` and logic `0`, confirming that
+      room `0x49` has real picture/setup behavior and that original logic `0`
+      dispatches the current room later in its script.
+
+2631. Reported: "The FreeDOS builder needs to recreate
+      `build/freedos/freedos.img` before any QEMU probe can run. I'm trying
+      the normal setup first; if the sandbox blocks the download, I'll request
+      the narrow approval for that command."
+
+      Action/result: The sandboxed FreeDOS setup failed with DNS blocked while
+      downloading the official FreeDOS LiteUSB zip.
+
+2632. Reported: "The sandbox blocked DNS for the FreeDOS download, as expected.
+      I'm asking for approval to run the same setup command outside the sandbox
+      so it can fetch the official FreeDOS image and build the local QEMU disk."
+
+      Action/result: Reran `python3 -B tools/setup_freedos_image.py --force`
+      with approval; it downloaded and extracted `FD14LITE.img` to
+      `build/freedos/freedos.img`.
+
+2633. Reported: "The FreeDOS setup is running with approval now. While that
+      finishes, I'm setting up the room-remap helper shape so the dynamic probe
+      can be repeatable instead of a one-off manual run."
+
+      Action/result: Added `tools/gr_v3_behavior_probe.py` with room-remap
+      fixture generation and optional QEMU comparison.
+
+2634. Reported: "I'm going to make the v3 patcher a little more reusable
+      before writing the probe: `build_v3_logic_fixture` will remain the
+      copy-then-patch entry point, and a new lower-level helper will patch
+      additional logic resources in an already-copied v3 fixture. That lets
+      the room-remap test replace both logic 0 and the destination room logic."
+
+      Action/result: Added `patch_v3_logic_resource()` and tests proving an
+      already-generated v3 fixture can be patched again.
+
+2635. Reported: "I’m adding a small GR-specific behavior probe tool now. It
+      will build two copied v3 fixtures: one switches to room `0x49`, the other
+      to `0x7e`; both replace logic `0x49` with the same deterministic
+      picture-display logic so the QEMU oracle can compare the two captures
+      directly."
+
+      Action/result: Added structural tests for the GR v3 room-remap probe
+      fixture builder.
+
+2636. Reported: "The room-remap probe tool and local structural tests are
+      added. I'm checking them now, and I'll see whether the FreeDOS image
+      build has finished so I can run the original-engine comparison."
+
+      Action/result: `python3 -B -m py_compile tools/gr_v3_behavior_probe.py
+      tools/qemu_fixture.py` and focused room-remap/qemu-fixture tests passed.
+
+2637. Reported: "Good, the FreeDOS image rebuilt successfully, and the new
+      probe tests pass. I'm running the room-remap probe in build-only mode
+      first to inspect the generated fixtures, then I'll run the QEMU capture
+      comparison."
+
+      Action/result: Verified the FreeDOS root with `mdir`; the first
+      build-only probe run exposed an argument-consumption issue.
+
+2638. Reported: "I found the real issue: importing `qemu_snapshot` computes its
+      default DOS image through `project_paths`, and that path currently asks
+      for a selected game too early. I'm adjusting the probe so build-only mode
+      does not import QEMU snapshot helpers until `--run-qemu` is actually
+      requested."
+
+      Action/result: Narrowed the failure further to project-wide `--game-dir`
+      consumption during imports below `qemu_fixture`.
+
+2639. Reported: "More precisely, the project-wide `--game-dir` hook is being
+      consumed during import by older resource helpers below `qemu_fixture`,
+      before this probe's own parser sees it. I'll make the probe accept the
+      project convention by reading that selected game through
+      `project_paths.game_dir()` when argparse no longer has `--game-dir`."
+
+      Action/result: Reworked the new probe to lazy-import `qemu_fixture` and
+      QEMU helpers so its own `--help` and parser work before game selection is
+      consumed.
+
+2640. Reported: "I've made the probe imports lazy so `--help` and argument
+      parsing work normally. Now I'm rerunning the build-only fixture
+      generation and reading the JSON report back."
+
+      Action/result: `gr_v3_behavior_probe.py --help` and the build-only
+      room-remap report succeeded.
+
+2641. Reported: "Build-only generation works now. The two fixtures are ready;
+      I'm checking the report and then launching the QEMU comparison from the
+      rebuilt FreeDOS image."
+
+      Action/result: Read back generated fixtures; logic `0` differed only in
+      `switch_room_like(#0x49)` vs `switch_room_like(#0x7e)`, and logic
+      `0x49` matched in both.
+
+2642. Reported: "The fixture readback is exactly what we want: logic 0 differs
+      only by `switch_room_like #0x49` versus `#0x7e`, and logic `0x49` in both
+      fixtures is the same deterministic picture-display script. I'm launching
+      the QEMU comparison now."
+
+      Action/result: The sandbox blocked the local VNC bind for QEMU when run
+      from the Python probe.
+
+2643. Reported: "QEMU built the snapshot disk but the sandbox blocked the VNC
+      socket bind from inside the Python probe. I'm rerunning the same probe
+      outside the sandbox with a narrow approval for this probe command."
+
+      Action/result: The approved QEMU run completed and wrote
+      `build/gr-v3-behavior/room_remap_qemu_001.json`.
+
+2644. Reported: "The QEMU room-remap probe completed successfully. I'm reading
+      the report and inspecting the captures so I can document exactly what was
+      validated."
+
+      Action/result: Found both captures byte-identical but all black, so the
+      run was not accepted as behavioral evidence.
+
+2645. Reported: "The first QEMU pair matched, but both captures are just a
+      blank black screen, so that is not strong evidence yet. I'm treating that
+      as a harness/probe issue, not a behavioral conclusion, and I'll adjust
+      the marker logic so the destination room visibly draws a known resource."
+
+      Action/result: Checked that GR pictures `1` and `73` are present and
+      nonblank via the v3 resource reader and `PictureRenderer`.
+
+2646. Reported: "The old `render_picture.py` path is still
+      split-directory-only, so it can't render GR directly. I'll use the v3
+      resource reader plus the existing `PictureRenderer` class directly to
+      inspect marker picture choices."
+
+      Action/result: Rendered GR picture payloads directly from
+      `agi_resources`; picture `1` has 14 visual colors and picture `73` has 8.
+
+2647. Reported: "The real GR direct records use the same shape we write:
+      header byte equals the volume for direct records, with equal
+      expanded/stored lengths. I'm checking the selected marker picture next;
+      it may simply be blank, which would make the equality test technically
+      true but useless."
+
+      Action/result: Confirmed the generated direct-record header matches real
+      GR direct logic/sound records.
+
+2648. Reported: "The marker pictures are not blank locally, so the black QEMU
+      result means the script probably is not reaching/drawing the marker. I'm
+      rerunning with picture 1 and a longer wait to separate 'bad picture
+      choice' from 'room-switch fixture flow.'"
+
+      Action/result: A longer QEMU room-remap run with picture `1` still
+      produced equal all-black captures.
+
+2649. Reported: "The adjusted QEMU run is still in progress. If it still comes
+      back black, I'll switch from 'room switch then destination logic draws'
+      to a probe that records the remapped room number through a more direct
+      engine-visible side effect."
+
+      Action/result: The adjusted run completed successfully but still did not
+      produce useful visual evidence.
+
+2650. Reported: "The picture-1 run completed. I'm inspecting whether that
+      produced a real screen or just the same black false-positive."
+
+      Action/result: `inspect_ppm` again reported one unique color and no
+      non-background bounding box.
+
+2651. Reported: "The longer picture-1 run is still black, so the current remap
+      probe is not yet valid. I'm adding a one-case direct-draw mode to the
+      same tool: patch logic 0 to show a picture immediately. That will tell us
+      whether v3 direct logic replacement executes at all under GR in QEMU."
+
+      Action/result: Added `--probe direct-draw` mode to
+      `tools/gr_v3_behavior_probe.py`.
+
+2652. Reported: "Direct-draw mode is added. I'm compiling it and running one
+      QEMU capture with picture 1; this is a sanity check for whether our
+      patched v3 logic 0 executes and draws at all."
+
+      Action/result: Direct-draw pycompile and tests passed; the QEMU capture
+      ran successfully.
+
+2653. Reported: "The direct-draw QEMU sanity run completed. I'm inspecting the
+      capture; a nonblank image means the v3 fixture writer is executing
+      correctly and the room-remap blankness is specifically about the switch
+      flow."
+
+      Action/result: Direct draw produced a nonblank `640x400` capture with
+      14 unique colors.
+
+2654. Reported: "The direct-draw capture is nonblank, so v3 direct logic
+      replacement works. The black room-remap captures make sense now: logic 0
+      was switching rooms every cycle, likely preventing the destination room
+      logic from ever settling. I'm changing the switch-room fixture to guard
+      the switch so it fires once, then lets the destination logic run."
+
+      Action/result: Added a guard variable to the switch-room payload and
+      reran the room-remap probe; captures remained black.
+
+2655. Reported: "Even guarded, the switch pair stays black, while direct-draw
+      works. That points back to the room-switch helper resetting or
+      short-circuiting more state than the simple guard assumed. I'm going back
+      to the GR disassembly for the room switch path before trying another
+      fixture shape."
+
+      Action/result: Re-read GR logic `0` and found the original global
+      dispatcher calls `call_logic_var(v0)` near bytecode offset `0x0ca0`.
+
+2656. Reported: "The GR global logic dispatches the current room near the end
+      with `call_logic_var(v0)`. Since replacing logic 0 removes that dispatch,
+      a room switch alone will never call our patched destination room logic.
+      I'm adjusting the probe: after the one-shot switch, logic 0 should
+      explicitly call `call_logic_var(v0)` each cycle, matching the original
+      dispatcher shape."
+
+      Action/result: Updated `switch_room_payload()` to append
+      `call_logic_var(v0)` before `end`.
+
+2657. Reported: "The switch probe now preserves the essential dispatcher tail:
+      after the guarded switch, logic 0 calls `call_logic_var(v0)`. I'm
+      rerunning the local test and then the QEMU pair."
+
+      Action/result: Local tests and build-only generation passed.
+
+2658. Reported: "The dispatcher-tail build is ready and the tests pass. Now I'm
+      running the QEMU comparison again; this one should finally exercise the
+      remap through the original room-switch code and then visibly call the
+      destination room script."
+
+      Action/result: The dispatcher-tail QEMU run completed successfully and
+      wrote `room_remap_dispatch_qemu_pic001_001.json`.
+
+2659. Reported: "The updated QEMU probe completed. I'm inspecting the screen
+      stats now; if both captures match and are nonblank, this becomes our
+      first dynamic v3 behavioral delta test."
+
+      Action/result: Both captures were byte-identical and nonblank: 14 unique
+      colors, non-background bounding box `(0, 0, 639, 399)`, and matching PPM
+      SHA-256 `45518c409f738a1fb2f4233db202f64d2e0e94011a9559e8ace0d952362814ab`.
+
+2660. Reported: "That did it: the dispatcher-tail room-remap probe produced
+      identical nonblank captures for direct `0x49` and alias `0x7e`. I'm
+      updating the tracker/docs now, including the false start, because the
+      'black-screen equality' was an important harness lesson."
+
+      Action/result: Updated `PROGRESS.md`, `docs/src/versions.md`,
+      `AGENTS.md`, `docs/src/symbolic_labels.md`, and
+      `docs/src/clean_room_executable_notes.md` with the v3 room-remap probe
+      result.
+
+2661. Reported: "The high-level docs now show the v3 room-remap result. I'm
+      also tagging the symbolic label entry so future cross-version work sees
+      that the `0x7e` case is no longer just source-backed; it has a QEMU
+      evidence artifact."
+
+      Action/result: Updated `docs/src/symbolic_labels.md` and added the
+      promoted probe note to `docs/src/compatibility_testing.md`.
+
+2662. Reported: "The v3 room-remap docs and tracker are updated. I'm running
+      the full local validation set again, including the new probe tests, then
+      I'll clean generated caches and report the exact state."
+
+      Action/result: Ran
+      `AGI_GAME_DIR=games/SQ2 python3 -B -m unittest discover -s tests`
+      (`257` tests), `mdbook build docs`,
+      `AGI_GAME_DIR=games/SQ2 python3 -B tools/compatibility_suite.py`,
+      `python3 -B -m py_compile tools/gr_v3_behavior_probe.py
+      tools/qemu_fixture.py tools/agi_resources.py`, and `git diff --check`;
+      all passed.
+
+2663. Reported: "Validation is clean: 257 tests, mdBook, compatibility wrapper,
+      pycompile, and diff whitespace all passed. I'm removing generated Python
+      cache directories and doing the final status/diff readback."
+
+      Action/result: Found and removed generated `tools/__pycache__`; status
+      still has the pre-existing untracked `run.sh` plus the new probe/test
+      files and edited docs/tools.
+
+2664. Reported: "Only `tools/__pycache__` is generated; `run.sh` is still the
+      pre-existing untracked file, so I'm leaving it alone. I'm removing the
+      cache and then I'll add the final verification note to the docs."
+
+      Action/result: Added the final verification summary to
+      `docs/src/clean_room_executable_notes.md`.
+
+2665. Reported: "I'll keep moving from the tracker's top item: extend the GR
+      v3 room-remap probe from the validated `0x7e -> 0x49` case to the
+      remaining aliases `0x7f` and `0x80`, then promote that into the
+      docs/tests if QEMU gives us nonblank matches."
+
+      Action/result: Re-read `PROGRESS.md`, `tools/gr_v3_behavior_probe.py`,
+      and `tests/test_gr_v3_behavior_probe.py`.
+
+2666. Reported: "The current probe shape is already right; it just has a
+      one-alias case list. I'm expanding that case list to cover `0x7e`,
+      `0x7f`, and `0x80` in one QEMU batch, with the report recording
+      per-alias equality against the direct `0x49` capture."
+
+      Action/result: Updated `tools/gr_v3_behavior_probe.py` to generate
+      direct `0x49` plus aliases `0x7e`, `0x7f`, and `0x80`, and to report
+      `matches_direct` per alias.
+
+2667. Reported: "The code now builds direct `0x49` plus all three alias
+      fixtures. I'm updating the tests to assert the whole alias set and the
+      patched payloads, then I'll run the probe."
+
+      Action/result: Updated `tests/test_gr_v3_behavior_probe.py` to assert
+      fixture labels and switch payloads for all three aliases.
+
+2668. Reported: "The local expectations now cover `alias_7e`, `alias_7f`, and
+      `alias_80`. I'm running the focused tests and a build-only report before
+      launching QEMU."
+
+      Action/result: Focused pycompile/tests passed and
+      `build/gr-v3-behavior/room_remap_all_build_001.json` was generated.
+
+2669. Reported: "The focused tests and build-only report passed. I'm reading
+      the report and payloads once, then running the four-case QEMU batch."
+
+      Action/result: Verified generated logic payloads differ only by target
+      bytes `0x49`, `0x7e`, `0x7f`, and `0x80`.
+
+2670. Reported: "The generated fixture payloads are exactly differentiated by
+      the room byte. I'm launching the QEMU run now; it should produce four
+      captures and compare every alias back to the direct `0x49` case."
+
+      Action/result: Started the approved QEMU run for
+      `room_remap_all_qemu_pic001_001.json`.
+
+2671. Reported: "The expanded QEMU run is in progress. This one has four
+      fixtures, so it takes a little longer than the previous two-case run."
+
+      Action/result: The QEMU run completed and wrote
+      `build/gr-v3-behavior/room_remap_all_qemu_pic001_001.json`.
+
+2672. Reported: "The four-case QEMU run completed. I'm inspecting the
+      per-alias match flags and screen stats now before promoting the result."
+
+      Action/result: The report shows `alias_7e`, `alias_7f`, and `alias_80`
+      all match direct `0x49`; all four captures are nonblank with 14 unique
+      colors and identical PPM SHA-256
+      `45518c409f738a1fb2f4233db202f64d2e0e94011a9559e8ace0d952362814ab`.
+
+2673. Reported: "All three aliases matched the direct room target with
+      nonblank captures. I'm promoting the probe from 'one alias validated' to
+      'full `0x7e..0x80` range validated' across the tracker and docs, and
+      I'll update the probe label so future reports say what they actually
+      cover."
+
+      Action/result: Updated the probe report label and began updating
+      `PROGRESS.md`, `AGENTS.md`, and mdBook chapters to reference the all-alias
+      evidence.
+
+2674. Reported: "The tracker now treats the whole room-alias range as covered.
+      I'm updating the command references and evidence text next."
+
+      Action/result: Updated `AGENTS.md`, `docs/src/versions.md`,
+      `docs/src/compatibility_testing.md`, `docs/src/symbolic_labels.md`, and
+      `docs/src/clean_room_executable_notes.md` for the all-alias room-remap
+      evidence.
+
+2675. Reported: "I've got the thread state back. I'm at the validation pass for
+      the expanded Gold Rush v3 room-remap probe, then I'll update the evidence
+      log with the exact checks and give you the compact outcome."
+
+      Action/result: Ran the validation pass after the expanded room-remap probe
+      and documentation updates.
+
+2676. Reported: "The core validation pass is clean: 257 unit tests, mdBook,
+      pycompile, and whitespace checks all passed. I'm running the compatibility
+      suite now because it catches the cross-doc opcode/evidence consistency
+      that the plain test run doesn't cover."
+
+      Action/result: `AGI_GAME_DIR=games/SQ2 python3 -B -m unittest discover -s
+      tests`, `mdbook build docs`, `python3 -B -m py_compile
+      tools/gr_v3_behavior_probe.py tools/qemu_fixture.py tools/agi_resources.py`,
+      and `git diff --check` all passed.
+
+2677. Reported: "Compatibility suite passed as well. A generated
+      `tools/__pycache__` appeared from the runs, so I'm cleaning only that
+      generated directory and then I'll record the validation result in the
+      project log."
+
+      Action/result: `AGI_GAME_DIR=games/SQ2 python3 -B tools/compatibility_suite.py`
+      passed, and the generated `tools/__pycache__` directory was removed.
+
+2678. Reported: "The detailed evidence note already contains the final
+      verification block, so I only need to add the matching progress-log
+      entries. After that I'll rerun the lightweight checks touched by the log
+      edit."
+
+      Action/result: Added the validation and cleanup entries to this log.
+
+2679. Reported: "The expanded room-remap pass is wrapped and validated. I'm
+      going back to `PROGRESS.md` now and taking the next highest-value item,
+      staying source-first and using QEMU only if there's a concrete behavior
+      worth confirming."
+
+      Action/result: Re-read `PROGRESS.md`, the GR/SQ2 static comparison helper,
+      and relevant key/menu/save/object references.
+
+2680. Reported: "The next item is the GR v3 key/menu event delta: `0x79`,
+      `0xad`, `0xb1`, and `0xb5`. I'm going to pin down the disassembled
+      routines first, because here the useful outcome is a portable description
+      of the event tables and gates rather than just a visual probe."
+
+      Action/result: Located the existing GR v3 key/menu source-map notes and
+      symbolic labels for `code.input.map_key_event`, `code.menu.interact`, and
+      the key-release gate globals.
+
+2681. Reported: "The docs already contain a solid source map for the key/menu
+      gates; what's missing is a focused behavioral fixture. I'm reading the
+      current v3 probe builder and the existing SQ2 key/menu probes so I can
+      extend the same harness without inventing a separate path."
+
+      Action/result: Read `tools/gr_v3_behavior_probe.py`,
+      `tools/logic_interpreter_probe.py`, `tools/qemu_fixture.py`, and the
+      focused GR v3 probe tests.
+
+2682. Reported: "There's a nice fit here: the existing SQ2 logic probe already
+      has code snippets for mapped-key/status-byte tests. I'm extracting the
+      minimal bytecode patterns from that rather than building a new comparison
+      mechanism."
+
+      Action/result: Reused the existing `0x79` mapped-key/status-byte fixture
+      shape as the model for the GR v3 capacity probe.
+
+2683. Reported: "For the key-map capacity probe, I can avoid any generated
+      graphics: show one original GR picture when the mapped status byte fires,
+      and compare that capture to a direct draw of the same picture. That keeps
+      this about interpreter event behavior, not renderer fidelity."
+
+      Action/result: Chose original GR picture `1` as the marker image for both
+      direct and keyed captures.
+
+2684. Reported: "Before I wire the fixture, I'm re-reading the GR disassembly
+      around the four handler entry points so the code and docs are anchored to
+      exact local evidence, not just the earlier summary text."
+
+      Action/result: Re-read GR disassembly around `0x4e98`, `0x63a8`,
+      `0x63b0`, `0x63b8`, `0x970b`, and `0x9724`.
+
+2685. Reported: "The disassembly confirms the key-map capacity is a literal
+      loop bound change to `0x31`, and the gate pair is very small: `0xad`
+      writes one byte, `0xb5` clears it, and the IRQ hook checks that byte. I'm
+      going to add a probe that exercises the expanded 49th mapping slot, since
+      that is the most observable part of this cluster."
+
+      Action/result: Planned a slot-48 key-map capacity fixture while leaving
+      raw release/menu gate timing as source-backed follow-up work.
+
+2686. Reported: "The key-map probe I'm adding fills 48 dummy mapping slots,
+      then puts the real `x -> status 7` mapping in the final GR slot. Under the
+      source model this should work in GR v3 (`0x31` slots) and would fail under
+      the SQ2-sized `0x27` table."
+
+      Action/result: Started extending `tools/gr_v3_behavior_probe.py` and
+      `tests/test_gr_v3_behavior_probe.py`.
+
+2687. Reported: "The first patch missed because the file had shifted from the
+      context I targeted. I'm splitting the edit into smaller hunks so it stays
+      readable and avoids touching unrelated sections."
+
+      Action/result: Re-opened `tools/gr_v3_behavior_probe.py` with line
+      numbers and resumed with smaller patches.
+
+2688. Reported: "The file is compact, so the extension is straightforward. I'm
+      adding constants and the payload/builder first, then I'll add the CLI
+      branch."
+
+      Action/result: Added key-map slot-count constants and post-launch key
+      metadata to `ProbeCase`.
+
+2689. Reported: "Constants and case metadata are in place. Next I'm adding the
+      actual bytecode payload: 48 filler `0x79` mappings, then the real `x`
+      mapping in slot 48, followed by a per-cycle status check that displays an
+      original GR picture."
+
+      Action/result: Added `key_map_capacity_payload()`.
+
+2690. Reported: "The payload is now expressed as reusable bytecode, which makes
+      it testable without booting QEMU. I'm adding the fixture builder and
+      making the QEMU runner honor post-launch keystrokes."
+
+      Action/result: Added `build_key_map_capacity_fixtures()` and taught
+      `run_qemu_cases()` to pass post-launch key fields into
+      `SnapshotFixtureCase`.
+
+2691. Reported: "The runner can now type the probe key after launch. I'm wiring
+      the `--probe key-map-capacity` branch so it produces the same style of
+      JSON report as the room-remap probe."
+
+      Action/result: Added the `key-map-capacity` CLI branch and report fields.
+
+2692. Reported: "The CLI branch is in. I'm updating the focused tests to assert
+      the generated v3 fixture really puts the live mapping in the last GR slot
+      and patches only copied fixture data."
+
+      Action/result: Added tests for the key-map payload and copied fixture
+      contents.
+
+2693. Reported: "The unit tests now cover the new payload and fixture builder.
+      I'm running those focused checks and a build-only probe before trying
+      QEMU."
+
+      Action/result: Focused GR v3 tests, pycompile, and build-only
+      `key_map_capacity_build_001.json` generation passed.
+
+2694. Reported: "The focused tests and build-only run are clean. I'm inspecting
+      the generated report and payload once, then I'll launch the QEMU
+      validation for the final-slot mapping."
+
+      Action/result: Confirmed the generated payload had `49` map actions, with
+      the target `x` mapping after `48` prior `0x79` opcodes.
+
+2695. Reported: "The generated logic has exactly 49 `0x79` actions and the
+      target mapping is after 48 filler slots, which is the edge we wanted. I'm
+      running the original GR interpreter now and comparing the final-slot key
+      capture to a direct picture draw."
+
+      Action/result: Ran the first QEMU key-map capacity probe, producing
+      `build/gr-v3-behavior/key_map_capacity_qemu_pic001_001.json`.
+
+2696. Reported: "The QEMU run completed successfully. I'm checking both the JSON
+      match flag and the actual capture stats so we know this wasn't an
+      all-black false positive."
+
+      Action/result: The keyed slot-48 capture matched the direct capture; both
+      had the same PPM SHA-256 as the known nonblank picture-1 capture.
+
+2697. Reported: "The match flag is true and the two PPM files have the same
+      SHA-256 as the earlier nonblank picture-1 capture. I tried to pass both
+      files to `inspect_ppm.py` at once, but that helper accepts one image at a
+      time, so I'm rerunning it separately."
+
+      Action/result: Re-ran `inspect_ppm.py` separately; both captures were
+      `640x400`, `14` unique colors, with full-screen non-background bounds.
+
+2698. Reported: "I'm going to tighten this one more notch: add a paired no-key
+      fixture using the same slot-48 table. The positive case should match the
+      direct picture only after `x`; the no-key case should not. That guards
+      against a preexisting status byte or accidental initial draw."
+
+      Action/result: Added a `slot_48_no_key` fixture using the same payload
+      without post-launch key input.
+
+2699. Reported: "The no-key fixture is added. I'm updating the report logic so
+      this probe has explicit expected true and expected false comparisons
+      instead of treating every case as 'should match.'"
+
+      Action/result: Added `expected_matches_direct` and `passed` fields for the
+      key-map capacity report.
+
+2700. Reported: "The report now distinguishes positive and negative
+      expectations. I'm adjusting the tests for the extra fixture and then
+      rerunning the focused checks."
+
+      Action/result: Updated tests to verify the direct, keyed, and no-key
+      fixtures.
+
+2701. Reported: "The tests now expect both the positive and no-key controls. I'm
+      rerunning the focused suite and the QEMU validation with the three-case
+      batch."
+
+      Action/result: Focused tests, pycompile, and build-only
+      `key_map_capacity_build_002.json` passed.
+
+2702. Reported: "Focused tests and build-only generation are still clean. I'm
+      launching the updated QEMU run; this one should show direct = keyed
+      slot-48, and no-key different."
+
+      Action/result: Started the three-case QEMU key-map capacity batch.
+
+2703. Reported: "The three-case QEMU batch is still running. It boots once,
+      saves the DOS prompt, then restores that snapshot for each fixture, so
+      this should finish shortly."
+
+      Action/result: The QEMU batch completed and wrote
+      `build/gr-v3-behavior/key_map_capacity_qemu_pic001_002.json`.
+
+2704. Reported: "The three-case QEMU run finished. I'm checking the expected
+      true/false matches and the capture stats now."
+
+      Action/result: The report passed: `slot_48_key_map` matched direct,
+      `slot_48_no_key` did not; direct/keyed were nonblank with 14 colors, and
+      no-key was blank.
+
+2705. Reported: "The capacity probe passed: keyed slot 48 matches the direct
+      picture, while the no-key control stays blank. I'm promoting this into the
+      tracker/docs now, keeping the key-release/menu gates as source-backed
+      unless we later need raw scan-code timing evidence."
+
+      Action/result: Began promoting the key-map capacity result to
+      `PROGRESS.md` and the mdBook evidence.
+
+2706. Reported: "I'm updating the docs in the places that act as navigational
+      anchors: `PROGRESS.md`, `AGENTS.md`, `versions`, `logic_bytecode`,
+      `compatibility_testing`, symbolic labels, and the clean-room evidence
+      note. The detailed opcode rows stay SQ2-specific; the GR behavior goes
+      into the cross-version notes."
+
+      Action/result: Read the relevant documentation anchors for targeted
+      updates.
+
+2707. Reported: "I found the existing v3 compatibility section, so I'll extend
+      that rather than creating a duplicate. The new evidence note will sit
+      after the room-remap section because it uses the same fixture harness."
+
+      Action/result: Patched `PROGRESS.md` to record QEMU-validated GR key-map
+      capacity and narrow the remaining v3 behavioral work list.
+
+2708. Reported: "`PROGRESS.md` now treats key-map capacity as QEMU-validated
+      and leaves the raw release/menu gate timing as optional follow-up. I'm
+      adding the runnable command to `AGENTS.md` next so future sessions can
+      reproduce it."
+
+      Action/result: Added the key-map capacity QEMU command and pass criteria
+      to `AGENTS.md`.
+
+2709. Reported: "The reproduction command is in `AGENTS.md`. I'm updating the
+      mdBook version and bytecode notes so someone reading the spec sees both
+      the source delta and the QEMU confirmation."
+
+      Action/result: Started updating `docs/src/versions.md`.
+
+2710. Reported: "The versions chapter wording was slightly different than
+      expected, so I'm patching the exact nearby lines now."
+
+      Action/result: Updated the GR key/menu row and dynamic probe paragraph in
+      `docs/src/versions.md`.
+
+2711. Reported: "The versions chapter now records both the source delta and the
+      final-slot QEMU evidence. I'm making the same concise update in the logic
+      bytecode cross-version note."
+
+      Action/result: Updated the GR cross-version key/menu row in
+      `docs/src/logic_bytecode.md`.
+
+2712. Reported: "The bytecode chapter now points readers at the observable
+      slot-48 behavior. Next I'm extending the compatibility testing chapter
+      with the exact command and pass criteria."
+
+      Action/result: Added the key-map capacity command and expected
+      positive/no-key control behavior to `docs/src/compatibility_testing.md`.
+
+2713. Reported: "Compatibility testing now has the reproducible command and
+      acceptance criteria. I'm adding a short symbolic-label note on the GR
+      `code.input.map_key_event` association so the evidence is discoverable
+      from the address map too."
+
+      Action/result: Updated `docs/src/symbolic_labels.md` for GR
+      `code.input.map_key_event`.
+
+2714. Reported: "The symbolic map now links `0x4e98` to the slot-48 QEMU
+      evidence. I'm appending the detailed chronological evidence note with the
+      disassembly anchors, fixture shape, and capture stats."
+
+      Action/result: Added the Gold Rush v3 key-map capacity behavior probe
+      section to `docs/src/clean_room_executable_notes.md`.
+
+2715. Reported: "The evidence note has the full source/QEMU record. I'm
+      appending the progress-log entries for this work block now; it's a little
+      long because it preserves the intermediate updates you asked to keep."
+
+      Action/result: Added progress-log entries for the GR v3 key-map capacity
+      work block.
+
+2716. Reported: "The docs and log are updated. I'm running the full local
+      validation pass now; after that I'll record the verification result and
+      clean any generated cache."
+
+      Action/result: `AGI_GAME_DIR=games/SQ2 python3 -B -m unittest discover -s
+      tests` passed with `259` tests, `mdbook build docs` passed,
+      `python3 -B -m py_compile tools/gr_v3_behavior_probe.py tools/qemu_fixture.py tools/agi_resources.py`
+      passed, and `git diff --check` passed.
+
+2717. Reported: "The first validation group is clean: 259 tests, mdBook,
+      pycompile, and diff hygiene passed. I'm running the compatibility suite as
+      the final consistency check."
+
+      Action/result: `AGI_GAME_DIR=games/SQ2 python3 -B tools/compatibility_suite.py`
+      passed.
+
+2718. Reported: "The compatibility suite passed too. A generated
+      `tools/__pycache__` came back from the run, so I'm removing just that
+      generated cache and then I'll add the final verification note for this
+      key-map pass."
+
+      Action/result: Removed generated `tools/__pycache__`.
+
+2719. Reported: "The cache is cleaned. I'm adding the validation
+      commands/results to the evidence note and progress log, then I'll run the
+      final mdBook and diff checks after those edits."
+
+      Action/result: Added the final verification block to
+      `docs/src/clean_room_executable_notes.md`.
+
+2720. Reported: "The key-map evidence note now includes its verification block.
+      I'm adding the matching progress-log entries for validation and cleanup."
+
+      Action/result: Added validation and cleanup entries to this log.
+
+2721. Reported: "The final mdBook and diff checks are clean. I'm continuing to
+      the next PROGRESS item: the GR v3 save-envelope/object-inventory XOR
+      delta. I'll start by reading the existing save probe and the GR/SQ2
+      disassembly notes before deciding whether to add a QEMU save-file check."
+
+      Action/result: Read `tools/save_roundtrip_probe.py`, save-related docs,
+      the GR/SQ2 source-pass notes, and `tools/agi_save.py`.
+
+2722. Reported: "The existing notes already identify the GR save handler and
+      XOR helper, but this needs to become more implementation-ready. I'm
+      checking whether we can make a targeted original-engine save-file probe
+      for GR, and if that's too much for this pass I'll at least codify the XOR
+      transform with source-backed tests."
+
+      Action/result: Checked local GR files, GR logic usage of save/restore
+      opcodes, and existing SQ2 save-roundtrip harness assumptions.
+
+2723. Reported: "GR logic 0 itself calls `0x8f(#3)`, so the save
+      prefix/signature likely comes from a local message rather than being
+      hard-coded to SQ2. I'm reading that logic resource/message and the exact
+      save handler bytes next, because a GR save probe needs the right
+      signature setup to produce a parseable file."
+
+      Action/result: Read GR logic `0`, exact-offset disassembly for save action
+      `0x29e5`, XOR helper `0x07bc`, and restore action `0x2792`.
+
+2724. Reported: "The first exact-offset read confirmed the save handler calls
+      `0x07bc` before entering the selector and later around the write path. One
+      helper command failed because I passed a string where the resource reader
+      expected a configured/Path game directory, so I'm rerunning the message
+      extraction with `Path(...)`."
+
+      Action/result: Re-ran the local reads with `Path("games/GR")`; exact save
+      block disassembly showed the XORed range is written as the third block.
+
+2725. Reported: "GR's XOR key is not an ASCII string; the helper resets `DI` to
+      image offset `0x072c` and uses those local bytes until the first zero
+      byte, then wraps. That means the clean-room spec should describe it as
+      observed key bytes, not as a named text key."
+
+      Action/result: Found the first zero byte at image `0x0767`, making the
+      observed repeating XOR sequence 59 bytes long.
+
+2726. Reported: "The GR save layout differs from SQ2's fixed block sizes: the
+      exact handler writes a third block from `[0x07d6]` with length `[0x07da]`,
+      and that is the range XORed before and after the save path. I'm going to
+      capture that as a source-backed transform first; a full GR save UI probe
+      can build on it once we know the right signature/prompt sequence."
+
+      Action/result: Chose to implement a source-backed helper/test model before
+      attempting full GR save-file extraction.
+
+2727. Reported: "For this save pass I'm adding a small version-specific
+      transform helper instead of forcing the whole GR save UI immediately. The
+      source-backed contract is the important bit: block 2 is XORed on disk with
+      the observed 59-byte sequence and the same pass restores memory
+      afterward."
+
+      Action/result: Added `GR_V3_OBJECT_INVENTORY_XOR_KEY`,
+      `xor_with_repeating_key(...)`, and
+      `gr_v3_object_inventory_save_xor(...)` to `tools/agi_save.py`.
+
+2728. Reported: "The save helper now has the GR v3 object/inventory XOR
+      transform as a named function with the observed key bytes. I'm adding
+      focused tests for round-trip behavior and the 59-byte wrap point."
+
+      Action/result: Started updating `tests/test_save_resources.py`.
+
+2729. Reported: "The save tests have a slightly different import block than I
+      expected. I'm opening the file and patching against its actual shape."
+
+      Action/result: Re-opened `tests/test_save_resources.py` and patched the
+      imports/test methods against its current layout.
+
+2730. Reported: "I've got the exact test file layout now. I'm adding the
+      imports and the three transform tests at the end of the existing
+      save-resource test class."
+
+      Action/result: Added tests for GR transform round-trip, 59-byte key wrap,
+      and empty-key rejection.
+
+2731. Reported: "The transform tests are in place. I'm running the focused save
+      tests and pycompile before documenting this source-backed model."
+
+      Action/result: `AGI_GAME_DIR=games/SQ2 python3 -B -m unittest
+      tests/test_save_resources.py` passed with `10` tests, and
+      `python3 -B -m py_compile tools/agi_save.py` passed.
+
+2732. Reported: "Focused save tests pass. I'm documenting this as a
+      source-backed GR save model: the transform is now executable in the local
+      helpers, while a future full GR save UI probe can check the on-disk block
+      bytes directly."
+
+      Action/result: Updated `PROGRESS.md` to treat the save XOR model as
+      source-backed and tested, with full GR save extraction left optional.
+
+2733. Reported: "`PROGRESS.md` now treats the save XOR as source-modeled with
+      tests, not as an unstarted item. I'm adding the concrete key/range details
+      to the version and opcode docs."
+
+      Action/result: Updated `docs/src/versions.md`.
+
+2734. Reported: "The versions chapter now includes the 59-byte save transform
+      detail. I'm making the bytecode cross-version note match."
+
+      Action/result: Updated `docs/src/logic_bytecode.md`.
+
+2735. Reported: "The bytecode note is aligned. I'm adding a short runtime-model
+      note so the portable spec distinguishes SQ2's plain save blocks from GR's
+      transformed object/inventory block."
+
+      Action/result: Updated `docs/src/runtime_model.md`.
+
+2736. Reported: "The runtime model now has the GR v3 save-block note. I'm
+      checking the surrounding markdown so I didn't accidentally split a table
+      in an awkward place."
+
+      Action/result: Verified the new runtime-model paragraph sits after the
+      save/restore selector table and before the lifecycle table.
+
+2737. Reported: "The note sits cleanly between the selector table and lifecycle
+      table. I'm adding symbolic labels for the GR save block start/length and
+      key bytes so future comparisons can track if another v3 interpreter moves
+      them."
+
+      Action/result: Updated `docs/src/symbolic_labels.md` with GR save block
+      and XOR key data labels.
+
+2738. Reported: "The symbolic map now records the GR save block pointer, length,
+      and key region. I'm adding a chronological evidence section for the save
+      XOR model, including the exact disassembly calls and the new local tests."
+
+      Action/result: Added the Gold Rush v3 save object/inventory XOR model
+      section to `docs/src/clean_room_executable_notes.md`.
+
+2739. Reported: "The detailed evidence note now captures the save transform.
+      I'm adding a concise compatibility-testing note so the helper tests show
+      up in the suite narrative."
+
+      Action/result: Updated `docs/src/compatibility_testing.md`.
+
+2740. Reported: "The compatibility chapter now includes the GR v3 save transform
+      tests. I'm appending progress-log entries for this save-XOR block, then
+      I'll run the full validation again with the new helper/tests/docs."
+
+      Action/result: Added progress-log entries for the GR v3 save XOR work
+      block.
+
+2741. Reported: "The save-XOR work block is logged. I'm running the full
+      validation pass again now that both code and docs changed."
+
+      Action/result: `AGI_GAME_DIR=games/SQ2 python3 -B -m unittest discover -s
+      tests` passed with `262` tests, `mdbook build docs` passed,
+      `python3 -B -m py_compile tools/agi_save.py tools/gr_v3_behavior_probe.py tools/qemu_fixture.py tools/agi_resources.py`
+      passed, and `git diff --check` passed.
+
+2742. Reported: "The main validation group is clean again: 262 tests, mdBook,
+      pycompile, and diff hygiene passed. I'm running the compatibility suite as
+      the final check for this save-XOR update."
+
+      Action/result: `AGI_GAME_DIR=games/SQ2 python3 -B tools/compatibility_suite.py`
+      passed.
+
+2743. Reported: "The compatibility suite passed. I'm removing the generated
+      cache again and then recording the save-XOR verification result in the
+      evidence note/log."
+
+      Action/result: Removed generated `tools/__pycache__`.
+
+2744. Reported: "The cache is gone. I'm adding the final verification line for
+      the save-XOR pass, then I'll run the two lightweight doc hygiene checks."
+
+      Action/result: Added the final verification block to
+      `docs/src/clean_room_executable_notes.md`.
+
+2745. Reported: "The evidence note has the final verification block. I'm adding
+      the corresponding progress-log entries now."
+
+      Action/result: Added validation and cleanup entries to this log.
+
+2746. Reported: "The final doc checks are clean. I'm moving on to the next
+      remaining v3 delta, restart prompt-marker preservation, and I'll stay with
+      the same source-first pattern."
+
+      Action/result: Read `PROGRESS.md`, restart/prompt-marker references, and
+      exact GR disassembly for `0x26e0`, `0x3b00`, `0x3ab0`, and `0x3ad9`.
+
+2747. Reported: "The GR restart source slice has an important nuance: canceled
+      restart preserves hidden prompt-marker state, but accepted restart still
+      calls the show-marker helper before returning zero into the reset flow.
+      I'm going to correct that wording and add a tiny tested truth table so the
+      spec is precise."
+
+      Action/result: Searched for stale GR restart wording and planned a tested
+      truth-table helper.
+
+2748. Reported: "The search found one stale sentence saying GR redraws only
+      when restart was canceled and the marker had been visible; the disassembly
+      shows `accepted OR previously-visible`. I'm adding a tiny `agi_restart`
+      helper and tests to pin that truth table down."
+
+      Action/result: Added `tools/agi_restart.py` with
+      `gr_v3_restart_redraws_prompt_marker(...)`.
+
+2749. Reported: "The restart helper is in place. I'm adding a focused test file
+      for the four prompt-marker redraw cases."
+
+      Action/result: Added `tests/test_restart_model.py`.
+
+2750. Reported: "The restart truth table has a local test now. I'm running the
+      focused restart test and pycompile before I patch the docs."
+
+      Action/result: `AGI_GAME_DIR=games/SQ2 python3 -B -m unittest
+      tests/test_restart_model.py` passed, and `python3 -B -m py_compile
+      tools/agi_restart.py` passed.
+
+2751. Reported: "Focused restart checks pass. I'm correcting the stale wording
+      now: the GR v3 branch redraws after accepted restart, and after canceled
+      restart only if the marker had been visible beforehand."
+
+      Action/result: Updated `tools/compare_gr_sq2_static.py`.
+
+2752. Reported: "The static comparison note is corrected. I'm updating the
+      tracker and version docs to reflect the tested truth table."
+
+      Action/result: Updated `PROGRESS.md`.
+
+2753. Reported: "`PROGRESS.md` now narrows the remaining v3 behavioral item to
+      object motion mode `4`, with restart QEMU left optional. I'm patching the
+      mdBook wording in the cross-version sections."
+
+      Action/result: Updated `docs/src/versions.md`.
+
+2754. Reported: "The versions table now has the precise accepted/canceled
+      restart behavior. I'm updating the logic bytecode note and runtime model
+      next."
+
+      Action/result: Updated `docs/src/logic_bytecode.md`.
+
+2755. Reported: "The bytecode cross-version note is updated. I'm adding a
+      concise GR v3 note in the restart lifecycle section of the runtime model."
+
+      Action/result: Opened the restart lifecycle section and patched
+      `docs/src/runtime_model.md` after adjusting for the current table layout.
+
+2756. Reported: "The restart lifecycle section has drifted slightly from the
+      context I targeted, so I'm opening that block and patching the actual
+      text."
+
+      Action/result: Inspected `docs/src/runtime_model.md` around the restart
+      lifecycle table.
+
+2757. Reported: "The lifecycle table doesn't have a separate fatal row label I
+      expected. I'm inserting the GR restart note right after the table, before
+      the picture decoder section."
+
+      Action/result: Added the GR v3 restart prompt-marker truth-table note to
+      `docs/src/runtime_model.md`.
+
+2758. Reported: "The runtime model now has the GR truth table note. I'm
+      correcting the stale clean-room note and symbolic label text, then I'll
+      add a compact evidence section for the restart model."
+
+      Action/result: Corrected stale GR restart wording in
+      `docs/src/clean_room_executable_notes.md` and updated
+      `docs/src/symbolic_labels.md`.
+
+2759. Reported: "The stale wording is fixed. I'm adding the restart truth-table
+      tests to the compatibility narrative and then a short chronological
+      evidence section."
+
+      Action/result: Updated `docs/src/compatibility_testing.md`.
+
+2760. Reported: "Compatibility testing now mentions the restart truth table. I'm
+      appending the chronological source-model note for the GR restart branch."
+
+      Action/result: Added the Gold Rush v3 restart prompt-marker truth-table
+      section to `docs/src/clean_room_executable_notes.md`.
+
+2761. Reported: "The restart evidence note is in place. I'm logging this
+      restart-model block, then I'll run validation again with the new
+      helper/test/docs."
+
+      Action/result: Added progress-log entries for the GR v3 restart
+      prompt-marker work block.
+
+2762. Reported: "The restart-model block is logged. I'm running the full
+      validation pass with the new helper and docs."
+
+      Action/result: `AGI_GAME_DIR=games/SQ2 python3 -B -m unittest discover -s
+      tests` passed with `263` tests, `mdbook build docs` passed,
+      `python3 -B -m py_compile tools/agi_restart.py tools/agi_save.py tools/gr_v3_behavior_probe.py tools/qemu_fixture.py tools/agi_resources.py tools/compare_gr_sq2_static.py`
+      passed, and `git diff --check` passed.
+
+2763. Reported: "The first restart validation group is clean: 263 tests,
+      mdBook, pycompile, and diff hygiene passed. I'm running the compatibility
+      suite one more time."
+
+      Action/result: `AGI_GAME_DIR=games/SQ2 python3 -B tools/compatibility_suite.py`
+      passed.
+
+2764. Reported: "The compatibility suite passed too. I'm cleaning the generated
+      cache, adding the restart verification note, and then I'll do the final
+      lightweight checks."
+
+      Action/result: Removed generated `tools/__pycache__`.
+
+2765. Reported: "The cache is cleaned. I'm recording the restart validation
+      results now."
+
+      Action/result: Added the final verification block to
+      `docs/src/clean_room_executable_notes.md`.
+
+2766. Reported: "The restart evidence note has its verification block. I'm
+      adding the matching progress-log validation entries."
+
+      Action/result: Added restart validation and cleanup entries to this log.

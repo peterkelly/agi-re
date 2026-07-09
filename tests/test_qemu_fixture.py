@@ -8,7 +8,6 @@ import stat
 import tempfile
 import unittest
 from pathlib import Path
-from unittest import mock
 
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -26,8 +25,10 @@ from qemu_fixture import (  # noqa: E402
     build_packed_picture_fixture,
     build_picture_timed_carousel_fixture,
     build_view_timed_carousel_fixture,
+    build_v3_logic_fixture,
     approach_first_object_until_near_action,
     assignn_action,
+    end_action,
     build_synthetic_picture_persistent_object_fixture,
     build_synthetic_picture_view_fixture,
     build_synthetic_picture_fixture,
@@ -42,8 +43,10 @@ from qemu_fixture import (  # noqa: E402
     clear_object_bit_0002_action,
     move_object_to_action,
     not_flag_set_condition,
+    patch_combined_dir_entry,
     patch_dir_entry,
     patch_logdir_entry_zero,
+    patch_v3_logic_resource,
     picture_carousel_logic_payload,
     picture_timed_carousel_logic_payload,
     view_carousel_case_actions,
@@ -76,10 +79,25 @@ from qemu_fixture import (  # noqa: E402
     start_random_motion_action,
     stop_motion_mode_action,
     var_eq_imm_condition,
+    v3_volume_record,
     volume_record,
 )
+from agi_resources import ResourceDirectoryLayout, read_volume_record  # noqa: E402
 from agi_graphics import PALETTE, picture_payload, render_picture, view_payload  # noqa: E402
 from compare_picture_capture import compare_picture_capture  # noqa: E402
+
+
+def make_v3_source_game(root: Path) -> Path:
+    source = root / "source-gr"
+    source.mkdir()
+    directory = bytearray()
+    directory.extend(bytes([0x08, 0x00, 0x0B, 0x00, 0x0E, 0x00, 0x11, 0x00]))
+    directory.extend(bytes([0x10, 0x00, 0x00]))
+    directory.extend(b"\xff\xff\xff" * 3)
+    (source / "GRDIR").write_bytes(bytes(directory))
+    (source / "GRVOL.1").write_bytes(v3_volume_record(logic_resource(b"\x00"), volume=1))
+    (source / "SIERRA.COM").write_bytes(b"launcher")
+    return source
 
 
 class QemuFixtureTests(unittest.TestCase):
@@ -232,6 +250,10 @@ class QemuFixtureTests(unittest.TestCase):
         record = volume_record(b"abc", volume=3)
         self.assertEqual(record, b"\x12\x34\x03\x03\x00abc")
 
+    def test_v3_volume_record_wraps_direct_payload_with_expanded_and_stored_lengths(self) -> None:
+        record = v3_volume_record(b"abc", volume=1)
+        self.assertEqual(record, b"\x12\x34\x01\x03\x00\x03\x00abc")
+
     def test_logic_resource_wraps_code_with_empty_message_table(self) -> None:
         self.assertEqual(logic_resource(b"\xff"), b"\x01\x00\xff\x00\x02\x00")
 
@@ -307,6 +329,18 @@ class QemuFixtureTests(unittest.TestCase):
         self.assertEqual(patched[:6], bytes([0xFF] * 6))
         self.assertEqual(patched[6:9], bytes([0x31, 0x23, 0x45]))
 
+    def test_combined_dir_patch_updates_selected_section_entry(self) -> None:
+        layout = ResourceDirectoryLayout(
+            "v3_combined",
+            "GR",
+            section_offsets={"logic": 8, "picture": 11, "view": 14, "sound": 17},
+            section_ends={"logic": 11, "picture": 14, "view": 17, "sound": 20},
+        )
+        original = bytes([0x00] * 8) + b"\xff\xff\xff" * 4
+        patched = patch_combined_dir_entry(original, layout, "picture", 0, volume=1, offset=0x2345)
+        self.assertEqual(patched[8:11], b"\xff\xff\xff")
+        self.assertEqual(patched[11:14], bytes([0x10, 0x23, 0x45]))
+
     def test_copy_game_tree_makes_read_only_inputs_writable_in_fixture(self) -> None:
         with tempfile.TemporaryDirectory() as temp_dir:
             root = Path(temp_dir)
@@ -318,8 +352,7 @@ class QemuFixtureTests(unittest.TestCase):
                 path.chmod(stat.S_IRUSR | stat.S_IRGRP | stat.S_IROTH)
 
             destination = root / "build" / "fixture"
-            with mock.patch.object(qemu_fixture, "SQ2", source):
-                qemu_fixture.copy_sq2_tree(destination)
+            qemu_fixture.copy_sq2_tree(destination, game_dir=source)
 
             copied = destination / "LOGDIR"
             self.assertTrue(copied.stat().st_mode & stat.S_IWUSR)
@@ -337,10 +370,37 @@ class QemuFixtureTests(unittest.TestCase):
             root = Path(temp_dir)
             source = root / "source-game"
             source.mkdir()
-            with mock.patch.object(qemu_fixture, "SQ2", source):
-                with self.assertRaisesRegex(ValueError, "selected game"):
-                    qemu_fixture.copy_sq2_tree(root)
+            with self.assertRaisesRegex(ValueError, "selected game"):
+                qemu_fixture.copy_sq2_tree(root, game_dir=source)
             self.assertTrue(source.exists())
+
+    def test_v3_logic_fixture_appends_direct_record_and_patches_combined_dir(self) -> None:
+        with tempfile.TemporaryDirectory() as temp_dir:
+            root = Path(temp_dir)
+            source = make_v3_source_game(root)
+            original_volume = (source / "GRVOL.1").read_bytes()
+            payload = logic_resource(end_action())
+
+            fixture = build_v3_logic_fixture(payload, root / "fixture", game_dir=source)
+
+            self.assertEqual((fixture / "GRVOL.1").read_bytes()[: len(original_volume)], original_volume)
+            patched_entry = (fixture / "GRDIR").read_bytes()[8:11]
+            self.assertEqual(patched_entry, bytes([0x10, 0x00, len(original_volume)]))
+            record = read_volume_record(fixture, "logic", 0)
+            self.assertEqual(record.transform, "direct")
+            self.assertEqual(record.payload, payload)
+
+    def test_v3_logic_resource_patch_can_update_existing_fixture(self) -> None:
+        with tempfile.TemporaryDirectory() as temp_dir:
+            root = Path(temp_dir)
+            source = make_v3_source_game(root)
+            fixture = build_v3_logic_fixture(logic_resource(end_action()), root / "fixture", game_dir=source)
+            replacement = logic_resource(assignn_action(1, 7) + end_action())
+
+            patch_v3_logic_resource(fixture, replacement)
+
+            record = read_volume_record(fixture, "logic", 0)
+            self.assertEqual(record.payload, replacement)
 
     def test_synthetic_picture_fixture_patches_logdir_picdir_and_vol3(self) -> None:
         payload = bytes([0xF0, 0x02, 0xF6, 0, 0, 1, 1, 0xFF])

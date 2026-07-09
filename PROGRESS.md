@@ -37,10 +37,15 @@ better understood, or a new remaining-work item is discovered.
   SQ2 now has a repeatable helper and report; GR's extra action slots
   `0xb0..0xb5` are source-backed from disassembly, while only shared condition
   entries `0x00..0x12` are structured table records in the observed
-  `AGIDATA.OVL`.
+  `AGIDATA.OVL`. The first dynamic v3 delta probe now QEMU-validates GR action
+  `0x12` remapping immediate room targets `0x7e..0x80` to `0x49` by comparing
+  nonblank original-engine captures.
 - Generated original-engine fixture builders now treat `games/` as immutable:
   they copy the selected game input to a generated destination, make copied
-  files writable, and reject fixture destinations under `games/`.
+  files writable, and reject fixture destinations under `games/`. The v2
+  builders still cover the existing split-directory harnesses, and a basic v3
+  direct-record logic fixture writer can now patch a copied Gold Rush-style
+  combined directory and prefixed volume.
 
 ## GR / SQ2 Static Comparison Tracker
 
@@ -78,10 +83,42 @@ observable behavior/QEMU confirmation is intentionally deferred.
     `set_key_release_event_gate` setting that byte to `1`; the keyboard IRQ
     hook tests `[0x0405]` before enqueueing a type-2 zero event on selected
     key-release paths.
-  - Remaining: give the changed shared action snippets behavioral names only
-    after source or QEMU evidence justifies them; save/restore differences and
-    the observable consequences of the GR menu/input gates need later targeted
-    v3 fixtures.
+  - Current shared-delta source pass:
+    - Input/text actions `0x6f`, `0x73`, `0x76`, `0x77`, `0x78`, `0x89`,
+      `0x8a`, `0xa3`, `0xa4`, and `0xa9` are source-mapped. GR removes the
+      SQ2 display-mode-2/input-width special paths for the observed normal
+      EGA input UI, maps `0xa3`/`0xa4` to the generic no-op handler, and no
+      longer clears the SQ2 input-width word from `0xa9`.
+    - Event/key/menu actions `0x79`, `0xad`, `0xb1`, and `0xb5` are
+      source-mapped. GR expands the script key-map table from `0x27` to
+      `0x31` four-byte slots, replaces SQ2's incrementing key-release gate
+      `[0x1530]` with set/clear byte `[0x0405]`, and adds a separate menu
+      interaction gate word `[0x0403]`. A QEMU probe now validates the
+      expanded key-map capacity by filling 48 dummy slots, placing an `x`
+      mapping in slot 48, and confirming that the typed-key fixture reaches the
+      same nonblank picture capture as a direct draw while the no-key control
+      stays blank.
+    - Room/inventory/save/restart/object-state actions `0x12`, `0x7c`,
+      `0x7d`, `0x80`, and `0x84` are source-mapped. GR's `0x12` remaps
+      immediate room targets `0x7e..0x80` to `0x49` before room switch; local
+      GR scripts contain those operands, and a QEMU probe now validates
+      `0x7e..0x80 -> 0x49` by showing that direct target `0x49` and alias
+      targets `0x7e`, `0x7f`, and `0x80` converge to the same nonblank
+      destination-room capture. GR save wraps the object/inventory chunk in an
+      XOR pass before and after writing the save envelope; local helper
+      `gr_v3_object_inventory_save_xor()` models the observed 59-byte key and
+      is covered by round-trip/wrap tests. GR restart records prompt-marker
+      visibility before confirmation; accepted restart redraws the marker, and
+      canceled restart redraws only if the marker had been visible. This branch
+      is now modeled by a local truth-table helper/test. GR `0x84` preserves
+      object 0 motion mode byte `+0x22` when it is already `4`.
+  - Remaining: use the new v3 direct logic fixture writer to add targeted
+    behavioral fixtures for observable consequences: object motion mode `4`.
+    Add a full GR save-file extraction probe only if source-backed save XOR
+    tests are not sufficient for the final spec, add a GR restart QEMU probe
+    only if the source-backed prompt-marker truth table needs observable
+    confirmation, and add raw key-release/menu-gate behavior probes only if
+    source-backed gate descriptions need observable confirmation.
 - [~] Logic condition opcode comparison
   - Current: table-level parser contracts match for shared condition opcodes
     `0x00..0x12`, and normalized handler-entry snippets have no differences.
@@ -99,10 +136,12 @@ observable behavior/QEMU confirmation is intentionally deferred.
     active/inactive list rebuild/flush/refresh, and membership toggles. GR
     packages rectangle save/restore/draw routines in the main image rather than
     SQ2's `IBM_OBJS.OVL`. Static differences remain in object animation/motion:
-    GR adds an extra helper-gated group-selection branch during frame-timer
-    update and accepts one additional object motion-mode selector.
-  - Remaining: identify the extra GR object/motion selector semantics from
-    source and later validate observable behavior with targeted fixtures.
+    GR gates direction-to-loop selection for views with more than four loops on
+    flag `0x14`, treats exactly-four-loop views as a no-auto-select case in
+    that branch, and accepts motion mode `4` as another entry into the same
+    target-direction helper used by mode `3`.
+  - Remaining: validate the GR frame-selection gate and motion mode `4` with
+    targeted v3 fixtures.
 - [~] View runtime/resource comparison
   - Current: v3 container decoding can read GR view resources locally. Static
     comparison shows the view cache/load path, object-view binding, group table
@@ -529,7 +568,9 @@ observable behavior/QEMU confirmation is intentionally deferred.
     Gold Rush / AGI v3 has mapped the changed resource container, v3
     dispatch/resource routines, shared/extra opcode-table differences, and the
     first object/view/picture runtime deltas. `docs/src/versions.md` now keeps
-    the concise per-version difference ledger.
+    the concise per-version difference ledger. `tools/qemu_fixture.py` now has
+    a v3 direct-record logic fixture writer for generated Gold Rush-style
+    copies under `build/`.
   - Remaining: continue the GR v3 comparison into loader error paths and
     behavioral fixtures for the static deltas, then repeat the workflow for
     additional local games/interpreter versions.
@@ -540,10 +581,14 @@ observable behavior/QEMU confirmation is intentionally deferred.
 
 ## Highest-Value Remaining Work
 
-1. Continue the Gold Rush / AGI v3 comparison from the static delta list:
-   inspect loader/error paths, give source-backed names to the extra object and
-   action-state branches, and then add multi-version behavioral fixtures for
-   the deltas that matter to compatibility.
+1. Continue v3 behavioral probes from the source-mapped GR/SQ2 deltas: cover
+   object motion mode `4`. Add a full GR save-file extraction probe only if the
+   source-backed save XOR model needs on-disk confirmation, add a GR restart
+   QEMU probe only if the source-backed prompt-marker truth table needs
+   observable confirmation, add raw key-release/menu-gate probes only if the
+   source-backed gate descriptions need observable confirmation, and add v3
+   picture/view fixture packing only when a probe needs generated picture or
+   view payloads rather than original game resources.
 2. Continue source-first renderer work only when disassembly or a valid local
    resource exposes a concrete edge not already modeled. Use QEMU as
    confirmation/regression evidence.

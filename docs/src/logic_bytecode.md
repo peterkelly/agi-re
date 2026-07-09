@@ -117,6 +117,19 @@ opcodes through `0xb5`. Those slots are documented below as GR-specific
 extensions; the invalid-range statement above remains the SQ2 / AGI 2.936
 behavior.
 
+Shared opcode version note: the local Gold Rush / AGI 3.002.149 interpreter
+keeps the same parser contracts as SQ2 for shared action opcodes `0x00..0xaf`,
+but source comparison found the following behavior-level deltas. These are
+version observations, not replacements for the SQ2 rows in the main catalog.
+
+| Opcode group | Gold Rush / AGI v3 source-backed difference |
+| --- | --- |
+| `0x6f`, `0x73`, `0x76`, `0x77`, `0x78`, `0x89`, `0x8a` | The normal input-line and blocking prompt path is relocated, but the SQ2 display-mode-2/input-width branches are gone in GR. GR input-line setup computes the display offset as `arg0 << 3` unconditionally. |
+| `0xa3`, `0xa4`, `0xa9` | GR maps the SQ2 input-width set/clear actions to the generic no-op handler. Its close-window action restores and clears active saved-window state, but does not clear a width flag. |
+| `0x79`, `0xad`, `0xb1`, `0xb5` | GR expands the script key-map table to `0x31` slots; QEMU validates slot 48 by filling the first 48 slots with dummy mappings, mapping typed `x` in the final slot, and comparing the resulting nonblank picture capture with a direct draw while a no-key control remains blank. GR also changes the key-release gate from SQ2's incremented `[0x1530]` byte to set/clear byte `[0x0405]`, and adds a menu interaction gate word `[0x0403]`. |
+| `0x12` | GR calls a small helper before room switch: immediate target bytes `0x7e..0x80` become `0x49`; other bytes pass through unchanged. Local GR scripts contain `0x12` operands `0x7e`, `0x7f`, and `0x80`, so this is live compatibility behavior for this interpreter/game pair. |
+| `0x7c`, `0x7d`, `0x80`, `0x84` | GR adds a temporary carried-item selector word, XORs the object/inventory chunk before and after save-file writes using a 59-byte sequence observed at image `0x072c`, records prompt-marker visibility before restart confirmation and redraws on accepted restart or on canceled restart only when the marker had been visible, and preserves object 0 motion mode `4` in `0x84`. The save transform is modeled in `tools/agi_save.py` as `gr_v3_object_inventory_save_xor()`; the restart redraw branch is modeled in `tools/agi_restart.py`. |
+
 ## Top-Level Cycle Timing
 
 The top-level engine cycle observed at `code.engine.main_cycle` (`0x0150`)

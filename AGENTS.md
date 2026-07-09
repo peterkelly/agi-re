@@ -1,5 +1,26 @@
 # AGENTS.md
 
+## Commit Message Style
+
+We follow the guidelines from:
+
+[https://cbea.ms/git-commit/](https://cbea.ms/git-commit/)
+
+The seven rules:
+
+1. Separate subject from body with a blank line.
+2. Limit the subject line to ~50 characters.
+3. When using a `<keyword>: <subject>` format, capitalize the first
+   word after the colon rather than the keyword itself (for example
+   `chore: Make change`).
+4. Do not end the subject line with a period.
+5. Use the imperative mood (“Add feature”, not “Added feature”).
+6. Wrap the body at ~72 characters.
+7. Explain what and why, not how.
+
+Each time you make a commit, include a detailed explanation. Include rationale
+and be verbose.
+
 ## Summary
 
 This is a project to perform a clean room reverse engineering of AGI (Adventure Game Interpreter), a game engine created by Sierra on-line in the 1980s.
@@ -119,6 +140,22 @@ qemu-system-i386 -m 16 -boot c \
   the partition/filesystem geometry must also change.
 - Run targeted object overlay priority/clipping/persistent-object probes with `python3 -B tools/object_overlay_probe.py --dos-prefix OP --output build/object-overlay-probes/batches/name.json --boot-wait 5 --draw-wait 8`.
 - Generate original-engine fixture game directories with `python3 -B tools/qemu_fixture.py picture N --output build/qemu-fixtures/picture_NNN`.
+- Generate basic v3 direct-record logic fixtures with
+  `python3 -B tools/qemu_fixture.py v3-logic payload.bin --game-dir games/GR --logic 0 --output build/qemu-fixtures/gr_logic_000`.
+  This copies the selected v3 game under `build/`, appends an uncompressed
+  logic record to the existing prefixed volume, and patches the combined
+  directory. It does not yet pack generated v3 picture/view payloads.
+- Run the current Gold Rush v3 room-remap behavior probe with
+  `python3 -B tools/gr_v3_behavior_probe.py --game-dir games/GR --picture 1 --run-qemu --output build/gr-v3-behavior/room_remap_all_qemu_pic001_001.json`.
+  This compares direct room target `0x49` with alias targets `0x7e`, `0x7f`,
+  and `0x80` using nonblank original-engine captures. Keep this probe
+  source-first: update it from disassembly observations, then use QEMU as
+  confirmation.
+- Run the current Gold Rush v3 key-map capacity probe with
+  `python3 -B tools/gr_v3_behavior_probe.py --probe key-map-capacity --game-dir games/GR --picture 1 --fixture-root build/gr-v3-behavior/key-map-capacity-fixtures --dos-prefix GRK --run-qemu --output build/gr-v3-behavior/key_map_capacity_qemu_pic001_002.json --boot-wait 5 --draw-wait 8`.
+  It fills 48 dummy key-map slots, maps `x` in final GR slot 48, compares the
+  keyed capture with a direct picture draw, and confirms the no-key control
+  remains blank.
 - Compare original-engine picture captures with the local renderer using `python3 -B tools/compare_picture_capture.py N capture.ppm`.
 - Generate synthetic picture fuzz corpora with `python3 -B tools/picture_fuzz.py generate --count 1024 --seed 4097 --output build/picture-fuzz/corpus --clean`.
 - Run one synthetic picture fuzz case through the original engine with `python3 -B tools/picture_fuzz.py run-qemu CASE_ID --dos-dir DOSNAME --boot-wait 5 --draw-wait 8`.
