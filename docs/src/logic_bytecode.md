@@ -128,7 +128,16 @@ version observations, not replacements for the SQ2 rows in the main catalog.
 | `0xa3`, `0xa4`, `0xa9` | GR maps the SQ2 input-width set/clear actions to the generic no-op handler. Its close-window action restores and clears active saved-window state, but does not clear a width flag. |
 | `0x79`, `0xad`, `0xb1`, `0xb5` | GR expands the script key-map table to `0x31` slots; QEMU validates slot 48 by filling the first 48 slots with dummy mappings, mapping typed `x` in the final slot, and comparing the resulting nonblank picture capture with a direct draw while a no-key control remains blank. GR also changes the key-release gate from SQ2's incremented `[0x1530]` byte to set/clear byte `[0x0405]`, and adds a menu interaction gate word `[0x0403]`. |
 | `0x12` | GR calls a small helper before room switch: immediate target bytes `0x7e..0x80` become `0x49`; other bytes pass through unchanged. Local GR scripts contain `0x12` operands `0x7e`, `0x7f`, and `0x80`, so this is live compatibility behavior for this interpreter/game pair. |
-| `0x7c`, `0x7d`, `0x80`, `0x84` | GR adds a temporary carried-item selector word, XORs the object/inventory chunk before and after save-file writes using a 59-byte sequence observed at image `0x072c`, records prompt-marker visibility before restart confirmation and redraws on accepted restart or on canceled restart only when the marker had been visible, and preserves object 0 motion mode `4` in `0x84`. The save transform is modeled in `tools/agi_save.py` as `gr_v3_object_inventory_save_xor()`; the restart redraw branch is modeled in `tools/agi_restart.py`. |
+| `0x7c`, `0x7d`, `0x80`, `0x84` | GR adds a temporary carried-item selector word, XORs the object/inventory chunk before and after save-file writes using a 59-byte sequence observed at image `0x072c`, records prompt-marker visibility before restart confirmation and redraws on accepted restart or on canceled restart only when the marker had been visible, and preserves object 0 motion mode `4` in `0x84`. The save transform is modeled in `tools/agi_save.py` as `gr_v3_object_inventory_save_xor()` and QEMU-validated by blank-prefix save extraction `build/gr-v3-behavior/save_xor_extract_qemu_001.json`; the restart redraw branch is modeled in `tools/agi_restart.py`. |
+
+The motion-mode `4` observation is intentionally narrower than an ordinary
+script-level opcode claim. Static comparison shows GR's mode dispatcher accepts
+object byte `+0x22 == 4` and routes it to the same target-direction helper used
+for mode `3`. A copied-interpreter QEMU probe then patches only the generated
+fixture's action-`0x51` setup byte from mode `3` to mode `4`; that instrumented
+case renders identically to the unmodified mode-`3` fixture while a stationary
+control remains different. No ordinary bytecode setter for mode `4` has been
+observed yet.
 
 ## Top-Level Cycle Timing
 
@@ -979,6 +988,14 @@ When object byte `+0x01 == 1`, the target group is not sentinel `4`, and the
 target differs from byte `+0x0a`, it calls `code.object.select_group`
 (`0x3bb7`). QEMU batches `object_bit_2000_002` and `object_bit_2000_004`
 validate this behavior:
+
+Gold Rush / AGI v3 keeps the same table values but changes the high group-count
+branch. Its `code.object.frame_timer_update` at image `0x055c` sends exactly
+four groups directly through the four-plus table, while views with more than
+four groups use that table only when flag `0x14` is set. QEMU report
+`build/gr-v3-behavior/frame_selection_gate_qemu_001.json` validates exact-four
+view 177 selecting group 1 for direction `6` whether flag `0x14` is clear or
+set, and more-than-four view 39 selecting group 1 only when flag `0x14` is set.
 
 - In the four-plus-groups table, view 4 with direction `6` changes from group 0
   to group 1 after `0x2e`; after `0x2d`, the same object remains on group 0.

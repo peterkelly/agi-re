@@ -21154,3 +21154,1131 @@ Progress updates and outcomes:
       adding the matching progress-log validation entries."
 
       Action/result: Added restart validation and cleanup entries to this log.
+
+2767. Reported: "I'll use `PROGRESS.md` as the steering file, then pick the
+      highest-value unfinished item that can be advanced from the local
+      disassembly and existing tools. First I'm refreshing the dashboard and
+      nearby docs so I don't drift from the current evidence trail."
+
+      Action/result: Re-read `PROGRESS.md`, `AGENTS.md`, current git status,
+      and v3-related docs. The dashboard pointed to GR object motion mode `4`
+      and the frame-selection gate as the top remaining v3 behavior items.
+
+2768. Reported: "The dashboard points at one main unfinished v3 behavior item:
+      Gold Rush object motion mode `4`, plus the related frame-selection gate.
+      I'm going source-first now: inspect the existing comparison helper
+      outputs, disassembly labels, and v3 probe scaffolding before deciding
+      what fixture to add."
+
+      Action/result: Re-read `tools/gr_v3_behavior_probe.py`,
+      `tools/qemu_fixture.py`, the static GR/SQ2 comparison helper, and
+      `build/gr-sq2-static` artifacts.
+
+2769. Reported: "I found the existing docs already treat mode `4` as
+      source-backed but not behavior-validated. There's one minor shell wart in
+      my search because Markdown backticks were interpreted inside a quoted
+      pattern; the useful matches are intact, and I'll avoid that quoting shape
+      for the next searches."
+
+      Action/result: Confirmed current docs mention GR mode `4` and avoided
+      that shell quoting pattern in later searches.
+
+2770. Reported: "The v3 fixture builder can already patch direct logic into a
+      copied GR directory, which is enough for a behavior probe if the original
+      game's existing picture/view resources are suitable. Next I'm reading the
+      exact GR motion dispatch and frame-timer snippets around the documented
+      addresses."
+
+      Action/result: Read GR/SQ2 ndisasm around `code.motion.dispatch_mode_step`
+      and `code.object.frame_timer_update`.
+
+2771. Reported: "The disassembly confirms the narrow delta: SQ2 dispatch
+      decrements mode and accepts resulting values `0..2` (modes `1..3`), while
+      GR accepts `0..3` and the fourth jump-table slot lands on the same
+      target-direction handler as mode `3`. I'm looking at the existing
+      movement harness now so the v3 probe reuses the proven object setup
+      pattern instead of inventing a new one."
+
+      Action/result: Re-read `tools/object_movement_probe.py` for the existing
+      persistent-object movement setup and comparison patterns.
+
+2772. Reported: "There's an important source question before writing a probe:
+      normal logic opcodes set motion modes 1, 2, and 3, but I don't yet have a
+      script-visible setter for `+0x22 = 4`. I'm searching the GR image for the
+      write sites that create mode `4`; that will determine whether the fixture
+      should be pure logic, saved-state based, or keyboard/input driven."
+
+      Action/result: Found GR mode-4 write-like code at image `0x1975`, plus
+      mode-4 special cases at `0x18cf`, room switch cleanup, and action `0x84`.
+
+2773. Reported: "The mode-4 setter is not a logic opcode write. GR writes
+      `+0x22 = 4` inside the input/motion area around image `0x198e`, and
+      several helpers special-case mode `4` afterward. I'm opening that
+      neighborhood now to map what observable path leads there."
+
+      Action/result: Inspected GR image `0x1888..0x1a84`, including
+      target-direction helper `0x1888`, completion helper `0x18cf`, helper-shaped
+      code at `0x1975`, and room switch cleanup.
+
+2774. Reported: "The action table only routes room-switch opcodes `0x12/0x13`
+      into that neighborhood; no action points at the mode-4 helper. If a
+      bytecode opcode routes to it we can write a clean pure-logic probe; if
+      not, the route is likely through input/click handling."
+
+      Action/result: Parsed the local GR action table; only `0x12` and `0x13`
+      point near `0x19d4/0x19eb`, not at `0x1975`.
+
+2775. Reported: "Rizin needed the seek form for xrefs here, and it also treats
+      this GR executable as a flat image, which matches the ndisasm evidence.
+      I'm correcting that and continuing with the local disassembly as the
+      primary source."
+
+      Action/result: Tried rizin xrefs, then relied on direct ndisasm and a
+      byte-level call scan because rizin did not produce useful xrefs for this
+      flat 16-bit image.
+
+2776. Reported: "The mode-4 setter at `0x1975` is a helper, not a direct call
+      in the linear disassembly. I'm checking the action table next, because if
+      a bytecode opcode routes to it we can write a clean pure-logic probe; if
+      not, the route is likely through input/click handling."
+
+      Action/result: Confirmed again that no action table entry directly routes
+      to `0x1975`.
+
+2777. Reported: "The byte-level scan shows no direct near calls to the mode-4
+      target seeder. The address appears only as data-like words, so I'm
+      inspecting those references to avoid inventing a path that the interpreter
+      doesn't actually use."
+
+      Action/result: Scanned direct near-call targets and little-endian word
+      occurrences. No direct calls to image `0x1975` were found.
+
+2778. Reported: "The action table confirms mode `4` is generated outside normal
+      logic, and the setter's body uses screen coordinates plus the object's
+      dimensions to seed target bytes. That looks like mouse/joystick-click
+      style ego movement: set object0 mode `4`, set target X/Y, preserve
+      current step, then let the ordinary target-direction machinery run."
+
+      Action/result: Recorded the hypothesis that `0x1975` is an input-driven
+      first-object target seeder, while keeping the natural entry path
+      unresolved.
+
+2779. Reported: "I'm not finding a script-visible or direct-call path into the
+      mode-4 seeder, so I'm treating that as evidence rather than forcing it.
+      Before patching anything, I'm checking the GR file set and resource
+      scripts for any local inputs that might naturally exercise the mode-4
+      path."
+
+      Action/result: Listed `games/GR` and ran `tools/disassemble_logic.py
+      --game-dir games/GR --stats`; local GR scripts use motion actions heavily
+      but no direct mode-4 setter exists.
+
+2780. Reported: "GR scripts use the normal motion opcodes heavily, but no local
+      script directly creates mode `4`; that reinforces that it's an
+      engine/input state. I also confirmed my attempted `--opcode` option
+      doesn't exist on the local disassembler, so I'm staying with `--stats`
+      and raw disassembly for this pass."
+
+      Action/result: Noted the disassembler CLI limitation and continued with
+      source-first ndisasm reads.
+
+2781. Reported: "There is no opcode that writes arbitrary object bytes, so a
+      pure bytecode fixture cannot set `+0x22 = 4`. The cleanest validation route
+      I see is an explicitly instrumented copied interpreter: change the
+      `move_object_to` setup byte in the build copy from mode `3` to mode `4`,
+      then compare its capture against the unmodified mode-3 path. That would
+      test the GR dispatcher while clearly separating it from normal game-data
+      compatibility evidence."
+
+      Action/result: Chose an instrumented copied-interpreter probe rather than
+      presenting mode `4` as ordinary script-visible behavior.
+
+2782. Reported: "I'm going to build this as an 'instrumented mode-4 dispatch
+      probe,' not as ordinary unmodified-engine compatibility. First I need a
+      compact GR picture/view pair that renders cleanly with existing resources,
+      so I'm scanning the local GR resource directory and renderer support."
+
+      Action/result: Used `tools/agi_resources.py` to list present GR resources
+      and selected picture 1/view 0/group 0/frame 0 for the probe.
+
+2783. Reported: "The older graphics helper is SQ2-oriented for direct
+      rendering, but the resource parser can read GR v3 records. For this probe
+      I can avoid local rendering entirely: compare original-engine captures
+      between unmodified mode-3 setup and the instrumented mode-4 setup, with a
+      stationary control."
+
+      Action/result: Designed the three-case capture comparison: stationary,
+      unmodified mode 3, and instrumented mode 4.
+
+2784. Reported: "View 0 is a good candidate: it has a compact 7-pixel-wide
+      walking figure with multiple groups, and picture 1 is present. I'm going
+      to implement the probe around picture 1/view 0, with three cases:
+      stationary control, unmodified mode 3, and instrumented mode 4."
+
+      Action/result: Implemented the motion-mode payload and fixture builder in
+      `tools/gr_v3_behavior_probe.py`.
+
+2785. Reported: "I'm going to keep the interpreter patch local to the v3
+      behavior probe rather than generalizing it into the fixture builder. It's
+      a deliberately instrumented test, so keeping that sharp edge near the
+      report code makes the evidence trail clearer."
+
+      Action/result: Added a local helper that patches only generated GR fixture
+      copies and checks the expected action-`0x51` byte context.
+
+2786. Reported: "One small cleanup before tests: the script's global `--picture`
+      default was room-remap-specific. I'm making the per-probe default explicit
+      so the new motion probe naturally uses picture 1 unless told otherwise."
+
+      Action/result: Changed `--picture` to use per-probe defaults.
+
+2787. Reported: "Now I'm adding focused unit coverage for the new probe:
+      payload shape, fixture construction, and the safety check that only a
+      copied GR interpreter with the expected byte sequence gets patched."
+
+      Action/result: Added focused tests in `tests/test_gr_v3_behavior_probe.py`.
+
+2788. Reported: "The focused test failed at import time because one of the
+      legacy graphics modules still demands `AGI_GAME_DIR` during module import.
+      I'll rerun with an explicit local game path for now, and then check
+      whether the test invocation should be made independent."
+
+      Action/result: `AGI_GAME_DIR=games/SQ2 python3 -B -m unittest
+      tests.test_gr_v3_behavior_probe` passed with 8 tests.
+
+2789. Reported: "The focused tests pass with `AGI_GAME_DIR=games/SQ2`, matching
+      the repo's current legacy import pattern. I'm running the new GR
+      motion-mode probe through QEMU now; it will produce a JSON report under
+      `build/gr-v3-behavior/`."
+
+      Action/result: Started QEMU motion-mode probe
+      `build/gr-v3-behavior/motion_mode_4_qemu_pic001_001.json`.
+
+2790. Reported: "Good catch from the harness: the documented address is a
+      loaded-image offset, while the real GR file has a `0x200`-byte MZ header.
+      I'm fixing the patch helper to translate image offsets to file offsets
+      instead of assuming the two are identical."
+
+      Action/result: Corrected the patch helper to apply the MZ header size
+      when patching copied GR executables.
+
+2791. Reported: "The patch helper now handles both flat test files and real
+      MZ-wrapped GR executables. I'm rerunning the focused tests, then I'll
+      retry the QEMU probe."
+
+      Action/result: Focused tests passed again.
+
+2792. Reported: "The focused tests are green again. I'm rerunning the QEMU probe
+      with the corrected image-to-file offset translation."
+
+      Action/result: Reran the GR motion-mode QEMU probe.
+
+2793. Reported: "QEMU is running the three-case snapshot batch now. I'll wait
+      for the report and then inspect the comparisons, especially whether the
+      stationary control differs from the moving captures."
+
+      Action/result: QEMU finished and wrote
+      `build/gr-v3-behavior/motion_mode_4_qemu_pic001_001.json`.
+
+2794. Reported: "The QEMU run finished and wrote the report. I'm reading the
+      JSON now to see whether the instrumented mode-4 capture matched mode 3
+      and whether the stationary control stayed distinct."
+
+      Action/result: The JSON report passed:
+      `mode4_instrumented_move_object_to_matches_mode3` was true and
+      `stationary_control_matches_mode3` was false.
+
+2795. Reported: "The report passed: instrumented mode `4` produced the same
+      capture as unmodified mode `3`, and the stationary control did not match.
+      I'm updating the docs carefully so this is recorded as an instrumented
+      dispatcher probe, not as an unmodified-game-data behavior claim."
+
+      Action/result: Began documentation updates in `PROGRESS.md`,
+      compatibility docs, runtime/object docs, version notes, symbolic labels,
+      and clean-room notes.
+
+2796. Reported: "The worktree has the expected GR mode-4 changes plus an old
+      untracked `run.sh`; I’m leaving that alone. One tiny shell got bitten by
+      Markdown backticks in the search pattern, so I’m switching to simpler file
+      reads for the last doc pass."
+
+      Action/result: Confirmed the changed files and left the pre-existing
+      untracked `run.sh` untouched.
+
+2797. Reported: "I found one remaining stale place in the logic bytecode
+      chapter: it mentioned GR preserving mode 4, but not the new instrumented
+      dispatcher validation. I’m adding that caveat there, then I’ll record the
+      documentation checkpoint in the progress log."
+
+      Action/result: Added a logic-bytecode note explaining that mode `4`
+      dispatcher behavior is source-backed and instrumented-QEMU-validated, but
+      no ordinary bytecode setter has been observed.
+
+2798. Reported: "That chapter now makes the distinction explicit: source-level
+      dispatcher behavior is validated, but the script-visible path for
+      creating mode 4 remains unobserved. I’m appending the same checkpoint to
+      the historical log before running checks."
+
+      Action/result: Updated the historical progress log for the GR mode-4
+      documentation pass.
+
+2799. Reported: "The notes are caught up enough to validate. I’m running the
+      full local unit suite with an explicit `AGI_GAME_DIR`, building the
+      mdBook, compiling the touched probe, and checking the diff for whitespace
+      damage."
+
+      Action/result: `AGI_GAME_DIR=games/SQ2 python3 -B -m unittest discover
+      -s tests` passed 267 tests; `mdbook build docs`,
+      `python3 -B -m py_compile tools/gr_v3_behavior_probe.py
+      tests/test_gr_v3_behavior_probe.py`, and `git diff --check` all passed.
+
+2800. Reported: "The validation set is green so far: 267 unit tests passed,
+      mdBook built, the touched Python compiled, and `git diff --check` found
+      nothing. I’m running the project compatibility wrapper too, since it
+      includes the opcode-evidence checks the tracker cares about."
+
+      Action/result: `AGI_GAME_DIR=games/SQ2 python3 -B
+      tools/compatibility_suite.py` passed, rerunning the 267-test suite and
+      rebuilding the book.
+
+2801. Reported: "The compatibility wrapper also passed; it reran the 267-test
+      local suite and rebuilt the book successfully. I’m doing a final
+      status/diff review now so I can tell you exactly what changed and where
+      the evidence landed."
+
+      Action/result: Final diff review found a duplicated remaining-work block
+      in `PROGRESS.md`, which was removed.
+
+2802. Reported: "The tracker duplication is fixed. The only untracked generated
+      directories are Python `__pycache__` folders from the checks, so I’m going
+      to remove those generated caches and then rerun the lightweight sanity
+      checks affected by the last doc edit."
+
+      Action/result: Removed generated `tools/__pycache__` and
+      `tests/__pycache__` directories from the workspace.
+
+2803. Reported: "Generated caches are gone. I’m adding the final validation
+      notes to `progress_log.md`; since that chapter is part of the book, I’ll
+      rebuild mdBook one last time afterward."
+
+      Action/result: Added final validation and cleanup entries to the
+      historical progress log.
+
+2804. Reported: "I’ll continue from the next `PROGRESS.md` item: the GR v3
+      frame-selection gate for exactly-four-loop and more-than-four-loop views.
+      I’ll start source-first by reading the tracker, existing static comparison
+      notes, and the probe scaffolding before deciding whether a QEMU fixture is
+      warranted."
+
+      Action/result: Began the GR frame-selection gate pass from `PROGRESS.md`.
+
+2805. Reported: "The tracker points squarely at
+      `code.object.frame_timer_update`: SQ2 and GR are both labeled, and the
+      previous comparison already calls out a real branch delta. I’m narrowing
+      the disassembly to just that routine and the adjacent group-selection
+      tables so I can turn the vague 'gate' wording into exact branch
+      semantics."
+
+      Action/result: Read the tracker and symbolic-label context for SQ2
+      `0x0563` and GR `0x055c`.
+
+2806. Reported: "The first slice landed a bit late in the file, so I’m
+      switching to address-anchored searches instead of line guesses. The labels
+      are in place; now I need the exact instructions around `0x0563`/`0x055c`
+      and the table bytes they index."
+
+      Action/result: Switched to address-anchored `ndisasm` reads and found the
+      exact SQ2/GR frame-timer branch ranges.
+
+2807. Reported: "Now the branch is crisp: GR inserts a flag test before using
+      the four-plus-groups table, and it treats exactly 4 loops differently from
+      SQ2. I’m reading the tail of the same routine to make sure this branch
+      only affects automatic group selection and not frame-timer advancement."
+
+      Action/result: Confirmed the GR delta sits before frame-timer advancement
+      and affects automatic direction group selection only.
+
+2808. Reported: "The GR fixture builder already copies the selected game into
+      `build/` before patching, so it’s a good fit. I’m checking the bytecode
+      helpers now; if they can set flags, direction, and object group cleanly,
+      this can be an unmodified-interpreter QEMU probe rather than another
+      instrumented one."
+
+      Action/result: Confirmed the v3 fixture path can use copied GR resources
+      and ordinary bytecode.
+
+2809. Reported: "The needed script operations are present: set flag, set/clear
+      object bit `0x2000`, set object direction, and one-shot persistent object
+      setup. I’m checking existing opcode helpers for the exact bytes so the GR
+      probe stays in the same style as the SQ2 movement probes."
+
+      Action/result: Reused the established object setup pattern from the SQ2
+      direction/group-selection probes.
+
+2810. Reported: "This can stay uninstrumented: we can use `0x2e` to allow
+      auto-selection, `0x56` to set direction byte `+0x21`, and flag action
+      `0x0c` for GR flag 20. I’m scanning GR’s view resources next to pick
+      concrete four-loop and five-plus-loop views whose groups render
+      differently enough for capture comparisons."
+
+      Action/result: Planned an ordinary-bytecode QEMU probe using GR flag
+      `0x14`, object direction `6`, and copied fixtures.
+
+2811. Reported: "One local scan tripped over the older `agi_graphics` import
+      requiring an explicit game directory. That’s harmless; I’m rerunning it
+      with `AGI_GAME_DIR=games/GR` and also checking whether the existing SQ2
+      probe code has exactly the setup pattern we need to port."
+
+      Action/result: Re-ran the GR resource scan with an explicit game
+      directory and reviewed the SQ2 probe setup pattern.
+
+2812. Reported: "Interesting: the local GR resource set itself has no views with
+      four or more groups, so the branch is present in the interpreter but not
+      directly exercised by stock GR view data. That means this is exactly the
+      case where we need a generated v3 view payload in a copied fixture, rather
+      than modifying `games/GR`."
+
+      Action/result: Initial scan used the wrong view header byte and was later
+      corrected; no generated v3 view payload was ultimately needed.
+
+2813. Reported: "The old renderer helper assumes split `VIEWDIR` files, so it
+      can’t load GR directly. I’m doing the frame comparison from the decoded v3
+      payloads instead, using the same row decoding rules already in
+      `agi_graphics.py`."
+
+      Action/result: Compared candidate GR view frames from decoded v3 payloads
+      without relying on split-directory helpers.
+
+2814. Reported: "The corrected GR census shows plenty of four-plus-loop views;
+      my first scan had used the wrong header byte. Static reread also corrected
+      the wording: exactly four groups bypasses the new flag gate and still uses
+      the four-plus direction table; only more-than-four groups require flag 20.
+      I’m choosing two views whose group-0 and group-1 frames differ enough for
+      clean capture comparisons."
+
+      Action/result: Corrected the interpretation and selected local GR view
+      177 for the exact-four case and view 39 for the more-than-four case.
+
+2815. Reported: "For exact-four behavior, view 177 has clearly different group
+      0 and group 1 frames. For more-than-four, view 33 is a nice contrast:
+      group 0 is tiny and group 1 is visibly larger. I’m checking actual
+      visible-pixel counts so the controls won’t be ambiguous."
+
+      Action/result: Checked visible-pixel counts; kept view 177 for
+      exact-four and chose view 39 for a clearer more-than-four group-0/group-1
+      contrast.
+
+2816. Reported: "I have enough to implement the probe. I’m adding a
+      `frame-selection-gate` mode to the GR v3 behavior tool: it will build
+      copied GR fixtures for group-0/group-1 controls, exact-four
+      flag-clear/flag-set cases, and more-than-four flag-clear/flag-set cases,
+      then compare QEMU captures against the controls."
+
+      Action/result: Added frame-selection payload and fixture builders to
+      `tools/gr_v3_behavior_probe.py`.
+
+2817. Reported: "The fixture builders are in place. I’m wiring that into the CLI
+      report now, including explicit expected comparisons so the JSON tells us
+      exactly which branch behavior was proven."
+
+      Action/result: Added `--probe frame-selection-gate` CLI handling and
+      report comparisons.
+
+2818. Reported: "The CLI now knows the expected exact-four versus
+      more-than-four outcomes. I’m adding focused unit coverage so the generated
+      bytecode and fixture labels don’t drift."
+
+      Action/result: Added tests for frame-selection payloads, controls, and
+      fixture construction.
+
+2819. Reported: "The focused tests now cover the new payloads and fixture set.
+      I’m running them before trying QEMU, because any bytecode-shape mistake is
+      much cheaper to catch here than inside DOS."
+
+      Action/result: Focused tests and Python compilation passed.
+
+2820. Reported: "Focused tests passed. I’m running the new GR frame-selection
+      batch through QEMU now: eight copied fixtures, one bootable snapshot, and
+      capture comparisons against group-0/group-1 controls."
+
+      Action/result: Started the QEMU batch that wrote
+      `build/gr-v3-behavior/frame_selection_gate_qemu_001.json`.
+
+2821. Reported: "QEMU is still running the snapshot batch; I’ll let it finish
+      and then inspect the JSON comparisons before changing the docs."
+
+      Action/result: Waited for the eight-case QEMU run.
+
+2822. Reported: "Still waiting on the eight-case QEMU run. This one is slower
+      than the small motion-mode batch, but it’s doing exactly the useful thing:
+      one original-engine pass per copied fixture, then byte-for-byte capture
+      comparisons."
+
+      Action/result: Continued waiting for QEMU to finish.
+
+2823. Reported: "The QEMU batch completed and wrote the report. I’m reading the
+      comparisons now; if the exact-four correction is right, those cases should
+      match group 1 regardless of flag 20, while the more-than-four cases should
+      depend on flag 20."
+
+      Action/result: Parsed `frame_selection_gate_qemu_001.json`; all expected
+      comparisons passed.
+
+2824. Reported: "The report passed and it corrected the previous wording
+      nicely: exact-four views auto-select through the four-plus table even when
+      flag 20 is clear; more-than-four views require flag 20. I’m updating
+      `PROGRESS.md` and the spec docs to reflect that source-first correction
+      plus the QEMU evidence."
+
+      Action/result: Began documentation updates for the validated GR
+      frame-selection gate.
+
+2825. Reported: "One more shell search got nicked by backticks in a Markdown
+      pattern, but it still exposed the stale spots. I’m correcting the
+      exact-four wording across the dashboard and subsystem docs now."
+
+      Action/result: Located stale wording in `PROGRESS.md`, version notes,
+      symbolic labels, runtime model, logic bytecode, object pipeline, and
+      compatibility docs.
+
+2826. Reported: "I’m patching the docs in the same terms as the disassembly and
+      QEMU report: SQ2 says '4 or more uses the table'; GR says 'exactly 4 still
+      uses it, greater than 4 uses it only when flag 20 is set.'"
+
+      Action/result: Updated `PROGRESS.md` to mark the frame-selection gate
+      complete and revise highest-value remaining work.
+
+2827. Reported: "`PROGRESS.md` is updated: the frame-selection gate has moved
+      out of remaining work, with the exact-four correction captured. I’m
+      carrying the same correction into the implementation-facing chapters and
+      evidence sections."
+
+      Action/result: Updated `docs/src/versions.md` and
+      `docs/src/symbolic_labels.md`.
+
+2828. Reported: "The version matrix and label table now cite the exact QEMU
+      report. I’m updating the object pipeline and opcode chapter next, since
+      those are the places an implementer is most likely to read for runtime
+      semantics."
+
+      Action/result: Began object-pipeline and logic-bytecode updates.
+
+2829. Reported: "The object-pipeline patch missed because of a small
+      wording/line-wrap mismatch. I’m reopening that paragraph and patching
+      around the actual text."
+
+      Action/result: Reopened the object-pipeline paragraph for a targeted
+      patch.
+
+2830. Reported: "I’ve got the exact paragraph now; the update will sit directly
+      after the shared SQ2 behavior and add the GR-specific branch as a version
+      delta."
+
+      Action/result: Updated `docs/src/graphics_object_pipeline.md`.
+
+2831. Reported: "The object pipeline now states the GR branch precisely. I’m
+      mirroring that in the logic bytecode notes near the `0x2d`/`0x2e`
+      group-selection explanation."
+
+      Action/result: Updated `docs/src/logic_bytecode.md`.
+
+2832. Reported: "The logic chapter has the version-specific rule and QEMU
+      evidence. I’m adding the reusable command/result to compatibility testing
+      so the probe can be rerun later across interpreter versions."
+
+      Action/result: Added the frame-selection QEMU command and result to
+      `docs/src/compatibility_testing.md`.
+
+2833. Reported: "The runtime model still had the old 'pending' frame-gate
+      wording, so I’m replacing that with the validated rule and keeping the
+      mode-4 caveat intact."
+
+      Action/result: Updated `docs/src/runtime_model.md`.
+
+2834. Reported: "The runtime model now has the validated version rule. I’m
+      appending a clean-room evidence note with the disassembly offsets, local
+      resource choice, QEMU command, and result so the reasoning trail is
+      complete."
+
+      Action/result: Added the Gold Rush v3 frame-selection gate section to
+      `docs/src/clean_room_executable_notes.md`.
+
+2835. Reported: "I’m adding the new frame-selection evidence immediately after
+      the mode-4 note, since both are GR v3 object-runtime deltas from the same
+      static comparison pass."
+
+      Action/result: Placed the new clean-room evidence after the mode-4 probe
+      section.
+
+2836. Reported: "The clean-room notes now include the static branch walk, local
+      view-resource choices, QEMU command, and conclusion. I’m catching the
+      historical progress log up with the updates from this pass before final
+      validation."
+
+      Action/result: Appended progress-log entries for the GR frame-selection
+      pass.
+
+2837. Reported: "The progress log is caught up. Before validation, I’m doing a
+      quick stale-wording scan without shell-sensitive backticks, then I’ll run
+      the test/book checks."
+
+      Action/result: Stale-wording scan found one earlier clean-room note with
+      the old exact-four wording.
+
+2838. Reported: "The stale scan only found old historical log entries plus one
+      earlier clean-room note that may need context. I’m checking that
+      clean-room paragraph; historical progress-log wording can remain because
+      it records what I thought at the time."
+
+      Action/result: Reviewed the earlier clean-room comparison note around the
+      GR frame-timer delta.
+
+2839. Reported: "That earlier clean-room note still had the incorrect
+      exact-four conclusion. I’m correcting it in place and pointing forward to
+      the later QEMU section that proves the correction."
+
+      Action/result: Corrected the earlier clean-room note: exactly four groups
+      use the table without the new flag gate; more than four groups require
+      flag `0x14`.
+
+2840. Reported: "The stale clean-room note is fixed. I’m running the validation
+      set now: full unit suite, mdBook, compatibility wrapper, Python compile,
+      and whitespace check."
+
+      Action/result: `AGI_GAME_DIR=games/SQ2 python3 -B -m unittest discover
+      -s tests` passed 270 tests; `mdbook build docs`,
+      `python3 -B -m py_compile tools/gr_v3_behavior_probe.py
+      tests/test_gr_v3_behavior_probe.py`, and `git diff --check` passed.
+
+2841. Reported: "The main validation is green: 270 tests passed, mdBook built,
+      Python compile passed, and `git diff --check` is clean. I’m running the
+      compatibility wrapper as the final project-level check."
+
+      Action/result: `AGI_GAME_DIR=games/SQ2 python3 -B
+      tools/compatibility_suite.py` passed, rerunning the 270-test suite and
+      rebuilding the book.
+
+2842. Reported: "The compatibility wrapper passed too. I’m adding those
+      validation results to the progress log, then I’ll rebuild the book once
+      more because the log itself changed."
+
+      Action/result: Added final validation results for the GR frame-selection
+      pass to the progress log.
+
+2843. Reported: "I’ll pick up from the GR v3 work and re-anchor on
+      `PROGRESS.md` so the next slice follows the tracker instead of wandering.
+      I’ll keep this source-first and only use QEMU if there’s a behavior worth
+      confirming."
+
+      Action/result: Read git status, `PROGRESS.md`, `versions.md`, and
+      remaining-work references.
+
+2844. Reported: "The tracker now has the GR frame-selection and mode-4 items
+      in the validated bucket. The next useful work is to turn one of the
+      source-backed v3 deltas into a tighter behavioral artifact; I’m going
+      after the GR save-file extraction because it affects a real persisted
+      file format and is higher value than text/UI-only redraw quirks."
+
+      Action/result: Selected GR save extraction as the next highest-value
+      PROGRESS item.
+
+2845. Reported: "I’ve got the target: GR’s save code is already
+      source-modeled, but not yet checked against bytes emitted by the original
+      interpreter. I’m reading the existing SQ2 save harness and v3 fixture
+      writer so I can add the smallest GR-specific extraction path without
+      touching `games/`."
+
+      Action/result: Reviewed `tools/save_roundtrip_probe.py`,
+      `tools/gr_v3_behavior_probe.py`, `tools/qemu_fixture.py`, and
+      `tools/agi_save.py`.
+
+2846. Reported: "The GR fixture can probably reuse the same interpreter save
+      UI action sequence as SQ2, but with v3 resource patching and a GR
+      signature message. Before coding that, I’m checking the local
+      binary/logic evidence for the save-name convention and the block
+      transform so the probe asserts something meaningful, not just 'a file
+      appeared.'"
+
+      Action/result: Searched local docs, strings, and GR logic opcode usage
+      for save, restore, and verifier evidence.
+
+2847. Reported: "GR’s own scripts use `verify_game_signature` once before
+      save/restore, so the v3 path does share that filename/signature
+      mechanism. I’m going to inspect that local logic resource and the nearby
+      v3 save routine one more time, then wire a probe that extracts the
+      produced save and checks the XORed third block against the decoded live
+      runtime block captured from the copied fixture."
+
+      Action/result: Disassembled GR logic 0 and reread the source-backed save
+      notes before implementation.
+
+2848. Reported: "The source notes confirm the third save block is the
+      transformed one. One nuance: the existing local save parser assumes SQ2
+      fixed block lengths, but the GR proof only needs generic
+      length-prefixed parsing plus a block-3 transform check, so I can keep this
+      narrowly scoped."
+
+      Action/result: Decided to use the generic five-block parser and
+      GR-specific third-block XOR checks rather than SQ2 fixed lengths.
+
+2849. Reported: "The disassembler prints opcode references but not decoded
+      message text. I’m doing a local resource parse for GR logic 0’s message
+      table so the synthetic fixture can use the same signature prefix the
+      original game initializes."
+
+      Action/result: First local parse hit the explicit `AGI_GAME_DIR` guard.
+
+2850. Reported: "That parse hit the project’s 'explicit game directory' guard
+      through an import side effect. I’ll rerun it with `AGI_GAME_DIR` set,
+      keeping the same local-only evidence path."
+
+      Action/result: Reran the message-table parse with `AGI_GAME_DIR=games/GR`.
+
+2851. Reported: "The GR logic message bytes did not decode with the SQ2
+      message key, which is itself useful: I won’t assume the SQ2 message text
+      transform for v3 logic messages. For the save probe I can still use our
+      fixture writer’s known-encoded synthetic message and verify whether GR’s
+      action `0x8f` accepts it; if not, I’ll fall back to the blank-prefix save
+      path and still inspect the block transform."
+
+      Action/result: Identified GR logic message handling as a version-specific
+      fixture concern.
+
+2852. Reported: "I caught the message parse mistake: the offset table is plain
+      and only the message text bytes are XORed. Re-parsing that should tell us
+      the local GR signature string cleanly."
+
+      Action/result: Corrected the local message-table parser, then found GR
+      resource message text is already readable without applying the SQ2 XOR.
+
+2853. Reported: "The message bytes still look encoded, so GR likely uses either
+      a different message key phase or a different message transform than SQ2.
+      That matters for any v3 fixture with messages, so I’m going source-first
+      into the GR message decode routine rather than papering over it."
+
+      Action/result: Continued into GR message data/source inspection; later
+      checks showed the observed local GR messages are plain in resource bytes.
+
+2854. Reported: "The v2 message key location lives in `AGIDATA.OVL`; GR has
+      its own `AGIDATA.OVL`, so I’m checking that local data segment and the GR
+      image labels next. If the key moved, fixing the fixture encoder will also
+      help future v3 tests that need messages."
+
+      Action/result: Confirmed GR `AGIDATA.OVL` contains `Avis Durgan` at
+      offset `0x072c`, while observed GR logic messages are plain.
+
+2855. Reported: "GR logic messages are plain in the observed resource bytes.
+      That gives me the missing piece for a v3 save fixture: I’ll extend the
+      local fixture builder so it can emit plain-text message tables for v3
+      while keeping the existing encrypted v2 default intact."
+
+      Action/result: Added `encrypt_messages` to `logic_resource(...)`, default
+      `True`.
+
+2856. Reported: "Before I choose the signature text, I’m checking GR’s `0x8f`
+      verifier handler in the local image for the embedded comparison string.
+      That avoids guessing whether the prefix should be `GR`, `GOLD`, or
+      something else."
+
+      Action/result: Inspected GR image bytes/disassembly around `0x108c` and
+      `0x5ede`; found embedded `GR\0` bytes.
+
+2857. Reported: "The embedded GR signature string is present locally as
+      `GR\\0`; I’m correcting for the MZ header when reading the handler bytes,
+      then I’ll use `GR` as the fixture’s signature message and expected
+      filename stem `GRSG`."
+
+      Action/result: Corrected image/file-offset handling and verified the
+      `0x8f` copy/compare helper shape.
+
+2858. Reported: "I’m making the fixture-format change first: one optional
+      parameter on `logic_resource` controls message encryption, defaulting to
+      the existing v2 behavior. The GR-specific code will opt into plain
+      messages explicitly."
+
+      Action/result: Patched `tools/qemu_fixture.py`.
+
+2859. Reported: "I’m adding two tiny unit checks around message table
+      encoding: existing encrypted behavior stays unchanged, and v3/plain mode
+      leaves the text bytes readable in the resource."
+
+      Action/result: Added message-encryption tests to `tests/test_qemu_fixture.py`.
+
+2860. Reported: "I’m adding the GR save probe as a new `--probe
+      save-xor-extract` mode rather than mixing it into the older SQ2 save
+      tool. It still reuses the generic QEMU snapshot and save extraction
+      helpers, but the fixture construction stays v3-specific."
+
+      Action/result: Added initial GR save extraction payload, fixture builder,
+      QEMU runner, and CLI branch to `tools/gr_v3_behavior_probe.py`.
+
+2861. Reported: "Now I’m extending the focused GR probe tests so the new v3
+      save fixture is checked without requiring private game writes or QEMU.
+      The QEMU run will be the behavioral confirmation after the fixture bytes
+      look right."
+
+      Action/result: Added GR save payload/fixture tests.
+
+2862. Reported: "The code/tests are patched. I’m running the focused GR and
+      fixture tests now, then I’ll try one real QEMU extraction if the local
+      checks pass."
+
+      Action/result: Focused tests found one test-structure error; py_compile
+      passed.
+
+2863. Reported: "The compile passed; one test failure is just my patch landing
+      in the wrong spot inside an existing assertion block. I’m fixing the test
+      structure now."
+
+      Action/result: Inspected and repaired the misplaced frame-selection
+      assertion.
+
+2864. Reported: "The final frame-selection assertion was orphaned into the new
+      save test. I’m moving it back under the frame-selection fixture test."
+
+      Action/result: Moved the assertion back to the correct test.
+
+2865. Reported: "The unit-test structure is fixed; I’m rerunning the focused
+      suite before starting QEMU."
+
+      Action/result: Focused GR/fixture tests passed 59 tests; py_compile
+      passed.
+
+2866. Reported: "Focused tests pass. I’m going to run one QEMU save extraction
+      now; this should build a disposable copied GR fixture, drive the save UI,
+      pull `GRSG.1` back out of the qcow, and compare the third block through
+      the source-modeled XOR helper."
+
+      Action/result: First QEMU attempt failed because `GRSG.1` was not present.
+
+2867. Reported: "The QEMU run completed far enough to convert the disk, but
+      `GRSG.1` was not present. I’m inspecting the disposable DOS directory now
+      to see whether the engine wrote a blank-prefix `SG.1`, didn’t save, or
+      saved under another stem."
+
+      Action/result: `mdir` found no save file in `GRS0`; capture had only two
+      colors.
+
+2868. Reported: "There’s no save file at all, and the capture is a two-color
+      text/error screen, so the fixture likely exits before reaching the save
+      UI. I’m converting the capture so I can see which guard failed."
+
+      Action/result: Converted the PPM capture to PNG and inspected fixture
+      logic bytes.
+
+2869. Reported: "The synthetic logic has the intended `8f 01 7d` and a plain
+      `GR\\0` message table, so the verifier text itself looks right. I’m going
+      to view the capture to identify the failure path before changing the
+      probe."
+
+      Action/result: Viewed the capture; it showed the typed description at
+      DOS after the game exited before saving.
+
+2870. Reported: "The capture shows the game exited before the save UI, and the
+      later keystrokes landed at DOS. Since the fixture bytes look structurally
+      valid, I’m comparing its tiny message table against an original GR table
+      and the resolver’s expected layout; this smells like an offset/table
+      convention mismatch, not the save action itself."
+
+      Action/result: Confirmed the generated message table shape and read the
+      GR resolver/copy helper disassembly.
+
+2871. Reported: "Since the verifier path is still exiting, I’m checking how the
+      original GR scripts call `0x8f`: which logic, which message number, and
+      what raw message text sits there. That will tell us whether the synthetic
+      message table is the issue or whether this probe should use the
+      blank-prefix save path for now."
+
+      Action/result: Found the original GR `0x8f` use in logic 101 with message
+      `55a`.
+
+2872. Reported: "Original GR’s own verifier call is in logic 101 with message
+      `55a`, not `GR`. That means `0x8f` is more of a version/build
+      compatibility check than a save prefix initializer in this interpreter,
+      despite the shared slot being reused by filename code. I’m going to
+      switch the GR save extraction to omit `0x8f` and intentionally extract
+      the blank-prefix `SG.1`, which is enough to validate the v3 save block
+      transform."
+
+      Action/result: Decided to promote a blank-prefix save extraction and
+      leave GR's verifier/save-prefix path for future source-first work.
+
+2873. Reported: "I’m adjusting the GR save probe to make the blank-prefix
+      behavior explicit: no verifier action, no message table, expected output
+      `SG.1`. The report will still state the signature-prefix check as 'blank
+      prefix observed,' so the limitation is clear rather than hidden."
+
+      Action/result: Changed the GR save probe default to omit `0x8f` and use
+      save stem `SG`.
+
+2874. Reported: "I’m updating the tests to pin both paths: the default
+      extraction fixture omits the verifier and writes no message table, while
+      the optional verifier form still emits a plain v3 message if a future
+      probe needs it."
+
+      Action/result: Updated GR save tests for blank-prefix default and
+      optional plain-message verifier payload.
+
+2875. Reported: "The blank-prefix save fixture is now explicit. I’m rerunning
+      the focused tests, then I’ll rerun QEMU looking for `SG.1`."
+
+      Action/result: Focused tests passed 60 tests; py_compile passed.
+
+2876. Reported: "Focused tests pass again. I’m rerunning the extraction with
+      the default `SG` stem now."
+
+      Action/result: QEMU extraction passed and wrote
+      `build/gr-v3-behavior/save_xor_extract_qemu_001.json`.
+
+2877. Reported: "The QEMU extraction passed this time. I’m inspecting the JSON
+      and save bytes so I can document the exact block lengths and what the XOR
+      check proved."
+
+      Action/result: Inspected `save_xor_extract_qemu_001.json`,
+      `SG_001.1`, capture metadata, and the DOS directory listing.
+
+2878. Reported: "The extracted GR save has block lengths `[1028, 989, 1811,
+      100, 12]`, and the third block round-trips under the 59-byte XOR helper.
+      I’m checking its relationship to the local `OBJECT` file because the
+      length being `1811` versus `OBJECT` size `1814` is a nice concrete clue
+      for the subsystem spec."
+
+      Action/result: Compared encoded/decoded third-block bytes with
+      `games/GR/OBJECT`; neither form directly matches the source file.
+
+2879. Reported: "The third block does not directly match the local `OBJECT`
+      file after either form, which makes sense because the runtime
+      object/inventory table has already been initialized and relocated before
+      saving. I’ll document the direct evidence narrowly: original GR wrote a
+      five-block save, block 3 length `1811`, and the source-modeled XOR is a
+      reversible transform over that emitted block."
+
+      Action/result: Scoped the conclusion to the emitted save envelope and
+      XOR transform.
+
+2880. Reported: "I’m moving into documentation now: tracker first, then the
+      subsystem/version chapters, then the clean-room notes and progress log
+      with the exact QEMU command/result."
+
+      Action/result: Began docs/tracker update pass.
+
+2881. Reported: "I’m going to keep the documentation precise: 'GR save XOR
+      extraction is QEMU-validated using a blank-prefix `SG.1` fixture,' and
+      separately note that the verifier/signature path was not part of this
+      probe. That keeps the behavioral model honest rather than overclaiming."
+
+      Action/result: Chose wording for the blank-prefix caveat.
+
+2882. Reported: "The tracker text has line wraps that didn’t match my patch.
+      I’m reading the exact snippets and applying smaller edits."
+
+      Action/result: Reread exact `PROGRESS.md` snippets around snapshot,
+      action deltas, object runtime, and highest-value work.
+
+2883. Reported: "I’ve got the exact tracker text now. I’m applying the progress
+      update in smaller patches so the line-wrapped Markdown stays clean."
+
+      Action/result: Updated the current snapshot in `PROGRESS.md`.
+
+2884. Reported: "The snapshot now mentions the extracted GR save. I’m updating
+      the detailed v3 action-delta paragraph and remaining-work list next."
+
+      Action/result: Added the `SG.1` extraction result and narrowed remaining
+      GR save work to signature-prefixed save/restore behavior.
+
+2885. Reported: "The detailed action-delta status is updated with the extracted
+      block lengths and XOR check. I’m clearing the old 'full save extraction'
+      item from highest-value remaining work, replacing it with the narrower
+      signature-prefixed save/restore question."
+
+      Action/result: Updated `Highest-Value Remaining Work`.
+
+2886. Reported: "Next I’m updating `versions.md` so the concise version ledger
+      reflects that GR save extraction is now observed, with the blank-prefix
+      caveat."
+
+      Action/result: Updated the GR room/state action row in `versions.md`.
+
+2887. Reported: "I’m adding a short paragraph below the existing GR probe
+      descriptions with the exact save extraction command/result."
+
+      Action/result: Added the GR save extraction paragraph to `versions.md`.
+
+2888. Reported: "I’m updating the runtime model’s save section now: the
+      normative rule stays source-first, and the QEMU sentence records the
+      blank-prefix validation artifact."
+
+      Action/result: Updated the save/restore section in `runtime_model.md`.
+
+2889. Reported: "I’m also updating the v3 opcode-delta note so `0x7d` points
+      at the promoted QEMU extraction instead of only the helper model."
+
+      Action/result: Updated the GR v3 opcode-delta table in
+      `logic_bytecode.md`.
+
+2890. Reported: "I’m revising the symbolic label entry for GR’s save action
+      with the QEMU report path and the observed third-block length."
+
+      Action/result: Updated `docs/src/symbolic_labels.md`.
+
+2891. Reported: "The logic resource chapter still read as if every observed
+      interpreter uses encrypted message text. I’m adding a version note for
+      local GR resources and the new fixture builder option."
+
+      Action/result: Added the GR message plaintext/version note to
+      `logic_resources.md`.
+
+2892. Reported: "I’m updating the compatibility chapter in two places: the
+      local save helper section now says the GR transform has original-engine
+      extraction evidence, and the v3 probe section gets the rerunnable
+      command."
+
+      Action/result: Updated the save helper paragraph in
+      `compatibility_testing.md`.
+
+2893. Reported: "The save helper section is current. I’m inserting the exact
+      `save-xor-extract` command alongside the other GR v3 QEMU probes."
+
+      Action/result: Added the GR save extraction command/result to
+      `compatibility_testing.md`.
+
+2894. Reported: "The v3 probe section has a 'recent attempted' block
+      immediately after mode 4, so I’m inserting the save extraction note just
+      before that."
+
+      Action/result: Placed the new compatibility note before the attempted
+      fixture registry.
+
+2895. Reported: "Now I’m adding the detailed clean-room note: it includes the
+      failed verifier attempt as a documented harness observation, then the
+      promoted blank-prefix extraction and what it proves."
+
+      Action/result: Added the Gold Rush v3 Save Extraction Probe section to
+      `clean_room_executable_notes.md`.
+
+2896. Reported: "Before validation, I’m checking whether the promoted GR save
+      probe should be added to the compatibility suite manifest or left as a
+      documented targeted command. If the suite already has version-specific
+      optional layers, I’ll hook it in there."
+
+      Action/result: Inspected `tools/compatibility_suite.py` and its tests.
+
+2897. Reported: "The suite currently has local, SQ2 QEMU smoke, and SQ2 broad
+      layers. I’m adding a separate opt-in `qemu-v3` layer for the GR save
+      extraction so it doesn’t surprise normal SQ2 runs or public users without
+      private GR files."
+
+      Action/result: Added `gr_save_xor_extract_qemu` and the
+      `--include-qemu-v3` flag to `tools/compatibility_suite.py`.
+
+2898. Reported: "I found the suite tests. I’m adding the `qemu-v3` layer with
+      tests so the manifest is discoverable but still explicit."
+
+      Action/result: Updated `tests/test_compatibility_suite.py`.
+
+2899. Reported: "I’m adding the new `--include-qemu-v3` suite invocation to
+      the compatibility docs so future runs can reproduce the GR save check
+      from the manifest."
+
+      Action/result: Updated the command set in `docs/src/compatibility_testing.md`.
+
+2900. Reported: "I’m patching the command set with the v3 opt-in examples and
+      a note that it needs `games/GR`."
+
+      Action/result: Documented the separate private-input `qemu-v3` layer.
+
+2901. Reported: "Since the suite manifest now has an opt-in v3 layer, I’m
+      updating `PROGRESS.md` so the compatibility-suite tracker reflects it."
+
+      Action/result: Updated the compatibility-suite section of `PROGRESS.md`.
+
+2902. Reported: "I’m adding the `qemu-v3` layer to the compatibility-suite
+      evidence paragraph without marking it as a full-suite run yet; I’ll
+      validate the manifest locally after docs are done."
+
+      Action/result: Clarified `qemu-v3` status in `PROGRESS.md`.
+
+2903. Reported: "I’m adding the suite-manifest change into the clean-room
+      note’s implementation list so the evidence trail includes the new opt-in
+      runner path."
+
+      Action/result: Updated the GR save extraction clean-room note.
+
+2904. Reported: "Docs and code are updated. I’m running the validation set now:
+      full unit suite, mdBook, py_compile, manifest dry-run, and whitespace
+      check first; then I’ll run the local compatibility wrapper and the named
+      v3 QEMU suite command."
+
+      Action/result: `AGI_GAME_DIR=games/SQ2 python3 -B -m unittest discover
+      -s tests` passed 275 tests; `mdbook build docs`, py_compile,
+      `AGI_GAME_DIR=games/SQ2 python3 -B tools/compatibility_suite.py
+      --dry-run --include-qemu-v3`, and `git diff --check` passed.
+
+2905. Reported: "The first validation pass is green: 275 tests, mdBook,
+      py_compile, v3 dry-run, and diff check all passed. I’m running the
+      compatibility wrapper now, then the named `qemu-v3` save extraction from
+      the suite manifest."
+
+      Action/result: `AGI_GAME_DIR=games/SQ2 python3 -B
+      tools/compatibility_suite.py --report
+      build/compatibility-suite/local_002.json` passed.
+
+2906. Reported: "The local compatibility wrapper passed and wrote
+      `build/compatibility-suite/local_002.json`. Now I’m running the single
+      named v3 QEMU suite command to prove the manifest entry itself works."
+
+      Action/result: The first sandboxed wrapper attempt failed before booting
+      QEMU because VNC socket binding was not permitted from the sandboxed
+      child process.
+
+2907. Reported: "The named v3 suite command failed before booting because QEMU
+      could not bind its VNC socket from inside the sandboxed wrapper process.
+      The same probe worked when run directly; I’m rerunning the suite wrapper
+      with escalated permissions so its child QEMU process has the same socket
+      access."
+
+      Action/result: Escalated rerun of the named
+      `gr_save_xor_extract_qemu` suite command passed and wrote
+      `build/compatibility-suite/qemu_v3_save_001.json`.
+
+2908. Reported: "The escalated suite run passed and wrote the v3 save
+      extraction report. I’m checking the suite report and the probe JSON, then
+      I’ll add the validation results to the log and do the final book/diff
+      checks."
+
+      Action/result: Inspected `qemu_v3_save_001.json`,
+      `save_xor_extract_suite.json`, `local_002.json`, and git status.
+
+2909. Reported: "Validation produced only generated `__pycache__` directories
+      as untracked noise. I’m removing those generated caches, then I’ll log the
+      validation results and rerun the final doc/diff checks because the log
+      will change."
+
+      Action/result: Removed generated `tools/__pycache__` and
+      `tests/__pycache__` directories.
+
+2910. Reported: "The cache directories are gone. Since the v3 suite command
+      passed, I’m updating the tracker/docs from 'layer exists' to 'named v3
+      suite run passed' with the report path."
+
+      Action/result: Updated `PROGRESS.md` and `compatibility_testing.md` with
+      `build/compatibility-suite/qemu_v3_save_001.json`.
+
+2911. Reported: "The tracker now names the passing v3 suite report. I’m
+      updating the compatibility chapter’s command-set status similarly."
+
+      Action/result: Recorded the passing v3 suite report in
+      `docs/src/compatibility_testing.md`.
+
+2912. Reported: "I’m adding the suite report path to the clean-room save
+      extraction note too, so the direct probe and manifest-level validation
+      are both recorded."
+
+      Action/result: Added the suite-level report path to
+      `docs/src/clean_room_executable_notes.md`.
+
+2913. Reported: "I’m appending the validation results to the progress log now,
+      then I’ll rebuild mdBook and run the final diff check."
+
+      Action/result: Added validation entries for the GR save extraction and
+      v3 suite-manifest pass.

@@ -245,6 +245,49 @@ def suite_commands() -> tuple[SuiteCommand, ...]:
                 "20",
             ),
         ),
+        SuiteCommand(
+            "gr_save_xor_extract_qemu",
+            "qemu-v3",
+            "Validate the Gold Rush v3 blank-prefix save extraction and third-block XOR transform.",
+            (
+                "python3",
+                "-B",
+                "tools/gr_v3_behavior_probe.py",
+                "--probe",
+                "save-xor-extract",
+                "--game-dir",
+                "games/GR",
+                "--fixture-root",
+                "build/gr-v3-behavior/save-xor-suite-fixtures",
+                "--dos-prefix",
+                "GSV",
+                "--run-qemu",
+                "--output",
+                "build/gr-v3-behavior/save_xor_extract_suite.json",
+                "--snapshot-raw",
+                "build/gr-v3-behavior/snapshot/save_xor_extract_suite.raw",
+                "--snapshot-qcow",
+                "build/gr-v3-behavior/snapshot/save_xor_extract_suite.qcow2",
+                "--post-run-raw",
+                "build/gr-v3-behavior/snapshot/save_xor_extract_suite_after.raw",
+                "--save-output",
+                "build/gr-v3-behavior/SG_suite.1",
+                "--boot-wait",
+                "5",
+                "--draw-wait",
+                "8",
+                "--path-prompt-wait",
+                "2",
+                "--slot-wait",
+                "1",
+                "--description-wait",
+                "1",
+                "--confirmation-wait",
+                "1",
+                "--key-delay",
+                "0.08",
+            ),
+        ),
     )
 
 
@@ -253,6 +296,7 @@ def selected_commands(
     names: Iterable[str] = (),
     include_qemu_smoke: bool = False,
     include_qemu_broad: bool = False,
+    include_qemu_v3: bool = False,
 ) -> tuple[SuiteCommand, ...]:
     commands = suite_commands()
     wanted = set(names)
@@ -267,6 +311,8 @@ def selected_commands(
         layers.add("qemu-smoke")
     if include_qemu_broad:
         layers.update({"qemu-smoke", "qemu-broad"})
+    if include_qemu_v3:
+        layers.add("qemu-v3")
     return tuple(command for command in commands if command.layer in layers)
 
 
@@ -305,6 +351,7 @@ def main() -> None:
     parser.add_argument("--name", action="append", default=[], help="run only a named command; may be repeated")
     parser.add_argument("--include-qemu-smoke", action="store_true", help="include short QEMU validation batches")
     parser.add_argument("--include-qemu-broad", action="store_true", help="include broad QEMU resource sweeps")
+    parser.add_argument("--include-qemu-v3", action="store_true", help="include opt-in v3 interpreter QEMU probes")
     parser.add_argument("--dry-run", action="store_true", help="print selected commands without executing them")
     parser.add_argument("--report", type=Path, default=DEFAULT_REPORT)
     args = parser.parse_args()
@@ -313,6 +360,7 @@ def main() -> None:
         names=args.name,
         include_qemu_smoke=args.include_qemu_smoke,
         include_qemu_broad=args.include_qemu_broad,
+        include_qemu_v3=args.include_qemu_v3,
     )
     if args.list or args.dry_run:
         print(json.dumps([asdict(command) for command in commands], indent=2, sort_keys=True))

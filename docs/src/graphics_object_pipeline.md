@@ -397,7 +397,7 @@ The current observed field map is:
 | `+0x1f` | Frame-timer reload byte set by action `0x4c` (`set_object_field_1f_var`). |
 | `+0x20` | Current frame-timer countdown byte. Action `0x4c` copies `var[arg1]` here and to `+0x1f`; `code.object.frame_timer_update` decrements it before calling `code.object.advance_frame_by_mode`. |
 | `+0x21` | Direction-like byte used by the per-cycle movement pass and actions `0x56` (`set_object_field_21_var`)/`0x57` (`get_object_field_21`). |
-| `+0x22` | Motion/control mode byte used by actions `0x4d..0x55` (`clear_object_fields_21_22` through `stop_motion_mode`); value 1 is random autonomous motion, value 2 approaches the first object entry until near, and value 3 is targeted movement started by `0x51` (`move_object_to`) or `0x52` (`move_object_to_var`). |
+| `+0x22` | Motion/control mode byte used by actions `0x4d..0x55` (`clear_object_fields_21_22` through `stop_motion_mode`); value 1 is random autonomous motion, value 2 approaches the first object entry until near, and value 3 is targeted movement started by `0x51` (`move_object_to`) or `0x52` (`move_object_to_var`). Gold Rush / AGI v3 also dispatches value 4 through the same target-direction helper as value 3. |
 | `+0x23` | Frame-cycling mode byte used by actions `0x48..0x4b` (`set_object_field_23_mode0` through `set_object_field_23_mode2`). |
 | `+0x24` | Priority/control byte; can be fixed by actions `0x36` (`set_object_field_24`)/`0x37` (`set_object_field_24_var`) or derived from Y. Action `0x85` (`display_object_diagnostics_var`) prints this byte as `pri`. |
 | `+0x25` | Word-sized flag field. |
@@ -438,6 +438,15 @@ When byte `+0x01 == 1`, the target is not sentinel `4`, and it differs from
 current group byte `+0x0a`, the helper calls `code.object.select_group`
 (`0x3bb7`).
 
+Gold Rush / AGI v3 changes the `+0x0b >= 4` branch. At GR image `0x055c`,
+exactly-four-loop views still use the four-plus direction table without an
+extra flag check. Views with more than four loops use that table only when flag
+`0x14` is set; when the flag is clear, the target remains sentinel `4` and no
+automatic group change occurs. QEMU report
+`build/gr-v3-behavior/frame_selection_gate_qemu_001.json` validates this with
+local GR view 177 for the exact-four case and local GR view 39 for the
+more-than-four case.
+
 The observed table bytes for directions `0..8` are:
 
 | Table | Values for directions `0..8` |
@@ -457,6 +466,10 @@ visible bit gate and table behavior:
   selected group does not change.
 - A one-shot `+0x01 = 2` delays selection until the countdown reaches 1; a
   per-cycle script write that keeps `+0x01 = 2` prevents the group change.
+- In GR, view 177 with exactly four groups selects group 1 for direction `6`
+  whether flag `0x14` is clear or set; view 39 with more than four groups
+  remains on group 0 while flag `0x14` is clear and selects group 1 after that
+  flag is set.
 
 After the group-selection check, if bit `0x0020` is set and byte `+0x20` is
 nonzero, `code.object.frame_timer_update` decrements `+0x20`; when the
@@ -824,7 +837,9 @@ Movement-related work is split across two nearby passes:
    `+0x01 == 1`, calls `code.motion.dispatch_mode_step` (`0x067a`). Dispatcher
    `0x067a` uses motion/control byte `+0x22`: mode `1` calls random motion
    helper `0x3f5a`, mode `2` calls approach-first-object helper `0x0b36`, and
-   mode `3` calls targeted-motion helper `0x1672`. The same pre-pass applies
+   mode `3` calls targeted-motion helper `0x1672`. In Gold Rush / AGI v3,
+   relocated dispatcher `0x068a` also routes mode `4` to the targeted-motion
+   helper. The same pre-pass applies
    rectangle-boundary helper `code.motion.rectangle_boundary_check` (`0x06d9`)
    when enabled.
 2. After logic 0 returns, `code.engine.main_cycle` calls
@@ -1152,6 +1167,7 @@ The currently observed values of object byte `+0x22` are:
 | `1` | `0x54` (`start_random_motion`) | Helper `0x3f5a` picks direction `0..8` with helper `0x3fa3`, keeps a random countdown in `+0x27`, and reseeds when the countdown expires or the stationary bit `0x4000` is set. A QEMU property probe confirms the mode renders the object at a valid final position. |
 | `2` | `0x53` (`approach_first_object_until_near`) | Helper `0x0b36` computes a direction from the object's center/Y toward the first object entry's center/Y using threshold `+0x27`; when the direction helper returns zero it clears the mode and sets completion flag `+0x28`. Stuck recovery temporarily chooses a random nonzero direction and stores a retry delay in `+0x29`. QEMU confirms direct completion at `(50,80)` in the threshold-35 fixture. |
 | `3` | `0x51` (`move_object_to`), `0x52` (`move_object_to_var`) | Helper `0x1672` computes direction toward target X/Y in `+0x27/+0x28`; completion helper `0x16b9` restores saved step `+0x29`, sets completion flag `+0x2a`, and clears the mode. QEMU probes confirm both script-reissued setup and countdown-gated one-shot setup can complete. |
+| `4` | Gold Rush / AGI v3 internal state | GR dispatcher `0x068a` routes this value to the same target-direction helper as mode `3`. An instrumented QEMU probe changes only the copied GR action-`0x51` setup byte from mode `3` to mode `4`; the mode-4 capture matches unmodified mode 3, while a stationary control does not. The natural mode-4 seeding path is not exposed by ordinary bytecode in the current evidence. |
 
 The render/update helpers around `0x5528..0x5762` bridge the interpreter's
 logical graphics buffer to the selected graphics overlay:

@@ -37,6 +37,7 @@ class CompatibilitySuiteTests(unittest.TestCase):
         self.assertEqual(by_name["picture_fuzz_relative_underflow_qemu"].layer, "qemu-smoke")
         self.assertEqual(by_name["picture_carousel_broad_qemu"].layer, "qemu-broad")
         self.assertEqual(by_name["view_carousel_stress_qemu"].layer, "qemu-broad")
+        self.assertEqual(by_name["gr_save_xor_extract_qemu"].layer, "qemu-v3")
 
     def test_default_selection_is_local_only(self) -> None:
         commands = selected_commands()
@@ -45,10 +46,14 @@ class CompatibilitySuiteTests(unittest.TestCase):
     def test_qemu_selection_levels_are_explicit(self) -> None:
         smoke = selected_commands(include_qemu_smoke=True)
         broad = selected_commands(include_qemu_broad=True)
+        v3 = selected_commands(include_qemu_v3=True)
 
         self.assertIn("qemu-smoke", {command.layer for command in smoke})
         self.assertNotIn("qemu-broad", {command.layer for command in smoke})
+        self.assertNotIn("qemu-v3", {command.layer for command in smoke})
         self.assertIn("qemu-broad", {command.layer for command in broad})
+        self.assertNotIn("qemu-v3", {command.layer for command in broad})
+        self.assertIn("qemu-v3", {command.layer for command in v3})
 
     def test_name_selection_rejects_unknown_names(self) -> None:
         with self.assertRaisesRegex(ValueError, "unknown suite command"):

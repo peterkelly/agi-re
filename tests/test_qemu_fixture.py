@@ -125,6 +125,22 @@ class QemuFixtureTests(unittest.TestCase):
         )
         self.assertEqual(payload[2 + code_len :], bytes([0x00, 0x02, 0x00]))
 
+    def test_logic_resource_encrypts_messages_by_default(self) -> None:
+        payload = logic_resource(b"\x00", messages=["GR"])
+        code_len = payload[0] | (payload[1] << 8)
+        message_data = payload[2 + code_len :]
+
+        self.assertEqual(message_data[0], 1)
+        self.assertNotIn(b"GR\x00", message_data)
+
+    def test_logic_resource_can_write_plain_v3_messages(self) -> None:
+        payload = logic_resource(b"\x00", messages=["GR"], encrypt_messages=False)
+        code_len = payload[0] | (payload[1] << 8)
+        message_data = payload[2 + code_len :]
+
+        self.assertEqual(message_data[0], 1)
+        self.assertTrue(message_data.endswith(b"GR\x00"))
+
     def test_picture_view_logic_payload_draws_transient_view_and_loops(self) -> None:
         payload = picture_view_logic_payload(1, 11, 0, 0, 20, 80, 15)
         code_len = payload[0] | (payload[1] << 8)

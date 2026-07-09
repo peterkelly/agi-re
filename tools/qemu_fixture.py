@@ -57,7 +57,12 @@ def xor_message_text(text: bytes) -> bytes:
     return bytes(out)
 
 
-def logic_resource(code: bytes, messages: list[str | bytes] | None = None) -> bytes:
+def logic_resource(
+    code: bytes,
+    messages: list[str | bytes] | None = None,
+    *,
+    encrypt_messages: bool = True,
+) -> bytes:
     if messages is None:
         return u16le(len(code)) + code + bytes([0x00]) + u16le(0x0002)
 
@@ -78,7 +83,8 @@ def logic_resource(code: bytes, messages: list[str | bytes] | None = None) -> by
     table.extend(u16le(cursor))
     for offset in offsets:
         table.extend(u16le(offset))
-    return u16le(len(code)) + code + bytes([len(encoded_messages)]) + bytes(table) + xor_message_text(bytes(text))
+    message_text = xor_message_text(bytes(text)) if encrypt_messages else bytes(text)
+    return u16le(len(code)) + code + bytes([len(encoded_messages)]) + bytes(table) + message_text
 
 
 def self_loop() -> bytes:

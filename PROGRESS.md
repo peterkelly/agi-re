@@ -37,9 +37,15 @@ better understood, or a new remaining-work item is discovered.
   SQ2 now has a repeatable helper and report; GR's extra action slots
   `0xb0..0xb5` are source-backed from disassembly, while only shared condition
   entries `0x00..0x12` are structured table records in the observed
-  `AGIDATA.OVL`. The first dynamic v3 delta probe now QEMU-validates GR action
-  `0x12` remapping immediate room targets `0x7e..0x80` to `0x49` by comparing
-  nonblank original-engine captures.
+  `AGIDATA.OVL`. Dynamic v3 delta probes now QEMU-validate GR action `0x12`
+  remapping immediate room targets `0x7e..0x80` to `0x49`, the expanded key-map
+  slot count, the GR frame-selection gate, a blank-prefix GR save extraction
+  whose third block round-trips through the observed v3 XOR transform, and the
+  motion-mode `4` dispatcher branch. The motion-mode probe is explicitly
+  instrumented: it patches a copied
+  GR interpreter under `build/` so action `0x51` seeds mode `4` instead of mode
+  `3`, then compares the resulting capture with the unmodified mode-3 capture
+  and a stationary control.
 - Generated original-engine fixture builders now treat `games/` as immutable:
   they copy the selected game input to a generated destination, make copied
   files writable, and reject fixture destinations under `games/`. The v2
@@ -107,18 +113,24 @@ observable behavior/QEMU confirmation is intentionally deferred.
       destination-room capture. GR save wraps the object/inventory chunk in an
       XOR pass before and after writing the save envelope; local helper
       `gr_v3_object_inventory_save_xor()` models the observed 59-byte key and
-      is covered by round-trip/wrap tests. GR restart records prompt-marker
-      visibility before confirmation; accepted restart redraws the marker, and
-      canceled restart redraws only if the marker had been visible. This branch
-      is now modeled by a local truth-table helper/test. GR `0x84` preserves
-      object 0 motion mode byte `+0x22` when it is already `4`.
-  - Remaining: use the new v3 direct logic fixture writer to add targeted
-    behavioral fixtures for observable consequences: object motion mode `4`.
-    Add a full GR save-file extraction probe only if source-backed save XOR
-    tests are not sufficient for the final spec, add a GR restart QEMU probe
-    only if the source-backed prompt-marker truth table needs observable
-    confirmation, and add raw key-release/menu-gate behavior probes only if
-    source-backed gate descriptions need observable confirmation.
+      is covered by round-trip/wrap tests. QEMU
+      `save_xor_extract_qemu_001` extracts the original engine's blank-prefix
+      `SG.1`, confirms five length-prefixed blocks with lengths `1028`, `989`,
+      `1811`, `100`, and `12`, and proves the third block changes and
+      round-trips under the modeled XOR transform. GR restart records
+      prompt-marker visibility before confirmation; accepted restart redraws
+      the marker, and canceled restart redraws only if the marker had been
+      visible. This branch is now modeled by a local truth-table helper/test.
+      GR `0x84` preserves object 0 motion mode byte `+0x22` when it is already
+      `4`. An
+      instrumented QEMU probe now confirms that when action `0x51` seeds mode
+      `4`, the GR dispatcher reaches the same visible target as unmodified
+      mode `3`, while a stationary control remains different.
+  - Remaining: add a signature-prefixed GR save/restore probe only if future
+    source work needs the GR `0x8f` verifier/save-prefix path; add a GR restart
+    QEMU probe only if the source-backed prompt-marker truth table needs
+    observable confirmation, and add raw key-release/menu-gate behavior probes
+    only if source-backed gate descriptions need observable confirmation.
 - [~] Logic condition opcode comparison
   - Current: table-level parser contracts match for shared condition opcodes
     `0x00..0x12`, and normalized handler-entry snippets have no differences.
@@ -136,12 +148,19 @@ observable behavior/QEMU confirmation is intentionally deferred.
     active/inactive list rebuild/flush/refresh, and membership toggles. GR
     packages rectangle save/restore/draw routines in the main image rather than
     SQ2's `IBM_OBJS.OVL`. Static differences remain in object animation/motion:
-    GR gates direction-to-loop selection for views with more than four loops on
-    flag `0x14`, treats exactly-four-loop views as a no-auto-select case in
-    that branch, and accepts motion mode `4` as another entry into the same
-    target-direction helper used by mode `3`.
-  - Remaining: validate the GR frame-selection gate and motion mode `4` with
-    targeted v3 fixtures.
+    GR uses the four-plus direction table immediately for exactly-four-loop
+    views, but gates views with more than four loops on flag `0x14`. The
+    targeted v3 QEMU probe `frame_selection_gate_qemu_001` validates that
+    exact-four view 177 selects group 1 with direction `6` whether flag `0x14`
+    is clear or set, while more-than-four view 39 selects group 1 only after
+    flag `0x14` is set and otherwise remains on group 0. GR also accepts motion
+    mode `4` as another entry into the same target-direction helper used by
+    mode `3`. The mode-4 dispatch path is now instrumented-QEMU-validated with
+    a copied interpreter patch that changes only the action-`0x51` setup byte
+    from mode `3` to mode `4`.
+  - Remaining: optional GR signature-prefixed save/restore, restart,
+    key-release, and menu observable probes only if source-backed descriptions
+    need additional confirmation.
 - [~] View runtime/resource comparison
   - Current: v3 container decoding can read GR view resources locally. Static
     comparison shows the view cache/load path, object-view binding, group table
@@ -552,9 +571,13 @@ observable behavior/QEMU confirmation is intentionally deferred.
     original-engine probes. The QEMU
     broad manifest passed in `build/compatibility-suite/qemu_broad_002.json`,
     including the smoke layer, the eight-picture timed carousel, and the
-    19-case view/object stress carousel. Generated fixture copies now preserve
-    private game inputs as read-only evidence and make only the generated copy
-    writable; `AGI_GAME_DIR=games/SQ2 python3 -B -m unittest discover -s tests`
+    19-case view/object stress carousel. The suite now also has an explicit
+    `qemu-v3` layer for private-input v3 probes, and the named GR save-XOR
+    extraction command passed in
+    `build/compatibility-suite/qemu_v3_save_001.json`. Generated fixture
+    copies now preserve private game inputs as read-only evidence and make only
+    the generated copy writable;
+    `AGI_GAME_DIR=games/SQ2 python3 -B -m unittest discover -s tests`
     passed 251 tests after this fix.
   - Remaining: assemble a final broad suite that can validate a clean-room
     implementation against original-engine outputs; scale timed polling
@@ -581,14 +604,12 @@ observable behavior/QEMU confirmation is intentionally deferred.
 
 ## Highest-Value Remaining Work
 
-1. Continue v3 behavioral probes from the source-mapped GR/SQ2 deltas: cover
-   object motion mode `4`. Add a full GR save-file extraction probe only if the
-   source-backed save XOR model needs on-disk confirmation, add a GR restart
-   QEMU probe only if the source-backed prompt-marker truth table needs
-   observable confirmation, add raw key-release/menu-gate probes only if the
-   source-backed gate descriptions need observable confirmation, and add v3
-   picture/view fixture packing only when a probe needs generated picture or
-   view payloads rather than original game resources.
+1. Continue v3 behavioral probes from the source-mapped GR/SQ2 deltas only when
+   source-backed descriptions still need observable confirmation: possible
+   targets are signature-prefixed GR save/restore behavior, GR restart
+   prompt-marker redraw, raw key-release/menu-gate behavior, or generated v3
+   picture/view fixture packing if a future probe needs synthetic resources
+   rather than original local game resources.
 2. Continue source-first renderer work only when disassembly or a valid local
    resource exposes a concrete edge not already modeled. Use QEMU as
    confirmation/regression evidence.

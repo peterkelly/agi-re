@@ -42,15 +42,18 @@ AGI_GAME_DIR=games/SQ2 python3 -B -m unittest discover -s tests
 
 Run the current top-level compatibility suite manifest. By default this executes
 only deterministic local checks: the unit suite, `mdbook build docs`, and the
-opcode-evidence freshness check. QEMU smoke and broad resource sweeps are
-opt-in so a quick local run does not unexpectedly boot the original engine:
+opcode-evidence freshness check. QEMU smoke, broad resource sweeps, and
+version-specific v3 probes are opt-in so a quick local run does not
+unexpectedly boot the original engine:
 
 ```bash
 AGI_GAME_DIR=games/SQ2 python3 -B tools/compatibility_suite.py --report build/compatibility-suite/local_001.json
 AGI_GAME_DIR=games/SQ2 python3 -B tools/compatibility_suite.py --include-qemu-smoke --report build/compatibility-suite/qemu_smoke_002.json
 AGI_GAME_DIR=games/SQ2 python3 -B tools/compatibility_suite.py --include-qemu-broad --report build/compatibility-suite/qemu_broad_002.json
+AGI_GAME_DIR=games/SQ2 python3 -B tools/compatibility_suite.py --include-qemu-v3 --report build/compatibility-suite/qemu_v3_001.json
 AGI_GAME_DIR=games/SQ2 python3 -B tools/compatibility_suite.py --dry-run --include-qemu-smoke
 AGI_GAME_DIR=games/SQ2 python3 -B tools/compatibility_suite.py --dry-run --include-qemu-broad
+AGI_GAME_DIR=games/SQ2 python3 -B tools/compatibility_suite.py --dry-run --include-qemu-v3
 ```
 
 The first checked run of the default manifest passed after running 230 unit
@@ -68,6 +71,10 @@ The current checked run of the QEMU broad manifest passed in
 the smoke layer plus the eight-picture timed carousel and the 19-case
 view/object stress carousel. Every selected command returned zero; the picture
 carousel matched all 8 cases and the view/object carousel matched all 19 cases.
+
+The v3 manifest layer is separate because it depends on the private local
+`games/GR` input. Its current command is the GR save-XOR extraction probe. The
+named suite run passed in `build/compatibility-suite/qemu_v3_save_001.json`.
 
 Generate current sample render outputs:
 
@@ -556,6 +563,20 @@ batch matched QEMU with 4 matches, 0 mismatches, and 0 errors. It validates the
 two/three-group direction table, sentinel value `4`, countdown-to-1 behavior,
 and the exact `+0x01 == 1` gate when `+0x01` is forced to 2 every logic cycle.
 
+Run the Gold Rush / AGI v3 frame-selection gate probe:
+
+```bash
+python3 -B tools/gr_v3_behavior_probe.py --probe frame-selection-gate --game-dir games/GR --fixture-root build/gr-v3-behavior/frame-selection-fixtures --dos-prefix GRF --run-qemu --output build/gr-v3-behavior/frame_selection_gate_qemu_001.json --snapshot-raw build/gr-v3-behavior/snapshot/frame_selection_gate.raw --snapshot-qcow build/gr-v3-behavior/snapshot/frame_selection_gate.qcow2 --boot-wait 5 --draw-wait 8
+```
+
+This eight-case copied-fixture batch passed. It compares exact-four and
+more-than-four auto-selection cases against group-0 and group-1 controls. GR
+view 177, which has exactly four groups, selected group 1 for direction `6`
+whether flag `0x14` was clear or set. GR view 39, which has more than four
+groups, remained on group 0 while flag `0x14` was clear and selected group 1
+after flag `0x14` was set. This confirms the GR-specific branch at image
+`0x055c` without modifying `games/GR`.
+
 Run the object-state/random/no-op follow-up batch:
 
 ```bash
@@ -931,9 +952,9 @@ It also covers the source-modeled Gold Rush / AGI v3 object/inventory save
 transform. The helper `gr_v3_object_inventory_save_xor()` applies the observed
 59-byte repeating XOR sequence from GR image `0x072c`; tests prove the
 transform round-trips, wraps after byte 58, and rejects an empty generic key.
-This is not yet a full original-engine GR save extraction, but it makes the
-version-specific third-block encoding executable in the local compatibility
-model.
+QEMU extraction `build/gr-v3-behavior/save_xor_extract_qemu_001.json` now
+confirms that the original GR interpreter writes a five-block blank-prefix
+`SG.1` save whose third block changes and round-trips under this helper.
 
 `tests/test_restart_model.py` covers the source-backed Gold Rush / AGI v3
 restart prompt-marker redraw branch. The tested truth table is: accepted
@@ -1433,6 +1454,37 @@ and checks the resulting status byte by drawing original GR picture 1. QEMU
 promotes the result only when the keyed capture matches a direct picture draw
 and the no-key control does not. In the promoted run the direct and keyed
 captures are nonblank with 14 unique colors, while the no-key capture is blank.
+
+The GR motion-mode `4` dispatcher branch has an instrumented QEMU probe rather
+than an ordinary unmodified-game-data probe:
+
+```bash
+python3 -B tools/gr_v3_behavior_probe.py --probe motion-mode-4 --game-dir games/GR --fixture-root build/gr-v3-behavior/motion-mode-4-fixtures --dos-prefix GRM --run-qemu --output build/gr-v3-behavior/motion_mode_4_qemu_pic001_001.json --snapshot-raw build/gr-v3-behavior/snapshot/motion_mode_4.raw --snapshot-qcow build/gr-v3-behavior/snapshot/motion_mode_4.qcow2 --boot-wait 5 --draw-wait 8
+```
+
+This probe builds copied GR fixtures under `build/`. The mode-3 case uses the
+unmodified interpreter and action `0x51` to move object 0 from `(20,80)` to
+`(50,80)`. The mode-4 case patches only the copied interpreter byte at loaded
+image offset `0x707f` inside action `0x51`, changing the mode seed from `3` to
+`4`; the dispatcher and target-direction helper are otherwise the original GR
+code. The QEMU report passed because the instrumented mode-4 capture matched
+the unmodified mode-3 capture, while a stationary control capture did not.
+Because this is an instrumented interpreter probe, it validates the internal GR
+dispatch branch but is not counted as evidence that ordinary script bytecode can
+create mode `4` by itself.
+
+The GR save-XOR extraction probe validates the source-mapped save transform:
+
+```bash
+python3 -B tools/gr_v3_behavior_probe.py --probe save-xor-extract --game-dir games/GR --fixture-root build/gr-v3-behavior/save-xor-fixtures --dos-prefix GRS --run-qemu --output build/gr-v3-behavior/save_xor_extract_qemu_001.json --snapshot-raw build/gr-v3-behavior/snapshot/save_xor_extract.raw --snapshot-qcow build/gr-v3-behavior/snapshot/save_xor_extract.qcow2 --post-run-raw build/gr-v3-behavior/snapshot/save_xor_extract_after.raw --save-output build/gr-v3-behavior/SG_001.1 --boot-wait 5 --draw-wait 8 --path-prompt-wait 2 --slot-wait 1 --description-wait 1 --confirmation-wait 1 --key-delay 0.08
+```
+
+This fixture omits `0x8f verify_game_signature`, so the original engine writes
+blank-prefix `SG.1`. The extracted save has block lengths `1028`, `989`,
+`1811`, `100`, and `12`; the third block differs after
+`gr_v3_object_inventory_save_xor()` and a second transform restores the emitted
+bytes. This confirms the v3 object/inventory block encoding without relying on
+GR's verifier/save-prefix path.
 
 Recent attempted-but-not-promoted logic fixtures:
 

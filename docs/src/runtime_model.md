@@ -367,7 +367,11 @@ Gold Rush / AGI v3 keeps the five-block save-envelope shape but changes the
 object/inventory block written from `[0x07d6]` with length `[0x07da]`: action
 `0x7d` applies a repeating 59-byte XOR sequence observed at image `0x072c`
 before the save path and applies the same transform again before return, so the
-on-disk block is transformed while runtime memory is restored.
+on-disk block is transformed while runtime memory is restored. QEMU extraction
+`build/gr-v3-behavior/save_xor_extract_qemu_001.json` validates this against a
+blank-prefix GR `SG.1` save: the emitted block lengths are `1028`, `989`,
+`1811`, `100`, and `12`, and the third block changes and round-trips under
+`gr_v3_object_inventory_save_xor()`.
 
 Restart, save/restore, and termination lifecycle:
 
@@ -448,9 +452,20 @@ Motion and animation lifecycle:
 Gold Rush / AGI 3.002.149 source comparison adds two version-specific motion
 notes. First, object motion mode `4` dispatches to the same target-direction
 helper as mode `3`; SQ2 treats modes above `3` as no autonomous-mode dispatch.
-Second, GR's automatic direction-to-loop selection gates the more-than-four-loop
-table on flag `0x14` and does not use that table for exactly-four-loop views in
-the observed branch. These are not yet QEMU-validated with v3 fixtures.
+The mode-4 dispatcher branch is now validated with an instrumented GR fixture:
+a copied interpreter under `build/` changes action `0x51`'s mode seed from `3`
+to `4`, and QEMU shows the resulting capture matches the unmodified mode-3
+target-movement capture while a stationary control does not. That confirms the
+internal dispatcher behavior, but the natural engine path that seeds mode `4`
+remains source-only rather than script-visible.
+
+Second, GR's automatic direction-to-loop selection changes the high group-count
+branch. Exactly-four-loop views use the four-plus direction table without an
+extra flag check, while views with more than four loops use that table only
+when flag `0x14` is set. QEMU report
+`build/gr-v3-behavior/frame_selection_gate_qemu_001.json` validates exact-four
+view 177 selecting group 1 for direction `6` whether flag `0x14` is clear or
+set, and more-than-four view 39 remaining on group 0 until flag `0x14` is set.
 
 Text/input UI lifecycle:
 

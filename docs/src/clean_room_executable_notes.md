@@ -8388,9 +8388,10 @@ Object/motion observations:
 - SQ2 `code.object.frame_timer_update` at `0x0563` uses the direction-to-loop
   table for object views with group count byte `+0x0b >= 4` when bit `0x2000`
   is clear. GR `0x055c` keeps the two/three-group table path, but the
-  four-plus path is now split: exactly four groups leaves the default local
-  group value unchanged, and more than four groups uses the direction table
-  only when flag `0x14` is set.
+  four-plus path is split: exactly four groups uses the direction table without
+  the new flag gate, and more than four groups uses the direction table only
+  when flag `0x14` is set. A later targeted QEMU probe in these notes corrected
+  the earlier no-auto-select shorthand for the exactly-four case.
 - SQ2 `code.motion.dispatch_mode_step` at `0x067a` accepts modes `1..3` after
   decrementing object byte `+0x22`. GR `0x068a` accepts modes `1..4`. The GR
   jump table at `0x06bd` maps mode `1` to random motion, mode `2` to
@@ -8659,15 +8660,91 @@ Conclusion:
   save helper model. The current model describes the on-disk third block as the
   XOR-transformed form of the runtime object/inventory block, with the second
   in-memory pass restoring runtime bytes before action return.
-- A future QEMU save-file extraction probe can directly compare a generated GR
-  save's third block against this transform once the GR-specific save prompt
-  sequence/signature setup is worth automating.
+- A later QEMU save-file extraction probe promoted the source-backed transform
+  to original-engine evidence; see the next section. The promoted fixture uses
+  a blank save prefix and does not resolve the GR verifier/save-prefix path.
 - Final verification for this pass:
   `AGI_GAME_DIR=games/SQ2 python3 -B -m unittest discover -s tests`
   (`262` tests), `mdbook build docs`,
   `python3 -B -m py_compile tools/agi_save.py tools/gr_v3_behavior_probe.py tools/qemu_fixture.py tools/agi_resources.py`,
   `git diff --check`, and
   `AGI_GAME_DIR=games/SQ2 python3 -B tools/compatibility_suite.py` all passed.
+
+## Gold Rush v3 Save Extraction Probe
+
+Goal: confirm the source-mapped GR save XOR transform against a save file
+written by the original interpreter.
+
+Commands and local reads:
+
+- `sed -n` reads of `PROGRESS.md`, `tools/gr_v3_behavior_probe.py`,
+  `tools/save_roundtrip_probe.py`, `tools/qemu_fixture.py`,
+  `tools/agi_save.py`, and the relevant tests.
+- Local Python parse of GR logic 0's message table confirmed that local GR
+  message bytes are plain in the resource data, unlike the SQ2 encrypted
+  message text path.
+- `strings -a -t x games/GR/AGIDATA.OVL` and `xxd -s 0x0700 -l 0x260 -g 1
+  games/GR/AGIDATA.OVL` confirmed the same message XOR key text exists in GR
+  data at offset `0x072c`, while GR logic message resources observed in this
+  pass are already readable.
+- `ndisasm` reads around GR image offsets `0x108c`, `0x245e`, `0x5035`, and
+  `0x5ede`, plus byte reads around file offset `0x60d7`, confirmed the local
+  `0x8f` verifier/copy shape and embedded verifier string bytes.
+- Local script scan found GR's original `0x8f` use in logic `101` at bytecode
+  offset `0x0004`, with message number `3` and raw message text `55a`.
+- `AGI_GAME_DIR=games/SQ2 python3 -B -m unittest tests.test_gr_v3_behavior_probe tests.test_qemu_fixture`
+- `python3 -B -m py_compile tools/gr_v3_behavior_probe.py tools/qemu_fixture.py tests/test_gr_v3_behavior_probe.py tests/test_qemu_fixture.py`
+- Initial exploratory QEMU run with a synthetic `0x8f("GR")` fixture exited
+  before saving; `mdir` found no save file, and the capture showed the later
+  typed description at DOS. This result was not promoted as save behavior.
+- Promoted QEMU run:
+
+```bash
+python3 -B tools/gr_v3_behavior_probe.py --probe save-xor-extract --game-dir games/GR --fixture-root build/gr-v3-behavior/save-xor-fixtures --dos-prefix GRS --run-qemu --output build/gr-v3-behavior/save_xor_extract_qemu_001.json --snapshot-raw build/gr-v3-behavior/snapshot/save_xor_extract.raw --snapshot-qcow build/gr-v3-behavior/snapshot/save_xor_extract.qcow2 --post-run-raw build/gr-v3-behavior/snapshot/save_xor_extract_after.raw --save-output build/gr-v3-behavior/SG_001.1 --boot-wait 5 --draw-wait 8 --path-prompt-wait 2 --slot-wait 1 --description-wait 1 --confirmation-wait 1 --key-delay 0.08
+```
+
+Implementation/test updates:
+
+- `tools/qemu_fixture.py` now lets generated logic resources opt out of
+  SQ2-style message text encryption with `encrypt_messages=False`; default
+  behavior is unchanged for v2 fixtures.
+- `tools/gr_v3_behavior_probe.py` now has `--probe save-xor-extract`. The
+  promoted fixture omits `0x8f verify_game_signature`, so it writes a
+  blank-prefix `SG.1` save and keeps the test focused on action `0x7d`.
+- `tests/test_qemu_fixture.py` covers encrypted-default and plain-message
+  logic-resource construction.
+- `tests/test_gr_v3_behavior_probe.py` covers the GR save extraction payload,
+  the optional plain verifier-message form, and stale save removal in copied
+  fixtures.
+- `tools/compatibility_suite.py` now has an opt-in `qemu-v3` layer containing
+  the GR save-XOR extraction probe; it is intentionally separate from the
+  SQ2-oriented smoke/broad layers because it depends on private `games/GR`.
+
+QEMU result:
+
+- Report: `build/gr-v3-behavior/save_xor_extract_qemu_001.json`.
+- Suite-level report: `build/compatibility-suite/qemu_v3_save_001.json`, whose
+  named `gr_save_xor_extract_qemu` command returned zero and wrote
+  `build/gr-v3-behavior/save_xor_extract_suite.json`.
+- Extracted save: `build/gr-v3-behavior/SG_001.1`.
+- Description: `codex gr probe`.
+- Block lengths: `1028`, `989`, `1811`, `100`, and `12`.
+- First block begins with a blank signature prefix, as expected for a fixture
+  that does not call `0x8f`.
+- The third block's on-disk prefix is
+  `c87769f82158e57363fb6f5dd6686f91457dca6606ac4011`.
+- After `gr_v3_object_inventory_save_xor()`, the third block prefix is
+  `d65d8df967a40e3ce9bf71773269296dcf39d44ce2ad06eb`.
+- Applying the same XOR helper a second time restores the emitted third-block
+  bytes. The report marks all checks passed.
+
+Conclusion:
+
+- GR action `0x7d` is now both source-backed and original-engine validated for
+  the v3 save envelope and third-block XOR transform.
+- The promoted QEMU evidence deliberately avoids GR's verifier/save-prefix
+  path. A future source-first pass can investigate `0x8f` in GR separately if a
+  signature-prefixed GR save/restore fixture becomes important.
 
 ## Gold Rush v3 Restart Prompt-Marker Truth Table
 
@@ -8716,3 +8793,138 @@ Conclusion:
   `python3 -B -m py_compile tools/agi_restart.py tools/agi_save.py tools/gr_v3_behavior_probe.py tools/qemu_fixture.py tools/agi_resources.py tools/compare_gr_sq2_static.py`,
   `git diff --check`, and
   `AGI_GAME_DIR=games/SQ2 python3 -B tools/compatibility_suite.py` all passed.
+
+## Gold Rush v3 Instrumented Motion Mode 4 Probe
+
+Goal: validate the GR-specific motion dispatcher branch for object mode `4`
+without pretending ordinary bytecode can set that internal state directly.
+
+Commands and local reads:
+
+- `sed -n '560,640p' PROGRESS.md`
+- `sed -n '1,620p' tools/gr_v3_behavior_probe.py`
+- `sed -n '320,900p' tools/qemu_fixture.py`
+- `sed -n '2700,2945p' build/gr-sq2-static/gr_agi_image.ndisasm`
+- `sed -n '12880,13150p' build/gr-sq2-static/gr_agi_image.ndisasm`
+- Local Python scan of direct near-call targets in `games/GR/AGI` for image
+  offsets `0x1975`, `0x1888`, `0x18cf`, and `0x1909`.
+- Local Python scan of present GR picture/view resources through
+  `tools/agi_resources.py`.
+- `AGI_GAME_DIR=games/SQ2 python3 -B -m unittest tests.test_gr_v3_behavior_probe`
+- `python3 -B tools/gr_v3_behavior_probe.py --probe motion-mode-4 --game-dir games/GR --fixture-root build/gr-v3-behavior/motion-mode-4-fixtures --dos-prefix GRM --run-qemu --output build/gr-v3-behavior/motion_mode_4_qemu_pic001_001.json --snapshot-raw build/gr-v3-behavior/snapshot/motion_mode_4.raw --snapshot-qcow build/gr-v3-behavior/snapshot/motion_mode_4.qcow2 --boot-wait 5 --draw-wait 8`
+
+Source observations:
+
+- GR `code.motion.dispatch_mode_step` at image `0x068a` reads object byte
+  `+0x22`, decrements it, accepts values through `3`, and uses the embedded
+  jump table at `0x06bd`. The fourth slot dispatches to the same helper at
+  `0x1888` used by mode `3`.
+- SQ2 dispatcher `0x067a` accepts only decremented values through `2`, so SQ2
+  modes above `3` skip autonomous-mode dispatch.
+- GR action `0x51` at image `0x705c` normally stores byte `3` into object
+  field `+0x22`, then seeds target X/Y and completion state and calls helper
+  `0x1888` once. Action `0x52` follows the same mode-3 shape with variable
+  operands.
+- The helper-shaped code at image `0x1975` writes object 0 byte `+0x22 = 4`,
+  target X/Y bytes `+0x27/+0x28`, and saved step byte `+0x29` when
+  `[0x0139]` is nonzero. A direct near-call scan found no ordinary call to
+  `0x1975` in the local GR main image, and no bytecode action table entry
+  points at it. Its natural entry path remains unresolved/source-only.
+- The first attempt to patch action `0x51` used the loaded-image offset as a
+  file offset and failed with context bytes `8b f8 a1 d0` instead of
+  `c6 45 22 03`. The patch helper now translates loaded-image offsets through
+  the MZ header size when the copied interpreter begins with `MZ`.
+
+Implementation/test updates:
+
+- Added `--probe motion-mode-4` to `tools/gr_v3_behavior_probe.py`.
+- The probe builds three copied GR fixtures under `build/`:
+  stationary object, unmodified action-`0x51` mode-3 movement, and an
+  instrumented copy where byte `0x03` at loaded-image offset `0x707f` is
+  patched to `0x04`.
+- Added tests covering the generated motion payload, the expected patch context,
+  rejection of unexpected interpreter bytes, and fixture construction.
+
+QEMU result:
+
+- Report `build/gr-v3-behavior/motion_mode_4_qemu_pic001_001.json` passed.
+- The instrumented mode-4 capture matched the unmodified mode-3 movement
+  capture from `(20,80)` to `(50,80)` on GR picture 1/view 0.
+- The stationary control did not match the moving capture.
+
+Conclusion:
+
+- The GR v3 internal dispatcher branch for object motion mode `4` is now
+  instrumented-QEMU-validated: once mode `4` exists in object byte `+0x22`, it
+  follows the same visible target-direction path as mode `3`.
+- This is not evidence that ordinary logic bytecode can create mode `4`; the
+  natural seeding path is still source-only and should remain separate in the
+  implementation spec.
+
+## Gold Rush v3 Frame-Selection Gate Probe
+
+Goal: resolve and validate the GR-specific branch inside
+`code.object.frame_timer_update` (`0x055c`) for automatic direction-based group
+selection on views with exactly four groups versus more than four groups.
+
+Commands and local reads:
+
+- `sed -n '560,700p' build/gr-sq2-static/gr_agi_image.ndisasm`
+- `sed -n '600,690p' build/gr-sq2-static/sq2_agi_image.ndisasm`
+- Local Python census of GR view resources through `tools/agi_resources.py`,
+  using payload byte `+0x02` as the group count and group offsets at `+0x05`.
+- Local decoded-frame comparison of candidate GR views 33, 39, 177, and other
+  four-plus-group resources.
+- `AGI_GAME_DIR=games/SQ2 python3 -B -m unittest tests.test_gr_v3_behavior_probe`
+- `python3 -B tools/gr_v3_behavior_probe.py --probe frame-selection-gate --game-dir games/GR --fixture-root build/gr-v3-behavior/frame-selection-fixtures --dos-prefix GRF --run-qemu --output build/gr-v3-behavior/frame_selection_gate_qemu_001.json --snapshot-raw build/gr-v3-behavior/snapshot/frame_selection_gate.raw --snapshot-qcow build/gr-v3-behavior/snapshot/frame_selection_gate.qcow2 --boot-wait 5 --draw-wait 8`
+
+Source observations:
+
+- SQ2 `code.object.frame_timer_update` at image `0x0563` uses the two/three
+  group table when object byte `+0x0b` is 2 or 3. When `+0x0b >= 4`, it indexes
+  the four-plus group table at data `0x08e7`.
+- GR `code.object.frame_timer_update` at image `0x055c` keeps the two/three
+  group path, then differs at image `0x05ac`:
+  - If `+0x0b == 4`, it jumps directly to the four-plus table path at `0x05c6`.
+  - Otherwise it tests flag `0x14` via helper `0x7818`.
+  - If flag `0x14` is clear, it skips selection and leaves the target as
+    sentinel `4`.
+  - If flag `0x14` is set, it still requires `+0x0b > 4` before using the
+    four-plus table.
+- Therefore the earlier shorthand was backwards for exactly-four-loop views:
+  exactly four groups are not excluded; they bypass the new flag gate and use
+  the same four-plus table as SQ2. Only group counts greater than four are
+  gated on flag `0x14`.
+- Local GR resources include suitable stock views, so no synthetic v3 view
+  packing was needed:
+  - View 177 has exactly four groups, with visibly distinct group 0 and group 1
+    frames.
+  - View 39 has more than four groups, with visibly distinct group 0 and group
+    1 frames.
+
+Implementation/test updates:
+
+- Added `--probe frame-selection-gate` to `tools/gr_v3_behavior_probe.py`.
+- The probe builds copied GR fixtures under `build/` for group-0/group-1
+  controls, exact-four flag-clear/flag-set cases, and more-than-four
+  flag-clear/flag-set cases. It uses ordinary logic bytecode only; the GR
+  interpreter is not patched.
+- Added focused tests covering the generated gate payload, control payload, and
+  fixture case list.
+
+QEMU result:
+
+- Report `build/gr-v3-behavior/frame_selection_gate_qemu_001.json` passed.
+- Exact-four view 177 selected group 1 for direction `6` both with flag `0x14`
+  clear and with flag `0x14` set; both captures matched the group-1 control
+  and did not match the group-0 control.
+- More-than-four view 39 remained on group 0 while flag `0x14` was clear; after
+  flag `0x14` was set, it selected group 1. The group-0 and group-1 controls
+  were distinct.
+
+Conclusion:
+
+- GR / AGI v3 automatic direction group selection should be modeled as:
+  two/three groups use the two/three table; exactly four groups use the
+  four-plus table; more than four groups use the four-plus table only when flag
+  `0x14` is set. Sentinel target `4` still means "do not change group."
