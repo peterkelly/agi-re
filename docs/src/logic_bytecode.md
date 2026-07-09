@@ -112,6 +112,11 @@ Putting the observed dispatch ranges together:
 | `0xfe` | Relative jump handled by the main interpreter loop. |
 | `0xff` | Conditional block marker handled by the main interpreter loop. |
 
+Cross-version note: the local Gold Rush / AGI v3 interpreter accepts action
+opcodes through `0xb5`. Those slots are documented below as GR-specific
+extensions; the invalid-range statement above remains the SQ2 / AGI 2.936
+behavior.
+
 ## Top-Level Cycle Timing
 
 The top-level engine cycle observed at `code.engine.main_cycle` (`0x0150`)
@@ -1447,6 +1452,23 @@ Remaining table entries:
 | `0xad` | `increment_global_1530` | `0x602f` | Increments byte `[0x1530]` and returns the current bytecode pointer. Source-backed keyboard-IRQ analysis shows `[0x1530]` is a nonzero gate for selected scan-code release paths: when an enabled tracked key in range `0x47..0x51` has its pressed latch set, release clears the latch and, if `[0x1530] != 0`, enqueues event `(type=2, value=0)` through `code.input.enqueue_event` (`0x44a9`). |
 | `0xae` | `rebuild_priority_table_from_y` | `0x4d10` | Reads immediate row/value `arg0`, clears word `[0x124a]`, and rebuilds the 168-byte priority/control table at `0x127a`. Entries below `arg0` are set to `4`; entries from `arg0` upward are assigned a rising value starting at `5`, using a scale derived from `(0xa8 - arg0) * 0xa8 / 10`, and capped at `0x0f`. Helper `0x4cbb` later maps priority/control values back through this table when `[0x124a] == 0`. |
 | `0xaf` | `noop_1_table_count` | `0x5051` | Uses the same no-op handler as action `0x7f`, returning the bytecode pointer it was given. The action table gives this opcode one fixed operand byte, so table-driven static scans skip one byte, but the handler itself does not read or advance past that operand. This opcode was not encountered in the local SQ2 logic scan. |
+
+## Gold Rush v3 extra action slots
+
+The local Gold Rush / AGI 3.002.149 action dispatcher accepts entries through
+`0xb5` using the v3 table at `AGIDATA.OVL:0x0440`. The decoded Gold Rush
+scripts observed so far do not use these slots, so the following descriptions
+are source-backed from handler disassembly and cross-references rather than
+QEMU behavior probes.
+
+| Opcode | Local label | GR handler | Observed source effect |
+| ---: | --- | ---: | --- |
+| `0xb0` | `reserved_noop_v3_0` | `0x5286` | Generic no-op/return handler with no operands. |
+| `0xb1` | `set_menu_interaction_gate` | `0x970b` | Reads one immediate byte, zero-extends it, and stores it in word `[0x0403]`. GR `code.menu.interact` (`0x9724`) tests this word first and returns immediately while it is zero; nonzero values allow the existing menu interaction path to run after `0xa1` has set the menu-request flag. |
+| `0xb2` | `reserved_noop_v3_2` | `0x5286` | Generic no-op/return handler with no operands. |
+| `0xb3` | `reserved_noop_v3_4args` | `0x5286` | The table declares four fixed operands, but the handler itself performs no state change. |
+| `0xb4` | `reserved_noop_v3_2varargs` | `0x5286` | The table declares two variable operands with metadata `0xc0`, but the handler itself performs no state change. |
+| `0xb5` | `clear_key_release_event_gate` | `0x63b0` | Stores zero in byte `[0x0405]`. GR's shared action `0xad` stores one in the same byte, and the GR keyboard IRQ hook (`0x63b8`) tests `[0x0405]` before enqueueing a type-2 zero event on selected key-release paths. |
 
 QEMU fixture `display_mode_replay_uses_rolled_back_event_count` validates the
 observable pair-log effect of `0xab` and `0xac`. The script saves the current

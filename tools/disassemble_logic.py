@@ -98,7 +98,10 @@ def logic_payload(logic_no: int) -> bytes:
 def dispatch_table_layout() -> tuple[int, int, int, int]:
     layout = detect_layout(SQ2)
     if layout.version == "v3_combined":
-        return 0x0440, 0xB6, 0x0762, 0x26
+        # The GR v3 dispatcher compares predicate bytes with 0x26, but local
+        # AGIDATA bytes after the shared 0x00..0x12 condition entries overlap
+        # punctuation/string data rather than valid four-byte handler records.
+        return 0x0440, 0xB6, 0x0762, 0x13
     return 0x061D, 0xB0, 0x08FD, 0x13
 
 
@@ -305,10 +308,27 @@ ACTION_NAMES = {
 }
 
 
+V3_ACTION_NAME_OVERRIDES = {
+    0xAD: "set_key_release_event_gate",
+    0xB0: "reserved_noop_v3_0",
+    0xB1: "set_menu_interaction_gate",
+    0xB2: "reserved_noop_v3_2",
+    0xB3: "reserved_noop_v3_4args",
+    0xB4: "reserved_noop_v3_2varargs",
+    0xB5: "clear_key_release_event_gate",
+}
+
+
 ACTION_META_OVERRIDES = {
     # The table marks this as 0x01, but the handler reads var[arg0].
     0xA2: 0x80,
 }
+
+
+def action_name(opcode: int, action_table_len: int) -> str:
+    if action_table_len > 0xB0 and opcode in V3_ACTION_NAME_OVERRIDES:
+        return V3_ACTION_NAME_OVERRIDES[opcode]
+    return ACTION_NAMES.get(opcode, f"action_{opcode:02x}")
 
 
 def operand_text(args: list[int], meta: int) -> str:
@@ -409,7 +429,7 @@ def disassemble_logic(logic_no: int, action_table: list[TableEntry], cond_table:
         entry = action_table[opcode]
         args = list(code[ip : ip + entry.argc])
         ip += entry.argc
-        name = ACTION_NAMES.get(opcode, f"action_{opcode:02x}")
+        name = action_name(opcode, len(action_table))
         operand_meta = ACTION_META_OVERRIDES.get(opcode, entry.meta)
         lines.append(
             f"{at:04x}: action {opcode:02x} {name}({operand_text(args, operand_meta)})"
@@ -484,7 +504,7 @@ def main() -> None:
         for opcode, count in action_counts.most_common():
             if opcode < len(action_table):
                 entry = action_table[opcode]
-                name = ACTION_NAMES.get(opcode, f"action_{opcode:02x}")
+                name = action_name(opcode, len(action_table))
                 print(
                     f"{opcode:02x} {count:5d} h={entry.handler:04x} "
                     f"argc={entry.argc} meta={entry.meta:02x} {name}"

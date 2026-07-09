@@ -7976,10 +7976,12 @@ Documented result:
 - Extended `tools/disassemble_logic.py` so logic payload loading uses
   `tools/agi_resources.py`; v3 combined games select action table base
   `0x0440` and condition table base `0x0762`.
-- The decoded GR logic census had no parse errors. The v3 dispatcher supports
-  action slots through `0xb5` and condition slots through `0x25`, but this
-  Gold Rush data set uses action opcodes only through `0xa9` and condition
-  opcodes only through `0x0e`.
+- The decoded GR logic census had no parse errors. The v3 action dispatcher
+  accepts action slots through `0xb5`, but this Gold Rush data set uses action
+  opcodes only through `0xa9`. The condition dispatcher compares predicate
+  bytes with `0x26`; a later static comparison pass corrected this note by
+  showing that only entries `0x00..0x12` are structured table records in the
+  observed `AGIDATA.OVL`, while bytes above that overlap string/data.
 - Focused regression checks passed: `tests/test_agi_resources.py`, plus
   `tests/test_logic_doc_coverage.py` and `tests/test_sound_resources.py` with
   `AGI_GAME_DIR=games/SQ2`.
@@ -7989,6 +7991,144 @@ Documented result:
   changing destination permissions. This appears unrelated to the new GR
   resource parser and should be handled separately if full-suite green status
   is needed before the next commit.
+
+## 2026-07-07: GR / SQ2 static opcode, object, view, and picture comparison
+
+Context:
+
+- The user asked for a source-only pass through every GR logic opcode compared
+  with SQ2, plus the same style of comparison for object, view, and picture
+  implementation code. Observable behavior checks were intentionally deferred.
+- All evidence in this pass comes from local game directories, the local SQ2
+  decrypted executable, local disassembly with `ndisasm`, and local parsing
+  tools.
+
+Commands run from `/Users/peter/ai/agi/reverse`:
+
+- `git status --short`
+- `sed -n '1,220p' PROGRESS.md`
+- `sed -n '1,260p' docs/src/clean_room_executable_notes.md`
+- `tail -n 80 docs/src/progress_log.md`
+- `sed -n '1,220p' docs/src/symbolic_labels.md`
+- `ndisasm -b 16 -o 0x0000 -e 0x200 games/GR/AGI > build/gr-sq2-static/gr_agi_image.ndisasm`
+- `ndisasm -b 16 -o 0x0000 -e 0x200 build/cleanroom/SQ2_AGI.decrypted.exe > build/gr-sq2-static/sq2_agi_image.ndisasm`
+- `python3 -B tools/compare_gr_sq2_static.py --sq2-game-dir games/SQ2 --gr-game-dir games/GR --sq2-exe build/cleanroom/SQ2_AGI.decrypted.exe --gr-exe games/GR/AGI --output build/gr-sq2-static/opcode_static_report.md`
+- `python3 -B tools/compare_gr_sq2_static.py --help`
+- `python3 -B -m py_compile tools/compare_gr_sq2_static.py`
+- `python3 -B -m py_compile tools/compare_gr_sq2_static.py tools/disassemble_logic.py`
+- `AGI_GAME_DIR=games/GR python3 -B tools/disassemble_logic.py --stats`
+- `AGI_GAME_DIR=games/SQ2 python3 -B tools/disassemble_logic.py --stats`
+- `mdbook build docs`
+- `AGI_GAME_DIR=games/SQ2 python3 -B -m unittest discover -s tests`
+- `python3 -B tools/compatibility_suite.py`
+- `AGI_GAME_DIR=games/SQ2 python3 -B tools/compatibility_suite.py`
+- `xxd -g 1 -s 0x0762 -l 192 games/GR/AGIDATA.OVL`
+- Local one-off Python census using `tools.agi_resources` to read all present
+  SQ2 and GR picture/view resources and count transform types.
+- Focused `ndisasm`/`sed` reads over GR and SQ2 image ranges around action
+  dispatch, condition dispatch, picture command dispatch, view selectors,
+  object update lists, frame timers, motion helpers, and display refresh
+  helpers.
+- `xxd -g 1 -l 16 games/SQ2/OBJECT`
+- `xxd -g 1 -l 16 games/GR/OBJECT`
+- `xxd -g 1 -s 315 -l 16 games/SQ2/OBJECT`
+- `xxd -g 1 -s 1798 -l 16 games/GR/OBJECT`
+
+Generated local artifacts:
+
+- `tools/compare_gr_sq2_static.py`: deterministic comparison helper requiring
+  explicit SQ2 and GR game/executable paths.
+- `build/gr-sq2-static/gr_agi_image.ndisasm`: full GR loaded-image
+  disassembly.
+- `build/gr-sq2-static/sq2_agi_image.ndisasm`: full SQ2 loaded-image
+  disassembly.
+- `build/gr-sq2-static/opcode_static_report.md`: generated static comparison
+  report.
+
+Documented result:
+
+- Shared action opcode table entries `0x00..0xaf` have identical argument
+  counts and operand metadata in SQ2 and GR.
+- Normalized handler-entry snippets match for 159 shared action opcodes and
+  differ for 17 shared actions: `0x12`, `0x6f`, `0x73`, `0x76`, `0x77`,
+  `0x78`, `0x79`, `0x7c`, `0x7d`, `0x80`, `0x84`, `0x89`, `0x8a`, `0xa3`,
+  `0xa4`, `0xa9`, and `0xad`.
+- The changed shared action snippets cluster around room switching,
+  input/text/window handling, save/restart/inventory UI paths, key-map
+  capacity, and two GR state bytes. Important static observations:
+  - GR action `0x79` raises the key-map loop limit from `0x27` to `0x31`.
+  - GR actions `0xa3` and `0xa4` route to the generic no-op/return handler
+    rather than setting/clearing SQ2's input-width word.
+  - GR action `0xad` sets byte `[0x0405]` to `1`; GR-only action `0xb5` sets
+    the same byte to `0`. SQ2 action `0xad` increments byte `[0x1530]`.
+  - GR action `0x84` preserves object0 byte `+0x22` when it is already `4`;
+    SQ2 clears that field unconditionally.
+- GR-only action slots `0xb0..0xb5` are present in the v3 action table.
+  `0xb0`, `0xb2`, `0xb3`, and `0xb4` route to the generic no-op/return
+  handler after operand consumption. `0xb1` stores its one operand in word
+  `[0x0403]`; local cross-references show later code tests `[0x0403]` before
+  a menu/popup-like path. `0xb5` clears byte `[0x0405]`.
+- Shared condition table entries `0x00..0x12` have identical parser contracts
+  and no normalized handler-entry differences.
+- GR condition dispatch code compares predicate bytes with `0x26`, but the
+  bytes after the first 19 four-byte entries are not a confirmed handler table.
+  Forced decoding of `AGIDATA.OVL:0x07ae..` yields punctuation/filename bytes
+  such as `.,;:'!-`, `words.tok`, and `object`, followed by zeros. The
+  disassembler now treats only `0x00..0x12` as the structured condition table
+  for the observed GR input.
+- The local GR logic census still has no parse errors after that conservative
+  condition-table correction. Observed GR scripts use condition opcodes only
+  through `0x0e`.
+- Resource-reader implementation is the major known container difference:
+  `code.resource.load_all_directories` and
+  `code.resource.read_volume_payload_once` are different as expected because GR
+  uses combined `GRDIR`, prefixed `GRVOL.N`, 7-byte headers, dictionary
+  expansion, and picture-nibble expansion.
+- View runtime slices match as relocated skeletons after the v3 resource
+  reader produces an expanded payload: view load/cache, object-view binding,
+  group table selection, frame selection, and view discard all compared cleanly.
+- Picture runtime slices mostly match as relocated skeletons: load/cache,
+  prepare/overlay/discard, command scan, all eleven picture command handlers
+  `0xf0..0xfa`, coordinate reads, line drawing, pixel write, seed fill, and
+  pattern plotting. Differences are display-mode refresh paths:
+  `code.picture.decode_no_clear`, `code.display.fill_buffer_word`, and
+  `code.display.full_refresh` omit SQ2's display-mode-2 overlay refresh branch
+  in GR.
+- Object runtime slices mostly match as relocated skeletons: update-list
+  sorting/insertion/draw/refresh, collision test, control acceptance,
+  dirty-rectangle update, placement, active/inactive list rebuild/flush/refresh,
+  and membership toggles. GR packages rectangle save/restore/draw routines in
+  the main executable image (`0x5b67`, `0x5ba6`, `0x5be3`) while SQ2 uses
+  object-overlay entry points in `IBM_OBJS.OVL`.
+- Static object/motion differences that still need semantic naming:
+  - GR frame-timer update adds an extra helper-gated branch before using the
+    four-plus-group direction table.
+  - GR motion dispatch accepts one additional object mode selector
+    (`cmp ax,0x3` instead of SQ2's `cmp ax,0x2`) before falling through to the
+    same boundary-check tail.
+  - Straight-line `ndisasm` differences inside
+    `code.object.advance_frame_by_mode` and
+    `code.motion.rectangle_boundary_check` are embedded jump-table bytes, not
+    enough by themselves to claim behavioral differences; the surrounding
+    branch bodies were manually inspected as relocated skeletons.
+- Local resource data census:
+  - SQ2 pictures: 75 directory-present entries, 74 decoded direct payloads, one
+    bad v2 header at picture 147.
+  - SQ2 views: 203 present direct payloads.
+  - GR pictures: 186 present payloads, all using the picture-nibble transform.
+  - GR views: 247 present payloads, all using the dictionary transform.
+- `OBJECT` file bytes differ in length and content (`games/SQ2/OBJECT` length
+  331, `games/GR/OBJECT` length 1814), but the interpreter-side object-table
+  initialization skeleton is the same: it reads/decrypts the file, computes
+  inventory/object table roots, uses a 43-byte object-record stride, clears and
+  initializes the object table, and seeds the same prompt/direction defaults
+  after address relocation.
+- Verification: `mdbook build docs` passed. `AGI_GAME_DIR=games/SQ2 python3 -B
+  -m unittest discover -s tests` passed 251 tests. Running
+  `python3 -B tools/compatibility_suite.py` without `AGI_GAME_DIR` failed at
+  import time because the project now requires an explicit game directory;
+  rerunning as `AGI_GAME_DIR=games/SQ2 python3 -B tools/compatibility_suite.py`
+  passed the same 251 tests and mdBook build.
 
 ## 2026-07-07: Version ledger and read-only fixture copy fix
 
@@ -8032,3 +8172,102 @@ Documented result:
 - Verification passed: `mdbook build docs`, the focused
   `tests/test_qemu_fixture.py` slice, and the full local unit suite with
   `AGI_GAME_DIR=games/SQ2` (`251` tests).
+
+## 2026-07-07: Gold Rush v3 extra action opcode source pass
+
+Context:
+
+- The user asked to figure out the extra opcodes. This pass focuses on the
+  Gold Rush / AGI v3 action slots beyond the SQ2 action table, `0xb0..0xb5`,
+  using local disassembly and local decoded resources.
+- No external AGI documentation or source was consulted.
+- No targeted QEMU fixture was run for this pass. The current generated
+  original-engine fixture writers are still v2/SQ2-container-oriented, while
+  the relevant GR effects were directly visible in the opcode handlers and
+  their local consumers. Observable v3 fixture tests remain useful later.
+
+Commands run from `/Users/peter/ai/agi/reverse`:
+
+- `git status --short`
+- `rg -n "0xb0|0xb1|0xb2|0xb3|0xb4|0xb5|0x0403|0x0405|GR-only|extra action|extra opcodes|v3-only" PROGRESS.md docs/src tools tests`
+- `sed -n '1,260p' tools/compare_gr_sq2_static.py`
+- `sed -n '1,240p' tools/agi_resources.py`
+- `rg -n "0403|0405|970B|9724|63A8|63B0|000097|000063A|000064" build/gr-sq2-static/gr_agi_image.ndisasm`
+- `sed -n '11140,11320p' build/gr-sq2-static/gr_agi_image.ndisasm`
+- `sed -n '17280,17480p' build/gr-sq2-static/gr_agi_image.ndisasm`
+- Local Python using `tools.compare_gr_sq2_static.load_table` to print GR
+  action-table entries `0xb0..0xb5`.
+- `sed -n '6120,6260p' build/gr-sq2-static/gr_agi_image.ndisasm`
+- `sed -n '17030,17240p' build/gr-sq2-static/gr_agi_image.ndisasm`
+- `rg -n "1b67|1b71|1b73|1b75|1b79|1b77|1b7b|1b7d|1b7f|1b81|1b83|1b85|1b87|1b88|03f9|03fd|0403|0405" build/gr-sq2-static/gr_agi_image.ndisasm`
+- `sed -n '16680,17040p' build/gr-sq2-static/gr_agi_image.ndisasm`
+- `sed -n '9240,9320p' build/gr-sq2-static/gr_agi_image.ndisasm`
+- `sed -n '1,240p' tests/test_logic_doc_coverage.py`
+- `rg -n "0x403|0x405|\\[0x403\\]|\\[0x405\\]" build/gr-sq2-static/gr_agi_image.ndisasm`
+- `sed -n '11180,11340p' build/gr-sq2-static/gr_agi_image.ndisasm`
+- `sed -n '17030,17230p' build/gr-sq2-static/gr_agi_image.ndisasm`
+
+Observed GR action-table entries:
+
+| Opcode | Handler | Args | Metadata | Source-backed interpretation |
+| ---: | ---: | ---: | ---: | --- |
+| `0xb0` | `0x5286` | 0 | `0x00` | Reserved/no-op slot. Handler `0x5286` only returns the bytecode pointer passed to it. |
+| `0xb1` | `0x970b` | 1 | `0x00` | Reads one immediate byte, zero-extends it, and stores it in word `[0x0403]`. |
+| `0xb2` | `0x5286` | 0 | `0x00` | Reserved/no-op slot. |
+| `0xb3` | `0x5286` | 4 | `0x00` | Reserved/no-op slot after four table-declared fixed operands. |
+| `0xb4` | `0x5286` | 2 | `0xc0` | Reserved/no-op slot after two table-declared variable operands. |
+| `0xb5` | `0x63b0` | 0 | `0x00` | Stores zero in byte `[0x0405]`. |
+
+Detailed observations:
+
+- Generic handler `0x5286` saves/restores registers, loads `AX` from
+  `[bp+0x8]`, and returns. It has no state writes and no operand reads.
+- Handler `0x970b` (`0xb1`) reads the byte at the incoming bytecode pointer,
+  increments the pointer, zero-extends the byte, stores the word at `[0x0403]`,
+  and returns the incremented pointer.
+- GR menu interaction routine `0x9724` begins with
+  `cmp word [0x403],0` and returns without drawing/waiting if the word is zero.
+  The same routine otherwise draws the menu structure rooted at `[0x1b71]`,
+  waits for input, navigates enabled menu nodes, and enqueues type-3 item
+  events through `0x46f4`.
+- Existing shared menu actions build and request the menu separately:
+  `0x9c` builds menu headings in the linked structure rooted at `[0x1b71]`,
+  `0x9d` adds menu items, `0x9e` finalizes the structure, `0x9f`/`0xa0`
+  enable/disable items, and `0xa1` sets request word `[0x1b67]` when flag
+  `0x0e` is set. The main cycle path calls `0x9724` only when `[0x1b67]` is
+  nonzero, so `0xb1` is a separate interaction gate rather than a menu-build
+  opcode.
+- GR shared action `0xad` at `0x63a8` stores one in byte `[0x0405]`. GR-only
+  action `0xb5` at `0x63b0` stores zero in the same byte.
+- The GR keyboard interrupt hook at `0x63b8` tests `[0x0405]` on selected
+  tracked-key release paths. When the byte is nonzero, it calls event enqueue
+  helper `0x46f4` with type `2` and value `0`.
+
+Documentation/tooling updates from this pass:
+
+- Added v3-specific action names in `tools/disassemble_logic.py` without
+  changing the SQ2 `ACTION_NAMES` catalog: `set_menu_interaction_gate` for
+  `0xb1`, `clear_key_release_event_gate` for `0xb5`, and reserved/no-op names
+  for `0xb0`, `0xb2`, `0xb3`, and `0xb4`.
+- Updated `tools/compare_gr_sq2_static.py` notes so the generated static report
+  records the local consumers of `[0x0403]` and `[0x0405]`.
+- Updated `PROGRESS.md`, `docs/src/versions.md`,
+  `docs/src/logic_bytecode.md`, and `docs/src/symbolic_labels.md` with the
+  v3-only opcode interpretations and new symbolic data labels
+  `data.menu.interaction_gate_0403` and
+  `data.input.key_release_enqueue_gate_0405`.
+
+Verification after the documentation/tooling updates:
+
+- Regenerated `build/gr-sq2-static/opcode_static_report.md` with
+  `python3 -B tools/compare_gr_sq2_static.py --sq2-game-dir games/SQ2 --gr-game-dir games/GR --sq2-exe build/cleanroom/SQ2_AGI.decrypted.exe --gr-exe games/GR/AGI --output build/gr-sq2-static/opcode_static_report.md`.
+- `AGI_GAME_DIR=games/GR python3 -B tools/disassemble_logic.py --stats`
+  parsed the local GR logic resources with no errors.
+- `python3 -B -m py_compile tools/disassemble_logic.py tools/compare_gr_sq2_static.py`
+  passed.
+- `mdbook build docs` passed.
+- `AGI_GAME_DIR=games/SQ2 python3 -B -m unittest discover -s tests` passed
+  251 tests.
+- `AGI_GAME_DIR=games/SQ2 python3 -B tools/compatibility_suite.py` passed
+  the same 251 tests and mdBook build.
+- `git diff --check` passed.

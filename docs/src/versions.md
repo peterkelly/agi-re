@@ -58,10 +58,34 @@ Observed transform selection:
 | expanded length equals stored length | direct read |
 | expanded length differs from stored length | dictionary expansion |
 
-The v3 logic dispatcher tables are larger than SQ2's v2 tables. The Gold Rush
-interpreter accepts action opcodes through `0xb5` and condition opcodes through
-`0x25`, but the decoded local Gold Rush scripts observed so far only use action
-opcodes through `0xa9` and condition opcodes through `0x0e`.
+The v3 action table is larger than SQ2's v2 table. The Gold Rush interpreter
+accepts action opcodes through `0xb5`, but the decoded local Gold Rush scripts
+observed so far only use action opcodes through `0xa9`.
+
+Source-backed GR-only action slot notes:
+
+| Opcode | Local label | Evidence-backed effect |
+| ---: | --- | --- |
+| `0xb0` | `reserved_noop_v3_0` | Table entry has zero operands and routes to the generic no-op/return handler at image `0x5286`. |
+| `0xb1` | `set_menu_interaction_gate` | Reads one immediate byte, zero-extends it, and stores it in word `[0x0403]`. GR `code.menu.interact` at image `0x9724` returns immediately while `[0x0403] == 0`, so nonzero values enable the menu interaction path after the usual menu-request flag is set. |
+| `0xb2` | `reserved_noop_v3_2` | Table entry has zero operands and routes to the generic no-op/return handler at image `0x5286`. |
+| `0xb3` | `reserved_noop_v3_4args` | Table entry declares four fixed operands, but the handler is the generic no-op/return handler. |
+| `0xb4` | `reserved_noop_v3_2varargs` | Table entry declares two variable operands via metadata `0xc0`, but the handler is the generic no-op/return handler. |
+| `0xb5` | `clear_key_release_event_gate` | Stores zero in byte `[0x0405]`. GR action `0xad` sets the same byte to one, and the keyboard IRQ hook tests it before enqueueing a type-2 zero event on selected key-release paths. |
+
+The GR condition dispatcher compares predicate bytes with `0x26`, matching the
+loose bound shape also seen in SQ2, but only the first 19 entries
+`0x00..0x12` are structured table records in the observed `AGIDATA.OVL`. Bytes
+after that overlap punctuation/filename/string data and zeros, so they are
+treated as reserved/unconfirmed rather than implemented predicates. Local GR
+scripts observed so far use conditions only through `0x0e`.
+
+The static GR/SQ2 comparison report currently lives at
+`build/gr-sq2-static/opcode_static_report.md`. Source-level comparison found
+identical parser contracts for all shared actions and conditions, 17 changed
+shared action entry snippets, six GR-only action slots, unchanged ordinary view
+and picture command skeletons after resource expansion, and a small set of GR
+object/display-path deltas to test later.
 
 ## Fixture Compatibility Notes
 

@@ -428,8 +428,16 @@ decrypted SQ2 executable, so file offsets are image offsets plus `0x200`.
 | --- | --- | --- |
 | `code.logic.action_dispatch` | image `0x02bc` | Same structural role as SQ2 `0x02c4`, but the v3 max-action check accepts opcodes through `0xb5` and dispatches through AGIDATA table `0x0440`. |
 | `table.logic.action_dispatch` | `AGIDATA.OVL:0x0440` | Four-byte v3 action table. `tools/disassemble_logic.py --game-dir games/GR --stats` parsed all present GR logic resources with this base. |
-| `code.logic.condition_dispatch` | image `0x0a31` | Same structural role as SQ2 `0x07e3`, but the v3 condition max check accepts opcodes through `0x25` and dispatches through AGIDATA table `0x0762`. |
-| `table.logic.condition_dispatch` | `AGIDATA.OVL:0x0762` | Four-byte v3 condition table. Gold Rush scripts observed so far only use conditions through `0x0e`. |
+| `code.logic.condition_dispatch` | image `0x0a31` | Same structural role as SQ2 `0x07e3`. The GR dispatcher compares predicate bytes with `0x26`, but the observed structured table at `AGIDATA.OVL:0x0762` only covers shared entries `0x00..0x12`. |
+| `table.logic.condition_dispatch` | `AGIDATA.OVL:0x0762` | Four-byte v3 condition table for entries `0x00..0x12`, matching SQ2 table `0x08fd` by contract and normalized handler snippets. Bytes after entry `0x12` overlap string/data, not confirmed predicates. Gold Rush scripts observed so far only use conditions through `0x0e`. |
+| `opcode.action.reserved_noop_v3_0` | table slot `0xb0`, image `0x5286` | GR-only action slot. Zero operands, generic no-op/return handler. |
+| `opcode.action.set_menu_interaction_gate` | table slot `0xb1`, image `0x970b` | GR-only action slot. Reads one immediate byte and stores it in `data.menu.interaction_gate_0403`. |
+| `opcode.action.reserved_noop_v3_2` | table slot `0xb2`, image `0x5286` | GR-only action slot. Zero operands, generic no-op/return handler. |
+| `opcode.action.reserved_noop_v3_4args` | table slot `0xb3`, image `0x5286` | GR-only action slot. Four fixed operands are consumed by table-driven scanning, but the handler performs no state change. |
+| `opcode.action.reserved_noop_v3_2varargs` | table slot `0xb4`, image `0x5286` | GR-only action slot. Two variable operands are declared with metadata `0xc0`, but the handler performs no state change. |
+| `opcode.action.clear_key_release_event_gate` | table slot `0xb5`, image `0x63b0` | GR-only action slot. Stores zero in `data.input.key_release_enqueue_gate_0405`; GR action `0xad` stores one in the same byte. |
+| `code.menu.interact` | image `0x9724` | GR address association for the interactive menu path. Tests `data.menu.interaction_gate_0403` before drawing/waiting; returns immediately while the gate is zero. |
+| `code.input.keyboard_irq_hook` | image `0x63b8` | GR keyboard interrupt hook. Tests `data.input.key_release_enqueue_gate_0405` before enqueueing `(type=2, value=0)` on selected key-release paths. |
 | `code.resource.load_all_directories` | image `0x44de` | v3 combined-directory loader. Formats `"%sdir"`, reads a whole combined directory, derives four section pointers from the first eight bytes, and falls back to separate `logdir`/`picdir`/`viewdir`/`snddir` loads if the combined open fails. |
 | `code.resource.dir_entry_or_null` | image `0x4599` | v3 shared absent-entry helper. Returns null only for exact `ff ff ff`, unlike SQ2's high-nibble `0xf` check. |
 | `code.resource.logic_dir_entry` | image `0x45bc` | Uses v3 logic directory base `[0x0fda]`; missing-resource string `logic` at `AGIDATA.OVL:0x0f5e`. |
@@ -442,7 +450,66 @@ decrypted SQ2 executable, so file offsets are image offsets plus `0x200`.
 | `code.resource.read_volume_payload_once` | image `0x30d0` | v3 generic reader. Decodes 7-byte record headers, allocates expanded length, and selects direct, dictionary, or picture-nibble payload paths. |
 | `code.resource.decompress_lzw_like` | image `0x07f4` | General v3 dictionary decompressor for compressed logic/view/sound records. Uses reset code `0x100`, end code `0x101`, and 9-to-11-bit codes. |
 | `code.resource.decompress_picture_nibble` | image `0x9a5b` | v3 picture transform that expands packed nibbles after `0xf0`/`0xf2` into ordinary byte operands and stops after emitting `0xff`. |
+| `code.view.load_resource` | image `0x3c5b` | GR address association for SQ2 image `0x39f7`; normalized static comparison matches after resource-reader relocation. |
+| `code.object.bind_view` | image `0x3d4b` | GR address association for SQ2 image `0x3ae7`; normalized static comparison matches. |
+| `code.object.select_group` | image `0x3e1b` | GR address association for SQ2 image `0x3bb7`; normalized static comparison matches. |
+| `code.object.select_group_table` | image `0x3e7f` | GR address association for SQ2 image `0x3c1b`; normalized static comparison matches. |
+| `code.object.select_frame` | image `0x3f2f` | GR address association for SQ2 image `0x3ccb`; normalized static comparison matches. |
+| `code.view.discard` | image `0x4131` | GR address association for SQ2 image `0x3ecd`; normalized static comparison matches. |
+| `code.picture.load_resource` | image `0x4c96` | GR address association for SQ2 image `0x4a3b`; normalized static comparison matches after resource-reader relocation. |
+| `code.picture.prepare` | image `0x4d2a` | GR address association for SQ2 image `0x4acf`; normalized static comparison matches. |
+| `code.picture.overlay_prepare` | image `0x4d96` | GR address association for SQ2 image `0x4b3b`; normalized static comparison matches. |
+| `code.picture.discard` | image `0x4e29` | GR address association for SQ2 image `0x4bce`; normalized static comparison matches. |
+| `code.picture.decode_no_clear` | image `0x67c2` | GR address association for SQ2 image `0x6440`; differs because GR returns after command scan where SQ2 checks display mode `2` and calls an overlay refresh path. |
+| `code.picture.command_scan` | image `0x67ed` | GR address association for SQ2 image `0x6475`; normalized static comparison matches. |
+| `table.picture.command_dispatch` | `AGIDATA.OVL:0x140d` | GR dispatch table for picture command bytes `0xf0..0xfa`; corresponds to SQ2 data table `0x15d6`. |
+| `code.picture.cmd_set_visual_draw_nibble` | image `0x680c` | GR address association for SQ2 image `0x6494`; normalized static comparison matches. |
+| `code.picture.cmd_disable_visual_draw_nibble` | image `0x682d` | GR address association for SQ2 image `0x64b5`; normalized static comparison matches. |
+| `code.picture.cmd_set_control_draw_nibble` | image `0x683f` | GR address association for SQ2 image `0x64c7`; normalized static comparison matches. |
+| `code.picture.cmd_disable_control_draw_nibble` | image `0x6865` | GR address association for SQ2 image `0x64ed`; normalized static comparison matches. |
+| `code.picture.cmd_draw_corner_path_y_first` | image `0x698a` | GR address association for SQ2 image `0x6612`; normalized static comparison matches. |
+| `code.picture.cmd_draw_corner_path_x_first` | image `0x697b` | GR address association for SQ2 image `0x6603`; normalized static comparison matches. |
+| `code.picture.cmd_draw_absolute_lines` | image `0x69be` | GR address association for SQ2 image `0x6646`; normalized static comparison matches. |
+| `code.picture.cmd_draw_relative_lines` | image `0x69d6` | GR address association for SQ2 image `0x665e`; normalized static comparison matches. |
+| `code.picture.cmd_seed_fill` | image `0x6a23` | GR address association for SQ2 image `0x66ab`; normalized static comparison matches. |
+| `code.picture.cmd_set_pattern_mode` | image `0x689c` | GR address association for SQ2 image `0x6524`; normalized static comparison matches. |
+| `code.picture.cmd_pattern_plot` | image `0x6877` | GR address association for SQ2 image `0x64ff`; normalized static comparison matches. |
+| `code.picture.read_coord_pair` | image `0x6a30` | GR address association for SQ2 image `0x66b8`; normalized static comparison matches. |
+| `code.picture.draw_line` | image `0x6a59` | GR address association for SQ2 image `0x66e1`; normalized static comparison matches. |
+| `code.display.fill_buffer_word` | image `0x548a` | GR address association for SQ2 image `0x5257`; the memory fill skeleton matches, but GR omits SQ2's display-mode-2 overlay refresh call. |
+| `code.display.draw_horizontal_line` | image `0x5498` | GR address association for SQ2 image `0x526f`; normalized static comparison matches. |
+| `code.display.draw_vertical_line` | image `0x54d4` | GR address association for SQ2 image `0x52ab`; normalized static comparison matches. |
+| `code.display.pixel_write` | image `0x5522` | GR address association for SQ2 image `0x52f9`; normalized static comparison matches. |
+| `code.picture.seed_fill` | image `0x5564` | GR address association for SQ2 image `0x533b`; normalized static comparison matches. |
+| `code.display.clear_logical_buffer` | image `0x5751` | GR address association for SQ2 image `0x5528`; normalized static comparison matches. |
+| `code.display.full_refresh` | image `0x576f` | GR address association for SQ2 image `0x5546`; GR omits SQ2's display-mode-2 overlay refresh branch. |
+| `code.object.build_update_list_sorted` | image `0x0351` | GR address association for SQ2 image `0x0358`; normalized static comparison matches. |
+| `code.object.insert_update_node_head` | image `0x0428` | GR address association for SQ2 image `0x042f`; normalized static comparison matches. |
+| `code.object.draw_update_list_tail_to_head` | image `0x0457` | GR address association for SQ2 image `0x045e`; normalized static comparison matches, but GR calls main-image rectangle save/draw routines instead of SQ2 overlay entries. |
+| `code.object.refresh_update_list_saved_pos` | image `0x0481` | GR address association for SQ2 image `0x0488`; normalized static comparison matches. |
+| `code.object.frame_timer_update` | image `0x055c` | GR address association for SQ2 image `0x0563`; differs by an extra helper-gated branch before using the four-plus-group direction table. |
+| `code.object.advance_frame_by_mode` | image `0x4b0e` | GR address association for SQ2 image `0x48b3`; apparent straight-line differences are embedded jump-table bytes, while manually inspected branch bodies match as relocated skeletons. |
+| `code.object.collision_test` | image `0x4974` | GR address association for SQ2 image `0x4719`; normalized static comparison matches. |
+| `code.object.control_acceptance` | image `0x58e5` | GR address association for SQ2 image `0x56b8`; normalized static comparison matches. |
+| `code.object.update_dirty_rect` | image `0x598f` | GR address association for SQ2 image `0x5762`; normalized static comparison matches. |
+| `code.object.place` | image `0x5cb3` | GR address association for SQ2 image `0x593a`; normalized static comparison matches. |
+| `code.object.build_active_update_list` | image `0x6d9e` | GR address association for SQ2 image `0x6a26`; normalized static comparison matches. |
+| `code.object.build_inactive_partition_list` | image `0x6db5` | GR address association for SQ2 image `0x6a3d`; normalized static comparison matches. |
+| `code.object.flush_update_lists_restore` | image `0x6dcc` | GR address association for SQ2 image `0x6a54`; normalized static comparison matches. |
+| `code.object.rebuild_draw_update_lists` | image `0x6e06` | GR address association for SQ2 image `0x6a8e`; normalized static comparison matches. |
+| `code.object.refresh_update_lists` | image `0x6e23` | GR address association for SQ2 image `0x6aab`; normalized static comparison matches. |
+| `code.object.clear_root_16ff_membership` | image `0x6ebc` | GR address association for SQ2 image `0x6b44`; normalized static comparison matches. |
+| `code.object.set_root_16ff_membership` | image `0x6eda` | GR address association for SQ2 image `0x6b62`; normalized static comparison matches. |
+| `code.motion.update_objects` | image `0x1720` | GR address association for SQ2 image `0x150a`; normalized static comparison matches. |
+| `code.motion.pre_mode_and_boundary_update` | image `0x0654` | GR address association for SQ2 image `0x0644`; normalized static comparison matches. |
+| `code.motion.dispatch_mode_step` | image `0x068a` | GR address association for SQ2 image `0x067a`; GR accepts one additional object mode selector before falling through to the same boundary-check tail. |
+| `code.motion.rectangle_boundary_check` | image `0x06eb` | GR address association for SQ2 image `0x06d9`; apparent straight-line differences are embedded direction jump-table bytes, while manually inspected post-table body matches as a relocated skeleton. |
+| `code.object.save_rect_overlay_entry` | image `0x5b67` | GR packages the rectangle-save routine in the main executable image; SQ2 reaches this role through `IBM_OBJS.OVL:0x9db0`. |
+| `code.object.restore_rect_overlay_entry` | image `0x5ba6` | GR packages the rectangle-restore routine in the main executable image; SQ2 reaches this role through `IBM_OBJS.OVL:0x9db3`. |
+| `code.object.draw_overlay_entry` | image `0x5be3` | GR packages the selected-frame draw routine in the main executable image; SQ2 reaches this role through `IBM_OBJS.OVL:0x9db6`. |
 | `data.resource.logic_dir` | GR data `[0x0fda]` | Loaded v3 logic directory section pointer. |
 | `data.resource.view_dir` | GR data `[0x0fdc]` | Loaded v3 view directory section pointer. |
 | `data.resource.picture_dir` | GR data `[0x0fde]` | Loaded v3 picture directory section pointer. |
 | `data.resource.sound_dir` | GR data `[0x0fe0]` | Loaded v3 sound directory section pointer. |
+| `data.menu.interaction_gate_0403` | GR data `[0x0403]` | Word written by GR-only action `0xb1`; `code.menu.interact` returns immediately while this word is zero. |
+| `data.input.key_release_enqueue_gate_0405` | GR data `[0x0405]` | Byte set by GR action `0xad`, cleared by GR-only action `0xb5`, and tested by `code.input.keyboard_irq_hook` before selected key-release event enqueue. |

@@ -19445,3 +19445,385 @@ Progress updates and outcomes:
       and `AGI_GAME_DIR=games/SQ2 python3 -B -m unittest discover -s tests`;
       the focused fixture slice passed 40 tests and the full local suite passed
       251 tests.
+
+2569. Reported: "I’ve got the static comparison pass well underway: the shared
+      action/condition tables are mapped, the GR-only action slots are
+      identified, and the resource/view/picture/object runtime slices have an
+      initial normalized comparison. I’m going to tighten the docs and tracker
+      now, then run the local checks so the evidence trail is solid rather than
+      just 'interesting notes in build/'."
+
+      Action/result: Resumed the GR/SQ2 static-comparison pass, reviewed the
+      generated report, and prepared the tracker/doc update plan.
+
+2570. Reported: "The tracker still reflects the comparison as 'in progress'
+      even though the generated report now has concrete classifications. I’m
+      going to make the tracker reflect the evidence we actually have, and I’ll
+      also correct the v3 condition-table boundary so the tooling does not
+      overinterpret bytes that are really string/data territory."
+
+      Action/result: Re-read `PROGRESS.md`, the existing clean-room notes,
+      progress log, symbolic labels, comparison helper, version ledger, and
+      generated static report.
+
+2571. Reported: "The static report’s key caveat is important: GR’s predicate
+      dispatcher bound is wider, but the bytes after the 19 shared condition
+      entries decode as punctuation and filenames, not handler records. I’m
+      going to encode that distinction in both code and docs so future
+      comparisons don’t quietly inherit a false table size."
+
+      Action/result: Located the v3 condition-table size in
+      `tools/disassemble_logic.py` and the older documentation claims that
+      needed correction.
+
+2572. Reported: "There are a few older docs that phrase the GR condition range
+      too strongly. I’m reading those exact spots now and will change only the
+      GR-specific claims, leaving the SQ2 opcode evidence alone unless the
+      local source actually requires it."
+
+      Action/result: Checked `logic_bytecode.md`, `logic_opcode_evidence.md`,
+      `resource_files.md`, `versions.md`, and `symbolic_labels.md`; SQ2
+      wording already treated `0x13..0x25` as reserved, while GR-specific text
+      needed correction.
+
+2573. Reported: "The current subsystem comparison is useful, but I want it a
+      bit more complete before I call it solid. I’m going to extend the report
+      to cover the full picture command table and more of the object/update-list
+      surface, then I’ll regenerate it and fold the results back into the
+      docs."
+
+      Action/result: Printed SQ2 and GR picture command dispatch tables,
+      mapped additional view, picture, display, object, and motion routine
+      addresses, and prepared to expand `tools/compare_gr_sq2_static.py`.
+
+2574. Reported: "The expanded scan is already paying off: GR’s core
+      object/update-list routines sit at the same early-executable locations
+      shifted by a few bytes, while object rectangle save/restore/draw calls
+      target main-image routines instead of SQ2’s object overlay entry table. I
+      am using that as a packaging difference, not a behavioral claim."
+
+      Action/result: Confirmed GR update-list routine addresses around
+      `0x0351`, `0x0428`, `0x0457`, and `0x0481`, and noted GR main-image
+      rectangle save/draw calls.
+
+2575. Reported: "I’m patching the comparison helper now. The main additions are
+      a fuller picture-command sweep, the view group-table helper, object
+      update-list and frame/motion routines, and a compact interpretation note
+      for the shared handlers that actually differ."
+
+      Action/result: Extended `tools/compare_gr_sq2_static.py` with broader
+      subsystem pairs and static notes for changed shared actions and GR-only
+      actions.
+
+2576. Reported: "The helper now compares more of the interpreter surface,
+      including all eleven picture commands and the core object
+      update-list/motion routines. I’m making the parser boundary correction
+      next, then I’ll regenerate the report to see which of those broader
+      slices actually diverge."
+
+      Action/result: Changed the v3 condition-table count in
+      `tools/disassemble_logic.py` from the dispatcher bound to the observed
+      structured table size `0x13`.
+
+2577. Reported: "That condition-table fix is deliberately conservative: it
+      preserves the observed GR action table size, but treats only the 19
+      structured predicate entries as decodable table records. Now I’m
+      regenerating the report and checking whether the expanded subsystem sweep
+      exposes any new static differences."
+
+      Action/result: Regenerated
+      `build/gr-sq2-static/opcode_static_report.md` and py-compiled the
+      updated comparison and logic-disassembly tools.
+
+2578. Reported: "The expanded report found two kinds of differences: expected
+      display-path divergences, and a couple of object/motion mismatches that
+      may be either real or address/normalization artifacts. I’m checking those
+      by reading the raw disassembly before I document them, because a table
+      that confidently compares the wrong entry point is worse than no table."
+
+      Action/result: Read raw SQ2 and GR disassembly around frame timers,
+      frame advancement, motion dispatch, and boundary checking.
+
+2579. Reported: "Those raw reads separate the real deltas from the straight-line
+      disassembler noise: GR adds an object-frame group-count/version branch,
+      and its motion dispatcher accepts one more mode value. The frame-advance
+      and boundary-check 'differences' in the generated table are embedded
+      jump-table bytes, so I’ll label them as manual-neutral rather than
+      behavioral differences."
+
+      Action/result: Classified GR frame-timer and motion-dispatch differences
+      as real static deltas, while treating frame-advance and boundary-check
+      straight-line differences as embedded jump-table artifacts.
+
+2580. Reported: "I’m adding those manual caveats directly into the generated
+      report notes, so the artifact says 'real object-mode extension here' and
+      'jump-table bytes here' without making someone rediscover that distinction
+      later."
+
+      Action/result: Added subsystem-pair notes for GR display refresh
+      omissions, object frame-timer branching, extra motion selector, and
+      embedded jump-table caveats.
+
+2581. Reported: "The comparison helper is patched with the manual caveats; I’m
+      regenerating the report one more time so the build artifact matches the
+      code and the docs I’m about to write."
+
+      Action/result: Regenerated
+      `build/gr-sq2-static/opcode_static_report.md` from the updated helper.
+
+2582. Reported: "I’m updating `PROGRESS.md` now: the new section is moving from
+      'todo list' to an evidence dashboard, including the 17 changed shared
+      action snippets, the six GR-only action slots, and the object/view/picture
+      static deltas."
+
+      Action/result: Updated the GR/SQ2 static comparison tracker and
+      cross-version remaining-work sections in `PROGRESS.md`.
+
+2583. Reported: "I’m updating the clean-room notes with a dated
+      static-comparison section now. This will record the commands, the
+      generated artifact path, and the corrected condition-table interpretation
+      so the clean-room trail doesn’t depend on memory."
+
+      Action/result: Added a new clean-room executable-notes section for the
+      GR/SQ2 static opcode, object, view, and picture comparison, and corrected
+      the earlier v3 condition-slot wording.
+
+2584. Reported: "The evidence notes now have a concrete comparison section. I’m
+      sweeping the version/resource/symbol tables next so older wording doesn’t
+      still imply that GR has real predicate handlers through `0x25`."
+
+      Action/result: Updated `docs/src/versions.md` and
+      `docs/src/resource_files.md` with the corrected GR condition-table
+      boundary and static-comparison summary.
+
+2585. Reported: "The version ledger is corrected. I’m making the same
+      adjustment in the resource chapter and then I’ll extend the GR address map
+      with the object/view/picture routine associations from the static pass."
+
+      Action/result: Completed the resource chapter correction and began
+      extending the GR address-association table.
+
+2586. Reported: "I’m extending the symbolic map with the GR addresses for the
+      routines the report now compares. The notes include the SQ2 anchor offsets
+      so later interpreter comparisons can keep using the same labels rather
+      than chasing raw addresses."
+
+      Action/result: Added GR address associations for compared view, picture,
+      display, object, and motion routines in `docs/src/symbolic_labels.md`.
+
+2587. Reported: "The symbolic map now has GR associations for the compared view,
+      picture, object, display, and motion routines. I’m scanning for stale
+      'condition through `0x25`' wording and then I’ll update the progress log
+      before running checks."
+
+      Action/result: Scanned for stale GR condition-range claims and found only
+      historical progress-log wording plus older SQ2-specific notes.
+
+2588. Reported: "I found one stale progress-log entry from the earlier GR pass
+      that records the old condition-slot hypothesis; I’ll add today’s
+      correction and the comparison updates after the current tail rather than
+      rewriting history. After that, I’ll run the documentation and unit
+      checks."
+
+      Action/result: Added progress-log entries for the static comparison pass
+      and left the older progress-log hypothesis intact as historical context.
+
+2589. Reported: "The docs and tracker are patched. I’m running the local
+      verification now: mdBook for documentation integrity, the unit suite for
+      parser/disassembler regressions, and then I’ll clean up generated Python
+      cache files so the worktree only shows intentional files plus the
+      pre-existing `run.sh`."
+
+      Action/result: Ran `mdbook build docs`,
+      `AGI_GAME_DIR=games/SQ2 python3 -B -m unittest discover -s tests`, and a
+      stale-wording scan. mdBook passed, and the unit suite continued running.
+
+2590. Reported: "mdBook passed. The stale wording scan now only finds a
+      historical progress-log entry from the earlier hypothesis, which I’m
+      leaving as history because the new entries and evidence notes record the
+      correction. The unit suite is still running, so I’m waiting for that
+      before the final cleanup."
+
+      Action/result: Waited for the full unit suite, which passed 251 tests.
+
+2591. Reported: "The full local unit suite passed 251 tests. I’m running the
+      project compatibility-suite wrapper as a final belt-and-suspenders check
+      because it also covers the book/opcode-evidence checks that aren’t
+      obvious from plain unittest output."
+
+      Action/result: Ran `python3 -B tools/compatibility_suite.py`; it failed
+      because no explicit game directory was supplied, causing import-time
+      `AGI_GAME_DIR` guard errors.
+
+2592. Reported: "The wrapper failed without `AGI_GAME_DIR`, which is the
+      project’s explicit-game-directory guard doing its job. I’m rerunning the
+      same compatibility-suite command with `AGI_GAME_DIR=games/SQ2`, matching
+      the successful unit-suite invocation."
+
+      Action/result: Reran
+      `AGI_GAME_DIR=games/SQ2 python3 -B tools/compatibility_suite.py`; it
+      passed 251 tests and mdBook.
+
+2593. Reported: "The compatibility wrapper passes once the explicit SQ2 input
+      is provided: 251 tests and mdBook both green. I’m cleaning the generated
+      `tools/__pycache__` now and then I’ll do the final diff/status sanity
+      pass."
+
+      Action/result: Removed generated `tools/__pycache__`.
+
+2594. Reported: "I’m recording the verification results in the evidence notes
+      and progress log now, including the one failed wrapper attempt without
+      `AGI_GAME_DIR` and the successful rerun with the explicit game directory."
+
+      Action/result: Added verification commands and outcomes to the
+      clean-room executable notes.
+
+2595. Reported: "I'll take this from the GR-only slots first: pin down each
+      handler, then chase any state writes to their consumers so we can separate
+      real behavior from reserved/no-op entries. I'll keep this as a
+      source-first pass and only reach for QEMU if the disassembly leaves a
+      genuine ambiguity."
+
+      Action/result: Re-read the GR/SQ2 static comparison state and began a
+      focused source pass over GR-only action slots `0xb0..0xb5`.
+
+2596. Reported: "I'm drilling into the two non-trivial slots now. One writes a
+      word near the low runtime globals, and the other pairs with GR's changed
+      `0xad`; the useful bit is finding who reads those bytes afterward."
+
+      Action/result: Located GR action handlers `0xb1` at image `0x970b` and
+      `0xb5` at image `0x63b0`, then searched local disassembly for consumers
+      of `[0x0403]` and `[0x0405]`.
+
+2597. Reported: "I've got the first solid shape: four of the GR-only action
+      slots are deliberately inert after argument consumption, while the two
+      real ones wire into existing menu/input state. I'm going back through the
+      surrounding routines now so the names don't outrun the evidence."
+
+      Action/result: Confirmed handler `0x5286` is a generic no-op/return
+      handler and inspected the surrounding GR menu and keyboard routines.
+
+2598. Reported: "A useful anchor popped out: GR's regular menu-building
+      opcodes still make the same linked menu structures, and opcode `0xb1` is
+      a separate gate that lets the menu interaction routine run at all. That
+      makes it a control switch, not another menu item/heading builder."
+
+      Action/result: Read GR menu-build handlers around `0x9457..0x970a` and
+      menu interaction routine `0x9724`; identified `[0x0403]` as an
+      interaction gate checked before menu drawing/input.
+
+2599. Reported: "The paired input gate is clearer now too: GR's `0xad` sets a
+      byte that the keyboard interrupt hook checks before enqueueing a
+      `(type=2, value=0)` event on certain key-release paths; `0xb5` clears
+      that same byte. That's the strongest 'extra opcode' behavioral finding so
+      far, because the consumer is right there in the disassembly."
+
+      Action/result: Traced `[0x0405]` from GR action `0xad` and GR-only action
+      `0xb5` to the keyboard interrupt hook at `0x63b8`.
+
+2600. Reported: "I'm going to patch the tooling and docs now: add conservative
+      v3 names for the extra slots, tighten the static report notes, and record
+      the source evidence with the exact offsets. I'm leaving the SQ2 opcode
+      catalog semantics intact because those bytes are still invalid in SQ2;
+      the GR names live as v3-specific labels."
+
+      Action/result: Began updating disassembly tooling, static report notes,
+      and documentation for the GR-only action slots.
+
+2601. Reported: "The disassembler now keeps SQ2's `ACTION_NAMES` exactly as the
+      tests expect, but when it sees a v3-sized table it can call out `0xb1` as
+      the menu gate and `0xb5` as the key-release-event gate clearer. Small
+      change, but it'll save future archaeology."
+
+      Action/result: Added v3-specific action-name overrides in
+      `tools/disassemble_logic.py`.
+
+2602. Reported: "`PROGRESS.md` now treats the extra slots as source-backed
+      rather than just 'interesting.' I'm adding the same evidence into the
+      mdBook pages next, with the distinction that these are Gold Rush/v3
+      observations, not SQ2 rules."
+
+      Action/result: Updated the GR/SQ2 static comparison tracker in
+      `PROGRESS.md`.
+
+2603. Reported: "The logic-bytecode chapter now has a dedicated GR/v3
+      extra-slot table. I'm adding stable symbolic labels too, so later notes
+      can say `data.menu.interaction_gate_0403` instead of scattering raw
+      offsets everywhere."
+
+      Action/result: Updated `docs/src/versions.md` and
+      `docs/src/logic_bytecode.md` with source-backed GR extra opcode details.
+
+2604. Reported: "The symbolic map now has the new GR action labels plus the two
+      state globals. I'm writing the clean-room evidence trail now, including
+      the exact disassembly ranges and the decision not to run QEMU yet because
+      this particular pass can be proven from local source paths."
+
+      Action/result: Added GR action/global labels to
+      `docs/src/symbolic_labels.md`.
+
+2605. Reported: "The clean-room notes have the core evidence now. I'm appending
+      the user-facing progress entries before I regenerate the report and run
+      checks, so the historical trail stays aligned with what you saw during
+      the work."
+
+      Action/result: Added this progress-log block for the GR extra opcode
+      pass.
+
+2606. Reported: "The new log entries are ASCII-clean now. I'm regenerating the
+      GR/SQ2 static report so the build artifact carries the refined
+      `0xb1`/`0xb5` notes, then I'll run the focused parser/docs checks."
+
+      Action/result: Regenerated
+      `build/gr-sq2-static/opcode_static_report.md`.
+
+2607. Reported: "The report regenerated cleanly. I'm doing a quick readback of
+      the generated extra-slot section and a GR disassembler stats run next,
+      mostly to catch naming/report drift before the heavier checks."
+
+      Action/result: Confirmed the generated report includes the refined
+      `[0x0403]`/`[0x0405]` notes; GR logic stats parsed with no errors.
+
+2608. Reported: "The focused checks are clean so far: the report contains the
+      refined notes, GR logic still parses with no errors, and both touched
+      Python tools compile. I'm running the book and unit suite now; those are
+      the real regression guards for this repo."
+
+      Action/result: Ran `mdbook build docs` and
+      `AGI_GAME_DIR=games/SQ2 python3 -B -m unittest discover -s tests`; both
+      passed, with 251 unit tests.
+
+2609. Reported: "Book build and the 251-test unit suite both passed. I'm
+      running the compatibility wrapper with explicit SQ2 input now, plus a
+      whitespace diff check; after that I'll clean any generated cache files and
+      record the verification in the notes."
+
+      Action/result: Ran
+      `AGI_GAME_DIR=games/SQ2 python3 -B tools/compatibility_suite.py` and
+      `git diff --check`; both passed.
+
+2610. Reported: "The compatibility wrapper passed too, and `git diff --check`
+      is clean. A Python cache directory appeared from the runs; I'm removing
+      just that generated cache and then I'll do one final status/diff pass."
+
+      Action/result: Removed generated `tools/__pycache__`.
+
+2611. Reported: "The cache cleanup is done. I'm adding the verification results
+      to the evidence notes and progress log now, then I'll check the final diff
+      so the close-out is concrete."
+
+      Action/result: Added verification results to
+      `docs/src/clean_room_executable_notes.md`.
+
+2612. Reported: "The final diff matches the shape of the work: docs/tracker
+      updates, v3 naming in the disassembler, and the comparison helper notes.
+      I'm recording the successful validation commands now."
+
+      Action/result: Inspected `git status --short`, `git diff --stat`, and
+      selected diffs for the extra opcode pass.
+
+2613. Reported: "The clean-room notes now include the validation results. I'm
+      adding the matching progress-log tail entries and then I'll do the last
+      status check."
+
+      Action/result: Added the final verification progress-log entries.

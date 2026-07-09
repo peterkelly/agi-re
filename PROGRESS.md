@@ -33,12 +33,96 @@ better understood, or a new remaining-work item is discovered.
   and turning the accumulated notes into implementation-ready subsystem specs.
 - Cross-version comparison has begun with Gold Rush (`games/GR`) / AGI v3:
   resource directory and volume compression differences are source-backed,
-  locally decoded, and documented. The v3 logic dispatcher tables are mapped
-  well enough to parse all present GR logic resources, but the extra v3 opcode
-  slots above the SQ2 v2 ranges are not yet behavior-specified.
+  locally decoded, and documented. Static opcode/subsystem comparison against
+  SQ2 now has a repeatable helper and report; GR's extra action slots
+  `0xb0..0xb5` are source-backed from disassembly, while only shared condition
+  entries `0x00..0x12` are structured table records in the observed
+  `AGIDATA.OVL`.
 - Generated original-engine fixture builders now treat `games/` as immutable:
   they copy the selected game input to a generated destination, make copied
   files writable, and reject fixture destinations under `games/`.
+
+## GR / SQ2 Static Comparison Tracker
+
+This section tracks the current source-first comparison between Gold Rush
+(`games/GR`, AGI 3.002.149) and Space Quest 2 (`games/SQ2`, AGI 2.936). The
+scope for this pass is disassembled interpreter code and local resource bytes;
+observable behavior/QEMU confirmation is intentionally deferred.
+
+- [~] Evidence artifacts
+  - Current: GR and SQ2 inputs are selected explicitly; SQ2 executable bytes are
+    decrypted into `build/cleanroom/SQ2_AGI.decrypted.exe`; GR's `AGI` is
+    already an MZ executable. Full linear `ndisasm` images and the generated
+    report live under `build/gr-sq2-static/`; the repeatable helper is
+    `tools/compare_gr_sq2_static.py`.
+  - Remaining: keep expanding the report when newly labeled routines become
+    relevant, and do not treat normalized straight-line differences across
+    embedded jump tables as behavioral changes without manual disassembly.
+- [~] Logic action opcode comparison
+  - Current: table-level parser contracts match for shared action opcodes
+    `0x00..0xaf`: argument counts and operand metadata are identical in GR and
+    SQ2. Normalized handler-entry snippets match for 159 shared actions and
+    differ for 17 shared actions: `0x12`, `0x6f`, `0x73`, `0x76`, `0x77`,
+    `0x78`, `0x79`, `0x7c`, `0x7d`, `0x80`, `0x84`, `0x89`, `0x8a`, `0xa3`,
+    `0xa4`, `0xa9`, and `0xad`. GR defines six extra action slots
+    `0xb0..0xb5`; local GR scripts observed so far use only actions through
+    `0xa9`.
+  - Current v3-only slot notes: `0xb0` `reserved_noop_v3_0`, `0xb2`
+    `reserved_noop_v3_2`, `0xb3` `reserved_noop_v3_4args`, and `0xb4`
+    `reserved_noop_v3_2varargs` route to the generic no-op/return handler
+    after the dispatcher/table contract has consumed their operands. `0xb1`
+    `set_menu_interaction_gate` stores one immediate operand in word
+    `[0x0403]`; GR `code.menu.interact` (`0x9724`) returns immediately while
+    that word is zero. `0xb5` `clear_key_release_event_gate` clears byte
+    `[0x0405]`, paired with GR's shared `0xad`
+    `set_key_release_event_gate` setting that byte to `1`; the keyboard IRQ
+    hook tests `[0x0405]` before enqueueing a type-2 zero event on selected
+    key-release paths.
+  - Remaining: give the changed shared action snippets behavioral names only
+    after source or QEMU evidence justifies them; save/restore differences and
+    the observable consequences of the GR menu/input gates need later targeted
+    v3 fixtures.
+- [~] Logic condition opcode comparison
+  - Current: table-level parser contracts match for shared condition opcodes
+    `0x00..0x12`, and normalized handler-entry snippets have no differences.
+    GR's dispatcher bound still compares with `0x26`, but bytes after the
+    first 19 entries overlap punctuation/filename/string data and zero fill,
+    so `0x13..0x25` are not confirmed predicate implementations. Local GR
+    scripts observed so far use only conditions through `0x0e`.
+  - Remaining: if a future local v3 game uses predicate bytes above `0x12`,
+    investigate that interpreter/data pair directly instead of relying on the
+    GR raw byte region.
+- [~] Object runtime comparison
+  - Current: core object record/update-list routines compare as relocated
+    skeletons: sorted-list build, list node insertion, draw/refresh list walks,
+    collision test, control acceptance, dirty-rectangle update, placement,
+    active/inactive list rebuild/flush/refresh, and membership toggles. GR
+    packages rectangle save/restore/draw routines in the main image rather than
+    SQ2's `IBM_OBJS.OVL`. Static differences remain in object animation/motion:
+    GR adds an extra helper-gated group-selection branch during frame-timer
+    update and accepts one additional object motion-mode selector.
+  - Remaining: identify the extra GR object/motion selector semantics from
+    source and later validate observable behavior with targeted fixtures.
+- [~] View runtime/resource comparison
+  - Current: v3 container decoding can read GR view resources locally. Static
+    comparison shows the view cache/load path, object-view binding, group table
+    selection, frame selection, and view discard path match SQ2 as relocated
+    skeletons after the v3 resource reader delivers an expanded payload.
+  - Remaining: later behavior checks should focus on the GR-specific object
+    group/motion branches rather than ordinary view decoding first.
+- [~] Picture runtime/resource comparison
+  - Current: v3 container decoding can read GR picture resources locally, with
+    the documented picture-nibble transform before ordinary picture-command
+    decoding. Static comparison shows picture cache/load, prepare/overlay,
+    discard, command scanner, all eleven picture command handlers
+    `0xf0..0xfa`, coordinate reads, line drawing, pixel writes, seed fill, and
+    pattern plotting match as relocated skeletons. The main picture differences
+    are display-refresh paths: GR omits SQ2's display-mode-2 overlay refresh
+    branch after buffer fill/full refresh, and `decode_no_clear` returns
+    directly after command scan where SQ2 has the extra mode-2 refresh check.
+  - Remaining: later QEMU checks should target display-mode-sensitive picture
+    refresh only if the project decides to cover non-primary display modes for
+    v3.
 
 ## Logic Structural Bytes
 
@@ -442,12 +526,13 @@ better understood, or a new remaining-work item is discovered.
     `docs/src/cross_version_workflow.md` now defines the local evidence package,
     label-mapping anchors, pass order, compatibility tiers, and delta-recording
     rules for future interpreter/game versions. The first application to
-    Gold Rush / AGI v3 has mapped the changed resource container and the moved
-    v3 dispatch/resource routines. `docs/src/versions.md` now keeps the concise
-    per-version difference ledger.
-  - Remaining: continue the GR v3 comparison beyond containers into opcode
-    deltas, loader error paths, object/view/picture runtime changes, and then
-    repeat the workflow for additional local games/interpreter versions.
+    Gold Rush / AGI v3 has mapped the changed resource container, v3
+    dispatch/resource routines, shared/extra opcode-table differences, and the
+    first object/view/picture runtime deltas. `docs/src/versions.md` now keeps
+    the concise per-version difference ledger.
+  - Remaining: continue the GR v3 comparison into loader error paths and
+    behavioral fixtures for the static deltas, then repeat the workflow for
+    additional local games/interpreter versions.
 - [~] Final human-readable implementation spec
   - Evidence: mdBook chapters exist and are growing.
   - Remaining: convert source/evidence notes into polished, subsystem-oriented
@@ -455,9 +540,10 @@ better understood, or a new remaining-work item is discovered.
 
 ## Highest-Value Remaining Work
 
-1. Continue the Gold Rush / AGI v3 comparison from the newly decoded resources:
-   map v3 opcode-table additions, verify which behavior changed versus SQ2 v2,
-   and start adding multi-version tests around resource decoding.
+1. Continue the Gold Rush / AGI v3 comparison from the static delta list:
+   inspect loader/error paths, give source-backed names to the extra object and
+   action-state branches, and then add multi-version behavioral fixtures for
+   the deltas that matter to compatibility.
 2. Continue source-first renderer work only when disassembly or a valid local
    resource exposes a concrete edge not already modeled. Use QEMU as
    confirmation/regression evidence.

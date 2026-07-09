@@ -321,10 +321,13 @@ The full GR transform census from the local parser is:
 
 The logic disassembler now uses `tools/agi_resources.py` for payload loading.
 For GR it uses AGIDATA dispatch table bases `0x0440` for actions and `0x0762`
-for conditions. The GR dispatcher supports action opcodes through `0xb5` and
-condition opcodes through `0x25`, but the decoded Gold Rush scripts observed so
-far only use action opcodes through `0xa9` and condition opcodes through
-`0x0e`.
+for conditions. The GR action dispatcher supports action opcodes through
+`0xb5`, but the decoded Gold Rush scripts observed so far only use action
+opcodes through `0xa9`. The GR condition dispatcher compares predicate bytes
+with `0x26`, but only entries `0x00..0x12` are structured condition-table
+records in the observed `AGIDATA.OVL`; bytes above that overlap string/data and
+are not treated as confirmed predicates. Local GR scripts observed so far use
+condition opcodes only through `0x0e`.
 
 ## Resource cache records
 
