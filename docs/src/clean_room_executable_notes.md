@@ -8680,9 +8680,10 @@ Commands and local reads:
 - `sed -n` reads of `PROGRESS.md`, `tools/gr_v3_behavior_probe.py`,
   `tools/save_roundtrip_probe.py`, `tools/qemu_fixture.py`,
   `tools/agi_save.py`, and the relevant tests.
-- Local Python parse of GR logic 0's message table confirmed that local GR
-  message bytes are plain in the resource data, unlike the SQ2 encrypted
-  message text path.
+- Initial local Python parsing used the wrong message offset base and led to
+  the provisional, later-corrected hypothesis that GR message text might be
+  plain in resource bytes. A follow-up pass below corrected this: GR logic
+  message text is encrypted in the same observed message-text region.
 - `strings -a -t x games/GR/AGIDATA.OVL` and `xxd -s 0x0700 -l 0x260 -g 1
   games/GR/AGIDATA.OVL` confirmed the same message XOR key text exists in GR
   data at offset `0x072c`, while GR logic message resources observed in this
@@ -8691,7 +8692,9 @@ Commands and local reads:
   `0x5ede`, plus byte reads around file offset `0x60d7`, confirmed the local
   `0x8f` verifier/copy shape and embedded verifier string bytes.
 - Local script scan found GR's original `0x8f` use in logic `101` at bytecode
-  offset `0x0004`, with message number `3` and raw message text `55a`.
+  offset `0x0004`, with message number `3`. The raw encrypted bytes for that
+  message are `35 35 61`; after decrypting from the message text-region start,
+  the message is `GR\0`.
 - `AGI_GAME_DIR=games/SQ2 python3 -B -m unittest tests.test_gr_v3_behavior_probe tests.test_qemu_fixture`
 - `python3 -B -m py_compile tools/gr_v3_behavior_probe.py tools/qemu_fixture.py tests/test_gr_v3_behavior_probe.py tests/test_qemu_fixture.py`
 - Initial exploratory QEMU run with a synthetic `0x8f("GR")` fixture exited
@@ -8706,15 +8709,15 @@ python3 -B tools/gr_v3_behavior_probe.py --probe save-xor-extract --game-dir gam
 Implementation/test updates:
 
 - `tools/qemu_fixture.py` now lets generated logic resources opt out of
-  SQ2-style message text encryption with `encrypt_messages=False`; default
-  behavior is unchanged for v2 fixtures.
+  SQ2-style message text encryption with `encrypt_messages=False`; the default
+  encrypted behavior remains correct for observed SQ2 and GR logic resources.
 - `tools/gr_v3_behavior_probe.py` now has `--probe save-xor-extract`. The
   promoted fixture omits `0x8f verify_game_signature`, so it writes a
   blank-prefix `SG.1` save and keeps the test focused on action `0x7d`.
 - `tests/test_qemu_fixture.py` covers encrypted-default and plain-message
   logic-resource construction.
 - `tests/test_gr_v3_behavior_probe.py` covers the GR save extraction payload,
-  the optional plain verifier-message form, and stale save removal in copied
+  the optional verifier-message form, and stale save removal in copied
   fixtures.
 - `tools/compatibility_suite.py` now has an opt-in `qemu-v3` layer containing
   the GR save-XOR extraction probe; it is intentionally separate from the
@@ -8742,9 +8745,85 @@ Conclusion:
 
 - GR action `0x7d` is now both source-backed and original-engine validated for
   the v3 save envelope and third-block XOR transform.
-- The promoted QEMU evidence deliberately avoids GR's verifier/save-prefix
-  path. A future source-first pass can investigate `0x8f` in GR separately if a
-  signature-prefixed GR save/restore fixture becomes important.
+- This first promoted QEMU evidence deliberately avoids GR's
+  verifier/save-prefix path; the following correction section covers that path.
+
+## Gold Rush v3 Signed Save Extraction Correction
+
+Goal: correct the GR message-encoding hypothesis and promote the
+`0x8f("GR")` save-prefix path to original-engine evidence.
+
+Commands and local reads:
+
+- `python3 -B tools/disassemble_logic.py --game-dir games/GR 101`
+- Exact-offset `ndisasm` reads around GR image offsets `0x108c`, `0x245e`,
+  `0x5035`, and `0x5ec2..0x5eff`.
+- Local Python parse of GR logic 101's message area using table-base-relative
+  offsets and decryption from the start of the message text region.
+- `AGI_GAME_DIR=games/SQ2 python3 -B -m unittest
+  tests.test_gr_v3_behavior_probe tests.test_qemu_fixture
+  tests.test_compatibility_suite`
+- `python3 -B -m py_compile tools/gr_v3_behavior_probe.py
+  tools/compatibility_suite.py tests/test_gr_v3_behavior_probe.py
+  tests/test_compatibility_suite.py`
+- `AGI_GAME_DIR=games/SQ2 python3 -B tools/compatibility_suite.py --dry-run
+  --include-qemu-v3`
+- Signed QEMU run:
+
+```bash
+python3 -B tools/gr_v3_behavior_probe.py --probe save-xor-extract --verify-signature --game-dir games/GR --fixture-root build/gr-v3-behavior/save-xor-signed-fixtures --dos-prefix GRS --run-qemu --output build/gr-v3-behavior/save_xor_extract_signed_qemu_001.json --snapshot-raw build/gr-v3-behavior/snapshot/save_xor_extract_signed.raw --snapshot-qcow build/gr-v3-behavior/snapshot/save_xor_extract_signed.qcow2 --post-run-raw build/gr-v3-behavior/snapshot/save_xor_extract_signed_after.raw --save-output build/gr-v3-behavior/GRSG_001.1 --boot-wait 5 --draw-wait 8 --path-prompt-wait 2 --slot-wait 1 --description-wait 1 --confirmation-wait 1 --key-delay 0.08
+```
+
+Source observations:
+
+- GR action `0x8f` at image `0x108c` reads the immediate message number,
+  resolves it through message helper `0x245e`, copies from that message pointer
+  into `DS:0x0002` with bounded copy helper `0x5035`, and then calls verifier
+  helper `0x5ede`.
+- Helper `0x5ec2` copies the embedded `GR\0` string from code offset `0x5ed7`
+  into data buffer `0x0f88`. Helper `0x5ede` compares `DS:0x0002` against the
+  embedded code string and calls the shared exit helper on the first mismatch.
+- GR logic 101 uses `0x8f(#3)` near bytecode offset `0x0004`. Its message table
+  has encrypted text bytes `6f 76 4c 14 16 7d 75 35 35 61`; decrypting the
+  text region yields messages `.\0`, `%g69\0`, and `GR\0`. The earlier
+  synthetic signed fixture failed because it stored `GR\0` in plain text, so
+  the loader decrypted it into the wrong runtime bytes before the verifier
+  compared it.
+
+Implementation/test updates:
+
+- `gr_save_extract_payload(verify_signature=True)` now uses the normal
+  encrypted-message default instead of `encrypt_messages=False`.
+- `tools/gr_v3_behavior_probe.py --probe save-xor-extract
+  --verify-signature` now expects `GRSG.N`, checks that the first save-state
+  block starts with `GR\0`, and reports `signature_prefix: "GR"`.
+- `tools/compatibility_suite.py` adds named command
+  `gr_signed_save_xor_extract_qemu` in the opt-in `qemu-v3` layer.
+- `tests/test_gr_v3_behavior_probe.py` now asserts that the verifier message is
+  encrypted in the fixture payload and decrypts to `GR\0`.
+
+QEMU result:
+
+- Report: `build/gr-v3-behavior/save_xor_extract_signed_qemu_001.json`.
+- Extracted save: `build/gr-v3-behavior/GRSG_001.1`.
+- Expected save file inside DOS: `GRSG.1`.
+- Description: `codex gr probe`.
+- Block lengths: `1028`, `989`, `1811`, `100`, and `12`.
+- First block prefix bytes: `47 52 00 00 00 00 00 00`.
+- Third-block encoded prefix and SHA-256 match the blank-prefix run:
+  `c87769f82158e57363fb6f5dd6686f91457dca6606ac4011` and
+  `00c9fc2f1cc1ff71f2779804f993dea7389227c486a016556c45a9a0fb63f6a8`.
+- Third-block decoded prefix and SHA-256 also match the blank-prefix run:
+  `d65d8df967a40e3ce9bf71773269296dcf39d44ce2ad06eb` and
+  `5a833f40a62fc2e367e60600592d8033219586797a3e0a1b3a142accb64bc237`.
+
+Conclusion:
+
+- GR's `0x8f` verifier/save-prefix path is now source-backed and
+  original-engine validated for save creation. The correct generated fixture
+  shape uses encrypted logic-message text, just like observed GR logic 101.
+- Remaining v3 save work is restore-side confirmation for a signed GR save if
+  future compatibility work needs it.
 
 ## Gold Rush v3 Restart Prompt-Marker Truth Table
 

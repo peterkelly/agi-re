@@ -47,7 +47,7 @@ from gr_v3_behavior_probe import (  # noqa: E402
     patch_gr_action_51_to_seed_mode4,
     switch_room_payload,
 )
-from qemu_fixture import logic_resource, picture_logic_payload, v3_volume_record  # noqa: E402
+from qemu_fixture import logic_resource, picture_logic_payload, v3_volume_record, xor_message_text  # noqa: E402
 
 
 def v3_entry(volume: int, offset: int) -> bytes:
@@ -278,14 +278,20 @@ class GoldRushV3BehaviorProbeTests(unittest.TestCase):
                 ),
             )
 
-    def test_gr_save_extract_payload_uses_plain_v3_signature_message(self) -> None:
+    def test_gr_save_extract_payload_uses_encrypted_signature_message(self) -> None:
         payload = gr_save_extract_payload(verify_signature=True)
         code_len = payload[0] | (payload[1] << 8)
         code = payload[2 : 2 + code_len]
         message_data = payload[2 + code_len :]
+        text_start = 1 + 4
+        encrypted_text = message_data[text_start:]
 
         self.assertIn(bytes([0x8F, 0x01, 0x7D]), code)
-        self.assertIn(GR_SAVE_SIGNATURE_MESSAGE.encode("ascii") + b"\x00", message_data)
+        self.assertNotIn(GR_SAVE_SIGNATURE_MESSAGE.encode("ascii") + b"\x00", message_data)
+        self.assertEqual(
+            xor_message_text(encrypted_text),
+            GR_SAVE_SIGNATURE_MESSAGE.encode("ascii") + b"\x00",
+        )
 
     def test_gr_save_extract_payload_defaults_to_blank_prefix_save(self) -> None:
         payload = gr_save_extract_payload()
@@ -314,6 +320,24 @@ class GoldRushV3BehaviorProbeTests(unittest.TestCase):
             self.assertEqual(
                 read_volume_record(case.fixture, "logic", 0).payload,
                 gr_save_extract_payload(picture_no=GR_SAVE_TEST_PICTURE),
+            )
+
+    def test_gr_signed_save_extract_fixture_patches_logic_zero(self) -> None:
+        with tempfile.TemporaryDirectory() as temp_dir:
+            root = Path(temp_dir)
+            source = make_v3_source_game(root)
+
+            case = build_gr_save_extract_fixture(
+                source,
+                root / "fixtures",
+                picture_no=GR_SAVE_TEST_PICTURE,
+                verify_signature=True,
+            )
+
+            self.assertEqual(case.label, "save_xor_extract_signed")
+            self.assertEqual(
+                read_volume_record(case.fixture, "logic", 0).payload,
+                gr_save_extract_payload(picture_no=GR_SAVE_TEST_PICTURE, verify_signature=True),
             )
 
 

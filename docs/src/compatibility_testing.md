@@ -73,8 +73,12 @@ view/object stress carousel. Every selected command returned zero; the picture
 carousel matched all 8 cases and the view/object carousel matched all 19 cases.
 
 The v3 manifest layer is separate because it depends on the private local
-`games/GR` input. Its current command is the GR save-XOR extraction probe. The
-named suite run passed in `build/compatibility-suite/qemu_v3_save_001.json`.
+`games/GR` input. It currently includes separate blank-prefix and signed GR
+save-XOR extraction probes. The first named suite run for the blank-prefix
+case passed in `build/compatibility-suite/qemu_v3_save_001.json`; the signed
+direct report `build/gr-v3-behavior/save_xor_extract_signed_qemu_001.json`
+and suite report `build/compatibility-suite/qemu_v3_signed_save_001.json`
+confirm the `GRSG.1` path.
 
 Generate current sample render outputs:
 
@@ -955,6 +959,10 @@ transform round-trips, wraps after byte 58, and rejects an empty generic key.
 QEMU extraction `build/gr-v3-behavior/save_xor_extract_qemu_001.json` now
 confirms that the original GR interpreter writes a five-block blank-prefix
 `SG.1` save whose third block changes and round-trips under this helper.
+The signed extraction
+`build/gr-v3-behavior/save_xor_extract_signed_qemu_001.json` corrects the
+fixture to use encrypted logic-message text for `0x8f("GR")`, writes
+`GRSG.1`, and confirms that the first saved-state block starts with `GR\0`.
 
 `tests/test_restart_model.py` covers the source-backed Gold Rush / AGI v3
 restart prompt-marker redraw branch. The tested truth table is: accepted
@@ -1485,6 +1493,16 @@ blank-prefix `SG.1`. The extracted save has block lengths `1028`, `989`,
 `gr_v3_object_inventory_save_xor()` and a second transform restores the emitted
 bytes. This confirms the v3 object/inventory block encoding without relying on
 GR's verifier/save-prefix path.
+
+The signed variant exercises that verifier/save-prefix path:
+
+```bash
+python3 -B tools/gr_v3_behavior_probe.py --probe save-xor-extract --verify-signature --game-dir games/GR --fixture-root build/gr-v3-behavior/save-xor-signed-fixtures --dos-prefix GRS --run-qemu --output build/gr-v3-behavior/save_xor_extract_signed_qemu_001.json --snapshot-raw build/gr-v3-behavior/snapshot/save_xor_extract_signed.raw --snapshot-qcow build/gr-v3-behavior/snapshot/save_xor_extract_signed.qcow2 --post-run-raw build/gr-v3-behavior/snapshot/save_xor_extract_signed_after.raw --save-output build/gr-v3-behavior/GRSG_001.1 --boot-wait 5 --draw-wait 8 --path-prompt-wait 2 --slot-wait 1 --description-wait 1 --confirmation-wait 1 --key-delay 0.08
+```
+
+This run passed with expected save file `GRSG.1`, first-block prefix
+`47 52 00`, and the same block lengths and third-block XOR hashes as the
+blank-prefix run.
 
 Recent attempted-but-not-promoted logic fixtures:
 

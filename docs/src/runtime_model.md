@@ -348,7 +348,7 @@ Save/restore data model:
 | --- | --- | --- | --- |
 | Save description buffer | Save/restore selector helper | `0x7d`, `0x7e`, `0xaa` | Runtime buffer `[0x0e72]` holds the selected or entered save description/path text. The selector also edits path buffer `0x1962`, fills header/description buffer `0x1c6c` for newly described saves, and formats the selected filename into `0x1c8c`. `0xaa` copies up to `0x1f` bytes from `[0x0e72]` into a fixed 40-byte logic string slot. |
 | Save selector lifecycle | `0x7d`, `0x7e` | DOS file I/O handlers | `code.save.select_slot_or_path` saves text/input state, erases the prompt marker, stops active sound, prompts for a path if needed, scans up to 12 numbered save files, displays descriptions, handles Enter/Escape/up/down selection, then restores text state and returns zero for cancel or a nonzero selection for file I/O. |
-| Save filename/signature prefix | `0x8f` | Save/restore selector and slot reader | The string at `DS:0x0002` is set by `verify_game_signature`, used as the third string in the `%s%s%ssg.%d` save filename format, and compared against the first bytes of the first saved state block when scanning restore candidates. For SQ2, the normal initialized prefix is `SQ2`, producing `SQ2SG.N`. |
+| Save filename/signature prefix | `0x8f` | Save/restore selector and slot reader | The string at `DS:0x0002` is set by `verify_game_signature`, used as the third string in the `%s%s%ssg.%d` save filename format, and compared against the first bytes of the first saved state block when scanning restore candidates. For SQ2, the normal initialized prefix is `SQ2`, producing `SQ2SG.N`; for the observed Gold Rush v3 input, `0x8f("GR")` produces `GRSG.N`. |
 | Save file state blocks | `0x7d` | `0x7e` | Files store a 31-byte description/header followed by five little-endian length-prefixed blocks. The fixed local SQ2 block lengths are `1505`, `903`, `328`, and `200` for data rooted at `0x0002`, the object table, inventory/object metadata, and resource-event pairs; the fifth block rooted at `0x0985` has the variable size returned by `0x1364`. |
 | Replay pair block | `0x8e`, resource load/display/discard actions, `0xab`/`0xac` | Restore/display-mode replay | The saved pair block length is `data.event.pair_capacity * 2`; active count controls how much of the buffer replay consumes. |
 
@@ -367,10 +367,13 @@ Gold Rush / AGI v3 keeps the five-block save-envelope shape but changes the
 object/inventory block written from `[0x07d6]` with length `[0x07da]`: action
 `0x7d` applies a repeating 59-byte XOR sequence observed at image `0x072c`
 before the save path and applies the same transform again before return, so the
-on-disk block is transformed while runtime memory is restored. QEMU extraction
-`build/gr-v3-behavior/save_xor_extract_qemu_001.json` validates this against a
-blank-prefix GR `SG.1` save: the emitted block lengths are `1028`, `989`,
-`1811`, `100`, and `12`, and the third block changes and round-trips under
+on-disk block is transformed while runtime memory is restored. QEMU extractions
+validate this for both blank-prefix and signed saves:
+`build/gr-v3-behavior/save_xor_extract_qemu_001.json` writes `SG.1`, while
+`build/gr-v3-behavior/save_xor_extract_signed_qemu_001.json` executes
+`0x8f("GR")`, writes `GRSG.1`, and confirms that the first saved-state block
+starts with `GR\0`. Both saves have block lengths `1028`, `989`, `1811`,
+`100`, and `12`, and both third blocks change and round-trip under
 `gr_v3_object_inventory_save_xor()`.
 
 Restart, save/restore, and termination lifecycle:

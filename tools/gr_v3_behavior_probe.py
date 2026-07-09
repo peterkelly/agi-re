@@ -178,7 +178,7 @@ def gr_save_extract_payload(
     verify = bytes([0x8F, 0x01]) if verify_signature else b""
     code = load_show_picture_actions(picture_no) + verify + bytes([0x7D]) + self_loop()
     messages = [signature_message] if verify_signature else None
-    return logic_resource(code, messages=messages, encrypt_messages=False)
+    return logic_resource(code, messages=messages)
 
 
 def frame_selection_gate_payload(
@@ -446,18 +446,20 @@ def build_gr_save_extract_fixture(
     *,
     picture_no: int = GR_SAVE_TEST_PICTURE,
     dos_prefix: str = "GRS",
+    verify_signature: bool = False,
 ) -> ProbeCase:
     from qemu_fixture import build_v3_logic_fixture
 
-    fixture = fixture_root / "save_xor_extract"
+    label = "save_xor_extract_signed" if verify_signature else "save_xor_extract"
+    fixture = fixture_root / label
     build_v3_logic_fixture(
-        gr_save_extract_payload(picture_no=picture_no),
+        gr_save_extract_payload(picture_no=picture_no, verify_signature=verify_signature),
         fixture,
         game_dir=game_dir,
         logic_no=0,
     )
     remove_existing_gr_save_files(fixture)
-    return ProbeCase("save_xor_extract", fixture, f"{dos_prefix}0", fixture / "qemu_capture.ppm")
+    return ProbeCase(label, fixture, f"{dos_prefix}0", fixture / "qemu_capture.ppm")
 
 
 def build_room_remap_fixtures(
@@ -593,6 +595,7 @@ def run_gr_save_extract_qemu(
     key_delay: float,
     save_stem: str,
     slot: int,
+    expected_signature_prefix: str,
 ) -> dict:
     from agi_save import gr_v3_object_inventory_save_xor, load_save
     from qemu_snapshot import SnapshotFixtureCase, build_snapshot_boot_disk
@@ -623,9 +626,15 @@ def run_gr_save_extract_qemu(
     encoded_block = parsed.blocks[2].data
     decoded_block = gr_v3_object_inventory_save_xor(encoded_block)
 
+    expected_prefix = expected_signature_prefix.encode("ascii") + b"\0" if expected_signature_prefix else b"\0"
+    signature_check_name = (
+        "first_block_has_expected_signature_prefix"
+        if expected_signature_prefix
+        else "first_block_has_blank_signature_prefix"
+    )
     checks = {
         "description_matches": parsed.description == description,
-        "first_block_has_blank_signature_prefix": parsed.blocks[0].data.startswith(b"\0"),
+        signature_check_name: parsed.blocks[0].data.startswith(expected_prefix),
         "third_block_changes_when_decoded": decoded_block != encoded_block,
         "third_block_xor_round_trips": gr_v3_object_inventory_save_xor(decoded_block) == encoded_block,
     }
@@ -694,7 +703,7 @@ def main() -> int:
     parser.add_argument("--snapshot-raw", type=Path, default=DEFAULT_SNAPSHOT_RAW)
     parser.add_argument("--snapshot-qcow", type=Path, default=DEFAULT_SNAPSHOT_QCOW)
     parser.add_argument("--post-run-raw", type=Path, default=Path("build/gr-v3-behavior/snapshot/gr_save_after.raw"))
-    parser.add_argument("--save-output", type=Path, default=Path("build/gr-v3-behavior/SG.1"))
+    parser.add_argument("--save-output", type=Path)
     parser.add_argument("--description", default=GR_SAVE_DESCRIPTION)
     parser.add_argument("--path-keys", default="\n")
     parser.add_argument("--slot-keys", default="\n")
@@ -704,7 +713,8 @@ def main() -> int:
     parser.add_argument("--description-wait", type=float, default=1.0)
     parser.add_argument("--confirmation-wait", type=float, default=1.0)
     parser.add_argument("--key-delay", type=float, default=0.08)
-    parser.add_argument("--save-stem", default=GR_SAVE_STEM)
+    parser.add_argument("--save-stem")
+    parser.add_argument("--verify-signature", action="store_true")
     parser.add_argument("--slot", type=int, default=GR_SAVE_SLOT)
     parser.add_argument("--boot-wait", type=float, default=5.0)
     parser.add_argument("--draw-wait", type=float, default=8.0)
@@ -712,21 +722,33 @@ def main() -> int:
 
     if args.probe == "save-xor-extract":
         picture_no = args.picture if args.picture is not None else GR_SAVE_TEST_PICTURE
+        effective_save_stem = args.save_stem
+        if effective_save_stem is None:
+            effective_save_stem = (
+                f"{GR_SAVE_SIGNATURE_MESSAGE}{GR_SAVE_STEM}"
+                if args.verify_signature
+                else GR_SAVE_STEM
+            )
+        save_output = args.save_output
+        if save_output is None:
+            save_output = Path(f"build/gr-v3-behavior/{effective_save_stem}.{args.slot}")
         case = build_gr_save_extract_fixture(
             args.game_dir,
             args.fixture_root,
             picture_no=picture_no,
             dos_prefix=args.dos_prefix,
+            verify_signature=args.verify_signature,
         )
+        signature_prefix = GR_SAVE_SIGNATURE_MESSAGE if args.verify_signature else ""
         result: dict = {
-            "probe": "gr_v3_save_xor_extract",
+            "probe": "gr_v3_save_xor_extract_signed" if args.verify_signature else "gr_v3_save_xor_extract",
             "game_dir": str(args.game_dir),
             "picture": picture_no,
-            "uses_verify_game_signature": False,
-            "signature_prefix": "blank",
-            "save_stem": args.save_stem,
+            "uses_verify_game_signature": args.verify_signature,
+            "signature_prefix": signature_prefix or "blank",
+            "save_stem": effective_save_stem,
             "slot": args.slot,
-            "expected_save_file": f"{args.save_stem}.{args.slot}",
+            "expected_save_file": f"{effective_save_stem}.{args.slot}",
             "cases": [probe_case_report(case)],
             "qemu": {"ran": False},
         }
@@ -738,7 +760,7 @@ def main() -> int:
                     snapshot_raw=args.snapshot_raw,
                     snapshot_qcow=args.snapshot_qcow,
                     post_run_raw=args.post_run_raw,
-                    save_output=args.save_output,
+                    save_output=save_output,
                     boot_wait=args.boot_wait,
                     draw_wait=args.draw_wait,
                     path_prompt_wait=args.path_prompt_wait,
@@ -750,8 +772,9 @@ def main() -> int:
                     confirmation_wait=args.confirmation_wait,
                     confirmation_keys=args.confirmation_keys,
                     key_delay=args.key_delay,
-                    save_stem=args.save_stem,
+                    save_stem=effective_save_stem,
                     slot=args.slot,
+                    expected_signature_prefix=signature_prefix,
                 ),
             }
         write_report(args.output, result)

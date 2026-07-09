@@ -22282,3 +22282,314 @@ Progress updates and outcomes:
 
       Action/result: Added validation entries for the GR save extraction and
       v3 suite-manifest pass.
+
+2914. Reported: "I’ll pick back up from `PROGRESS.md` and the current tree,
+      then choose the next highest-value item rather than waiting for another
+      nudge. First I’m checking the tracker and repo state so I don’t step on
+      anything freshly changed."
+
+      Action/result: Read `PROGRESS.md`, `docs/src/versions.md`, and git
+      status. The only pre-existing untracked file was `run.sh`.
+
+2915. Reported: "`PROGRESS.md` says the current interesting frontier is still
+      GR/v3: source-backed deltas exist for save/signature, restart,
+      key-release/menu gates, and v3 resource packing. I’m going to inspect the
+      probe/tooling around those so the next step is driven by the
+      disassembly-backed paths rather than random behavior poking."
+
+      Action/result: Re-read `tools/gr_v3_behavior_probe.py`, tests, and
+      relevant tracker/doc references.
+
+2916. Reported: "The cleanest next bite is the GR `0x8f`
+      verifier/save-prefix path: the last probe deliberately avoided it, and
+      the failed synthetic attempt is a clue rather than a conclusion. I’m
+      going to map that path from the GR disassembly first, then decide whether
+      a QEMU confirmation is warranted."
+
+      Action/result: Located GR verifier references around image offsets
+      `0x108c`, `0x245e`, `0x5035`, and `0x5ec2..0x5eff`.
+
+2917. Reported: "The prior notes already point to GR image offsets around
+      `0x5035` and `0x5ede` for the verifier. I’m re-reading those bytes and
+      the local logic use, because the failed `0x8f(\"GR\")` fixture probably
+      means the expected signature text is subtler than the filename stem."
+
+      Action/result: Confirmed helper `0x5ede` compares `DS:0x0002` against
+      embedded `GR\0`.
+
+2918. Reported: "The verifier bytes are direct: GR has a `GR\0` string in the
+      code segment and a routine comparing `DS:0002` against it. The puzzle is
+      likely in how the generated v3 logic message address is being resolved,
+      so I’m checking the original GR script call and our v3 fixture layout
+      next."
+
+      Action/result: Disassembled GR logic 101 and found `0x8f(#3)` at
+      bytecode offset `0x0004`.
+
+2919. Reported: "My first `disassemble_logic` call was too broad and dumped
+      the whole game, which is noisy but harmless. I’m narrowing with a small
+      local parser so I can inspect just logic 101’s header, code prefix, and
+      message table bytes."
+
+      Action/result: Re-ran the disassembler without `--limit` and inspected
+      logic 101 only.
+
+2920. Reported: "Logic 101 confirms the original script does call `0x8f` with
+      message 3 before normal setup, so using the verifier in a synthetic
+      fixture is legitimate in principle. I’m checking how the message lookup
+      routine expects offsets, because a one-byte mismatch there would explain
+      the early exit."
+
+      Action/result: Re-read the message resolver and bounded-copy routines.
+
+2921. Reported: "The quick Python snippet tripped the project’s 'no default
+      game' guard, so I’ll pass `AGI_GAME_DIR` explicitly even for local byte
+      inspection. That keeps the tooling behavior aligned with the repo rule."
+
+      Action/result: Re-ran local message parsing with `AGI_GAME_DIR=games/GR`.
+
+2922. Reported: "The verifier handler copies at most six bytes from the
+      selected message into `DS:0002`, then compares that string with the
+      embedded `GR\0`. That means the old 'plain GR messages' observation is
+      worth re-testing against the exact message table, especially logic 101
+      message 3."
+
+      Action/result: Parsed logic 101's message table with table-base-relative
+      offsets and decrypted from the message text-region start.
+
+2923. Reported: "This turned up a useful correction: GR logic messages are
+      encrypted with the same local message-text XOR pattern; logic 101’s
+      message 3 decrypts to `GR\0`. The earlier synthetic verifier failed
+      because the v3 fixture wrote `GR` in plain text, so I’m going to fix that
+      and promote a signed GR save probe rather than leaving the verifier path
+      unresolved."
+
+      Action/result: Confirmed encrypted message bytes for logic 101 message 3
+      are `35 35 61`, decrypting to `GR\0`.
+
+2924. Reported: "I’ll keep the blank-prefix probe for the focused XOR
+      evidence, and add a signed variant as a separate QEMU-v3 command. That
+      gives us both: the isolated save-block transform and the real `0x8f ->
+      GRSG.N` filename/signature path."
+
+      Action/result: Chose to add `--verify-signature` rather than replacing
+      the existing blank-prefix probe.
+
+2925. Reported: "I’m about to edit the probe/tooling: the verifier path will
+      use encrypted message text, the save extractor will understand expected
+      blank versus `GR` prefixes, and the suite will gain an explicit signed GR
+      save case."
+
+      Action/result: Updated `tools/gr_v3_behavior_probe.py` with signed
+      fixture generation, expected prefix checks, and default `GRSG` save stem
+      selection when `--verify-signature` is used.
+
+2926. Reported: "The probe now has a signed mode. I’m tightening the tests
+      around the message encoding so this correction stays pinned: GR’s
+      verifier message should be encrypted in the resource, not stored as plain
+      `GR`."
+
+      Action/result: Updated `tests/test_gr_v3_behavior_probe.py` to assert
+      encrypted fixture bytes decrypt to `GR\0`.
+
+2927. Reported: "I’m adding the signed fixture assertion too, so the generated
+      copy is checked for both the opcode sequence and the patched v3 resource
+      payload."
+
+      Action/result: Added a test for `build_gr_save_extract_fixture(...,
+      verify_signature=True)`.
+
+2928. Reported: "Now I’m wiring the signed probe into the optional `qemu-v3`
+      layer as a separate named command, with its own fixture root and report
+      paths."
+
+      Action/result: Added `gr_signed_save_xor_extract_qemu` to
+      `tools/compatibility_suite.py`.
+
+2929. Reported: "I’m updating the suite manifest test so it knows about the new
+      signed GR case and keeps `qemu-v3` opt-in only."
+
+      Action/result: Updated `tests/test_compatibility_suite.py`.
+
+2930. Reported: "The code changes are in. I’m running the focused unit tests
+      and a syntax check before trying QEMU, since this path touches fixture
+      generation and suite selection."
+
+      Action/result: Focused unit tests for GR behavior probes, qemu fixtures,
+      and compatibility suite passed; py_compile passed.
+
+2931. Reported: "Focused tests passed. Next I’m checking the manifest
+      selection, then I’ll run the signed GR probe under QEMU to see whether
+      the original engine writes `GRSG.1` and embeds the expected prefix in
+      block 0."
+
+      Action/result: `compatibility_suite.py --dry-run --include-qemu-v3`
+      showed both blank and signed GR commands; signed dry-run fixture
+      generation wrote `save_xor_extract_signed_dryrun.json`.
+
+2932. Reported: "The dry run shows the signed fixture being generated cleanly
+      and the suite keeping both GR cases in the opt-in layer. I’m launching
+      the signed QEMU probe now; this may take a little while because it boots
+      DOS, saves, snapshots the disk, and extracts the save."
+
+      Action/result: Direct signed QEMU probe passed and wrote
+      `build/gr-v3-behavior/save_xor_extract_signed_qemu_001.json`.
+
+2933. Reported: "Signed QEMU passed. I’m reading the JSON report and extracted
+      save metadata now so the docs can record exact evidence rather than just
+      'it worked.'"
+
+      Action/result: Confirmed expected file `GRSG.1`, first-block prefix
+      `47 52 00`, block lengths `1028`, `989`, `1811`, `100`, `12`, and
+      matching third-block XOR hashes.
+
+2934. Reported: "The signed save is exactly what the source predicted:
+      `GRSG.1`, block 0 starts `47 52 00`, and the XOR block hashes match the
+      blank-prefix save. I’m correcting the docs now, including the earlier
+      mistaken 'plain v3 messages' note."
+
+      Action/result: Searched the docs for stale plain-message and
+      signature-save remaining-work references.
+
+2935. Reported: "I found the stale doc text: it says GR messages were plain
+      and still lists signed saves as remaining work. I’m replacing that with
+      the corrected source observation and the new QEMU evidence."
+
+      Action/result: Updated `PROGRESS.md` to mark signed GR save extraction as
+      covered and narrow remaining save work to signed restore if needed.
+
+2936. Reported: "`PROGRESS.md` now treats signed GR saving as done and narrows
+      the remaining v3 save question to restore-side confirmation. I’m carrying
+      the same correction into the version ledger and runtime model."
+
+      Action/result: Updated `docs/src/versions.md`.
+
+2937. Reported: "The logic-resource chapter had the most important stale
+      statement, so I’m replacing it with the exact GR evidence: encrypted text
+      region, table offsets relative to the table base, and logic 101 message 3
+      decrypting to `GR`."
+
+      Action/result: Updated `docs/src/logic_resources.md`.
+
+2938. Reported: "Now I’m updating the runtime model so the
+      implementation-facing save section describes both filename/signature
+      cases and does not imply the blank-prefix probe is the whole story."
+
+      Action/result: Updated `docs/src/runtime_model.md`.
+
+2939. Reported: "The opcode chapter’s GR delta row now needs the signed-save
+      report too, so `0x7d` points at both original-engine confirmations."
+
+      Action/result: Updated `docs/src/logic_bytecode.md`.
+
+2940. Reported: "I’m updating the symbolic label map so future version
+      comparisons can anchor the signed GR path by label instead of
+      rediscovering this address behavior."
+
+      Action/result: Updated `docs/src/symbolic_labels.md`.
+
+2941. Reported: "The compatibility chapter gets two small updates: the
+      `qemu-v3` layer now has both blank and signed save commands, and the
+      signed command gets its reproducible invocation recorded."
+
+      Action/result: Updated `docs/src/compatibility_testing.md`.
+
+2942. Reported: "I’m also noting that the signed save did not change the
+      state-block shape or XOR hashes, which is a nice small sanity check on
+      the prefix path."
+
+      Action/result: Added signed-vs-blank save comparison details to the
+      compatibility docs.
+
+2943. Reported: "I’m fixing the clean-room notes next. Rather than hiding the
+      old mistaken observation, I’ll record it as corrected evidence: the raw
+      bytes looked readable only because the wrong offset/decryption basis was
+      used."
+
+      Action/result: Corrected the earlier GR save extraction note.
+
+2944. Reported: "This is the evidence trail bit where being explicit matters:
+      I’m writing down the failed signed attempt, the corrected
+      encrypted-message interpretation, and the successful signed QEMU run as a
+      follow-up correction."
+
+      Action/result: Added `Gold Rush v3 Signed Save Extraction Correction` to
+      `docs/src/clean_room_executable_notes.md`.
+
+2945. Reported: "Docs now include the correction and the signed run. I’m
+      running the full local validation set next, then the signed suite command
+      through the compatibility runner so the manifest path itself is
+      exercised."
+
+      Action/result: Full unit suite passed 276 tests; `mdbook build docs` and
+      py_compile passed.
+
+2946. Reported: "Full unit tests passed at 276 tests, and mdBook plus syntax
+      checks are green. I’m doing the manifest dry-run and whitespace check,
+      then I’ll run the signed QEMU command through `compatibility_suite.py`."
+
+      Action/result: `compatibility_suite.py --dry-run --include-qemu-v3` and
+      `git diff --check` passed.
+
+2947. Reported: "Dry-run and diff check passed. The full tests created only
+      `__pycache__` noise; I’ll clean that up after the remaining QEMU-suite
+      run."
+
+      Action/result: The sandboxed suite wrapper attempt failed before booting
+      QEMU because the child QEMU process could not bind its local VNC socket.
+
+2948. Reported: "The suite wrapper hit the same sandboxed VNC bind problem we
+      saw before: QEMU itself never got to boot. I’m rerunning the identical
+      named suite command with elevated permission so the child QEMU process can
+      bind the local VNC socket."
+
+      Action/result: Escalated named suite command
+      `gr_signed_save_xor_extract_qemu` passed and wrote
+      `build/compatibility-suite/qemu_v3_signed_save_001.json`.
+
+2949. Reported: "The escalated suite run passed and wrote the signed suite
+      report. I’m checking the report contents, then I’ll remove generated
+      caches and update the log/tracker with final validation details."
+
+      Action/result: Inspected `qemu_v3_signed_save_001.json` and
+      `save_xor_extract_signed_suite.json`; both record return code zero and
+      the expected `GRSG.1` checks.
+
+2950. Reported: "The signed suite report is clean: return code 0, `GRSG.1`,
+      prefix `47 52 00`, and the expected XOR checks. I’m removing the
+      generated `__pycache__` directories now so the working tree only shows
+      source/doc changes plus the existing untracked `run.sh`."
+
+      Action/result: Removed generated `tools/__pycache__` and
+      `tests/__pycache__`.
+
+2951. Reported: "With generated caches removed, I’m updating the tracker to
+      name the passing signed suite report and the current unit-test count."
+
+      Action/result: Updated `PROGRESS.md` with
+      `build/compatibility-suite/qemu_v3_signed_save_001.json` and the 276-test
+      local run.
+
+2952. Reported: "I’m adding the suite-level signed report path to the
+      compatibility chapter too, so direct and manifest validation are both
+      recorded."
+
+      Action/result: Updated `docs/src/compatibility_testing.md`.
+
+2953. Reported: "The final book and diff checks are clean, and no cache
+      directories remain. I’m running the local compatibility wrapper once more
+      so the opcode-evidence freshness check is covered alongside tests and
+      mdBook."
+
+      Action/result: `AGI_GAME_DIR=games/SQ2 python3 -B
+      tools/compatibility_suite.py --report
+      build/compatibility-suite/local_signed_save_001.json` passed. The report
+      records 276 passing tests, `mdbook build docs`, and
+      `tools/logic_opcode_evidence.py --check`.
+
+2954. Reported: "The local compatibility wrapper passed too, including 276
+      tests, mdBook, and opcode-evidence freshness. I’m cleaning the cache
+      noise it created and recording that final validation in the log."
+
+      Action/result: Inspected `local_signed_save_001.json`; no `__pycache__`
+      directories were present after the `-B` run.

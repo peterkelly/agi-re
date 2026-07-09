@@ -131,12 +131,13 @@ end = message_pointer(0)
 So the message table itself remains unencrypted, while the message text region
 is decrypted in place after loading.
 
-Version note: the local Gold Rush / AGI v3 logic resources observed so far have
-plain message text in the resource bytes. For generated fixtures,
-`tools/qemu_fixture.py` keeps SQ2-style encrypted messages as the default but
-can emit plain message text with `logic_resource(..., encrypt_messages=False)`.
-Map the v3 loader's exact message-transform branch from disassembly before
-treating this as a portable rule for all v3 interpreters.
+Version note: Gold Rush / AGI v3 still uses encrypted logic-message text in the
+loaded resources observed so far. Local logic 101 has action `0x8f(#3)`;
+message 3 is stored encrypted in the resource bytes and decrypts to `GR\0`,
+matching the interpreter's embedded verifier string. Generated fixtures should
+therefore keep `tools/qemu_fixture.py`'s encrypted-message default unless a
+targeted negative/control case intentionally needs plain text with
+`logic_resource(..., encrypt_messages=False)`.
 
 ## Local samples
 
