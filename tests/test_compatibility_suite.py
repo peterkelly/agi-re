@@ -29,6 +29,11 @@ class CompatibilitySuiteTests(unittest.TestCase):
 
         self.assertEqual(by_name["local_unittest"].layer, "local")
         self.assertEqual(by_name["mdbook_build"].layer, "local")
+        self.assertEqual(by_name["mdbook_spec_build"].layer, "local")
+        self.assertEqual(
+            by_name["mdbook_spec_build"].command,
+            ("mdbook", "build", "spec"),
+        )
         self.assertEqual(by_name["logic_opcode_evidence_check"].layer, "local")
         self.assertEqual(by_name["parser_edges_qemu"].layer, "qemu-smoke")
         self.assertEqual(by_name["parser_unknown_terminator_qemu"].layer, "qemu-smoke")

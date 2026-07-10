@@ -1,5 +1,32 @@
 # Clean-room AGI reverse engineering
 
+## Project deliverable and clean-room boundary
+
+The deliverable of this project is **not a replacement AGI engine**. It is a
+self-contained, human-readable specification of AGI's externally observable
+behavior. The specification must be detailed and accurate enough that a
+separate person or team can implement a compatible engine using the
+specification alone, without seeing the original DOS interpreter or this
+project's disassembly notes.
+
+This follows the clean-room separation used in projects such as Compaq's
+compatible PC BIOS work. The reverse-engineering side observes the original,
+records evidence, and writes an implementation-independent behavioral
+specification. A separate implementation side can then consume that
+specification without being exposed to the original implementation details.
+
+The repository therefore has two distinct documentation sets:
+
+- `docs/` is the reverse-engineering evidence book. It may contain
+  disassembly, addresses, registers, DOS-specific implementation details,
+  hypotheses, commands, and QEMU observations.
+- `spec/` is the clean-room behavioral specification. It describes required
+  inputs, state transitions, outputs, timing, and version differences without
+  depending on how Sierra's DOS interpreter implemented them.
+
+The analysis tools and compatibility tests support the specification by
+measuring behavior. They are not an attempt to build the replacement engine.
+
 This repository documents and tests a clean-room reverse engineering effort for
 Sierra's AGI interpreter. Game files are not included in the repository; keep
 private local copies under `games/` or another directory outside version
@@ -13,6 +40,13 @@ control.
 - mdBook for documentation checks
 - Optional reverse-engineering tools used by the notes: `nasm`, `ndisasm`,
   `rizin`, and `radare2`
+
+Build both books with:
+
+```bash
+mdbook build docs
+mdbook build spec
+```
 
 ## Game directories
 
@@ -134,6 +168,7 @@ Run local checks from the repository root with an explicit game directory:
 AGI_GAME_DIR=games/SQ2 python3 -B -m unittest discover -s tests
 AGI_GAME_DIR=games/SQ2 python3 -B tools/compatibility_suite.py --dry-run
 mdbook build docs
+mdbook build spec
 ```
 
 QEMU compatibility commands also use `build/freedos/freedos.img` by default.

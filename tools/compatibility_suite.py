@@ -43,8 +43,14 @@ def suite_commands() -> tuple[SuiteCommand, ...]:
         SuiteCommand(
             "mdbook_build",
             "local",
-            "Build the implementation/evidence book.",
+            "Build the reverse-engineering evidence book.",
             ("mdbook", "build", "docs"),
+        ),
+        SuiteCommand(
+            "mdbook_spec_build",
+            "local",
+            "Build the clean-room behavioral specification.",
+            ("mdbook", "build", "spec"),
         ),
         SuiteCommand(
             "logic_opcode_evidence_check",

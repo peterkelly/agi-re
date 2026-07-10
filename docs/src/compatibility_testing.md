@@ -8,7 +8,7 @@ to a command or observation recorded in the notes.
 
 ## Test layers
 
-The current plan has three layers:
+The current plan has four layers:
 
 1. Local deterministic tests run directly against the resource files selected by
    `--game-dir PATH` or `AGI_GAME_DIR=PATH`. These are fast regression tests for
@@ -41,8 +41,8 @@ AGI_GAME_DIR=games/SQ2 python3 -B -m unittest discover -s tests
 ```
 
 Run the current top-level compatibility suite manifest. By default this executes
-only deterministic local checks: the unit suite, `mdbook build docs`, and the
-opcode-evidence freshness check. QEMU smoke, broad resource sweeps, and
+only deterministic local checks: the unit suite, `mdbook build docs`,
+`mdbook build spec`, and the opcode-evidence freshness check. QEMU smoke, broad resource sweeps, and
 version-specific v3 probes are opt-in so a quick local run does not
 unexpectedly boot the original engine:
 

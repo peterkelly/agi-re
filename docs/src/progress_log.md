@@ -24469,3 +24469,45 @@ Progress updates and outcomes:
       reflects the exact working tree."
 
       Action/result: Added this final sweep entry.
+
+3192. Reported: "Understood, and that distinction changes how the
+      documentation should be organized. I’ll establish `spec/` as the
+      implementation-independent behavioral contract, keep `docs/` as the
+      evidence and reverse-engineering record, and make that two-role
+      separation explicit in both the repository README and the contributor
+      instructions."
+
+      Action/result: Created the separate `spec/` mdBook with scope and
+      conformance rules, clarified the clean-room two-role boundary in the
+      repository and evidence-book introductions, and updated project guidance
+      and progress tracking so future findings are promoted into the spec only
+      as portable externally observable behavior.
+
+3193. Reported: "The initial separation is now in place. One more piece is
+      needed to make it durable: the normal compatibility check currently
+      builds only the evidence book, so I’m updating that manifest to build
+      `spec/` as well and adding a test that prevents the specification check
+      from silently disappearing later."
+
+      Action/result: Added `mdbook_spec_build` to the default local
+      compatibility manifest, covered it in the manifest tests, and updated
+      validation documentation to build both books.
+
+3194. Reported: "The existing mdBook version rejects the newer
+      `multilingual` setting in the scaffold. That is a configuration
+      compatibility issue rather than content; I’m removing the unsupported
+      field and rebuilding the specification before I call this done."
+
+      Action/result: Removed the unsupported mdBook setting after the first
+      specification build failed; the full 307-test suite and evidence-book
+      build had already passed.
+
+3195. Reported: "Both books now build cleanly, and the complete default
+      compatibility run passes all 307 tests plus both mdBook builds and the
+      opcode-evidence check. I’m recording that final validation in the
+      evidence trail and doing a last status check; no commit will be made
+      unless you request one."
+
+      Action/result: Recorded the successful `spec/` build and default local
+      compatibility report `local_spec_split_001.json`; `git diff --check`
+      also passed.

@@ -650,12 +650,15 @@ source-mapped well enough to justify a targeted probe.
   - Remaining: continue the GR v3 comparison into loader error paths and
     behavioral fixtures for the static deltas, then repeat the workflow for
     additional local games/interpreter versions.
-- [~] Final human-readable implementation spec
-  - Evidence: mdBook chapters exist and are growing; sound/audio now has a
-    dedicated subsystem chapter that separates normative interpreter behavior
-    from deferred analog synthesis.
-  - Remaining: convert source/evidence notes into polished, subsystem-oriented
-    normative spec text.
+- [~] Final human-readable behavioral specification
+  - Evidence: a separate clean-room mdBook now lives under `spec/`, with an
+    explicit externally observable behavior boundary and conformance model.
+    The existing `docs/` book remains the implementation-detail evidence
+    record. Sound/audio and other subsystem evidence is ready to be distilled
+    without carrying DOS addresses or control flow into the specification.
+  - Remaining: promote well-supported behavior from `docs/` into complete,
+    portable, subsystem-oriented chapters under `spec/src/`. The final spec
+    must stand alone for a separate implementation team.
 
 ## Highest-Value Remaining Work
 
@@ -666,9 +669,9 @@ source-mapped well enough to justify a targeted probe.
 2. Continue source-first renderer work only when disassembly or a valid local
    resource exposes a concrete edge not already modeled. Use QEMU as
    confirmation/regression evidence.
-3. Continue converting dense evidence notes into implementation-ready contracts
-   in the subsystem chapters, especially when a section still reads like a
-   chronological investigation rather than a portable spec.
+3. Continue converting dense evidence notes into portable behavioral contracts
+   under `spec/src/`. Keep disassembly, original addresses, and investigation
+   history in `docs/`; the specification must be usable without them.
 4. Keep expanding `tools/compatibility_suite.py` when a new behavior is promoted
    to reusable evidence. Re-run the smoke or broad QEMU layer whenever the
    manifest changes.

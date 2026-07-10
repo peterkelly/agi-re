@@ -1,0 +1,10 @@
+[book]
+authors = ["AGI clean-room specification project"]
+language = "en"
+src = "src"
+title = "AGI Behavioral Specification"
+
+[build]
+build-dir = "book"
+
+[output.html]

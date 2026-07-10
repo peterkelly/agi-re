@@ -9769,3 +9769,34 @@ Conclusion:
   only reference the clean sound records, so later bad KQ4D sound-section
   triples remain out-of-model planning evidence until source inspection proves a
   valid script path can observe them.
+
+## 2026-07-10: separate clean-room specification book
+
+The project deliverable was clarified as a human-readable specification of
+externally observable AGI behavior, not a replacement engine. The existing
+`docs/` mdBook remains the reverse-engineering evidence record, including
+disassembly and DOS implementation details. A separate `spec/` mdBook now
+serves as the clean-room interface for an independent implementation team.
+
+The specification starts with an explicit behavioral boundary and conformance
+model. It excludes original addresses, registers, instruction sequences,
+overlay organization, memory layout, and inferred source structure unless an
+item itself has an externally observable effect. Evidence must first be
+recorded here, then deliberately restated in `spec/` as a portable behavioral
+contract.
+
+The default compatibility manifest now builds both mdBooks. This keeps the
+evidence record and the clean-room deliverable independently renderable as the
+project evolves.
+
+Initial validation found that the installed mdBook version does not accept the
+newer `book.multilingual` configuration key. The unsupported key was removed;
+it did not affect the specification content or directory structure.
+
+Validation:
+
+- `mdbook build spec` passed.
+- `AGI_GAME_DIR=games/SQ2 python3 -B tools/compatibility_suite.py --report
+  build/compatibility-suite/local_spec_split_001.json` passed all 307 local
+  tests, built both mdBooks, and passed the opcode-evidence freshness check.
+- `git diff --check` passed.

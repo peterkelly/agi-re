@@ -1,7 +1,15 @@
 # AGI Clean-Room Reverse Engineering
 
-This book collects clean-room reverse engineering notes for the Space Quest 2
-AGI interpreter files in this repository.
+This book is the reverse-engineering evidence record. It collects local-file
+observations, disassembly, addresses, commands, hypotheses, corrections, and
+compatibility-test results for the AGI interpreters being examined. Private
+game files are selected locally and are not part of the repository.
+
+This evidence book is not the clean-room deliverable presented to an
+implementation team. The separate `spec/` mdBook contains the portable
+behavioral specification. Facts discovered here are promoted there only after
+they can be expressed as externally observable behavior without relying on
+Sierra's DOS implementation details.
 
 The project rules are:
 
@@ -9,6 +17,8 @@ The project rules are:
 - Do not consult external AGI documentation, source code, or prior AGI-specific
   knowledge.
 - Document each reverse engineering step as evidence for the clean-room process.
+- Keep implementation-independent behavioral requirements in the separate
+  specification rather than treating this evidence book as the final spec.
 
 Current documentation:
 

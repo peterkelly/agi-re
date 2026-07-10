@@ -5,12 +5,19 @@ engineering work.
 
 ## Current Focus
 
+The final deliverable is the separate mdBook under `spec/`: a self-contained
+description of externally observable AGI behavior suitable for an independent
+implementation team. The existing `docs/` book remains the reverse-engineering
+evidence record and may contain original implementation details. New findings
+must continue to be documented in `docs/`, then promoted to `spec/` only as
+portable behavioral contracts.
+
 The logic bytecode catalog is complete for the current SQ2 interpreter: all
 action and condition opcode rows have either QEMU-backed behavior evidence or a
 source-backed explanation where the behavior is outside the current full-EGA
 dynamic target. The main remaining work is no longer "find an opcode"; it is to
-keep converting the accumulated source/QEMU observations into implementation
-contracts, broaden renderer compatibility where valid local data still exposes
+keep converting the accumulated source/QEMU observations into behavioral
+contracts in `spec/`, broaden renderer compatibility where valid local data still exposes
 edge cases, and keep the test harness ready for future interpreter versions.
 
 The current top-level compatibility runner is `tools/compatibility_suite.py`.

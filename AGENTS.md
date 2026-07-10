@@ -33,7 +33,10 @@ or `games/KQ4`.
 
 While others have reverse engineered AGI before and there is plenty of documentation and source code available online, in this project we are explicitly not consulting any existing materials. This is an experiment to explore the reverse engineering capabilities of Codex, and using existing documentation or source code would work against that goal.
 
-The output of this project is a human-readable spec that contains sufficient information to use another AI agent to do a clean-room implementation of AGI.
+The output of this project is a human-readable behavioral specification that
+contains sufficient information for a separate person or AI agent to implement
+a compatible AGI engine from the specification alone. This project does not
+produce that replacement engine.
 
 ## Rules
 
@@ -42,18 +45,37 @@ The output of this project is a human-readable spec that contains sufficient inf
 
 ## Documentation
 
-- Use mdBook for project documentation.
-- The mdBook project lives in `docs/`.
-- Source markdown belongs under `docs/src/`.
+- Use mdBook for both documentation sets.
+- `docs/` is the reverse-engineering evidence book. Its source markdown lives
+  under `docs/src/`. It may contain disassembly, addresses, registers,
+  DOS-specific implementation details, commands, hypotheses, and corrections.
+- `spec/` is the clean-room behavioral specification. Its source markdown
+  lives under `spec/src/`. It must describe externally observable AGI behavior
+  without exposing or requiring Sierra's implementation details.
+- Treat `docs/` as the reverse-engineering team's record and `spec/` as the
+  interface delivered to a separate implementation team. A reader of `spec/`
+  must not need access to `docs/`, the original binaries, or the analysis
+  tools.
+- In `spec/`, describe behavior in terms of portable concepts: input data,
+  game-visible state, state transitions, rendered output, input events, sound
+  events, persistence, timing/order, and version-specific observable variants.
+- Do not put original addresses, registers, instruction sequences, overlay
+  organization, DOS memory layout, or inferred source-code structure in
+  `spec/` unless an item is itself part of the externally observable contract.
+- Keep uncertainty and investigation details in `docs/`. Promote a rule to
+  `spec/` only when the evidence is strong enough to state a behavioral
+  contract; preserve any evidence trail separately in `docs/`.
 - Keep `docs/src/SUMMARY.md` updated when adding, moving, or removing chapters.
-- Build/check the book with `mdbook build docs`.
+- Keep `spec/src/SUMMARY.md` updated when adding, moving, or removing
+  specification chapters.
+- Build/check both books with `mdbook build docs` and `mdbook build spec`.
 - Record reverse-engineering actions, observations, commands, offsets, hypotheses, and corrections in the documentation, especially `docs/src/clean_room_executable_notes.md`.
 - Preserve user-facing progress updates in `docs/src/progress_log.md` with a brief concrete action/result note for each update. If a user asks for historical tracking, update this log before continuing substantial new work.
 - Maintain `PROGRESS.md` as the high-level completion tracker. Update it whenever an opcode changes evidence/status, a subsystem moves forward, or new remaining work is identified. Keep opcode names aligned with `tools/disassemble_logic.py` and `docs/src/logic_opcode_evidence.md`; use it as a dashboard, not as a replacement for detailed evidence notes.
 - Maintain `docs/src/symbolic_labels.md` as the stable cross-version map for interpreter routines, tables, overlay entry points, and globals. Treat addresses as build-specific observations and prefer symbolic labels in prose once a label exists.
 - When assigning or revising a symbolic label, update `docs/src/symbolic_labels.md` with the observed SQ2 address association and record the supporting evidence or uncertainty in the notes.
 - Grow the compatibility test suite alongside the written spec. Prefer deterministic local tests under `tests/` and reusable tools under `tools/`; record what each test proves and what remains provisional in `docs/src/compatibility_testing.md`.
-- Run the local compatibility suite with `python3 -B -m unittest discover -s tests` when changing decoders, renderers, or resource parsers. The higher-level suite manifest/runner is `python3 -B tools/compatibility_suite.py`; it runs local tests, mdBook, and opcode-evidence checks by default, with QEMU smoke/broad sweeps available through explicit flags.
+- Run the local compatibility suite with `python3 -B -m unittest discover -s tests` when changing decoders, renderers, or resource parsers. The higher-level suite manifest/runner is `python3 -B tools/compatibility_suite.py`; it runs local tests, both mdBooks, and opcode-evidence checks by default, with QEMU smoke/broad sweeps available through explicit flags.
 
 ## Clean-room workflow
 
