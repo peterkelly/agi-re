@@ -94,17 +94,51 @@ better understood, or a new remaining-work item is discovered.
     divisors, four-channel tone order, and silence.
   - Remaining: complete the four-channel attenuation-envelope initialization
     and transition contract before claiming full amplitude parity.
-- [~] Logic bytecode operation catalog
+- [x] Logic bytecode operation catalog
   - Current: `spec/src/logic_bytecode.md` specifies logic payload framing,
     message XOR decoding, main-stream control flow, AND/OR/NOT condition
-    grammar, all 19 condition opcodes, and action opcodes `0x00..0x20`.
-  - Remaining: promote action opcodes `0x21..0xaf`, plus the v3 extension rows,
-    with portable names and complete observable side effects.
-- [ ] Picture command decoding and logical rendering
-- [ ] View/cel decoding and drawing
-- [ ] Object state, movement, collision, animation, and update ordering
-- [ ] Text, parser, keyboard, menu, and inventory behavior
-- [ ] Room changes, restart, save/restore, and replay
+    grammar, all 19 condition opcodes, all 176 action opcodes `0x00..0xaf`,
+    and v3 extension slots `0xb0..0xb5`. A structural test checks every accepted
+    profile opcode is represented.
+  - Remaining refinements belong to subsystem chapters, especially configured
+    text-window parameters and the complete save-file contract.
+- [x] Picture command decoding and logical rendering
+  - Current: `spec/src/picture_resources.md` defines the prepare/overlay/show
+    lifecycle, scanner and operand boundaries, both drawing channels, all
+    commands `0xf0..0xfa`, exact line rasterization, fill connectivity,
+    pattern masks and stippling, and linear right-edge writes. A structural
+    test checks every valid command and the terminator are represented.
+- [x] View/cel decoding and drawing
+  - Current: `spec/src/view_resources.md` defines view/loop/cel offsets,
+    row-run decoding, transparent colors, mutable shared-cel mirroring,
+    baseline and edge placement, per-pixel priority scanning, and transient
+    preview strings. A structural test guards the chapter's major contracts.
+- [x] Object state, movement, collision, animation, and update ordering
+  - Current: `spec/src/object_behavior.md` defines lifecycle, priority and
+    horizon, placement search, cycle/cadence ordering, direction-based loop
+    selection, cel cycling, movement clamps and events, exact crossing tests,
+    footprint control classes, rectangle transitions, target motion, draw
+    partitions, and refresh behavior.
+  - Current: exact strict target bands, random direction/countdown reductions,
+    and approach-mode stuck-recovery delay arithmetic are source-backed and
+    covered by deterministic local transition tests using supplied random
+    words.
+- [~] Text, parser, keyboard, menu, and inventory behavior
+  - Current: `spec/src/input_text_and_menus.md` defines dictionary compression,
+    string slots, parser normalization/results/matching, the shared event
+    queue, key mapping and release gates, text geometry and display offset,
+    modal/alternate text state, inventory selection, and menu construction and
+    navigation.
+  - Remaining: resolve configured-window action parameters `0x97`/`0x98` and
+    decide whether exact platform glyph bitmaps belong in any target profile.
+- [~] Room changes, restart, save/restore, and replay
+  - Current: `spec/src/session_and_persistence.md` defines room-switch ordering,
+    entry boundaries, replay pair kinds/packets/checkpoints, selector behavior,
+    save names/signatures, five-block framing and known lengths, the v3 block-3
+    XOR transform, recoverable/fatal failures, restore continuation, restart,
+    and process cleanup.
+  - Remaining: map every byte of all five save blocks to portable state before
+    claiming arbitrary binary save interchange.
 - [ ] Compatibility and version-conformance matrix
 
 ## GR / SQ2 Static Comparison Tracker
@@ -674,8 +708,8 @@ source-mapped well enough to justify a targeted probe.
     path. `build/compatibility-suite/qemu_v3_synthetic_picture_view_001.json`
     confirms generated v3 picture-nibble picture and direct view fixtures by
     comparing blank, picture-only, and picture-plus-view captures. The current
-    full local unit run passed 309 tests after adding the specification
-    structure/boundary checks.
+    full local unit run passed 323 tests after adding the specification
+    structure/boundary checks and deterministic object-motion transitions.
   - Remaining: assemble a final broad suite that can validate a clean-room
     implementation against original-engine outputs; scale timed polling
     carousel sweeps to additional resource batches and future interpreter
@@ -700,20 +734,18 @@ source-mapped well enough to justify a targeted probe.
   - Evidence: a separate clean-room mdBook now lives under `spec/`, with an
     explicit externally observable behavior boundary and conformance model.
     The existing `docs/` book remains the implementation-detail evidence
-    record. The first promotion pass now includes version profiles, resource
-    containers, core runtime state, and sound scheduling/output boundaries.
+    record. Promoted chapters now include version profiles, resource
+    containers, core runtime state, logic bytecode, pictures, views, objects,
+    and sound scheduling/output boundaries.
     Structural tests reject evidence-only terminology in substantive spec
     chapters and verify every summary link.
-  - Remaining: promote the complete logic operation catalog, graphics, views,
-    objects, input/UI, room/persistence, and conformance matrix. The final spec
-    must stand alone for a separate implementation team.
+  - Remaining: promote input/UI, room/persistence, and the conformance matrix.
+    The final spec must stand alone for a separate implementation team.
 
 ## Highest-Value Remaining Work
 
-1. Continue promoting well-supported evidence into `spec/src/`, beginning with
-   the complete logic bytecode grammar and operation catalog, then picture/view
-   rendering and object behavior. Keep every normative chapter independent of
-   disassembly and analysis tooling.
+1. Map the five save-state blocks field by field into portable state, starting
+   with profile 2.936 block 1 and preserving padding/unknown bytes explicitly.
 2. Continue v3 behavioral probes from source-mapped deltas only when the
    portable specification still has an observable ambiguity. Use synthetic v3
    resources when a focused confirmation requires them.

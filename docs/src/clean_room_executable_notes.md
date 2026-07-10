@@ -9848,10 +9848,122 @@ path that returns a zero continuation, such as room switching, propagates an
 abort through `call_logic`. Both the evidence book and specification were
 corrected before the chapter was promoted as validated.
 
+The next action-catalog group promotes opcodes `0x21..0x64` using portable
+object concepts rather than record offsets. It covers object activation and
+position, view/loop/cel selection, priority and update partitions, horizon and
+control gates, collision distance, four animation modes, targeted/approach/
+random movement, rectangle bounds, inventory locations, and sound control.
+
+The final action-catalog group promotes `0x65..0xaf` plus v3 slots
+`0xb0..0xb5`. It preserves two unusual byte-stream effects: `0x95` consumes an
+extra byte when tracing is already active, while runtime `0xaf` consumes no
+operand despite table-driven scanners assigning it length one. The configured
+message parameters used by `0x97`/`0x98` remain explicitly incomplete rather
+than receiving inferred names. A structural test now requires every accepted
+v2 and v3 action opcode to appear in the specification.
+
 Validation:
 
 - `AGI_GAME_DIR=games/SQ2 python3 -B -m unittest discover -s tests` passed
   309 tests.
+- `mdbook build docs` passed.
+- `mdbook build spec` passed.
+- `AGI_GAME_DIR=games/SQ2 python3 -B
+  tools/logic_opcode_evidence.py --check` passed.
+- `git diff --check` passed.
+
+## 2026-07-10: picture-command specification promotion
+
+The picture evidence was restated as a portable full-EGA behavioral contract
+in `spec/src/picture_resources.md`. The chapter separates picture loading,
+prepare-time clearing, overlay decoding, and visible presentation; specifies
+the guarded data-reader versus raw-operand distinction; and covers every
+command from `0xf0` through `0xfa` plus the `0xff` terminator.
+
+Raster semantics are explicit rather than delegated to conventional graphics
+primitives. The specification includes modulo-256 relative endpoints and line
+error accumulators, the visual-first seed-fill connectivity rule, all eight
+pattern row-word families and column masks, the seeded stipple transition, and
+the pattern plotter's linear X-160 write into the next logical row. These are
+all externally distinguishable for valid command streams.
+
+The specification deliberately excludes truncated operands and unsupported
+command-boundary bytes `0xfb..0xfe` as malformed-data behavior. A structural
+test requires all valid picture commands and the terminator to remain present
+in the chapter.
+
+## 2026-07-10: view, object, input, and persistence specification promotion
+
+The next clean-room promotion pass added four portable chapters:
+
+- `spec/src/view_resources.md` for view offsets, row runs, mutable mirrored-cel
+  orientation, baseline placement, transparent pixels, priority scanning, and
+  preview strings;
+- `spec/src/object_behavior.md` for lifecycle, placement, update cadence,
+  direction-based loop selection, cel cycling, movement, crossing collision,
+  footprint-control acceptance, target/approach/random motion, drawing order,
+  and refresh;
+- `spec/src/input_text_and_menus.md` for the dictionary file, string slots,
+  parser normalization/results/matching, event types and mappings, text
+  surfaces, inventory selection, and menu state; and
+- `spec/src/session_and_persistence.md` for room transitions, resource replay,
+  selector behavior, save framing, the v3 block transform, restore/restart,
+  and process termination.
+
+The object pass reopened source ranges before promotion. The disposable SQ2
+image was regenerated with:
+
+```text
+python3 -B tools/decrypt_agi.py --game-dir games/SQ2 \
+  --output build/cleanroom/AGI.decrypted.exe
+```
+
+Focused instruction reads covered the collision helper at image `0x4719`,
+approach helper `0x0b36`, random-motion helper `0x3f5a`, target-motion helper
+`0x1672`, and shared direction classifier `0x16ed`. The collision helper proves
+that horizontal equality counts as overlap and that a vertical collision is
+current-baseline equality or strict saved/current order reversal. The action
+catalog was corrected accordingly: object reset action `0x21` also enables
+update/cycling state and selects the later partition; movement-rectangle
+membership is strict; and actions `0x40`/`0x41` gate the final footprint class
+state rather than latching whether one class appeared anywhere.
+
+The motion helpers prove these portable details:
+
+- target/near classification uses strict bands, so equality with either
+  threshold remains directional;
+- random mode uses random value modulo 9 for direction and repeatedly samples
+  modulo 51 until its countdown is at least 6;
+- approach recovery chooses a nonzero modulo-9 direction, calculates half the
+  center/baseline Manhattan distance plus one, and samples a delay no smaller
+  than the step; and
+- retry-delay subtraction uses byte arithmetic followed by a signed
+  nonnegative branch.
+
+`tools/agi_graphics.py` now contains deterministic source-model helpers for
+those transitions. `tests/test_graphics_rendering.py` supplies random words
+explicitly and checks strict threshold edges, random countdown rejection,
+initial approach sentinel handling, stuck recovery, and retry-delay return to
+direct movement.
+
+The persistence promotion deliberately stops short of claiming arbitrary
+binary save interchange. The 31-byte header, five little-endian
+length-prefixed blocks, known profile lengths, signature checks, replay
+language, control flow, and Gold Rush block-3 XOR key are specified. A complete
+portable mapping for every byte within all five blocks remains the next major
+serialization task.
+
+Focused validation had three harmless false starts caused by stale guessed
+module names: `tests.test_agi_graphics`, `tests.test_logic_opcode_evidence`, and
+`tests.test_agi_input`. The actual modules are
+`tests.test_graphics_rendering`, `tests.test_logic_doc_coverage`, and
+`tests.test_input_model`. Corrected focused runs passed 68, 69, 75, 83, 90,
+and finally 101 tests as the chapters accumulated.
+
+Full validation after the complete promotion pass:
+
+- `AGI_GAME_DIR=games/SQ2 python3 -B -m unittest discover -s tests` passed
+  323 tests.
 - `mdbook build docs` passed.
 - `mdbook build spec` passed.
 - `AGI_GAME_DIR=games/SQ2 python3 -B

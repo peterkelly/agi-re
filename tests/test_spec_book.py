@@ -45,6 +45,85 @@ class SpecBookTests(unittest.TestCase):
                 with self.subTest(chapter=chapter.name, term=term):
                     self.assertNotIn(term, text)
 
+    def test_logic_catalog_mentions_every_profile_opcode(self) -> None:
+        logic = (SPEC_SRC / "logic_bytecode.md").read_text(encoding="ascii")
+        for opcode in range(0xB0):
+            with self.subTest(profile="2.936", opcode=opcode):
+                self.assertIn(f"`0x{opcode:02x}`", logic)
+        for opcode in range(0xB0, 0xB6):
+            with self.subTest(profile="3.002.149", opcode=opcode):
+                self.assertIn(f"`0x{opcode:02x}`", logic)
+
+    def test_picture_catalog_mentions_every_command(self) -> None:
+        picture = (SPEC_SRC / "picture_resources.md").read_text(encoding="ascii")
+        for command in range(0xF0, 0xFB):
+            with self.subTest(command=command):
+                self.assertIn(f"`0x{command:02x}`", picture)
+        self.assertIn("`0xff`", picture)
+
+    def test_view_chapter_covers_structural_and_drawing_contracts(self) -> None:
+        view = (SPEC_SRC / "view_resources.md").read_text(encoding="ascii")
+        required = (
+            "Payload structure",
+            "Row decoding",
+            "Stateful mirroring",
+            "Baseline placement",
+            "Transparency and priority composition",
+            "Embedded display string",
+        )
+        for heading in required:
+            with self.subTest(heading=heading):
+                self.assertIn(f"## {heading}", view)
+
+    def test_object_chapter_covers_update_domains(self) -> None:
+        objects = (SPEC_SRC / "object_behavior.md").read_text(encoding="ascii")
+        required = (
+            "Object lifecycle",
+            "Placement search",
+            "Cycle ordering and cadence",
+            "Cel cycling",
+            "Object-object collision",
+            "Footprint control acceptance",
+            "Target motion",
+            "Drawing order and refresh",
+        )
+        for heading in required:
+            with self.subTest(heading=heading):
+                self.assertIn(f"## {heading}", objects)
+
+    def test_input_chapter_covers_parser_event_and_modal_domains(self) -> None:
+        input_spec = (SPEC_SRC / "input_text_and_menus.md").read_text(encoding="ascii")
+        required = (
+            "Dictionary file",
+            "Parser normalization",
+            "Parsed-word matching",
+            "Event queue",
+            "Raw-key condition",
+            "Text geometry and surfaces",
+            "Inventory selection",
+            "Menu interaction",
+            "Remaining presentation gaps",
+        )
+        for heading in required:
+            with self.subTest(heading=heading):
+                self.assertIn(f"## {heading}", input_spec)
+
+    def test_persistence_chapter_covers_room_replay_and_save_domains(self) -> None:
+        persistence = (SPEC_SRC / "session_and_persistence.md").read_text(encoding="ascii")
+        required = (
+            "Room transition",
+            "Resource replay sequence",
+            "Save selector",
+            "Save-file envelope",
+            "Profile 3.002.149 block transform",
+            "Restore action outcomes",
+            "Restart",
+            "Remaining persistence gap",
+        )
+        for heading in required:
+            with self.subTest(heading=heading):
+                self.assertIn(f"## {heading}", persistence)
+
 
 if __name__ == "__main__":
     unittest.main()

@@ -24634,3 +24634,228 @@ Progress updates and outcomes:
 
       Action/result: Recorded final validation and retained the remaining
       action catalog as the next bounded specification task.
+
+3209. Reported: "I’m taking the next specification milestone end to end:
+      promote the remaining 2.936 action catalog in coherent families,
+      source-check any vague field-based labels before naming their behavior,
+      then add the v3 extension rows and validate the whole book. I’ll keep the
+      evidence and progress logs current as each family lands."
+
+      Action/result: Began a source-first audit of action opcodes
+      `0x21..0xaf`.
+
+3210. Reported: "The remaining actions fall into natural behavioral groups
+      rather than one flat machine-code table: object/view selection, animation
+      and movement, inventory, text/input, save/restart, diagnostics, menus,
+      and replay control. I’m using those domains as the spec organization so
+      an implementer can understand state transitions without learning the
+      original field offsets."
+
+      Action/result: Organized the remaining catalog around portable subsystem
+      behavior.
+
+3211. Reported: "The object half is now semantically mapped: view/loop/cel
+      selection, priority and update partitions, horizon/control/collision
+      gates, four frame-cycling modes, three autonomous motion modes, rectangle
+      boundaries, and inventory locations. I’m promoting those names and
+      behaviors now, then I’ll do the UI/system half with the same source-first
+      audit."
+
+      Action/result: Promoted action opcodes `0x21..0x64` into the behavioral
+      specification.
+
+3212. Reported: "The UI/system half has two compatibility traps worth
+      preserving explicitly: action `0x95` can consume an extra byte when
+      tracing is already active, while runtime action `0xaf` consumes no
+      operand despite its scanner metadata. I’m keeping those observable stream
+      effects in the spec and treating unresolved configured-window parameter
+      meanings as a named gap instead of inventing semantics."
+
+      Action/result: Promoted actions `0x65..0xaf`, added v3 extension actions,
+      and added a test requiring every accepted profile opcode to appear.
+
+3213. Reported: "All accepted action bytes now have portable catalog entries,
+      and the completeness test makes that mechanically visible. I’m doing a
+      consistency pass next: operand counts against the dispatch tables,
+      clean-room terminology checks, and spot checks of the unusual
+      runtime-length cases before moving on to graphics."
+
+      Action/result: The focused specification tests, mdBook build,
+      opcode-evidence check, and whitespace check passed; the action catalog
+      remained internally consistent.
+
+3214. Reported: "The opcode catalog is complete enough to shift the center of
+      gravity to graphics. I’m first checking the pending edits and the exact
+      picture raster rules, then I’ll promote the picture format into the
+      clean-room spec with completeness checks and keep moving into view/cel
+      behavior if validation stays green."
+
+      Action/result: Began the picture-command specification pass from the
+      already accumulated source and behavioral evidence.
+
+3215. Reported: "The picture path is unusually mature: all commands have
+      source-backed semantics, scanner edge cases are pinned, and the
+      rasterizer has exact byte-width arithmetic rather than a vague 'draw a
+      line' description. I’m turning that into a portable contract now,
+      including the pattern masks and the linear right-edge write behavior
+      that a conforming implementation would otherwise be very likely to
+      miss."
+
+      Action/result: Extracted the exact eight pattern-mask families and
+      organized the normative picture contract around lifecycle, command
+      scanning, rasterization, fill, and patterned plotting.
+
+3216. Reported: "The picture chapter is now in the clean-room book, with every
+      accepted command represented and the malformed-stream boundary stated
+      explicitly. I’m validating it against the existing renderer tests now;
+      after that I’ll use the same promotion pattern for view resources, where
+      mirroring and clipped run decoding are the next places an independent
+      implementation could silently diverge."
+
+      Action/result: Corrected a stale focused-test module name and passed 68
+      specification and graphics-rendering tests.
+
+3217. Reported: "The focused picture checks pass: 68 specification and
+      graphics tests. One attempted test name was stale (`test_agi_graphics`);
+      I corrected it to the repository’s actual `test_graphics_rendering`
+      module and am recording that false start rather than erasing it. The view
+      contract is next, including shared-cel mirroring state, transparent runs,
+      baseline placement, and the priority scan below low-control pixels."
+
+      Action/result: Began the view/cel specification promotion from the
+      accumulated payload and drawing evidence.
+
+3218. Reported: "I’ve finished the source-to-behavior mapping for views. The
+      important distinction is that mirroring is stateful at the cel level:
+      the control byte records the loop orientation currently represented by a
+      possibly shared cel, so selecting another loop can reverse the stored run
+      stream and update that orientation. I’m specifying that transition, not
+      merely saying 'flip the image,' because aliases and repeated loop changes
+      can expose the difference."
+
+      Action/result: Added the normative view payload, run decoding, mutable
+      mirroring, placement, priority-composition, and preview contract.
+
+3219. Reported: "The view chapter passes 69 focused checks. Its portable
+      contract now covers the entire path from payload offsets through mutable
+      mirroring and per-pixel priority acceptance. I’m moving into object
+      behavior next, splitting it into lifecycle/update ordering, animation,
+      movement modes, bounds/collision/control acceptance, and placement so the
+      spec describes observable state transitions without inheriting the
+      original record layout."
+
+      Action/result: Began the object-behavior promotion pass.
+
+3220. Reported: "The object evidence is broad, but one collision sentence is
+      still too abstract for a normative spec: 'baseline equality/crossing'
+      does not tell an implementer which inequalities fire. I’m reopening that
+      helper’s local instruction stream before writing the chapter, and I’m
+      also correcting the rectangle wording so the strict inside/outside test
+      is not mislabeled as inclusive."
+
+      Action/result: Regenerated the disposable decrypted executable and read
+      the collision helper directly.
+
+3221. Reported: "The direct source check resolved the collision rule
+      precisely: touching horizontal extents count as overlap, and baselines
+      collide when currently equal or when their strict relative order
+      reverses between saved and current positions. It also exposed three
+      catalog summaries that were too loose: object initialization enables
+      update/cycling state, rectangle membership is strict, and the two control
+      options are final-scan gates rather than simple one-class blockers. I’m
+      correcting those while writing the object chapter."
+
+      Action/result: Added the object chapter, corrected the action summaries,
+      and passed 75 focused checks after correcting another stale test name.
+
+3222. Reported: "The object chapter now passes 75 focused checks, and the
+      catalog corrections are consistent with the evidence checks. I’ve left
+      the subsystem honestly partial at one narrow point: exact random-motion
+      timing and approach-mode recovery. Since that is now the highest-value
+      remaining item, I’m staying source-first and isolating those two helper
+      ranges for a direct instruction-level pass rather than papering over them
+      with observed end positions."
+
+      Action/result: Isolated and decoded the approach, random-motion, and
+      shared target-direction helper ranges.
+
+3223. Reported: "The isolated helpers close the remaining gap cleanly.
+      Nearness uses strict bands (`-threshold < delta < threshold`), so equality
+      at the threshold still requests movement; random mode chooses direction
+      modulo 9 and a retry countdown modulo 51 until it is at least 6; approach
+      recovery uses half the center/baseline Manhattan distance plus one and
+      samples a delay no smaller than the step. I’m encoding those transitions
+      and adding deterministic model tests around the random source
+      abstraction."
+
+      Action/result: Added deterministic target/random/approach transition
+      helpers and tests, promoted the exact rules, and marked object behavior
+      complete for the current profiles.
+
+3224. Reported: "The motion gap is closed: 83 focused checks now pass,
+      including strict target bands, random countdown rejection, and approach
+      recovery transitions. The object subsystem can move to complete for the
+      current profiles. I’m continuing into input and parsing now, starting
+      from the resource and state model rather than the UI probes, because word
+      normalization and event consumption determine what scripts can observe
+      before any text is drawn."
+
+      Action/result: Began parser, event, text, inventory, and menu promotion.
+
+3225. Reported: "The input subsystem separates into four clean contracts:
+      dictionary parsing, event normalization, text-surface state, and modal
+      list interaction. I’m promoting those as one chapter but keeping font
+      glyph shapes and the two still-unresolved configured-window parameters
+      explicitly outside the completed claim; parser and event semantics can
+      be normative without pretending the remaining presentation details are
+      solved."
+
+      Action/result: Added the input/text/menu/inventory specification chapter
+      and structural coverage checks.
+
+3226. Reported: "The parser/input/menu chapter passes 90 focused checks. I hit
+      and corrected one more stale module name (`test_agi_input` versus
+      `test_input_model`), which will go into the historical log. I’m
+      continuing into session state now: room transitions first, then restart,
+      the save envelope, restore ordering, and resource-event replay, with
+      v2/v3 differences kept explicit instead of blended."
+
+      Action/result: Began the room/replay/persistence promotion pass.
+
+3227. Reported: "The session model has a useful portable core even before
+      every save byte is semantically named: room-switch abort/re-entry, the
+      replay-pair language, selector control flow, five-block framing, failure
+      behavior, and the v3 transform are all externally testable. I’m writing
+      those now, while labeling the still-opaque portions of serialized state
+      as the remaining blocker for binary save-file conformance."
+
+      Action/result: Added the room/replay/persistence chapter and passed 101
+      focused specification, save, input, graphics, and logic-document tests.
+
+3228. Reported: "The persistence chapter passes 101 focused checks. It now
+      gives an implementation team the room/replay state machine and all
+      currently known save framing, while drawing a hard line around the
+      unmapped bytes inside the five state blocks. Before attempting that much
+      larger serialization map, I’m consolidating the evidence trail, updating
+      the handoff/dashboard, and running the complete project validation so
+      this long pass ends at a trustworthy checkpoint rather than a pile of
+      individually green fragments."
+
+      Action/result: Updated the handoff and prepared the full validation run.
+
+3229. Reported: "The full suite is running now across the whole repository,
+      not just the new chapters. After it finishes I’ll build both mdBooks, run
+      the opcode-evidence freshness check, and inspect the complete diff for
+      clean-room boundary leaks and accidental generated-file changes."
+
+      Action/result: The full local suite passed all 323 tests.
+
+3230. Reported: "Everything is green so far: 323 tests passed, both books
+      build, and opcode evidence is current. I’m on the final audit now,
+      checking whitespace, the substantive-spec terminology guard’s coverage,
+      newly generated artifacts, and the exact diff footprint; then I’ll update
+      the validation record and leave the next serialization task clearly
+      bounded."
+
+      Action/result: Both mdBooks, opcode evidence, and whitespace validation
+      passed; the only unrelated untracked file remained `run.sh`.

@@ -45,7 +45,13 @@ transform. The exact save envelope and transform bytes will be specified in the
 persistence chapter before save-file conformance is claimed for this profile.
 
 Input-width actions `0xa3` and `0xa4` have no effect in this profile. Normal
-EGA text input remains available without those width-control branches.
+EGA text input remains available without those width-control branches. Action
+`0xa9` still restores active saved-window state but has no input-width override
+to clear.
+
+For automatic direction-based loop selection, exactly-four-loop views retain
+the 2.936 four-or-more-loop behavior. Views with more than four loops apply
+that selection table only while `f20` is set.
 
 ## Other observed versions
 

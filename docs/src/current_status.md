@@ -12,13 +12,12 @@ evidence record and may contain original implementation details. New findings
 must continue to be documented in `docs/`, then promoted to `spec/` only as
 portable behavioral contracts.
 
-The logic bytecode catalog is complete for the current SQ2 interpreter: all
-action and condition opcode rows have either QEMU-backed behavior evidence or a
-source-backed explanation where the behavior is outside the current full-EGA
-dynamic target. The main remaining work is no longer "find an opcode"; it is to
-keep converting the accumulated source/QEMU observations into behavioral
-contracts in `spec/`, broaden renderer compatibility where valid local data still exposes
-edge cases, and keep the test harness ready for future interpreter versions.
+The logic bytecode catalog is complete for the current SQ2 interpreter. The
+standalone specification now also covers picture commands, view/cel decoding,
+object behavior, parser/input/menu/inventory behavior, and the room/replay/save
+state machine. The highest-value remaining specification work is the
+field-by-field portable mapping of all five save blocks, followed by the
+version-conformance matrix and the remaining text/sound presentation gaps.
 
 The current top-level compatibility runner is `tools/compatibility_suite.py`.
 The latest smoke report is
@@ -137,6 +136,15 @@ clearing.
 - `spec/src/resource_containers.md`: normative v2/v3 container and expansion
   contract.
 - `spec/src/runtime_state.md`: normative portable state and cycle model.
+- `spec/src/logic_bytecode.md`: complete normative condition/action catalog.
+- `spec/src/picture_resources.md`: picture commands and exact raster rules.
+- `spec/src/view_resources.md`: view/cel format, mirroring, and composition.
+- `spec/src/object_behavior.md`: lifecycle, animation, movement, collision,
+  control acceptance, and draw ordering.
+- `spec/src/input_text_and_menus.md`: parser, events, text state, inventory,
+  and menus.
+- `spec/src/session_and_persistence.md`: room transitions, resource replay,
+  save framing, restore, and restart.
 - `spec/src/sound.md`: normative sound payload, scheduling, and output boundary.
 - `docs/src/logic_bytecode.md`: main opcode and interpreter bytecode reference.
 - `docs/src/logic_opcode_evidence.md`: generated opcode evidence matrix with
@@ -164,19 +172,20 @@ clearing.
 
 ## Immediate Next Work
 
-1. Continue promoting well-supported evidence into the standalone `spec/`
-   book, beginning with the complete logic bytecode grammar and operation
-   catalog.
-2. Keep source-first renderer work going only when disassembly reveals a
+1. Map profile 2.936 save block 1 into portable fields, preserving padding and
+   unresolved bytes explicitly, then continue through blocks 2 through 5.
+2. Build the version-conformance matrix after the save mapping has stable
+   subsystem names.
+3. Keep source-first renderer work going only when disassembly reveals a
    concrete valid-stream edge. Use QEMU as confirmation or regression coverage,
    not as the primary discovery method.
-3. Keep `tools/compatibility_suite.py` current as new local/QEMU evidence is
+4. Keep `tools/compatibility_suite.py` current as new local/QEMU evidence is
    promoted. Re-run `--include-qemu-smoke` or `--include-qemu-broad` when the
    manifest changes.
-4. Continue assigning symbolic labels for helpers, globals, dispatch tables, and
+5. Continue assigning symbolic labels for helpers, globals, dispatch tables, and
    overlay entries so later interpreter versions can be compared by role rather
    than by absolute address.
-5. Apply the cross-version workflow to the additional local interpreter/game
+6. Apply the cross-version workflow to the additional local interpreter/game
    inputs when a selected version can add or refine an observable spec variant.
 
 ## Deferred Or Conditional Work

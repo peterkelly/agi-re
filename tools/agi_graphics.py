@@ -235,6 +235,107 @@ def control_acceptance_scan(
     return ControlAcceptance(accepted, flag0, flag3)
 
 
+def target_axis_relation(delta: int, band: int) -> int:
+    """Classify a signed target delta using the observed strict band."""
+    if delta <= -band:
+        return 0
+    if delta >= band:
+        return 2
+    return 1
+
+
+def target_direction(
+    current_x: int,
+    current_y: int,
+    target_x: int,
+    target_y: int,
+    band: int,
+) -> int:
+    x_relation = target_axis_relation(target_x - current_x, band)
+    y_relation = target_axis_relation(target_y - current_y, band)
+    return (
+        (8, 1, 2),
+        (7, 0, 3),
+        (6, 5, 4),
+    )[y_relation][x_relation]
+
+
+def random_motion_update(
+    direction: int,
+    countdown: int,
+    stationary: bool,
+    random_words: Iterable[int],
+) -> tuple[int, int]:
+    """Apply one pre-logic random-motion update with supplied random words."""
+    old_countdown = countdown & 0xFF
+    countdown = (old_countdown - 1) & 0xFF
+    if old_countdown != 0 and not stationary:
+        return direction & 0xFF, countdown
+
+    values = iter(random_words)
+    direction = next(values) % 9
+    while True:
+        countdown = next(values) % 51
+        if countdown >= 6:
+            return direction, countdown
+
+
+def _signed_byte_subtraction_is_nonnegative(left: int, right: int) -> tuple[int, bool]:
+    left &= 0xFF
+    right &= 0xFF
+    result = (left - right) & 0xFF
+    overflow = bool((left ^ right) & (left ^ result) & 0x80)
+    sign = bool(result & 0x80)
+    return result, sign == overflow
+
+
+def approach_motion_update(
+    current_center_x: int,
+    current_y: int,
+    target_center_x: int,
+    target_y: int,
+    threshold: int,
+    step: int,
+    direction: int,
+    retry_delay: int,
+    stationary: bool,
+    random_words: Iterable[int] = (),
+) -> tuple[int, int, bool]:
+    """Apply one pre-logic approach-mode direction/retry update."""
+    direct = target_direction(
+        current_center_x,
+        current_y,
+        target_center_x,
+        target_y,
+        threshold,
+    )
+    if direct == 0:
+        return 0, retry_delay & 0xFF, True
+    if (retry_delay & 0xFF) == 0xFF:
+        return direct, 0, False
+
+    if stationary:
+        values = iter(random_words)
+        random_direction = 0
+        while random_direction == 0:
+            random_direction = next(values) % 9
+        distance = (
+            abs(current_y - target_y)
+            + abs(current_center_x - target_center_x)
+        ) // 2 + 1
+        if distance <= step:
+            return random_direction, step & 0xFF, False
+        while True:
+            delay = next(values) % distance
+            if delay >= step:
+                return random_direction, delay & 0xFF, False
+
+    if retry_delay:
+        delay, nonnegative = _signed_byte_subtraction_is_nonnegative(retry_delay, step)
+        return direction & 0xFF, delay if nonnegative else 0, False
+    return direct, 0, False
+
+
 def resource_payload(dir_name: str, resource_no: int) -> bytes:
     entries = read_dir_entries(SQ2 / dir_name)
     entry = entries[resource_no]

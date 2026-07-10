@@ -23,6 +23,7 @@ from agi_graphics import (  # noqa: E402
     RenderedFrame,
     WIDTH,
     control_acceptance_scan,
+    approach_motion_update,
     dirty_rect_union,
     draw_frame_on_buffer,
     iter_view_frames,
@@ -38,6 +39,9 @@ from agi_graphics import (  # noqa: E402
     render_picture,
     render_view_frame,
     search_object_placement,
+    random_motion_update,
+    target_axis_relation,
+    target_direction,
 )
 from disassemble_logic import SQ2, read_dir_entries, read_volume_payload  # noqa: E402
 from ppm_tools import non_background_bbox, read_ppm, unique_colors  # noqa: E402
@@ -61,6 +65,63 @@ def changed_control_pixels(rendered) -> set[tuple[int, int]]:
         for idx, cell in enumerate(rendered.cells)
         if (cell & 0xF0) != (DEFAULT_CELL & 0xF0)
     }
+
+
+class ObjectMotionModelTests(unittest.TestCase):
+    def test_target_axis_relation_uses_strict_band(self) -> None:
+        self.assertEqual(target_axis_relation(-5, 5), 0)
+        self.assertEqual(target_axis_relation(-4, 5), 1)
+        self.assertEqual(target_axis_relation(4, 5), 1)
+        self.assertEqual(target_axis_relation(5, 5), 2)
+
+    def test_target_direction_uses_nine_cell_grid(self) -> None:
+        self.assertEqual(target_direction(20, 20, 30, 10, 5), 2)
+        self.assertEqual(target_direction(20, 20, 22, 18, 5), 0)
+        self.assertEqual(target_direction(20, 20, 10, 30, 5), 6)
+
+    def test_random_motion_decrements_without_reselection(self) -> None:
+        self.assertEqual(random_motion_update(3, 10, False, ()), (3, 9))
+
+    def test_random_motion_rejects_short_countdowns(self) -> None:
+        self.assertEqual(random_motion_update(3, 0, False, (20, 1, 57)), (2, 6))
+
+    def test_approach_initial_sentinel_uses_direct_direction(self) -> None:
+        self.assertEqual(
+            approach_motion_update(0, 0, 100, 0, 10, 5, 0, 0xFF, False),
+            (3, 0, False),
+        )
+
+    def test_approach_exact_threshold_is_not_complete(self) -> None:
+        self.assertEqual(
+            approach_motion_update(0, 0, 35, 0, 35, 5, 0, 0, False),
+            (3, 0, False),
+        )
+        self.assertEqual(
+            approach_motion_update(0, 0, 30, 0, 35, 5, 0, 0, False),
+            (0, 0, True),
+        )
+
+    def test_approach_stationary_recovery_samples_nonzero_direction_and_delay(self) -> None:
+        self.assertEqual(
+            approach_motion_update(
+                0, 0, 100, 0, 10, 5, 3, 0, True, (9, 7, 3, 55, 60)
+            ),
+            (7, 9, False),
+        )
+
+    def test_approach_retry_delay_counts_down_before_direct_mode_resumes(self) -> None:
+        self.assertEqual(
+            approach_motion_update(0, 0, 100, 0, 10, 5, 7, 9, False),
+            (7, 4, False),
+        )
+        self.assertEqual(
+            approach_motion_update(0, 0, 100, 0, 10, 5, 7, 4, False),
+            (7, 0, False),
+        )
+        self.assertEqual(
+            approach_motion_update(0, 0, 100, 0, 10, 5, 7, 0, False),
+            (3, 0, False),
+        )
 
 
 class PictureRenderingTests(unittest.TestCase):
