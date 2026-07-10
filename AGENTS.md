@@ -156,6 +156,15 @@ qemu-system-i386 -m 16 -boot c \
   It fills 48 dummy key-map slots, maps `x` in final GR slot 48, compares the
   keyed capture with a direct picture draw, and confirms the no-key control
   remains blank.
+- Run the current Gold Rush v3 signed save/restore round-trip probe with
+  `python3 -B tools/gr_v3_behavior_probe.py --probe signed-restore-roundtrip --game-dir games/GR --fixture-root build/gr-v3-behavior/signed-restore-suite-fixtures --dos-prefix GRT --run-qemu --output build/gr-v3-behavior/signed_restore_roundtrip_suite.json --snapshot-raw build/gr-v3-behavior/snapshot/signed_restore_roundtrip_suite.raw --snapshot-qcow build/gr-v3-behavior/snapshot/signed_restore_roundtrip_suite.qcow2 --post-run-raw build/gr-v3-behavior/snapshot/signed_restore_roundtrip_suite_after.raw --save-output build/gr-v3-behavior/GRSG_restore_suite.1 --boot-wait 5 --draw-wait 8 --path-prompt-wait 2 --slot-wait 1 --description-wait 1 --confirmation-wait 1 --key-delay 0.08`.
+  It uses the original GR interpreter to write `GRSG.1`, restores that save in
+  a second generated fixture, and compares the restored capture with direct
+  saved/unrestored controls.
+- Run the current Gold Rush v3 restart prompt-marker probe with
+  `python3 -B tools/gr_v3_behavior_probe.py --probe restart-prompt-marker --game-dir games/GR --fixture-root build/gr-v3-behavior/restart-prompt-suite-fixtures --dos-prefix GRP --run-qemu --output build/gr-v3-behavior/restart_prompt_marker_suite.json --snapshot-raw build/gr-v3-behavior/snapshot/restart_prompt_marker_suite.raw --snapshot-qcow build/gr-v3-behavior/snapshot/restart_prompt_marker_suite.qcow2 --boot-wait 5 --draw-wait 8`.
+  It compares hidden/visible prompt-marker controls with Escape-canceled
+  restart cases and confirms the canceled branch's redraw condition.
 - Compare original-engine picture captures with the local renderer using `python3 -B tools/compare_picture_capture.py N capture.ppm`.
 - Generate synthetic picture fuzz corpora with `python3 -B tools/picture_fuzz.py generate --count 1024 --seed 4097 --output build/picture-fuzz/corpus --clean`.
 - Run one synthetic picture fuzz case through the original engine with `python3 -B tools/picture_fuzz.py run-qemu CASE_ID --dos-dir DOSNAME --boot-wait 5 --draw-wait 8`.

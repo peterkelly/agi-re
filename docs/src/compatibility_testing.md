@@ -74,11 +74,19 @@ carousel matched all 8 cases and the view/object carousel matched all 19 cases.
 
 The v3 manifest layer is separate because it depends on the private local
 `games/GR` input. It currently includes separate blank-prefix and signed GR
-save-XOR extraction probes. The first named suite run for the blank-prefix
-case passed in `build/compatibility-suite/qemu_v3_save_001.json`; the signed
-direct report `build/gr-v3-behavior/save_xor_extract_signed_qemu_001.json`
-and suite report `build/compatibility-suite/qemu_v3_signed_save_001.json`
-confirm the `GRSG.1` path.
+save-XOR extraction probes, a signed restore round-trip probe, and a restart
+prompt-marker cancel probe. The first named suite run for the blank-prefix case
+passed in
+`build/compatibility-suite/qemu_v3_save_001.json`; the signed direct report
+`build/gr-v3-behavior/save_xor_extract_signed_qemu_001.json` and suite report
+`build/compatibility-suite/qemu_v3_signed_save_001.json` confirm the `GRSG.1`
+save path. The restore suite report
+`build/compatibility-suite/qemu_v3_signed_restore_001.json` confirms that the
+same generated `GRSG.1` restores state by matching a restored capture to a
+direct saved-state control and differing from an unrestored control. The
+restart suite report `build/compatibility-suite/qemu_v3_restart_prompt_001.json`
+confirms that the canceled restart path redraws the prompt marker only when it
+was visible on entry.
 
 Generate current sample render outputs:
 
@@ -967,7 +975,11 @@ fixture to use encrypted logic-message text for `0x8f("GR")`, writes
 `tests/test_restart_model.py` covers the source-backed Gold Rush / AGI v3
 restart prompt-marker redraw branch. The tested truth table is: accepted
 restart redraws the marker, canceled restart redraws only when the marker was
-visible before entry.
+visible before entry. QEMU report
+`build/gr-v3-behavior/restart_prompt_marker_qemu_001.json` validates the
+canceled branch in the original GR interpreter: hidden cancel matches a hidden
+control with 0 prompt-row foreground pixels, while visible cancel matches a
+visible control with 8 prompt-row foreground pixels.
 
 Run a dynamic original-engine save-write probe:
 

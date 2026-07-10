@@ -374,7 +374,13 @@ validate this for both blank-prefix and signed saves:
 `0x8f("GR")`, writes `GRSG.1`, and confirms that the first saved-state block
 starts with `GR\0`. Both saves have block lengths `1028`, `989`, `1811`,
 `100`, and `12`, and both third blocks change and round-trip under
-`gr_v3_object_inventory_save_xor()`.
+`gr_v3_object_inventory_save_xor()`. The signed restore probe in
+`build/gr-v3-behavior/signed_restore_roundtrip_suite.json` uses a generated
+`GRSG.1` from the original engine, restores it in a second fixture, and matches
+the restored capture to a direct saved-state control while differing from an
+unrestored control. Source inspection shows GR action `0x7e` reads the same
+five length-prefixed blocks as SQ2, then applies the same 59-byte XOR helper
+over `[0x07d6]..[0x07d6]+[0x07da]` after the third block has been loaded.
 
 Restart, save/restore, and termination lifecycle:
 
@@ -394,6 +400,10 @@ It records `data.input.prompt_marker_visible_state` before erasing the marker;
 after confirmation it redraws the marker when restart was accepted or, for a
 canceled restart, only when the marker had been visible before entry. The local
 truth-table helper `gr_v3_restart_redraws_prompt_marker()` models this branch.
+QEMU report `build/gr-v3-behavior/restart_prompt_marker_qemu_001.json`
+confirms the canceled branch by comparing hidden and visible prompt-marker
+controls: hidden cancel left 0 prompt-row foreground pixels, while visible
+cancel restored the 8-pixel prompt glyph.
 
 Picture decoder lifecycle:
 

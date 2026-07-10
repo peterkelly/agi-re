@@ -45,6 +45,30 @@ GR_SAVE_SIGNATURE_MESSAGE = "GR"
 GR_SAVE_STEM = "SG"
 GR_SAVE_DESCRIPTION = "codex gr probe"
 GR_SAVE_SLOT = 1
+GR_RESTORE_TEST_PICTURE = 1
+GR_RESTORE_TEST_VIEW = 0
+GR_RESTORE_TEST_GROUP = 0
+GR_RESTORE_TEST_FRAME = 0
+GR_RESTORE_SAVED_X = 50
+GR_RESTORE_UNRESTORED_X = 90
+GR_RESTORE_BASELINE_Y = 80
+GR_RESTORE_PRIORITY = 15
+GR_RESTORE_CONTROL = 15
+GR_RESTORE_MARKER_FLAG = 0xC6
+GR_RESTORE_VIEW_VAR = 0xE0
+GR_RESTORE_GROUP_VAR = 0xE1
+GR_RESTORE_FRAME_VAR = 0xE2
+GR_RESTORE_X_VAR = 0xE3
+GR_RESTORE_Y_VAR = 0xE4
+GR_RESTORE_PRIORITY_VAR = 0xE5
+GR_RESTORE_CONTROL_VAR = 0xE6
+GR_RESTART_TEST_PICTURE = 1
+GR_RESTART_PROMPT_MESSAGE = "?"
+GR_RESTART_PROMPT_ROW = 5
+GR_RESTART_PROMPT_LEFT = 0
+GR_RESTART_PROMPT_RIGHT = 39
+GR_RESTART_PROMPT_TOP = GR_RESTART_PROMPT_ROW * 8
+GR_RESTART_PROMPT_BOTTOM = GR_RESTART_PROMPT_TOP + 7
 GR_ACTION_51_MODE_STORE_OFFSET = 0x707F
 GR_ACTION_51_MODE_STORE_CONTEXT_OFFSET = GR_ACTION_51_MODE_STORE_OFFSET - 3
 GR_ACTION_51_MODE_STORE_CONTEXT = b"\xc6\x45\x22\x03"
@@ -73,10 +97,28 @@ class ProbeCase:
     post_launch_wait: float = 0.0
     post_launch_key_delay: float = 0.03
     post_launch_after_text_wait: float = 0.0
+    post_launch_key_names: list[str] | None = None
 
 
 def sha256_hex(data: bytes) -> str:
     return hashlib.sha256(data).hexdigest()
+
+
+def suffixed_path(path: Path, suffix: str) -> Path:
+    return path.with_name(f"{path.stem}_{suffix}{path.suffix}")
+
+
+def byte_action(opcode: int, *operands: int) -> bytes:
+    values = [opcode, *operands]
+    if any(not 0 <= value <= 0xFF for value in values):
+        raise ValueError("logic action bytes must fit in one byte")
+    return bytes(values)
+
+
+def flag_set_condition(flag_no: int) -> bytes:
+    if not 0 <= flag_no <= 0xFF:
+        raise ValueError("flag number must fit in one byte")
+    return bytes([0x07, flag_no])
 
 
 def switch_room_payload(room_no: int, guard_var: int = 0xFA) -> bytes:
@@ -179,6 +221,140 @@ def gr_save_extract_payload(
     code = load_show_picture_actions(picture_no) + verify + bytes([0x7D]) + self_loop()
     messages = [signature_message] if verify_signature else None
     return logic_resource(code, messages=messages)
+
+
+def gr_restore_validation_var_setup(
+    marker_x: int,
+    *,
+    view_no: int = GR_RESTORE_TEST_VIEW,
+    group_no: int = GR_RESTORE_TEST_GROUP,
+    frame_no: int = GR_RESTORE_TEST_FRAME,
+    baseline_y: int = GR_RESTORE_BASELINE_Y,
+    priority: int = GR_RESTORE_PRIORITY,
+    control: int = GR_RESTORE_CONTROL,
+) -> bytes:
+    return (
+        byte_action(0x03, GR_RESTORE_VIEW_VAR, view_no)
+        + byte_action(0x03, GR_RESTORE_GROUP_VAR, group_no)
+        + byte_action(0x03, GR_RESTORE_FRAME_VAR, frame_no)
+        + byte_action(0x03, GR_RESTORE_X_VAR, marker_x)
+        + byte_action(0x03, GR_RESTORE_Y_VAR, baseline_y)
+        + byte_action(0x03, GR_RESTORE_PRIORITY_VAR, priority)
+        + byte_action(0x03, GR_RESTORE_CONTROL_VAR, control)
+    )
+
+
+def gr_restore_validation_draw_from_vars() -> bytes:
+    return byte_action(
+        0x7B,
+        GR_RESTORE_VIEW_VAR,
+        GR_RESTORE_GROUP_VAR,
+        GR_RESTORE_FRAME_VAR,
+        GR_RESTORE_X_VAR,
+        GR_RESTORE_Y_VAR,
+        GR_RESTORE_PRIORITY_VAR,
+        GR_RESTORE_CONTROL_VAR,
+    )
+
+
+def gr_signed_restore_success_branch(
+    *,
+    picture_no: int = GR_RESTORE_TEST_PICTURE,
+    view_no: int = GR_RESTORE_TEST_VIEW,
+) -> bytes:
+    from qemu_fixture import load_show_picture_actions, self_loop
+
+    return (
+        load_show_picture_actions(picture_no)
+        + byte_action(0x1E, view_no)
+        + gr_restore_validation_draw_from_vars()
+        + self_loop()
+    )
+
+
+def gr_signed_restore_save_payload(
+    *,
+    picture_no: int = GR_RESTORE_TEST_PICTURE,
+    view_no: int = GR_RESTORE_TEST_VIEW,
+    signature_message: str = GR_SAVE_SIGNATURE_MESSAGE,
+) -> bytes:
+    from qemu_fixture import load_show_picture_actions, logic_resource, self_loop, set_flag_action
+
+    code = (
+        load_show_picture_actions(picture_no)
+        + byte_action(0x1E, view_no)
+        + byte_action(0x8F, 0x01)
+        + set_flag_action(GR_RESTORE_MARKER_FLAG)
+        + gr_restore_validation_var_setup(GR_RESTORE_SAVED_X, view_no=view_no)
+        + byte_action(0x7D)
+        + byte_action(0x1A)
+        + gr_restore_validation_draw_from_vars()
+        + self_loop()
+    )
+    return logic_resource(code, messages=[signature_message])
+
+
+def gr_signed_restore_restore_payload(
+    *,
+    picture_no: int = GR_RESTORE_TEST_PICTURE,
+    view_no: int = GR_RESTORE_TEST_VIEW,
+    signature_message: str = GR_SAVE_SIGNATURE_MESSAGE,
+) -> bytes:
+    from qemu_fixture import if_then, load_show_picture_actions, logic_resource, self_loop
+
+    code = (
+        if_then(
+            flag_set_condition(GR_RESTORE_MARKER_FLAG),
+            gr_signed_restore_success_branch(picture_no=picture_no, view_no=view_no),
+        )
+        + load_show_picture_actions(picture_no)
+        + byte_action(0x1E, view_no)
+        + byte_action(0x8F, 0x01)
+        + gr_restore_validation_var_setup(GR_RESTORE_UNRESTORED_X, view_no=view_no)
+        + byte_action(0x7E)
+        + byte_action(0x1A)
+        + gr_restore_validation_draw_from_vars()
+        + self_loop()
+    )
+    return logic_resource(code, messages=[signature_message])
+
+
+def gr_signed_restore_direct_payload(
+    *,
+    marker_x: int,
+    picture_no: int = GR_RESTORE_TEST_PICTURE,
+    view_no: int = GR_RESTORE_TEST_VIEW,
+) -> bytes:
+    from qemu_fixture import load_show_picture_actions, logic_resource, self_loop
+
+    code = (
+        load_show_picture_actions(picture_no)
+        + byte_action(0x1E, view_no)
+        + gr_restore_validation_var_setup(marker_x, view_no=view_no)
+        + gr_restore_validation_draw_from_vars()
+        + self_loop()
+    )
+    return logic_resource(code)
+
+
+def gr_restart_prompt_marker_payload(
+    *,
+    marker_visible_before_restart: bool,
+    include_restart: bool,
+    picture_no: int = GR_RESTART_TEST_PICTURE,
+    prompt_message: str = GR_RESTART_PROMPT_MESSAGE,
+) -> bytes:
+    from qemu_fixture import load_show_picture_actions, logic_resource, self_loop
+
+    code = (
+        load_show_picture_actions(picture_no)
+        + byte_action(0x6C, 0x01)
+        + byte_action(0x6F, 0x00, GR_RESTART_PROMPT_ROW, 0x16)
+        + byte_action(0x78 if marker_visible_before_restart else 0x77)
+    )
+    if include_restart:
+        code += byte_action(0x80)
+    return logic_resource(code + self_loop(), messages=[prompt_message])
 
 
 def frame_selection_gate_payload(
@@ -462,6 +638,124 @@ def build_gr_save_extract_fixture(
     return ProbeCase(label, fixture, f"{dos_prefix}0", fixture / "qemu_capture.ppm")
 
 
+def build_gr_signed_restore_save_fixture(
+    game_dir: Path,
+    fixture_root: Path,
+    *,
+    picture_no: int = GR_RESTORE_TEST_PICTURE,
+    dos_prefix: str = "GRSR",
+) -> ProbeCase:
+    from qemu_fixture import build_v3_logic_fixture
+
+    fixture = fixture_root / "signed_restore_save"
+    build_v3_logic_fixture(
+        gr_signed_restore_save_payload(picture_no=picture_no),
+        fixture,
+        game_dir=game_dir,
+        logic_no=0,
+    )
+    remove_existing_gr_save_files(fixture, save_stem=f"{GR_SAVE_SIGNATURE_MESSAGE}{GR_SAVE_STEM}")
+    return ProbeCase("signed_restore_save", fixture, f"{dos_prefix}0", fixture / "qemu_capture.ppm")
+
+
+def build_gr_signed_restore_fixture(
+    game_dir: Path,
+    fixture_root: Path,
+    save_input: Path,
+    *,
+    picture_no: int = GR_RESTORE_TEST_PICTURE,
+    dos_prefix: str = "GRSR",
+    slot: int = GR_SAVE_SLOT,
+) -> ProbeCase:
+    from qemu_fixture import build_v3_logic_fixture
+
+    fixture = fixture_root / "signed_restore_from_save"
+    build_v3_logic_fixture(
+        gr_signed_restore_restore_payload(picture_no=picture_no),
+        fixture,
+        game_dir=game_dir,
+        logic_no=0,
+    )
+    save_stem = f"{GR_SAVE_SIGNATURE_MESSAGE}{GR_SAVE_STEM}"
+    remove_existing_gr_save_files(fixture, save_stem=save_stem)
+    (fixture / f"{save_stem}.{slot}").write_bytes(save_input.read_bytes())
+    return ProbeCase("signed_restore_from_save", fixture, f"{dos_prefix}1", fixture / "qemu_capture.ppm")
+
+
+def build_gr_signed_restore_comparison_fixtures(
+    game_dir: Path,
+    fixture_root: Path,
+    *,
+    picture_no: int = GR_RESTORE_TEST_PICTURE,
+    dos_prefix: str = "GRSR",
+) -> list[ProbeCase]:
+    from qemu_fixture import build_v3_logic_fixture
+
+    direct_fixture = fixture_root / "signed_restore_expected_direct"
+    build_v3_logic_fixture(
+        gr_signed_restore_direct_payload(marker_x=GR_RESTORE_SAVED_X, picture_no=picture_no),
+        direct_fixture,
+        game_dir=game_dir,
+        logic_no=0,
+    )
+
+    unrestored_fixture = fixture_root / "signed_restore_unrestored_control"
+    build_v3_logic_fixture(
+        gr_signed_restore_direct_payload(marker_x=GR_RESTORE_UNRESTORED_X, picture_no=picture_no),
+        unrestored_fixture,
+        game_dir=game_dir,
+        logic_no=0,
+    )
+
+    return [
+        ProbeCase("signed_restore_expected_direct", direct_fixture, f"{dos_prefix}2", direct_fixture / "qemu_capture.ppm"),
+        ProbeCase("signed_restore_unrestored_control", unrestored_fixture, f"{dos_prefix}3", unrestored_fixture / "qemu_capture.ppm"),
+    ]
+
+
+def build_gr_restart_prompt_marker_fixtures(
+    game_dir: Path,
+    fixture_root: Path,
+    *,
+    picture_no: int = GR_RESTART_TEST_PICTURE,
+    dos_prefix: str = "GRP",
+) -> list[ProbeCase]:
+    from qemu_fixture import build_v3_logic_fixture
+
+    fixture_root.mkdir(parents=True, exist_ok=True)
+    specs = [
+        ("restart_hidden_control", False, False, None),
+        ("restart_visible_control", True, False, None),
+        ("restart_cancel_hidden", False, True, ["esc"]),
+        ("restart_cancel_visible", True, True, ["esc"]),
+    ]
+    cases: list[ProbeCase] = []
+    for index, (label, marker_visible, include_restart, key_names) in enumerate(specs):
+        fixture = fixture_root / label
+        build_v3_logic_fixture(
+            gr_restart_prompt_marker_payload(
+                marker_visible_before_restart=marker_visible,
+                include_restart=include_restart,
+                picture_no=picture_no,
+            ),
+            fixture,
+            game_dir=game_dir,
+            logic_no=0,
+        )
+        cases.append(
+            ProbeCase(
+                label,
+                fixture,
+                f"{dos_prefix}{index}",
+                fixture / "qemu_capture.ppm",
+                post_launch_wait=1.0 if key_names else 0.0,
+                post_launch_key_delay=0.12,
+                post_launch_key_names=key_names,
+            )
+        )
+    return cases
+
+
 def build_room_remap_fixtures(
     game_dir: Path,
     fixture_root: Path,
@@ -568,11 +862,80 @@ def run_qemu_cases(
             post_launch_wait=case.post_launch_wait,
             post_launch_key_delay=case.post_launch_key_delay,
             post_launch_after_text_wait=case.post_launch_after_text_wait,
+            post_launch_key_names=case.post_launch_key_names,
         )
         for case in cases
     ]
     build_snapshot_boot_disk(qemu_cases, snapshot_raw, snapshot_qcow)
     run_snapshot_qemu_cases(snapshot_qcow, qemu_cases, boot_wait, draw_wait)
+
+
+def prompt_marker_foreground_count(capture: Path) -> int:
+    from compare_picture_capture import downsample_qemu_picture_nibbles
+    from ppm_tools import read_ppm
+
+    nibbles = downsample_qemu_picture_nibbles(read_ppm(capture))
+    count = 0
+    for y in range(GR_RESTART_PROMPT_TOP, GR_RESTART_PROMPT_BOTTOM + 1):
+        row = y * 0xA0
+        for x in range(GR_RESTART_PROMPT_LEFT, GR_RESTART_PROMPT_RIGHT + 1):
+            if nibbles[row + x] != 0:
+                count += 1
+    return count
+
+
+def run_gr_restart_prompt_marker_qemu(
+    cases: list[ProbeCase],
+    *,
+    snapshot_raw: Path,
+    snapshot_qcow: Path,
+    boot_wait: float,
+    draw_wait: float,
+) -> dict:
+    run_qemu_cases(
+        cases,
+        snapshot_raw=snapshot_raw,
+        snapshot_qcow=snapshot_qcow,
+        boot_wait=boot_wait,
+        draw_wait=draw_wait,
+    )
+    captures = {case.label: case.capture.read_bytes() for case in cases}
+    foreground_counts = {
+        case.label: prompt_marker_foreground_count(case.capture)
+        for case in cases
+    }
+    capture_matches = {
+        "hidden_cancel_matches_hidden_control": captures["restart_cancel_hidden"] == captures["restart_hidden_control"],
+        "visible_cancel_matches_visible_control": captures["restart_cancel_visible"] == captures["restart_visible_control"],
+        "visible_control_differs_hidden_control": captures["restart_visible_control"] != captures["restart_hidden_control"],
+        "visible_cancel_differs_hidden_cancel": captures["restart_cancel_visible"] != captures["restart_cancel_hidden"],
+    }
+    checks = {
+        "visible_control_has_prompt_pixels": (
+            foreground_counts["restart_visible_control"] > foreground_counts["restart_hidden_control"]
+        ),
+        "hidden_cancel_matches_hidden_control_count": (
+            foreground_counts["restart_cancel_hidden"] == foreground_counts["restart_hidden_control"]
+        ),
+        "visible_cancel_matches_visible_control_count": (
+            foreground_counts["restart_cancel_visible"] == foreground_counts["restart_visible_control"]
+        ),
+        "visible_cancel_has_prompt_pixels": (
+            foreground_counts["restart_cancel_visible"] > foreground_counts["restart_cancel_hidden"]
+        ),
+    }
+    return {
+        "passed": all(checks.values()),
+        "checks": checks,
+        "capture_matches": capture_matches,
+        "prompt_foreground_counts": foreground_counts,
+        "capture_sha256": {
+            label: sha256_hex(data)
+            for label, data in captures.items()
+        },
+        "snapshot_raw": str(snapshot_raw),
+        "snapshot_qcow": str(snapshot_qcow),
+    }
 
 
 def run_gr_save_extract_qemu(
@@ -655,6 +1018,141 @@ def run_gr_save_extract_qemu(
     }
 
 
+def run_gr_signed_restore_qemu(
+    *,
+    game_dir: Path,
+    fixture_root: Path,
+    picture_no: int,
+    dos_prefix: str,
+    snapshot_raw: Path,
+    snapshot_qcow: Path,
+    post_run_raw: Path,
+    save_output: Path,
+    boot_wait: float,
+    draw_wait: float,
+    path_prompt_wait: float,
+    path_keys: str,
+    slot_wait: float,
+    slot_keys: str,
+    description_wait: float,
+    description: str,
+    confirmation_wait: float,
+    confirmation_keys: str,
+    key_delay: float,
+    slot: int,
+) -> dict:
+    from qemu_snapshot import SnapshotFixtureCase, build_snapshot_boot_disk
+    from save_roundtrip_probe import run_restore_qemu_case
+
+    save_stem = f"{GR_SAVE_SIGNATURE_MESSAGE}{GR_SAVE_STEM}"
+    save_case = build_gr_signed_restore_save_fixture(
+        game_dir,
+        fixture_root,
+        picture_no=picture_no,
+        dos_prefix=dos_prefix,
+    )
+    save_result = run_gr_save_extract_qemu(
+        save_case,
+        snapshot_raw=snapshot_raw,
+        snapshot_qcow=snapshot_qcow,
+        post_run_raw=post_run_raw,
+        save_output=save_output,
+        boot_wait=boot_wait,
+        draw_wait=draw_wait,
+        path_prompt_wait=path_prompt_wait,
+        path_keys=path_keys,
+        slot_wait=slot_wait,
+        slot_keys=slot_keys,
+        description_wait=description_wait,
+        description=description,
+        confirmation_wait=confirmation_wait,
+        confirmation_keys=confirmation_keys,
+        key_delay=key_delay,
+        save_stem=save_stem,
+        slot=slot,
+        expected_signature_prefix=GR_SAVE_SIGNATURE_MESSAGE,
+    )
+
+    restore_case = build_gr_signed_restore_fixture(
+        game_dir,
+        fixture_root,
+        Path(save_result["save_file"]),
+        picture_no=picture_no,
+        dos_prefix=dos_prefix,
+        slot=slot,
+    )
+    comparison_cases = build_gr_signed_restore_comparison_fixtures(
+        game_dir,
+        fixture_root,
+        picture_no=picture_no,
+        dos_prefix=dos_prefix,
+    )
+
+    comparison_snapshot_raw = suffixed_path(snapshot_raw, "comparison")
+    comparison_snapshot_qcow = suffixed_path(snapshot_qcow, "comparison")
+    run_qemu_cases(
+        comparison_cases,
+        snapshot_raw=comparison_snapshot_raw,
+        snapshot_qcow=comparison_snapshot_qcow,
+        boot_wait=boot_wait,
+        draw_wait=draw_wait,
+    )
+
+    restore_snapshot_raw = suffixed_path(snapshot_raw, "restore")
+    restore_snapshot_qcow = suffixed_path(snapshot_qcow, "restore")
+    qemu_case = SnapshotFixtureCase(restore_case.dos_dir, restore_case.fixture, restore_case.capture)
+    build_snapshot_boot_disk([qemu_case], restore_snapshot_raw, restore_snapshot_qcow)
+    run_restore_qemu_case(
+        restore_snapshot_qcow,
+        restore_case.dos_dir,
+        restore_case.capture,
+        boot_wait,
+        path_prompt_wait,
+        path_keys,
+        slot_wait,
+        slot_keys,
+        confirmation_wait,
+        confirmation_keys,
+        key_delay,
+        draw_wait,
+    )
+
+    direct_capture = comparison_cases[0].capture.read_bytes()
+    unrestored_capture = comparison_cases[1].capture.read_bytes()
+    restored_capture = restore_case.capture.read_bytes()
+    comparisons = {
+        "restored_matches_expected_direct": restored_capture == direct_capture,
+        "restored_differs_unrestored_control": restored_capture != unrestored_capture,
+        "expected_direct_differs_unrestored_control": direct_capture != unrestored_capture,
+    }
+    checks = {
+        "save_generation_passed": bool(save_result["passed"]),
+        **comparisons,
+    }
+    return {
+        "passed": all(checks.values()),
+        "checks": checks,
+        "comparisons": comparisons,
+        "save_generation": save_result,
+        "cases": [
+            probe_case_report(save_case),
+            probe_case_report(restore_case),
+            *(probe_case_report(case) for case in comparison_cases),
+        ],
+        "capture_sha256": {
+            restore_case.label: sha256_hex(restored_capture),
+            comparison_cases[0].label: sha256_hex(direct_capture),
+            comparison_cases[1].label: sha256_hex(unrestored_capture),
+        },
+        "snapshot_raw": str(snapshot_raw),
+        "snapshot_qcow": str(snapshot_qcow),
+        "comparison_snapshot_raw": str(comparison_snapshot_raw),
+        "comparison_snapshot_qcow": str(comparison_snapshot_qcow),
+        "restore_snapshot_raw": str(restore_snapshot_raw),
+        "restore_snapshot_qcow": str(restore_snapshot_qcow),
+    }
+
+
 def write_report(path: Path, payload: dict) -> None:
     path.parent.mkdir(parents=True, exist_ok=True)
     path.write_text(json.dumps(payload, indent=2, sort_keys=True) + "\n")
@@ -677,6 +1175,7 @@ def probe_case_report(case: ProbeCase) -> dict:
         "dos_dir": case.dos_dir,
         "capture": str(case.capture),
         "post_launch_keys": case.post_launch_keys,
+        "post_launch_key_names": case.post_launch_key_names,
     }
 
 
@@ -691,6 +1190,8 @@ def main() -> int:
             "motion-mode-4",
             "frame-selection-gate",
             "save-xor-extract",
+            "signed-restore-roundtrip",
+            "restart-prompt-marker",
         ),
         default="room-remap",
     )
@@ -719,6 +1220,103 @@ def main() -> int:
     parser.add_argument("--boot-wait", type=float, default=5.0)
     parser.add_argument("--draw-wait", type=float, default=8.0)
     args = parser.parse_args()
+
+    if args.probe == "restart-prompt-marker":
+        picture_no = args.picture if args.picture is not None else GR_RESTART_TEST_PICTURE
+        cases = build_gr_restart_prompt_marker_fixtures(
+            args.game_dir,
+            args.fixture_root,
+            picture_no=picture_no,
+            dos_prefix=args.dos_prefix,
+        )
+        result: dict = {
+            "probe": "gr_v3_restart_prompt_marker_cancel_redraw",
+            "game_dir": str(args.game_dir),
+            "picture": picture_no,
+            "prompt_message": GR_RESTART_PROMPT_MESSAGE,
+            "prompt_rect": {
+                "left": GR_RESTART_PROMPT_LEFT,
+                "top": GR_RESTART_PROMPT_TOP,
+                "right": GR_RESTART_PROMPT_RIGHT,
+                "bottom": GR_RESTART_PROMPT_BOTTOM,
+            },
+            "cases": [probe_case_report(case) for case in cases],
+            "qemu": {"ran": False},
+        }
+        if args.run_qemu:
+            result["qemu"] = {
+                "ran": True,
+                **run_gr_restart_prompt_marker_qemu(
+                    cases,
+                    snapshot_raw=args.snapshot_raw,
+                    snapshot_qcow=args.snapshot_qcow,
+                    boot_wait=args.boot_wait,
+                    draw_wait=args.draw_wait,
+                ),
+            }
+        write_report(args.output, result)
+        print(args.output)
+        if args.run_qemu and not result["qemu"]["passed"]:
+            return 1
+        return 0
+
+    if args.probe == "signed-restore-roundtrip":
+        picture_no = args.picture if args.picture is not None else GR_RESTORE_TEST_PICTURE
+        save_stem = f"{GR_SAVE_SIGNATURE_MESSAGE}{GR_SAVE_STEM}"
+        save_output = args.save_output
+        if save_output is None:
+            save_output = Path(f"build/gr-v3-behavior/{save_stem}_restore.{args.slot}")
+        save_case = build_gr_signed_restore_save_fixture(
+            args.game_dir,
+            args.fixture_root,
+            picture_no=picture_no,
+            dos_prefix=args.dos_prefix,
+        )
+        result: dict = {
+            "probe": "gr_v3_signed_restore_roundtrip",
+            "game_dir": str(args.game_dir),
+            "picture": picture_no,
+            "view": GR_RESTORE_TEST_VIEW,
+            "signature_prefix": GR_SAVE_SIGNATURE_MESSAGE,
+            "save_stem": save_stem,
+            "slot": args.slot,
+            "saved_marker_x": GR_RESTORE_SAVED_X,
+            "unrestored_marker_x": GR_RESTORE_UNRESTORED_X,
+            "cases": [probe_case_report(save_case)],
+            "qemu": {"ran": False},
+        }
+        if args.run_qemu:
+            result["qemu"] = {
+                "ran": True,
+                **run_gr_signed_restore_qemu(
+                    game_dir=args.game_dir,
+                    fixture_root=args.fixture_root,
+                    picture_no=picture_no,
+                    dos_prefix=args.dos_prefix,
+                    snapshot_raw=args.snapshot_raw,
+                    snapshot_qcow=args.snapshot_qcow,
+                    post_run_raw=args.post_run_raw,
+                    save_output=save_output,
+                    boot_wait=args.boot_wait,
+                    draw_wait=args.draw_wait,
+                    path_prompt_wait=args.path_prompt_wait,
+                    path_keys=args.path_keys,
+                    slot_wait=args.slot_wait,
+                    slot_keys=args.slot_keys,
+                    description_wait=args.description_wait,
+                    description=args.description,
+                    confirmation_wait=args.confirmation_wait,
+                    confirmation_keys=args.confirmation_keys,
+                    key_delay=args.key_delay,
+                    slot=args.slot,
+                ),
+            }
+            result["cases"] = result["qemu"]["cases"]
+        write_report(args.output, result)
+        print(args.output)
+        if args.run_qemu and not result["qemu"]["passed"]:
+            return 1
+        return 0
 
     if args.probe == "save-xor-extract":
         picture_no = args.picture if args.picture is not None else GR_SAVE_TEST_PICTURE

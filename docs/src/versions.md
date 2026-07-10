@@ -79,7 +79,7 @@ Source-backed shared action deltas, relative to SQ2 / AGI 2.936:
 | --- | --- | --- |
 | Input line and prompts | `0x6f`, `0x73`, `0x76`, `0x77`, `0x78`, `0x89`, `0x8a`, `0xa3`, `0xa4`, `0xa9` | GR keeps the normal EGA-style input-line model but removes SQ2's display-mode-2/input-width branches. It computes the display offset as `arg0 << 3`, always uses the normal prompt/editor path for string and number prompts, maps the SQ2 input-width set/clear actions to no-op, and closes active text-window state without clearing a width flag. |
 | Key and menu events | `0x79`, `0xad`, `0xb1`, `0xb5` | GR expands the script key-map table from `0x27` to `0x31` four-byte slots. A QEMU fixture validates slot 48 by filling 48 dummy slots, mapping typed `x` in the final slot, and comparing against a direct nonblank picture draw; the no-key control remains blank. GR also replaces SQ2's incrementing key-release byte `[0x1530]` with set/clear byte `[0x0405]`, and adds menu interaction gate word `[0x0403]`. |
-| Room and state actions | `0x12`, `0x7c`, `0x7d`, `0x80`, `0x84` | GR remaps immediate room targets `0x7e..0x80` to `0x49` before the ordinary room-switch helper; the decoded local GR scripts do contain those operands. The carried-item selector sets temporary word `[0x0dc1]` while handling a flag-13 input path and clears it on return. Save wraps the object/inventory chunk in an XOR pass before and after writing the save envelope; the observed transform uses a 59-byte sequence from image `0x072c`, modeled by `gr_v3_object_inventory_save_xor()` and QEMU-validated against blank-prefix `SG.1` and signed `GRSG.1` saves with block lengths `1028`, `989`, `1811`, `100`, and `12`. Restart records prompt-marker visibility before confirmation; accepted restart redraws the marker, and canceled restart redraws only if it had been visible. Action `0x84` preserves object 0 motion mode `4` instead of always clearing byte `+0x22`. |
+| Room and state actions | `0x12`, `0x7c`, `0x7d`, `0x7e`, `0x80`, `0x84` | GR remaps immediate room targets `0x7e..0x80` to `0x49` before the ordinary room-switch helper; the decoded local GR scripts do contain those operands. The carried-item selector sets temporary word `[0x0dc1]` while handling a flag-13 input path and clears it on return. Save wraps the object/inventory chunk in an XOR pass before and after writing the save envelope; restore applies the same 59-byte XOR transform after reading that block. The observed transform comes from image `0x072c`, is modeled by `gr_v3_object_inventory_save_xor()`, and is QEMU-validated against blank-prefix `SG.1`, signed `GRSG.1`, and a signed restore round trip with block lengths `1028`, `989`, `1811`, `100`, and `12`. Restart records prompt-marker visibility before confirmation; accepted restart redraws the marker, and canceled restart redraws only if it had been visible. The canceled branch is QEMU-validated by hidden/visible prompt-row captures. Action `0x84` preserves object 0 motion mode `4` instead of always clearing byte `+0x22`. |
 | Object animation and motion | frame timer, motion dispatch | GR uses the four-plus direction table immediately for exactly-four-loop views, but gates views with more than four loops on flag `0x14`. QEMU `frame_selection_gate_qemu_001` validates exact-four view 177 selecting group 1 regardless of flag `0x14`, and more-than-four view 39 selecting group 1 only when flag `0x14` is set. GR also dispatches motion mode `4` to the same target-direction helper used by mode `3`; that branch is instrumented-QEMU-validated by patching only the copied GR action-`0x51` mode seed from `3` to `4`, while ordinary bytecode still has no observed direct setter for mode `4`. |
 
 The first dynamic v3 behavior probe is `tools/gr_v3_behavior_probe.py`. The
@@ -114,6 +114,22 @@ executes `verify_game_signature("GR")`, and validates that the original
 interpreter writes `GRSG.1`. The first saved-state block begins with bytes
 `47 52 00`, and the same five block lengths and third-block XOR hashes match
 the blank-prefix run.
+
+The signed restore run
+`build/gr-v3-behavior/signed_restore_roundtrip_suite.json` uses the original
+GR interpreter to generate `GRSG.1`, then restores it in a second generated
+fixture. The restored capture matches a direct saved-state control and differs
+from an unrestored control, confirming that GR action `0x7e` decodes the
+object/inventory block and resumes through restored state for valid signed
+saves.
+
+The restart prompt-marker run
+`build/gr-v3-behavior/restart_prompt_marker_suite.json` builds hidden and
+visible prompt-marker controls plus matching Escape-cancel restart cases. The
+hidden cancel capture matches the hidden control with 0 prompt-row foreground
+pixels; the visible cancel capture matches the visible control with 8
+foreground pixels. This validates the source-mapped canceled branch of GR
+action `0x80` without relying on whole-screen text semantics.
 
 The GR condition dispatcher compares predicate bytes with `0x26`, matching the
 loose bound shape also seen in SQ2, but only the first 19 entries

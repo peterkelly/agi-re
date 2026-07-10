@@ -41,12 +41,12 @@ better understood, or a new remaining-work item is discovered.
   remapping immediate room targets `0x7e..0x80` to `0x49`, the expanded key-map
   slot count, the GR frame-selection gate, blank-prefix and signature-prefixed
   GR save extractions whose third block round-trips through the observed v3 XOR
-  transform, and the
-  motion-mode `4` dispatcher branch. The motion-mode probe is explicitly
-  instrumented: it patches a copied
-  GR interpreter under `build/` so action `0x51` seeds mode `4` instead of mode
-  `3`, then compares the resulting capture with the unmodified mode-3 capture
-  and a stationary control.
+  transform, a signature-prefixed GR restore round trip that returns through
+  restored script state, the restart-cancel prompt-marker redraw branch, and
+  the motion-mode `4` dispatcher branch. The motion-mode probe is explicitly
+  instrumented: it patches a copied GR interpreter under `build/` so action
+  `0x51` seeds mode `4` instead of mode `3`, then compares the resulting
+  capture with the unmodified mode-3 capture and a stationary control.
 - Generated original-engine fixture builders now treat `games/` as immutable:
   they copy the selected game input to a generated destination, make copied
   files writable, and reject fixture destinations under `games/`. The v2
@@ -120,20 +120,23 @@ observable behavior/QEMU confirmation is intentionally deferred.
       `1811`, `100`, and `12`, and proves the third block changes and
       round-trips under the modeled XOR transform. A corrected signed probe
       uses encrypted logic message text for `0x8f("GR")`, writes `GRSG.1`,
-      and confirms the first save-state block begins with `GR\0`. GR restart records
-      prompt-marker visibility before confirmation; accepted restart redraws
-      the marker, and canceled restart redraws only if the marker had been
-      visible. This branch is now modeled by a local truth-table helper/test.
-      GR `0x84` preserves object 0 motion mode byte `+0x22` when it is already
-      `4`. An
-      instrumented QEMU probe now confirms that when action `0x51` seeds mode
-      `4`, the GR dispatcher reaches the same visible target as unmodified
-      mode `3`, while a stationary control remains different.
-  - Remaining: add a GR restore probe for a signature-prefixed save only if
-    future source work needs restore-side v3 evidence; add a GR restart QEMU
-    probe only if the source-backed prompt-marker truth table needs observable
-    confirmation, and add raw key-release/menu-gate behavior probes only if
-    source-backed gate descriptions need observable confirmation.
+      and confirms the first save-state block begins with `GR\0`. A signed
+      restore probe now generates `GRSG.1` through the original engine, restores
+      it in a second fixture, and matches the restored capture to a direct
+      saved-state control while differing from the unrestored control. GR
+      restart records prompt-marker visibility before confirmation; accepted
+      restart redraws the marker, and canceled restart redraws only if the
+      marker had been visible. This branch is now modeled by a local
+      truth-table helper/test and QEMU-validated for the canceled branch:
+      hidden cancel matches a hidden control with 0 prompt-row foreground
+      pixels, while visible cancel matches a visible control with 8 prompt-row
+      foreground pixels. GR `0x84` preserves object 0 motion mode byte `+0x22`
+      when it is already `4`. An instrumented QEMU probe now confirms that
+      when action `0x51` seeds mode `4`, the GR dispatcher reaches the same
+      visible target as unmodified mode `3`, while a stationary control remains
+      different.
+  - Remaining: add raw key-release/menu-gate behavior probes only if source-backed gate
+    descriptions need observable confirmation.
 - [~] Logic condition opcode comparison
   - Current: table-level parser contracts match for shared condition opcodes
     `0x00..0x12`, and normalized handler-entry snippets have no differences.
@@ -161,9 +164,8 @@ observable behavior/QEMU confirmation is intentionally deferred.
     mode `3`. The mode-4 dispatch path is now instrumented-QEMU-validated with
     a copied interpreter patch that changes only the action-`0x51` setup byte
     from mode `3` to mode `4`.
-  - Remaining: optional GR signed-restore, restart, key-release, and menu
-    observable probes only if source-backed descriptions need additional
-    confirmation.
+  - Remaining: optional raw key-release and menu-gate observable probes only if
+    source-backed descriptions need additional confirmation.
 - [~] View runtime/resource comparison
   - Current: v3 container decoding can read GR view resources locally. Static
     comparison shows the view cache/load path, object-view binding, group table
@@ -582,11 +584,17 @@ observable behavior/QEMU confirmation is intentionally deferred.
     the generated copy writable;
     `AGI_GAME_DIR=games/SQ2 python3 -B -m unittest discover -s tests`
     passed 251 tests after this fix. The v3 layer now includes separate
-    blank-prefix and signed GR save-XOR extraction commands; the signed direct
-    report `build/gr-v3-behavior/save_xor_extract_signed_qemu_001.json` and
-    suite report `build/compatibility-suite/qemu_v3_signed_save_001.json`
-    confirm `GRSG.1` and first-block prefix `47 52 00`. The current full local
-    unit run passed 276 tests.
+    blank-prefix and signed GR save-XOR extraction commands, a signed GR
+    restore round-trip command, and a GR restart prompt-marker cancel command;
+    the signed direct report
+    `build/gr-v3-behavior/save_xor_extract_signed_qemu_001.json` and suite
+    report `build/compatibility-suite/qemu_v3_signed_save_001.json` confirm
+    `GRSG.1` and first-block prefix `47 52 00`, while
+    `build/compatibility-suite/qemu_v3_signed_restore_001.json` confirms that
+    the generated `GRSG.1` restores state and returns through restored script
+    execution. `build/compatibility-suite/qemu_v3_restart_prompt_001.json`
+    confirms the restart-cancel prompt-marker branch. The current full local
+    unit run passed 282 tests.
   - Remaining: assemble a final broad suite that can validate a clean-room
     implementation against original-engine outputs; scale timed polling
     carousel sweeps to additional resource batches and future interpreter
@@ -614,8 +622,7 @@ observable behavior/QEMU confirmation is intentionally deferred.
 
 1. Continue v3 behavioral probes from the source-mapped GR/SQ2 deltas only when
    source-backed descriptions still need observable confirmation: possible
-   targets are signature-prefixed GR restore behavior, GR restart prompt-marker
-   redraw, raw key-release/menu-gate behavior, or generated v3 picture/view
+   targets are raw key-release/menu-gate behavior, or generated v3 picture/view
    fixture packing if a future probe needs synthetic resources rather than
    original local game resources.
 2. Continue source-first renderer work only when disassembly or a valid local

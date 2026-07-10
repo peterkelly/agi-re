@@ -17,6 +17,13 @@ from gr_v3_behavior_probe import (  # noqa: E402
     GR_ACTION_51_MODE_STORE_CONTEXT_OFFSET,
     GR_ACTION_51_MODE_STORE_OFFSET,
     GR_KEY_MAP_SLOT_COUNT,
+    GR_RESTORE_MARKER_FLAG,
+    GR_RESTORE_SAVED_X,
+    GR_RESTORE_UNRESTORED_X,
+    GR_RESTORE_X_VAR,
+    GR_RESTART_PROMPT_MESSAGE,
+    GR_RESTART_PROMPT_ROW,
+    GR_RESTART_TEST_PICTURE,
     GR_SAVE_SIGNATURE_MESSAGE,
     GR_SAVE_TEST_PICTURE,
     FRAME_GATE_EXACT4_VIEW,
@@ -36,10 +43,18 @@ from gr_v3_behavior_probe import (  # noqa: E402
     ROOM_REMAP_DESTINATION,
     build_frame_selection_gate_fixtures,
     build_gr_save_extract_fixture,
+    build_gr_signed_restore_comparison_fixtures,
+    build_gr_signed_restore_fixture,
+    build_gr_signed_restore_save_fixture,
+    build_gr_restart_prompt_marker_fixtures,
     build_key_map_capacity_fixtures,
     build_motion_mode_4_fixtures,
     frame_selection_control_payload,
     frame_selection_gate_payload,
+    gr_signed_restore_direct_payload,
+    gr_signed_restore_restore_payload,
+    gr_signed_restore_save_payload,
+    gr_restart_prompt_marker_payload,
     gr_save_extract_payload,
     build_room_remap_fixtures,
     key_map_capacity_payload,
@@ -338,6 +353,135 @@ class GoldRushV3BehaviorProbeTests(unittest.TestCase):
             self.assertEqual(
                 read_volume_record(case.fixture, "logic", 0).payload,
                 gr_save_extract_payload(picture_no=GR_SAVE_TEST_PICTURE, verify_signature=True),
+            )
+
+    def test_gr_signed_restore_save_payload_sets_marker_state_before_save(self) -> None:
+        payload = gr_signed_restore_save_payload()
+        code_len = payload[0] | (payload[1] << 8)
+        code = payload[2 : 2 + code_len]
+        message_data = payload[2 + code_len :]
+        text_start = 1 + 4
+
+        self.assertIn(bytes([0x8F, 0x01]), code)
+        self.assertIn(bytes([0x0C, GR_RESTORE_MARKER_FLAG]), code)
+        self.assertIn(bytes([0x03, GR_RESTORE_X_VAR, GR_RESTORE_SAVED_X]), code)
+        self.assertIn(bytes([0x7D]), code)
+        self.assertNotIn(GR_SAVE_SIGNATURE_MESSAGE.encode("ascii") + b"\x00", message_data)
+        self.assertEqual(
+            xor_message_text(message_data[text_start:]),
+            GR_SAVE_SIGNATURE_MESSAGE.encode("ascii") + b"\x00",
+        )
+
+    def test_gr_signed_restore_restore_payload_branches_on_restored_flag(self) -> None:
+        payload = gr_signed_restore_restore_payload()
+        code_len = payload[0] | (payload[1] << 8)
+        code = payload[2 : 2 + code_len]
+        message_data = payload[2 + code_len :]
+
+        self.assertTrue(code.startswith(bytes([0xFF, 0x07, GR_RESTORE_MARKER_FLAG, 0xFF])))
+        self.assertIn(bytes([0x8F, 0x01]), code)
+        self.assertIn(bytes([0x03, GR_RESTORE_X_VAR, GR_RESTORE_UNRESTORED_X]), code)
+        self.assertIn(bytes([0x7E]), code)
+        self.assertNotIn(GR_SAVE_SIGNATURE_MESSAGE.encode("ascii") + b"\x00", message_data)
+
+    def test_gr_signed_restore_fixtures_patch_logic_and_copy_save(self) -> None:
+        with tempfile.TemporaryDirectory() as temp_dir:
+            root = Path(temp_dir)
+            source = make_v3_source_game(root)
+            save_input = root / "GRSG.1"
+            save_input.write_bytes(b"synthetic save bytes")
+
+            save_case = build_gr_signed_restore_save_fixture(source, root / "fixtures")
+            restore_case = build_gr_signed_restore_fixture(source, root / "fixtures", save_input)
+            comparison_cases = build_gr_signed_restore_comparison_fixtures(source, root / "fixtures")
+
+            self.assertEqual(save_case.label, "signed_restore_save")
+            self.assertEqual(restore_case.label, "signed_restore_from_save")
+            self.assertEqual(
+                read_volume_record(save_case.fixture, "logic", 0).payload,
+                gr_signed_restore_save_payload(),
+            )
+            self.assertEqual(
+                read_volume_record(restore_case.fixture, "logic", 0).payload,
+                gr_signed_restore_restore_payload(),
+            )
+            self.assertEqual((restore_case.fixture / "GRSG.1").read_bytes(), b"synthetic save bytes")
+            self.assertEqual(
+                read_volume_record(comparison_cases[0].fixture, "logic", 0).payload,
+                gr_signed_restore_direct_payload(marker_x=GR_RESTORE_SAVED_X),
+            )
+            self.assertEqual(
+                read_volume_record(comparison_cases[1].fixture, "logic", 0).payload,
+                gr_signed_restore_direct_payload(marker_x=GR_RESTORE_UNRESTORED_X),
+            )
+
+    def test_gr_restart_prompt_marker_payload_visible_cancel_path(self) -> None:
+        payload = gr_restart_prompt_marker_payload(
+            marker_visible_before_restart=True,
+            include_restart=True,
+        )
+        code_len = payload[0] | (payload[1] << 8)
+        code = payload[2 : 2 + code_len]
+        message_data = payload[2 + code_len :]
+        text_start = 1 + 4
+
+        self.assertIn(bytes([0x6C, 0x01]), code)
+        self.assertIn(bytes([0x6F, 0x00, GR_RESTART_PROMPT_ROW, 0x16]), code)
+        self.assertIn(bytes([0x78, 0x80]), code)
+        self.assertNotIn(bytes([0x77, 0x80]), code)
+        self.assertEqual(
+            xor_message_text(message_data[text_start:]),
+            GR_RESTART_PROMPT_MESSAGE.encode("ascii") + b"\x00",
+        )
+
+    def test_gr_restart_prompt_marker_payload_hidden_control_path(self) -> None:
+        payload = gr_restart_prompt_marker_payload(
+            marker_visible_before_restart=False,
+            include_restart=False,
+        )
+        code_len = payload[0] | (payload[1] << 8)
+        code = payload[2 : 2 + code_len]
+
+        self.assertIn(bytes([0x6F, 0x00, GR_RESTART_PROMPT_ROW, 0x16, 0x77]), code)
+        self.assertNotIn(bytes([0x80]), code)
+
+    def test_gr_restart_prompt_marker_fixtures_patch_controls_and_cancel_cases(self) -> None:
+        with tempfile.TemporaryDirectory() as temp_dir:
+            root = Path(temp_dir)
+            source = make_v3_source_game(root)
+
+            cases = build_gr_restart_prompt_marker_fixtures(
+                source,
+                root / "fixtures",
+                picture_no=GR_RESTART_TEST_PICTURE,
+            )
+
+            self.assertEqual(
+                [case.label for case in cases],
+                [
+                    "restart_hidden_control",
+                    "restart_visible_control",
+                    "restart_cancel_hidden",
+                    "restart_cancel_visible",
+                ],
+            )
+            self.assertEqual(cases[0].post_launch_key_names, None)
+            self.assertEqual(cases[2].post_launch_key_names, ["esc"])
+            self.assertEqual(
+                read_volume_record(cases[0].fixture, "logic", 0).payload,
+                gr_restart_prompt_marker_payload(
+                    marker_visible_before_restart=False,
+                    include_restart=False,
+                    picture_no=GR_RESTART_TEST_PICTURE,
+                ),
+            )
+            self.assertEqual(
+                read_volume_record(cases[3].fixture, "logic", 0).payload,
+                gr_restart_prompt_marker_payload(
+                    marker_visible_before_restart=True,
+                    include_restart=True,
+                    picture_no=GR_RESTART_TEST_PICTURE,
+                ),
             )
 
 

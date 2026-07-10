@@ -22593,3 +22593,586 @@ Progress updates and outcomes:
 
       Action/result: Inspected `local_signed_save_001.json`; no `__pycache__`
       directories were present after the `-B` run.
+
+2955. Reported: "I’ll pick this back up from the GR v3 restore thread: first
+      I’m going to rescan the current tree and the relevant probe/docs so I’m
+      not leaning on stale state, then I’ll implement the next PROGRESS.md item
+      source-first and use QEMU only as confirmation."
+
+      Action/result: `git status --short` showed only existing untracked
+      `run.sh`; `PROGRESS.md` still listed signed GR restore as high-value
+      remaining v3 work.
+
+2956. Reported: "The tree is clean except for the existing untracked `run.sh`.
+      The dashboard still has the signed GR restore behavior as the most useful
+      source-backed v3 item, so I’m reading the probe internals around save
+      extraction and QEMU snapshot execution before patching it."
+
+      Action/result: Re-read `tools/gr_v3_behavior_probe.py`,
+      `tools/save_roundtrip_probe.py`, `tools/qemu_fixture.py`,
+      `tools/qemu_snapshot.py`, and focused tests.
+
+2957. Reported: "The current GR probe already has the save-side pieces and a
+      reusable save extractor. I’m going to add the restore round-trip as a
+      separate v3 probe rather than changing the existing save probe, so the
+      evidence stays split between 'file envelope' and 'restore behavior.'"
+
+      Action/result: Designed a separate `signed-restore-roundtrip` probe that
+      generates `GRSG.1`, restores it in a second fixture, and compares against
+      direct saved/unrestored controls.
+
+2958. Reported: "Before I edit the harness, I’m going back to the disassembly
+      for the restore routine so the probe is tied to the actual v3 code path,
+      not just the SQ2 harness pattern. The key thing I’m checking is where the
+      first block and object/inventory block land, and whether GR transforms the
+      latter after reading."
+
+      Action/result: Read existing restore/save notes and tried local
+      disassembly around the documented GR restore/XOR offsets.
+
+2959. Reported: "That rizin call defaulted to the host architecture, so I’m
+      discarding that excerpt and rerunning with explicit 16-bit x86 settings.
+      Tiny mistake, easy correction."
+
+      Action/result: Discarded the incorrect host-architecture `rizin` output.
+
+2960. Reported: "The GR executable is an MZ-style image with the code image
+      starting after the header, so the raw disassembler view is about `0x202`
+      bytes later than the image labels used in our docs. I found the restore
+      prologue at raw `0x2994`, which matches documented image `0x2792`; now
+      I’m pulling the relevant raw-offset snippets."
+
+      Action/result: Re-ran `rizin -q -a x86 -b 16` at raw offsets `0x2994`,
+      `0x2b44`, `0x2ac8`, and `0x09be`, confirming GR restore reads five
+      blocks and calls the same XOR helper over `[0x07d6]..+[0x07da]`.
+
+2961. Reported: "I’m going to patch `tools/gr_v3_behavior_probe.py` now with a
+      signed-restore round-trip probe: generate a real `GRSG.1` through the v3
+      engine, boot a restore fixture that starts in a deliberately different
+      visual state, and compare the restored capture against a direct
+      'saved state' fixture."
+
+      Action/result: Added bytecode helpers and signed restore save/restore/
+      direct payload builders to `tools/gr_v3_behavior_probe.py`.
+
+2962. Reported: "The bytecode payload side is in place now. I’m adding fixture
+      builders next, keeping the generated save and restore copies under
+      `build/` and leaving `games/GR` as read-only evidence input."
+
+      Action/result: Added generated GR fixture builders for save production,
+      restore from generated `GRSG.1`, and saved/unrestored direct controls.
+
+2963. Reported: "The builder now creates three fixture roles: the save producer,
+      the restore-under-test, and two comparison captures. I’m wiring the QEMU
+      runner so the save file produced by the original engine becomes the input
+      to the restore fixture."
+
+      Action/result: Added `run_gr_signed_restore_qemu(...)` to chain original
+      save extraction, comparison captures, and restore capture comparison.
+
+2964. Reported: "The QEMU runner is now chained: save extraction first, then
+      restore validation, then capture comparisons. I’m adding the CLI surface
+      and report shape so it can be run directly and later from the
+      compatibility suite."
+
+      Action/result: Added `--probe signed-restore-roundtrip` to
+      `tools/gr_v3_behavior_probe.py`.
+
+2965. Reported: "The CLI branch is ready. I’m adding focused unit tests now so
+      the generated logic bytes, encrypted signature message, and copied
+      save-file fixture behavior are pinned down before I try booting QEMU."
+
+      Action/result: Added focused tests for signed restore payloads and
+      fixture construction in `tests/test_gr_v3_behavior_probe.py`.
+
+2966. Reported: "The focused tests are in. I’m running the lightweight
+      validation now; if that’s clean, I’ll do a build-only probe report and
+      then the QEMU confirmation."
+
+      Action/result: `py_compile` passed; running the test without
+      `AGI_GAME_DIR` hit the project-wide game-directory guard.
+
+2967. Reported: "The pycompile passed, but the unittest import path is hitting
+      the project’s 'game directory required' guard before the fixture tests
+      run. I’m checking which import is calling the configured game directory
+      so I can keep the tests synthetic and parameterized."
+
+      Action/result: Confirmed the guard is expected from shared project path
+      helpers; reran with `AGI_GAME_DIR=games/SQ2` and the 18 focused tests
+      passed.
+
+2968. Reported: "With `AGI_GAME_DIR` set, the synthetic fixture tests pass.
+      That’s consistent with the project-wide path guard; I’ll use the explicit
+      environment for validation commands and keep the new probe’s own
+      `--game-dir games/GR` parameter explicit."
+
+      Action/result: Build-only signed restore probe wrote
+      `build/gr-v3-behavior/signed_restore_roundtrip_dryrun_001.json`.
+
+2969. Reported: "The dry run generated the fixture report cleanly. I’m going
+      to run the full QEMU probe now; this should boot three short batches:
+      save producer, direct comparison controls, and restore-under-test."
+
+      Action/result: Started direct QEMU probe
+      `signed_restore_roundtrip_qemu_001.json`.
+
+2970. Reported: "The QEMU probe is still running; it got past fixture
+      generation and is in the emulator-driven part. I’ll let it finish and
+      inspect the JSON rather than guessing from the runtime length."
+
+      Action/result: Direct QEMU probe continued running.
+
+2971. Reported: "Still running. This is the cost of using the original engine
+      as the oracle, but the probe is structured so a passing run gives us a
+      much stronger restore claim than a parser-only check."
+
+      Action/result: Direct QEMU probe completed and wrote
+      `build/gr-v3-behavior/signed_restore_roundtrip_qemu_001.json`.
+
+2972. Reported: "The QEMU run completed and wrote its report. I’m reading the
+      checks and capture hashes now to see whether the restored screen matched
+      the saved-state control."
+
+      Action/result: Report checks all passed: restored capture matched direct
+      saved-state control and differed from the unrestored control.
+
+2973. Reported: "The QEMU report passed: restored capture equals the
+      saved-state direct capture and differs from the unrestored control; the
+      generated save still has the GR signature prefix and XOR-round-tripping
+      third block. I’m promoting this into the optional `qemu-v3` suite next."
+
+      Action/result: Added named compatibility-suite command
+      `gr_signed_restore_roundtrip_qemu`.
+
+2974. Reported: "The suite manifest now has a named signed-restore command.
+      I’m updating the manifest tests so future changes keep it in the explicit
+      opt-in v3 layer."
+
+      Action/result: Updated `tests/test_compatibility_suite.py` for the new
+      `qemu-v3` command.
+
+2975. Reported: "The suite test now tracks the new command. I’m running the
+      focused tests plus a `qemu-v3` dry run; that checks command selection
+      without spending another emulator pass yet."
+
+      Action/result: Focused tests passed 24 tests, and
+      `compatibility_suite.py --dry-run --include-qemu-v3` showed the new
+      signed-restore command.
+
+2976. Reported: "The dry run shows the new named command in `qemu-v3`. Since
+      the direct QEMU probe already passed, I’m running the suite wrapper for
+      just that command to make sure the manifest path itself is executable
+      too."
+
+      Action/result: Sandboxed suite-wrapper run failed before boot because
+      QEMU could not bind the local VNC socket.
+
+2977. Reported: "The suite wrapper hit the usual sandboxed VNC bind failure
+      before DOS boot. I’m rerunning the same named command with escalation so
+      QEMU can bind its local VNC socket."
+
+      Action/result: Started escalated named suite command
+      `gr_signed_restore_roundtrip_qemu`.
+
+2978. Reported: "The escalated suite run is in progress now. It’s repeating the
+      same save/control/restore chain, this time through the
+      compatibility-suite entry."
+
+      Action/result: Escalated suite command continued running.
+
+2979. Reported: "Still running under the suite wrapper. No output yet is normal
+      for these QEMU probes; I’ll inspect the report as soon as it returns."
+
+      Action/result: Escalated suite command completed successfully and wrote
+      `build/gr-v3-behavior/signed_restore_roundtrip_suite.json`.
+
+2980. Reported: "The suite command completed successfully and wrote the probe
+      JSON. I’m checking both the suite report and the underlying probe report
+      now, then I’ll update the docs and tracker."
+
+      Action/result: Inspected
+      `build/compatibility-suite/qemu_v3_signed_restore_001.json` and
+      `build/gr-v3-behavior/signed_restore_roundtrip_suite.json`; return code
+      was zero and all restore checks passed.
+
+2981. Reported: "The docs still describe signed restore as remaining, so I’m
+      replacing that with the source/QEMU result. I’ll keep the language
+      careful: the model is for valid save data and the probe confirms the
+      ordinary signed restore path, not malformed save/exploit behavior."
+
+      Action/result: Began updating `PROGRESS.md`, runtime docs, symbolic
+      labels, compatibility notes, and clean-room notes.
+
+2982. Reported: "I’m editing the tracker and docs in one pass now: PROGRESS
+      gets the dashboard update, symbolic labels gets the GR restore routine
+      association, and the evidence chapters get the commands/results needed
+      for clean-room provenance."
+
+      Action/result: Updated the GR/SQ2 tracker summary and remaining-work
+      list in `PROGRESS.md`.
+
+2983. Reported: "I found a second dashboard paragraph and the 'Highest-Value'
+      list still naming signed restore as future work. I’m updating those too
+      so the tracker doesn’t contradict the new evidence."
+
+      Action/result: Updated compatibility-suite and highest-value sections in
+      `PROGRESS.md`.
+
+2984. Reported: "The runtime model now includes the restore-side XOR and visual
+      round-trip result. I’m adding the corresponding symbolic label entry for
+      GR `0x7e` so future version comparisons can anchor the routine by role
+      instead of by raw address."
+
+      Action/result: Added GR `code.save.restore_game_state` association to
+      `docs/src/symbolic_labels.md`.
+
+2985. Reported: "The compatibility chapter currently says the v3 layer only
+      covers save extraction. I’m updating that to include the restore
+      round-trip command and suite report."
+
+      Action/result: Updated `docs/src/compatibility_testing.md`.
+
+2986. Reported: "I’m adding a dedicated clean-room note section for this pass.
+      It records the disassembly offsets, the fixture shape, the direct QEMU
+      command, the suite command, and the exact pass conditions from the
+      report."
+
+      Action/result: Added `Gold Rush v3 Signed Restore Round Trip` to
+      `docs/src/clean_room_executable_notes.md`.
+
+2987. Reported: "The clean-room evidence section is in place. I’m checking the
+      Versions chapter too, because this GR restore behavior is a
+      version-specific delta and should be visible in the concise ledger as
+      well."
+
+      Action/result: Updated `docs/src/versions.md` with the GR signed restore
+      delta and report path.
+
+2988. Reported: "I’m also adding the new signed-restore command to `AGENTS.md`’s
+      local tool notes, so future sessions can rerun it without rediscovering
+      the flags."
+
+      Action/result: Added the signed GR save/restore round-trip command to
+      `AGENTS.md`.
+
+2989. Reported: "The reusable command is now in AGENTS.md. I’m appending the
+      progress log entries for this whole pass, including the discarded bad
+      rizin architecture read and the sandbox/VNC rerun, so the historical
+      trail stays complete."
+
+      Action/result: Appended progress-log entries for the signed GR restore
+      implementation, QEMU validation, suite promotion, and documentation pass.
+
+2990. Reported: "The log tail is from the previous signed-save pass, so I’m
+      appending the new signed-restore entries after that rather than rewriting
+      history."
+
+      Action/result: Continued the numbered progress log from entry 2955.
+
+2991. Reported: "Docs and tracker are updated. I’m moving into final
+      validation: full unit discovery, mdBook, syntax checks, and then the
+      local compatibility wrapper so opcode evidence freshness is covered too."
+
+      Action/result: Full unit discovery passed 279 tests; `mdbook build docs`
+      and `py_compile` checks passed.
+
+2992. Reported: "Full unit discovery passed at 279 tests, mdBook built, and
+      syntax checks are clean. I’m updating the tracker’s test count, then I’ll
+      run the local compatibility manifest."
+
+      Action/result: Updated `PROGRESS.md` to record the 279-test local run.
+
+2993. Reported: "The test count in PROGRESS.md now reflects the 279-test run.
+      I’m running the local compatibility wrapper next; this should cover unit
+      tests, mdBook, and opcode-evidence freshness in one report without
+      booting QEMU."
+
+      Action/result: `AGI_GAME_DIR=games/SQ2 python3 -B
+      tools/compatibility_suite.py --report
+      build/compatibility-suite/local_signed_restore_001.json` passed.
+
+2994. Reported: "The local compatibility wrapper passed and produced the
+      expected unit/mdBook output. I’m checking the JSON report, then I’ll do
+      whitespace checks and clean any generated cache directories."
+
+      Action/result: Inspected `local_signed_restore_001.json`; all three
+      local commands returned zero. `git diff --check` passed.
+
+2995. Reported: "The checks are clean, and only generated `__pycache__`
+      directories plus the existing `run.sh` are untracked. I’m removing the
+      cache directories so the remaining diff is source/docs only."
+
+      Action/result: Removed generated `tests/__pycache__` and
+      `tools/__pycache__`.
+
+2996. Reported: "The cache directories are removed. I’m doing one final
+      status/diff summary and then I’ll add the last validation entries to the
+      progress log."
+
+      Action/result: Final status showed source/doc/test changes plus the
+      existing untracked `run.sh`; no cache directories remained.
+
+2997. Reported: "I’ll pick this back up from the current tracker rather than
+      guessing from memory. First I’m checking the live status and
+      `PROGRESS.md`, then I’ll choose the next highest-value item and keep the
+      evidence trail updated."
+
+      Action/result: Read `git status --short`, `PROGRESS.md`, the progress-log
+      tail, and the Versions chapter. The existing signed-restore pass was
+      still uncommitted, with only pre-existing `run.sh` untracked.
+
+2998. Reported: "The live tree is already carrying the signed-restore pass,
+      and `PROGRESS.md` now points to the remaining work as mostly optional GR
+      probes plus broader renderer/UI/audio/spec polishing. I’m going to
+      locate the explicit remaining-work sections and pick something
+      source-led rather than launching another blind QEMU sweep."
+
+      Action/result: Searched remaining-work markers and GR restart/menu/key
+      references. The restart prompt-marker truth table was already
+      source-modeled and listed as an optional observable confirmation target.
+
+2999. Reported: "There are two threads worth pursuing next: optional
+      observable probes for GR’s remaining source-backed deltas, or polishing
+      the implementation spec. I’m going to start with the smallest
+      source-first delta, the GR restart prompt-marker behavior, because the
+      model already exists and a focused original-engine confirmation should
+      either retire that optional item or reveal where the source reading needs
+      tightening."
+
+      Action/result: Re-read the restart truth-table section,
+      `tools/agi_restart.py`, and `tests/test_restart_model.py`.
+
+3000. Reported: "The restart truth table is already modeled from source and
+      tested locally, but it remains marked optional for observable
+      confirmation. I’m reading the existing GR fixture machinery and the
+      older SQ2 restart/input probes so I can add this as a compact v3 probe
+      instead of inventing a parallel harness."
+
+      Action/result: Read `tools/gr_v3_behavior_probe.py`, relevant
+      `logic_interpreter_probe.py` cases, and fixture helper functions.
+
+3001. Reported: "The accepted-restart side is awkward to capture because the
+      engine resets and can immediately re-enter the generated logic. The
+      cancel side is much cleaner: make the marker visible or hidden, call
+      `0x80`, press Escape, and compare the final screen against direct
+      visible/hidden controls. That still tests the GR-specific conditional
+      branch that differs from the simple SQ2 description."
+
+      Action/result: Chose a four-fixture QEMU design: hidden control, visible
+      control, hidden then Escape-canceled restart, and visible then
+      Escape-canceled restart.
+
+3002. Reported: "One small harness gap surfaced: the v3 probe case type can
+      type characters, but it doesn’t yet expose named keys like `esc`, while
+      the shared QEMU snapshot runner already supports them. I’m going to wire
+      that through, then add the restart-cancel cases and compare
+      visible/hidden prompt-marker controls."
+
+      Action/result: Confirmed `SnapshotFixtureCase` already supports
+      `post_launch_key_names`, then planned to forward that field from
+      `ProbeCase`.
+
+3003. Reported: "For the actual pass/fail signal, I’ll avoid relying only on
+      whole-screen equality. The shared tools can downsample QEMU captures into
+      logical EGA nibbles, so the probe can count prompt-row foreground pixels
+      and still include whole-capture comparisons as extra evidence."
+
+      Action/result: Reused `downsample_qemu_picture_nibbles()` and selected
+      logical prompt rectangle `(0,40)..(39,47)` for foreground-pixel counts.
+
+3004. Reported: "I’ve got the shape now. I’m going to add a
+      `restart-prompt-marker` probe with four fixtures: direct hidden, direct
+      visible, cancel-after-hidden, and cancel-after-visible. The QEMU check
+      will compare prompt-row foreground counts, with capture equality reported
+      but not used as the sole oracle."
+
+      Action/result: Added the new v3 restart probe to
+      `tools/gr_v3_behavior_probe.py`, including named-key forwarding,
+      fixture builders, prompt-row counting, CLI handling, and JSON reporting.
+
+3005. Reported: "The probe code is in. I’m adding fixture-level tests next so
+      the new bytecode stays pinned: visible uses `0x78`, hidden uses `0x77`,
+      restart cases use `0x80`, and the cancel cases carry the named `esc`
+      input through the snapshot runner."
+
+      Action/result: Added focused tests for restart prompt-marker payloads and
+      generated fixture cases in `tests/test_gr_v3_behavior_probe.py`.
+
+3006. Reported: "The local tests now cover the generated restart fixture
+      shapes. I’m also adding this as an opt-in `qemu-v3` suite command so it
+      can be rerun by name and won’t surprise the default local suite."
+
+      Action/result: Added `gr_restart_prompt_marker_qemu` to
+      `tools/compatibility_suite.py`.
+
+3007. Reported: "The suite manifest has the named command now. I’m updating
+      the manifest test so future changes don’t accidentally drop the v3
+      restart probe from the opt-in layer."
+
+      Action/result: Updated `tests/test_compatibility_suite.py` to assert the
+      new command is in the `qemu-v3` layer.
+
+3008. Reported: "I’ve finished the first edit pass. Now I’m running focused
+      syntax and unit checks before trying the QEMU case, because if the
+      fixture bytes are wrong it’s nicer to catch that locally."
+
+      Action/result: `py_compile` passed for the edited tools/tests. Focused
+      unit run over GR behavior, compatibility suite, and restart model tests
+      passed 28 tests.
+
+3009. Reported: "The focused checks are clean: syntax passed and the three
+      focused test modules ran 28 tests. I’m generating the dry-run fixture
+      report next, then I’ll boot QEMU for the original-engine confirmation if
+      the report shape looks right."
+
+      Action/result: Built dry-run report
+      `build/gr-v3-behavior/restart_prompt_marker_dryrun_001.json` and
+      confirmed the suite dry-run lists `gr_restart_prompt_marker_qemu` under
+      `qemu-v3`.
+
+3010. Reported: "The report shape is good: four cases, the two cancel cases
+      send `esc`, and the prompt row is recorded as logical Y 40..47. I’m
+      launching the original-engine QEMU run now; if the sandbox blocks the
+      VNC listener I’ll rerun it with the existing QEMU approval path."
+
+      Action/result: Started the direct QEMU run for
+      `build/gr-v3-behavior/restart_prompt_marker_qemu_001.json`.
+
+3011. Reported: "QEMU is still running the four-case restart batch. This one
+      boots once, saves a DOS-prompt snapshot, then restores between the
+      hidden/visible control and Escape-cancel cases."
+
+      Action/result: The direct QEMU process continued and then completed
+      successfully.
+
+3012. Reported: "The QEMU run completed successfully. I’m inspecting the JSON
+      now, especially the prompt-row counts, because that’s the actual
+      behavioral signal for the restart branch."
+
+      Action/result: Direct report passed. Hidden control and hidden cancel
+      both had 0 prompt-row foreground pixels and matching captures; visible
+      control and visible cancel both had 8 prompt-row foreground pixels and
+      matching captures.
+
+3013. Reported: "The direct QEMU result is exactly the signal we wanted:
+      hidden control and hidden cancel both have 0 prompt-row foreground
+      pixels; visible control and visible cancel both have 8, and the full
+      captures match their respective controls. I’m running the named
+      compatibility-suite command once so the manifest path is verified too."
+
+      Action/result: Initial named suite run failed before the DOS snapshot
+      because nested QEMU could not bind VNC from the sandbox:
+      `Failed to bind socket: Operation not permitted`.
+
+3014. Reported: "The suite wrapper hit the expected sandbox VNC bind
+      restriction, not a probe failure. I’m rerunning that exact named suite
+      command with escalation so QEMU can bind its local VNC socket."
+
+      Action/result: Reran
+      `AGI_GAME_DIR=games/SQ2 python3 -B tools/compatibility_suite.py --name
+      gr_restart_prompt_marker_qemu --report
+      build/compatibility-suite/qemu_v3_restart_prompt_001.json` with
+      escalation.
+
+3015. Reported: "The escalated suite run is in progress. It’s the same
+      four-case QEMU batch, just launched through the manifest so the reusable
+      command path is covered."
+
+      Action/result: The named suite command passed and wrote
+      `build/compatibility-suite/qemu_v3_restart_prompt_001.json` plus
+      `build/gr-v3-behavior/restart_prompt_marker_suite.json`.
+
+3016. Reported: "The named suite command passed after the VNC permission
+      rerun. I’m checking the suite report and underlying probe JSON, then I’ll
+      update the docs/tracker to retire the optional restart confirmation
+      item."
+
+      Action/result: Confirmed the suite return code was zero and the suite
+      probe repeated the 0-vs-8 prompt-row foreground count result.
+
+3017. Reported: "The restart probe is now original-engine validated. I’m
+      updating the evidence docs and tracker in the same style as the prior GR
+      probes: source reading first, then QEMU as confirmation, with the suite
+      report path recorded for reruns."
+
+      Action/result: Updated `PROGRESS.md`, `docs/src/runtime_model.md`,
+      `docs/src/versions.md`, and `docs/src/compatibility_testing.md`.
+
+3018. Reported: "The rerun command is now in `AGENTS.md`. I’m adding a short
+      clean-room evidence section with the exact commands, the direct
+      disassembly-based model it confirms, and the QEMU counts/hashes."
+
+      Action/result: Added the restart prompt-marker QEMU command to
+      `AGENTS.md` and appended a clean-room evidence section to
+      `docs/src/clean_room_executable_notes.md`.
+
+3019. Reported: "The evidence log now has the QEMU confirmation, including the
+      expected sandbox/VNC rerun note. I’m doing one small symbolic-label tweak
+      so the restart routine’s GR association points to the new observable
+      evidence too."
+
+      Action/result: Updated `docs/src/symbolic_labels.md` for GR
+      `code.restart.confirm_restart_action`.
+
+3020. Reported: "The symbolic map now points to the restart QEMU report. I’m
+      preserving the intermediate work log before the final validation pass, so
+      the sequence from tracker read through QEMU confirmation is recorded
+      rather than just the end result."
+
+      Action/result: Appended progress-log entries 2997 through 3019 for the
+      GR restart prompt-marker probe pass.
+
+3021. Reported: "The progress log now records this pass through the docs
+      updates. I’m moving into validation: full unit discovery, mdBook, syntax
+      checks, the local compatibility wrapper, and whitespace checks."
+
+      Action/result: `AGI_GAME_DIR=games/SQ2 python3 -B -m unittest discover
+      -s tests` passed 282 tests; `mdbook build docs` passed; focused
+      `py_compile` checks passed.
+
+3022. Reported: "Full unit discovery passed 282 tests, mdBook built, and
+      syntax checks are clean. I’m updating the tracker’s test count, then I’ll
+      run the local compatibility wrapper and final whitespace/status checks."
+
+      Action/result: Updated `PROGRESS.md` to record the 282-test local run.
+
+3023. Reported: "The tracker now reflects the 282-test run. I’m running the
+      local compatibility manifest next; this covers unit tests, mdBook, and
+      opcode-evidence freshness without launching QEMU again."
+
+      Action/result: `AGI_GAME_DIR=games/SQ2 python3 -B
+      tools/compatibility_suite.py --report
+      build/compatibility-suite/local_restart_prompt_001.json` passed.
+
+3024. Reported: "The local compatibility wrapper passed too, again with 282
+      tests and a clean mdBook build. I’m checking its JSON, then I’ll run
+      `git diff --check` and clean any generated cache directories left
+      behind."
+
+      Action/result: Inspected
+      `build/compatibility-suite/local_restart_prompt_001.json`; unit tests,
+      mdBook, and opcode evidence all returned zero. `git diff --check`
+      passed. `tests/__pycache__` and `tools/__pycache__` were present.
+
+3025. Reported: "`git diff --check` is clean, and the local compatibility
+      report has all three return codes at zero. The only generated clutter is
+      `tests/__pycache__` and `tools/__pycache__`, so I’m removing those before
+      the final status."
+
+      Action/result: Removed generated Python cache directories.
+
+3026. Reported: "The cache directories are gone. I’m doing one final
+      status/stat pass, then I’ll add the final validation entries to the
+      progress log."
+
+      Action/result: Final status showed the intended source/docs/test changes
+      plus the pre-existing untracked `run.sh`; no `__pycache__` directories
+      remained. `git diff --check` still passed.
+
+3027. Reported: "The final log entries are in. Since that changed the mdBook
+      source after the earlier build, I’m doing a quick final mdBook build and
+      whitespace check so the last edit is covered too."
+
+      Action/result: `mdbook build docs` passed, `git diff --check` passed,
+      and final status still showed only the intended modified files plus the
+      pre-existing untracked `run.sh`.

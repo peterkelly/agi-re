@@ -8822,8 +8822,144 @@ Conclusion:
 - GR's `0x8f` verifier/save-prefix path is now source-backed and
   original-engine validated for save creation. The correct generated fixture
   shape uses encrypted logic-message text, just like observed GR logic 101.
-- Remaining v3 save work is restore-side confirmation for a signed GR save if
-  future compatibility work needs it.
+- A follow-up pass below validates the restore side of the same signed save
+  path.
+
+## Gold Rush v3 Signed Restore Round Trip
+
+Goal: validate the source-mapped GR restore path for a signature-prefixed
+`GRSG.1` save without treating malformed save data as part of the behavioral
+model.
+
+Commands and local reads:
+
+- `git status --short`
+- `rg -n "Highest-Value|signed|restore|Gold Rush|v3" PROGRESS.md
+  docs/src/clean_room_executable_notes.md docs/src/runtime_model.md
+  docs/src/versions.md docs/src/compatibility_testing.md
+  docs/src/symbolic_labels.md docs/src/progress_log.md`
+- `sed -n` reads of `tools/gr_v3_behavior_probe.py`,
+  `tools/save_roundtrip_probe.py`, `tools/qemu_fixture.py`,
+  `tools/qemu_snapshot.py`, `tools/compatibility_suite.py`, and the focused
+  tests.
+- `rizin -q -a x86 -b 16 -c "pd 145 @ 0x2994" games/GR/AGI`
+- `rizin -q -a x86 -b 16 -c "pd 75 @ 0x2b44" games/GR/AGI`
+- `rizin -q -a x86 -b 16 -c "pd 35 @ 0x2ac8" games/GR/AGI`
+- `rizin -q -a x86 -b 16 -c "pd 35 @ 0x09be" games/GR/AGI`
+- A prior exploratory `rizin` read without explicit `-a x86 -b 16` decoded the
+  bytes as the host architecture. That output was discarded and not used as
+  evidence.
+- `python3 -B -m py_compile tools/gr_v3_behavior_probe.py
+  tests/test_gr_v3_behavior_probe.py`
+- `AGI_GAME_DIR=games/SQ2 python3 -B -m unittest
+  tests.test_gr_v3_behavior_probe`
+- `python3 -B tools/gr_v3_behavior_probe.py --probe signed-restore-roundtrip
+  --game-dir games/GR --fixture-root
+  build/gr-v3-behavior/signed-restore-dryrun-fixtures --dos-prefix GRT
+  --output build/gr-v3-behavior/signed_restore_roundtrip_dryrun_001.json`
+- Direct QEMU run:
+
+```bash
+python3 -B tools/gr_v3_behavior_probe.py --probe signed-restore-roundtrip --game-dir games/GR --fixture-root build/gr-v3-behavior/signed-restore-qemu-fixtures --dos-prefix GRT --run-qemu --output build/gr-v3-behavior/signed_restore_roundtrip_qemu_001.json --snapshot-raw build/gr-v3-behavior/snapshot/signed_restore_roundtrip_001.raw --snapshot-qcow build/gr-v3-behavior/snapshot/signed_restore_roundtrip_001.qcow2 --post-run-raw build/gr-v3-behavior/snapshot/signed_restore_roundtrip_after_001.raw --save-output build/gr-v3-behavior/GRSG_restore_001.1 --boot-wait 5 --draw-wait 8 --path-prompt-wait 2 --slot-wait 1 --description-wait 1 --confirmation-wait 1 --key-delay 0.08
+```
+
+- `AGI_GAME_DIR=games/SQ2 python3 -B -m unittest
+  tests.test_gr_v3_behavior_probe tests.test_compatibility_suite`
+- `AGI_GAME_DIR=games/SQ2 python3 -B tools/compatibility_suite.py --dry-run
+  --include-qemu-v3`
+- The first suite-wrapper run of `gr_signed_restore_roundtrip_qemu` failed
+  before boot because sandboxed QEMU could not bind VNC
+  (`Failed to bind socket: Operation not permitted`). The same named command
+  passed after rerunning with escalation for local VNC binding:
+
+```bash
+AGI_GAME_DIR=games/SQ2 python3 -B tools/compatibility_suite.py --name gr_signed_restore_roundtrip_qemu --report build/compatibility-suite/qemu_v3_signed_restore_001.json
+```
+
+Source observations:
+
+- GR restore action `0x7e` is at image `0x2792`, which appears at raw file
+  offset `0x2994` in the local MZ image. The prologue sets `[0x0438] = 1`,
+  saves the caller continuation in `[bp-0xce]`, temporarily stores `0x40` in
+  `[0x0b1c]`, and calls selector helper `0x8aeb` with mode/message byte
+  `0x72`.
+- The success path opens the selected file through `0x625c`, reads the 31-byte
+  description with `0x62f9`, then calls the length-prefixed read helper
+  at image `0x2942`/raw `0x2b44` for five blocks.
+- The five restore destinations mirror the GR save writer: first block into
+  `0x0002`, second into `[0x07d0]`, third into `[0x07d6]`, fourth into
+  `[0x153e]`, and fifth into `0x07ea`.
+- After the third block has been loaded and all five reads have succeeded, raw
+  `0x2ad1..0x2ae0` computes `[0x07d6] + [0x07da]` and calls image `0x07bc`
+  / raw `0x09be`, the same repeating-key XOR helper used by the save writer.
+  This makes restore decode the on-disk object/inventory block back into its
+  runtime representation.
+- The restore success path then restores display bytes from `[0x0f4f]` and
+  `[0x0f51]`, updates the hardware-mode flag byte `[0x001f]`, calls display
+  and resource refresh helpers, clears `[bp-0xce]` to zero, refreshes menu/list
+  state, and returns that zero continuation. This matches the existing model:
+  successful restore restarts execution through restored state rather than
+  continuing after opcode `0x7e`.
+
+Implementation/test updates:
+
+- `tools/gr_v3_behavior_probe.py` now has `--probe
+  signed-restore-roundtrip`.
+- The probe builds a save-producing fixture whose logic calls `0x8f("GR")`,
+  sets a restored-marker flag and marker variables, and invokes `0x7d`. The
+  generated `GRSG.1` is extracted from the QEMU disk image.
+- A restore fixture copies that generated save into its generated game
+  directory, starts with a deliberately different marker X coordinate, calls
+  `0x8f("GR")`, and invokes `0x7e`.
+- The restore fixture begins each cycle with an `if flag` branch. Only a
+  successful restore brings back the saved flag and saved X coordinate, causing
+  the next cycle to draw the saved-state marker. If restore fails/cancels and
+  continues after `0x7e`, the fixture draws the unrestored marker instead.
+- Direct comparison fixtures draw the expected saved-state marker and the
+  unrestored-control marker without using save/restore UI.
+- `tests/test_gr_v3_behavior_probe.py` now covers the signed restore save
+  payload, restore payload, generated fixture copy of `GRSG.1`, and direct
+  comparison fixtures.
+- `tools/compatibility_suite.py` adds named `qemu-v3` command
+  `gr_signed_restore_roundtrip_qemu`, with a manifest test in
+  `tests/test_compatibility_suite.py`.
+
+QEMU result:
+
+- Direct report:
+  `build/gr-v3-behavior/signed_restore_roundtrip_qemu_001.json`.
+- Suite report:
+  `build/compatibility-suite/qemu_v3_signed_restore_001.json`.
+- Underlying suite probe report:
+  `build/gr-v3-behavior/signed_restore_roundtrip_suite.json`.
+- The save-generation phase wrote and extracted
+  `build/gr-v3-behavior/GRSG_restore_suite.1`.
+- Save description: `codex gr probe`.
+- Block lengths: `1028`, `989`, `1811`, `100`, and `12`.
+- First block prefix bytes: `47 52 00 00 00 00 00 00`.
+- Third block encoded SHA-256:
+  `00c9fc2f1cc1ff71f2779804f993dea7389227c486a016556c45a9a0fb63f6a8`.
+- Third block decoded SHA-256:
+  `5a833f40a62fc2e367e60600592d8033219586797a3e0a1b3a142accb64bc237`.
+- Capture comparison hashes from the suite probe:
+  - restored: `b16282219c5608e75e5b22a1fe3fe016f3ebeed52fa20b0b301260f02a3f713c`
+  - expected direct: `b16282219c5608e75e5b22a1fe3fe016f3ebeed52fa20b0b301260f02a3f713c`
+  - unrestored control: `160a4ed1bab5ec6eb901ae2c5e3198a081000c0261cf6ad89eec4033e88861b4`
+- Checks all passed:
+  `save_generation_passed`, `restored_matches_expected_direct`,
+  `restored_differs_unrestored_control`, and
+  `expected_direct_differs_unrestored_control`.
+
+Conclusion:
+
+- GR action `0x7e` is now source-backed and original-engine validated for a
+  valid, signature-prefixed `GRSG.1` restore. The v3 save/restore model should
+  apply the repeating 59-byte XOR transform to the object/inventory block on
+  both write and read sides, with successful restore returning through restored
+  state rather than continuing after the restore opcode.
+- Malformed save behavior remains intentionally out of scope for the
+  compatibility spec because invalid files can drive the original interpreter
+  into garbage-memory/exploit-like behavior.
 
 ## Gold Rush v3 Restart Prompt-Marker Truth Table
 
@@ -9007,3 +9143,70 @@ Conclusion:
   two/three groups use the two/three table; exactly four groups use the
   four-plus table; more than four groups use the four-plus table only when flag
   `0x14` is set. Sentinel target `4` still means "do not change group."
+
+## 2026-07-10: GR v3 restart prompt-marker QEMU confirmation
+
+Goal: confirm the source-mapped GR action `0x80` canceled-restart
+prompt-marker branch with an original-engine fixture.
+
+Commands and local reads:
+
+- `sed -n '619,700p' PROGRESS.md`
+- `sed -n '8960,9035p' docs/src/clean_room_executable_notes.md`
+- `sed -n '1,260p' tools/agi_restart.py`
+- `sed -n '1,260p' tests/test_restart_model.py`
+- `sed -n '1,360p' tools/gr_v3_behavior_probe.py`
+- `sed -n '820,1320p' tools/gr_v3_behavior_probe.py`
+- `rg -n "restart|prompt|input_line|0x77|0x78|confirm_restart|show_prompt" tools/logic_interpreter_probe.py tests/test_logic_interpreter_probe.py docs/src/runtime_model.md docs/src/logic_bytecode.md`
+- `python3 -B -m py_compile tools/gr_v3_behavior_probe.py tools/compatibility_suite.py tests/test_gr_v3_behavior_probe.py tests/test_compatibility_suite.py`
+- `AGI_GAME_DIR=games/SQ2 python3 -B -m unittest tests.test_gr_v3_behavior_probe tests.test_compatibility_suite tests.test_restart_model`
+- `python3 -B tools/gr_v3_behavior_probe.py --probe restart-prompt-marker --game-dir games/GR --fixture-root build/gr-v3-behavior/restart-prompt-dryrun-fixtures --dos-prefix GRP --output build/gr-v3-behavior/restart_prompt_marker_dryrun_001.json`
+- `python3 -B tools/gr_v3_behavior_probe.py --probe restart-prompt-marker --game-dir games/GR --fixture-root build/gr-v3-behavior/restart-prompt-qemu-fixtures --dos-prefix GRP --run-qemu --output build/gr-v3-behavior/restart_prompt_marker_qemu_001.json --snapshot-raw build/gr-v3-behavior/snapshot/restart_prompt_marker_001.raw --snapshot-qcow build/gr-v3-behavior/snapshot/restart_prompt_marker_001.qcow2 --boot-wait 5 --draw-wait 8`
+- `AGI_GAME_DIR=games/SQ2 python3 -B tools/compatibility_suite.py --name gr_restart_prompt_marker_qemu --report build/compatibility-suite/qemu_v3_restart_prompt_001.json`
+
+Source-first model:
+
+- The earlier source pass showed GR action `0x80` recording the current
+  prompt-marker visible word before erasing it.
+- After confirmation, accepted restart always redraws the marker; canceled
+  restart redraws the marker only when it was visible on entry.
+- The local helper `gr_v3_restart_redraws_prompt_marker()` keeps this truth
+  table pinned for implementation use.
+
+Fixture implementation:
+
+- Added `--probe restart-prompt-marker` to `tools/gr_v3_behavior_probe.py`.
+- The probe builds four copied GR fixtures under `build/`: hidden control,
+  visible control, hidden then Escape-canceled restart, and visible then
+  Escape-canceled restart.
+- The fixture logic uses ordinary bytecode only: picture load/show, prompt
+  marker message setup through `0x6c`, input row setup through `0x6f`, hidden
+  or visible marker setup through `0x77`/`0x78`, and restart confirmation
+  through `0x80`.
+- The QEMU report compares both whole captures and the foreground-pixel count
+  in logical prompt rectangle `(0,40)..(39,47)`.
+- The v3 compatibility suite now has named command
+  `gr_restart_prompt_marker_qemu`.
+
+QEMU result:
+
+- Direct report `build/gr-v3-behavior/restart_prompt_marker_qemu_001.json`
+  passed.
+- Suite report `build/compatibility-suite/qemu_v3_restart_prompt_001.json`
+  passed after rerunning with VNC socket permission; the first unprivileged
+  attempt failed before QEMU saved the DOS snapshot with
+  `Failed to bind socket: Operation not permitted`.
+- Hidden control and hidden canceled restart had 0 prompt-row foreground
+  pixels and identical capture hash
+  `82d824134a00e40ae092e86b396b4b712e1d8ad48e7ad181d484ffbe8fa79f28`.
+- Visible control and visible canceled restart had 8 prompt-row foreground
+  pixels and identical capture hash
+  `cd7a1c8f5bf5eee32a6e818fb1c49d274db9175de9cbc7ed3f95a721df0e5a96`.
+
+Conclusion:
+
+- The original GR interpreter confirms the canceled-restart half of the
+  source-backed truth table: Escape-canceled restart restores the prompt marker
+  only when it was visible before action `0x80` erased it. The accepted-restart
+  half remains source-backed because the reset path immediately restarts engine
+  state, making a clean visual oracle less useful than the direct branch.
