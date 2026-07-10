@@ -1486,7 +1486,8 @@ Remaining table entries:
 ## Gold Rush v3 extra action slots
 
 The local Gold Rush / AGI 3.002.149 action dispatcher accepts entries through
-`0xb5` using the v3 table at `AGIDATA.OVL:0x0440`. The decoded Gold Rush
+`0xb5` using the v3 table at `AGIDATA.OVL:0x0440`. KQ4D / AGI 3.002.102 has the
+same v3 action-table shape at `AGIDATA.OVL:0x0620`. The decoded Gold Rush
 scripts observed so far do not use these slots, so the following descriptions
 are source-backed from handler disassembly and cross-references rather than
 QEMU behavior probes.
@@ -1510,9 +1511,11 @@ the expected replayed-picture state.
 ## Local SQ2 scan
 
 The local helper `tools/disassemble_logic.py` extracts logic resources, applies
-the dispatch tables, and prints decoded bytecode. It also has a `--stats` mode
-for linear opcode counts. This is still a static bytecode listing, not a live
-execution trace.
+the dispatch tables, and prints decoded bytecode. It detects dispatch-table
+bases from the observed operand metadata signature, so v3 inputs whose tables
+move within `AGIDATA.OVL` can still be decoded after their resource container is
+recognized. It also has a `--stats` mode for linear opcode counts. This is
+still a static bytecode listing, not a live execution trace.
 
 One `LOGDIR` entry decodes to `VOL.0:0x1ffff` but does not have a valid volume
 record header; the stats mode reports this as logic 141 and skips it.

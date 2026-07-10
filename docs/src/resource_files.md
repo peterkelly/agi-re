@@ -338,15 +338,29 @@ picture-plus-direct-view fixture. The picture-only capture differs from blank by
 128 pixels, proving that the original GR interpreter accepts both generated v3
 record forms for this controlled case.
 
-The logic disassembler now uses `tools/agi_resources.py` for payload loading.
-For GR it uses AGIDATA dispatch table bases `0x0440` for actions and `0x0762`
-for conditions. The GR action dispatcher supports action opcodes through
-`0xb5`, but the decoded Gold Rush scripts observed so far only use action
-opcodes through `0xa9`. The GR condition dispatcher compares predicate bytes
-with `0x26`, but only entries `0x00..0x12` are structured condition-table
-records in the observed `AGIDATA.OVL`; bytes above that overlap string/data and
-are not treated as confirmed predicates. Local GR scripts observed so far use
-condition opcodes only through `0x0e`.
+The logic disassembler now uses `tools/agi_resources.py` for payload loading
+and detects AGIDATA dispatch-table bases from the observed operand metadata
+signature. Observed table bases are:
+
+| Local input | Action table | Condition table |
+| --- | ---: | ---: |
+| SQ2 / v2 | `0x061d` | `0x08fd` |
+| GR / v3 | `0x0440` | `0x0762` |
+| KQ4D / v3 | `0x0620` | `0x0942` |
+
+The GR and KQ4D v3 action dispatchers support action opcodes through `0xb5`.
+The decoded Gold Rush scripts observed so far only use actions through `0xa9`.
+The decoded KQ4D demo scripts use the normal sound actions `0x62..0x64` and
+only reference sound resources `70..79`, which are the clean v3 sound records in
+that local directory. Later present-looking KQ4D sound-section triples that do
+not point at `12 34` headers are therefore planning evidence for source
+inspection, not currently observed valid-resource behavior.
+
+The GR condition dispatcher compares predicate bytes with `0x26`, but only
+entries `0x00..0x12` are structured condition-table records in the observed
+`AGIDATA.OVL`; bytes above that overlap string/data and are not treated as
+confirmed predicates. Local GR scripts observed so far use condition opcodes
+only through `0x0e`.
 
 ## Resource cache records
 

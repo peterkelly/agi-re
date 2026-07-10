@@ -9507,3 +9507,265 @@ Conclusion:
   record and direct view record for this controlled fixture. This promotes the
   v3 fixture writer as reusable compatibility infrastructure while preserving
   the source-backed renderer/model distinction.
+
+## 2026-07-10: sound/audio subsystem specification pass
+
+Goal: consolidate the already source-backed sound findings into a dedicated
+implementation-facing mdBook chapter.
+
+Commands and local reads:
+
+- `git status --short`
+- `sed -n '1,220p' PROGRESS.md`
+- `sed -n '420,660p' PROGRESS.md`
+- `tail -n 60 docs/src/progress_log.md`
+- `rg -n "Sound|sound|audio|tone|PC-speaker|speaker|duration|waveform|Remaining|0x62|0x63|0x64" PROGRESS.md docs/src tools tests`
+- `rg --files docs/src tools tests | rg "sound|audio"`
+- `sed -n '1,220p' docs/src/SUMMARY.md`
+- `sed -n '135,205p' docs/src/runtime_model.md`
+- `sed -n '300,340p' docs/src/symbolic_labels.md`
+- `sed -n '1,260p' tests/test_sound_resources.py`
+- `sed -n '1,260p' tools/agi_sound.py`
+- `sed -n '260,360p' tools/agi_sound.py`
+- `rg -n "Sound/audio|Sound|sound|audio|Highest-Value|Final spec|Remaining" PROGRESS.md`
+- `tail -n 80 docs/src/progress_log.md`
+- `tail -n 80 docs/src/clean_room_executable_notes.md`
+- `sed -n '100,220p' docs/src/current_status.md`
+- `sed -n '520,552p' PROGRESS.md`
+- `sed -n '630,652p' PROGRESS.md`
+- `sed -n '1,80p' docs/src/resource_files.md`
+- `sed -n '1,80p' docs/src/graphics_object_pipeline.md`
+- `python3 -B -m unittest tests.test_sound_resources`
+- `AGI_GAME_DIR=games/SQ2 python3 -B -m unittest tests.test_sound_resources`
+- `mdbook build docs`
+- `git diff --check`
+- `git status --short`
+- `find tests tools -type d -name __pycache__ -print`
+
+Observations consolidated:
+
+- Sound payloads begin with four little-endian channel offsets, followed by
+  duration/tone/control channel streams terminated by duration `0xffff`.
+- The current SQ2 corpus has 49 present sound resources, all with four sorted
+  in-bounds channel offsets and terminating streams.
+- `0x62`, `0x63`, and `0x64` expose sound loading, start-with-completion-flag,
+  and stop/clear behavior to logic bytecode.
+- Driver start initializes channel countdowns to `1`, so the first channel
+  record is consumed on the first active sound tick.
+- Selectors `0` and `8` advance only channel 0; other observed selectors
+  advance all four channels.
+- Flag 9 is a playback gate tested at the start of the tick path. Clearing it
+  causes immediate stop/completion on tick 1.
+- The PC-speaker path computes a divisor from the event tone word and treats
+  attenuation nibble `0x0f` as silence.
+- The non-PC path emits tone bytes and channel/attenuation bytes to port
+  `0xc0`; the stop path emits `0x9f 0xbf 0xdf 0xff`.
+- The attenuation envelope table uses signed deltas from the event base
+  attenuation and terminates with sentinel `0x80`.
+
+Documentation updates:
+
+- Added `docs/src/sound_and_audio.md`.
+- Added the new chapter to `docs/src/SUMMARY.md`.
+- Updated `PROGRESS.md` and `docs/src/current_status.md` to reference the
+  dedicated sound/audio chapter.
+
+Validation:
+
+- The first focused sound test command failed with the expected explicit-game
+  guard: `game directory required; pass --game-dir PATH or set AGI_GAME_DIR`.
+- `AGI_GAME_DIR=games/SQ2 python3 -B -m unittest tests.test_sound_resources`
+  passed 16 tests.
+- `mdbook build docs` passed.
+- `git diff --check` passed.
+- No Python `__pycache__` directories were present under `tests/` or `tools/`
+  after the focused test run.
+
+Conclusion:
+
+- The sound/audio subsystem now has a chapter-level contract for resource
+  parsing, playback scheduling, completion flags, and hardware-driver output
+  boundaries. Analog waveform synthesis remains explicitly outside the current
+  interpreter compatibility target.
+
+## 2026-07-10: read-only multi-game census tooling
+
+Goal: create a reproducible source-first inventory step for the additional
+local game directories without modifying private inputs under `games/`.
+
+Commands and local reads:
+
+- `sed -n '640,670p' PROGRESS.md`
+- `sed -n '1,260p' docs/src/versions.md`
+- `sed -n '1,220p' docs/src/cross_version_workflow.md`
+- `rg -n "v3|GR|Gold|compression|picture-nibble|direct view|loader error|static delta|behavioral" docs/src PROGRESS.md tools tests`
+- `rg -n "v3|GR|combined|dictionary|nibble|prefixed|expanded|stored|compression|Version|SQ2|sound" docs/src/resource_files.md`
+- `sed -n '80,240p' docs/src/resource_files.md`
+- `sed -n '228,390p' docs/src/resource_files.md`
+- `sed -n '1,260p' tools/agi_resources.py`
+- `sed -n '260,560p' tools/agi_resources.py`
+- `sed -n '1,180p' tests/test_agi_resources.py`
+- `find games -maxdepth 2 -type f`
+- `find games -maxdepth 1 -type d`
+- `git ls-files tools`
+- `sed -n '1,220p' tools/project_paths.py`
+- `sed -n '1,220p' tests/test_compatibility_suite.py`
+- `sed -n '1,220p' tests/test_qemu_fixture.py`
+- `sed -n '1,120p' .gitignore`
+- `python3 -B -m py_compile tools/game_census.py tests/test_game_census.py`
+- `python3 -B -m unittest tests.test_game_census`
+- `python3 -B tools/game_census.py --games-root games --format json --output build/cross-version/game_census.json`
+- `python3 -B tools/game_census.py --games-root games --format markdown --output build/cross-version/game_census.md`
+- `sed -n '1,80p' build/cross-version/game_census.md`
+- `python3 -m json.tool build/cross-version/game_census.json`
+- `mdbook build docs`
+- `git diff --check`
+- `AGI_GAME_DIR=games/SQ2 python3 -B -m unittest discover -s tests`
+- `find tests tools -type d -name __pycache__ -print`
+- `rm -rf tests/__pycache__ tools/__pycache__`
+- `AGI_GAME_DIR=games/SQ2 python3 -B tools/logic_opcode_evidence.py --check`
+- `AGI_GAME_DIR=games/SQ2 python3 -B tools/compatibility_suite.py --report build/compatibility-suite/local_game_census_dispatch_001.json`
+- `python3 -m json.tool build/compatibility-suite/local_game_census_dispatch_001.json`
+
+Implementation:
+
+- Added `tools/game_census.py`.
+- The tool requires one or more explicit `--game-dir` paths or an explicit
+  `--games-root` path.
+- It detects v2 split and v3 combined layouts through `tools/agi_resources.py`.
+- It extracts local `Version ...` strings from known interpreter data files.
+- It counts entries, present entries, volumes, readable record transforms, and
+  stored/expanded byte totals per resource family.
+- It records per-record header/expansion errors instead of aborting the whole
+  inventory.
+- Added synthetic tests in `tests/test_game_census.py` for split layout,
+  combined layout, version extraction, deduplication, and Markdown formatting.
+
+Validation:
+
+- `python3 -B -m py_compile tools/game_census.py tests/test_game_census.py`
+  passed.
+- `python3 -B -m unittest tests.test_game_census` passed 5 tests.
+- `python3 -B -m unittest tests.test_game_census tests.test_agi_resources`
+  passed 13 tests.
+- `mdbook build docs` passed.
+- `git diff --check` passed.
+- `AGI_GAME_DIR=games/SQ2 python3 -B -m unittest discover -s tests` passed
+  304 tests.
+- Removed the generated `tests/__pycache__` and `tools/__pycache__`
+  directories after the full test run.
+
+Current private-input census:
+
+- v2 split layouts: KQ1 `Version 2.917`, KQ2 `Version 2.411`, KQ3
+  `Version 2.936`, LSL1 `Version 2.440`, PQ1 `Version 2.917`, and SQ2
+  `Version 2.936`.
+- v3 combined layouts: KQ4D `Version 3.002.102` with `DMDIR`/`DMVOL.N`, and
+  GR `Version 3.002.149` with `GRDIR`/`GRVOL.N`.
+- GR has no record errors under the current v3 reader.
+- SQ2 still reports the two known out-of-range end entries from LOGDIR/PICDIR.
+- KQ1 has four sound entries that fail the generic v2 header check.
+- KQ4D has multiple suspect sound-section entries that fail the generic v3
+  header check. These should be source-inspected before any behavioral rule is
+  added.
+
+Conclusion:
+
+- The project now has a repeatable first-pass inventory for future
+  cross-version comparison. Record errors are planning evidence for later
+  disassembly, not part of the clean-room behavioral model for valid resources.
+
+## 2026-07-10: KQ4D dispatch-table detection and sound references
+
+Goal: follow up on the KQ4D census errors by fixing v3 logic disassembly for
+non-GR table bases and checking whether decoded KQ4D scripts reference the
+suspect sound-section entries.
+
+Commands and local reads:
+
+- `ls -l games/KQ4D/DMDIR games/KQ4D/DMVOL.* games/KQ4D/AGI`
+- `xxd -g1 -l 96 games/KQ4D/DMDIR`
+- `xxd -g1 -s 0x2d5 -l 256 games/KQ4D/DMDIR`
+- `file games/KQ4D/AGI games/GR/AGI games/SQ2/AGI`
+- Python local decode of KQ4D `DMDIR` sound entries, printing present-like
+  indices, raw triples, target volume/offsets, and target header bytes.
+- `python3 -B tools/disassemble_logic.py --help` without a game directory,
+  which failed with the expected explicit-game guard.
+- `AGI_GAME_DIR=games/KQ4D python3 -B tools/disassemble_logic.py --help`
+- `AGI_GAME_DIR=games/KQ4D python3 -B tools/disassemble_logic.py --stats`
+  before the fix, showing garbage table data from the old GR-specific v3
+  table bases.
+- Python local scans comparing SQ2/GR/KQ4D AGIDATA table bytes and searching
+  for action/condition argc/meta signatures.
+- `rg -n "dispatch_table_layout|load_table|ACTION_NAMES|COND_NAMES|disassemble_logic" tests tools docs/src`
+- `sed -n '430,530p' tools/disassemble_logic.py`
+- `rg -n "0x0440|0x0762|0x061D|0x08FD|dispatch table|AGIDATA dispatch" docs/src tests tools`
+- `AGI_GAME_DIR=games/SQ2 python3 -B -m py_compile tools/disassemble_logic.py tests/test_disassemble_logic_tables.py`
+- `AGI_GAME_DIR=games/SQ2 python3 -B -m unittest tests.test_disassemble_logic_tables`
+- `AGI_GAME_DIR=games/KQ4D python3 -B tools/disassemble_logic.py --stats`
+- `AGI_GAME_DIR=games/KQ4D python3 -B tools/disassemble_logic.py --limit 80 | rg -n "load_sound|start_sound|stop_sound|sound"`
+- `AGI_GAME_DIR=games/SQ2 python3 -B -m unittest tests.test_disassemble_logic_tables tests.test_game_census tests.test_agi_resources`
+- `mdbook build docs`
+- `git diff --check`
+- `AGI_GAME_DIR=games/SQ2 python3 -B -m unittest discover -s tests`
+- `find tests tools -type d -name __pycache__ -print`
+- `rm -rf tests/__pycache__ tools/__pycache__`
+
+Observations:
+
+- KQ4D `DMDIR` has header offsets `0x0008`, `0x00f8`, `0x01e5`, and `0x02d5`.
+- The KQ4D sound section contains clean v3 records at sound indices `70..79`.
+- Later present-looking sound-section triples often point into compressed data
+  rather than to `12 34` volume record headers.
+- The old `tools/disassemble_logic.py` v3 path hard-coded GR table bases
+  `0x0440` and `0x0762`, so KQ4D stats were decoded with the wrong operand
+  table.
+- The first 16 action-table argc/meta pairs form an exact signature at:
+  - SQ2 `AGIDATA.OVL:0x061d`
+  - GR `AGIDATA.OVL:0x0440`
+  - KQ4D `AGIDATA.OVL:0x0620`
+- The 19 structured condition-table argc/meta pairs form an exact signature at:
+  - SQ2 `AGIDATA.OVL:0x08fd`
+  - GR `AGIDATA.OVL:0x0762`
+  - KQ4D `AGIDATA.OVL:0x0942`
+- KQ4D has the same v3 action-table shape through opcode `0xb5`; the extra
+  slots at `0xb0..0xb5` have the same operand metadata shape as GR.
+- After table detection, KQ4D stats are coherent. Decoded KQ4D scripts use
+  `load_sound`, `start_sound_with_flag`, and `stop_sound_or_clear_sound_state`,
+  but only with sound resource numbers `70..79`.
+
+Implementation:
+
+- Added signature-based dispatch table detection to `tools/disassemble_logic.py`.
+- Added `tests/test_disassemble_logic_tables.py` covering SQ2, GR, and KQ4D
+  table bases.
+- Updated resource, bytecode, version, symbolic-label, and progress docs to
+  treat v3 action/condition table bases as build-specific associations.
+
+Validation:
+
+- `AGI_GAME_DIR=games/SQ2 python3 -B -m py_compile
+  tools/disassemble_logic.py tests/test_disassemble_logic_tables.py
+  tools/game_census.py tests/test_game_census.py` passed.
+- `AGI_GAME_DIR=games/SQ2 python3 -B -m unittest
+  tests.test_disassemble_logic_tables tests.test_game_census
+  tests.test_agi_resources` passed 16 tests.
+- `mdbook build docs` passed.
+- `git diff --check` passed.
+- `AGI_GAME_DIR=games/SQ2 python3 -B -m unittest discover -s tests` passed
+  307 tests.
+- Removed the generated `tests/__pycache__` and `tools/__pycache__`
+  directories after the full test run.
+- `AGI_GAME_DIR=games/SQ2 python3 -B tools/logic_opcode_evidence.py --check`
+  passed.
+- `AGI_GAME_DIR=games/SQ2 python3 -B tools/compatibility_suite.py --report
+  build/compatibility-suite/local_game_census_dispatch_001.json` passed. The
+  report records zero return codes for local unit tests, mdBook build, and the
+  opcode-evidence freshness check.
+
+Conclusion:
+
+- KQ4D can now be used as a v3 logic-disassembly input. Its current scripts
+  only reference the clean sound records, so later bad KQ4D sound-section
+  triples remain out-of-model planning evidence until source inspection proves a
+  valid script path can observe them.

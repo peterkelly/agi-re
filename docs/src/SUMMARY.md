@@ -11,6 +11,7 @@
 - [Versions](./versions.md)
 - [Resource Files](./resource_files.md)
 - [Runtime Model](./runtime_model.md)
+- [Sound and Audio](./sound_and_audio.md)
 - [Graphics and Object Pipeline](./graphics_object_pipeline.md)
 - [Compatibility Testing](./compatibility_testing.md)
 - [Logic Resources](./logic_resources.md)

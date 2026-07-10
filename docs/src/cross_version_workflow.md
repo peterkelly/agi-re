@@ -19,6 +19,30 @@ version-specific `build/` subdirectory:
 | Symbolic label map delta | Address associations from existing labels to the new build. |
 | Compatibility report | Local suite and selected QEMU smoke/broad results. |
 
+Start each broad comparison pass with the read-only census tool:
+
+```bash
+python3 -B tools/game_census.py --games-root games \
+  --format markdown \
+  --output build/cross-version/game_census.md
+```
+
+or pass selected inputs explicitly:
+
+```bash
+python3 -B tools/game_census.py \
+  --game-dir games/SQ2 \
+  --game-dir games/GR \
+  --format json \
+  --output build/cross-version/selected_census.json
+```
+
+The tool requires explicit paths, treats game files as read-only evidence,
+detects split v2 and combined v3 resource layouts, records version strings from
+local interpreter data, counts directory entries and readable records, and
+keeps per-record errors in the generated report. Treat record errors as
+hypotheses for later source inspection, not as engine semantics.
+
 Do not collapse these observations into the SQ2 notes without naming the source
 build. Addresses are build-specific; labels and behavior are the portable
 concepts.

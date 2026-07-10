@@ -426,10 +426,10 @@ decrypted SQ2 executable, so file offsets are image offsets plus `0x200`.
 
 | Label | GR address | Notes/evidence |
 | --- | --- | --- |
-| `code.logic.action_dispatch` | image `0x02bc` | Same structural role as SQ2 `0x02c4`, but the v3 max-action check accepts opcodes through `0xb5` and dispatches through AGIDATA table `0x0440`. |
-| `table.logic.action_dispatch` | `AGIDATA.OVL:0x0440` | Four-byte v3 action table. `tools/disassemble_logic.py --game-dir games/GR --stats` parsed all present GR logic resources with this base. |
+| `code.logic.action_dispatch` | image `0x02bc` | Same structural role as SQ2 `0x02c4`, but the v3 max-action check accepts opcodes through `0xb5` and dispatches through a build-specific AGIDATA action table. |
+| `table.logic.action_dispatch` | GR `AGIDATA.OVL:0x0440`; KQ4D `AGIDATA.OVL:0x0620` | Four-byte v3 action table. `tools/disassemble_logic.py` now detects this table by the observed argc/meta signature; GR and KQ4D both parse with their build-specific bases. |
 | `code.logic.condition_dispatch` | image `0x0a31` | Same structural role as SQ2 `0x07e3`. The GR dispatcher compares predicate bytes with `0x26`, but the observed structured table at `AGIDATA.OVL:0x0762` only covers shared entries `0x00..0x12`. |
-| `table.logic.condition_dispatch` | `AGIDATA.OVL:0x0762` | Four-byte v3 condition table for entries `0x00..0x12`, matching SQ2 table `0x08fd` by contract and normalized handler snippets. Bytes after entry `0x12` overlap string/data, not confirmed predicates. Gold Rush scripts observed so far only use conditions through `0x0e`. |
+| `table.logic.condition_dispatch` | GR `AGIDATA.OVL:0x0762`; KQ4D `AGIDATA.OVL:0x0942` | Four-byte v3 condition table for entries `0x00..0x12`, matching SQ2 table `0x08fd` by contract and normalized handler snippets. Bytes after entry `0x12` overlap string/data in GR and are not confirmed predicates. Gold Rush scripts observed so far only use conditions through `0x0e`. |
 | `opcode.action.reserved_noop_v3_0` | table slot `0xb0`, image `0x5286` | GR-only action slot. Zero operands, generic no-op/return handler. |
 | `opcode.action.set_menu_interaction_gate` | table slot `0xb1`, image `0x970b` | GR-only action slot. Reads one immediate byte and stores it in `data.menu.interaction_gate_0403`; QEMU report `build/gr-v3-behavior/menu_gate_suite.json` validates zero as blocked and nonzero as modal-menu entry. |
 | `opcode.action.reserved_noop_v3_2` | table slot `0xb2`, image `0x5286` | GR-only action slot. Zero operands, generic no-op/return handler. |

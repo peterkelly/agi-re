@@ -131,11 +131,15 @@ clearing.
 - `docs/src/logic_resources.md`: logic resource format and decoded script notes.
 - `docs/src/graphics_object_pipeline.md`: object records, motion, view drawing,
   and update pipeline.
+- `docs/src/sound_and_audio.md`: sound resource format, playback scheduling,
+  completion flags, and driver output boundary.
 - `docs/src/compatibility_testing.md`: QEMU and Python test commands.
 - `docs/src/clean_room_executable_notes.md`: chronological command/evidence log.
 - `docs/src/symbolic_labels.md`: symbolic address map for comparing interpreter
   versions.
 - `tools/disassemble_logic.py`: local logic bytecode disassembler.
+- `tools/game_census.py`: read-only multi-game resource/version/layout census
+  for explicit local game directories.
 - `tools/logic_interpreter_probe.py`: QEMU logic-interpreter compatibility
   harness for small bytecode behavior probes.
 - `tools/qemu_snapshot.py`: shared snapshot runner; fixtures can now request

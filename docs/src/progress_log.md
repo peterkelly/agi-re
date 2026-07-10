@@ -24019,3 +24019,453 @@ Progress updates and outcomes:
       doing one final status-only check after it."
 
       Action/result: Added this final progress-log entry.
+
+3137. Reported: "I’ll pick up from the clean commit..."
+
+      Action/result: Rechecked repository state and `PROGRESS.md`; only the
+      unrelated untracked `run.sh` was present after the previous commit.
+
+3138. Reported: "The tracker is clean after the commit..."
+
+      Action/result: Selected the sound/audio tracker row as the next useful
+      implementation-spec target and began inspecting the relevant docs, tests,
+      and helper scripts.
+
+3139. Reported: "There isn’t a sound-specific chapter..."
+
+      Action/result: Confirmed `tools/agi_sound.py` and
+      `tests/test_sound_resources.py` already model the source-backed sound
+      resource format, scheduling, port-output boundary, and envelope behavior,
+      while the mdBook lacked a dedicated sound/audio chapter.
+
+3140. Reported: "I found the next useful gap: the project has source-backed
+      sound parsing and driver evidence, but it’s scattered across runtime
+      notes, tests, and labels. I’m going to turn that into a dedicated
+      implementation-oriented docs chapter and wire it into the book/tracker."
+
+      Action/result: Read the summary, runtime model sound section, symbolic
+      sound labels, sound tests, and sound helper to gather the contract points
+      for a new chapter.
+
+3141. Reported: "The sound helper/tests are nicely concrete: they already
+      encode the channel record format, countdown semantics, PC-speaker divisor,
+      and non-PC port byte behavior. I’m going to keep the new chapter at the
+      'observable interpreter contract' level, with the port writes as the
+      hardware boundary and analog synthesis marked out of scope."
+
+      Action/result: Chose the chapter scope: resource parsing, load/start/stop
+      semantics, tick scheduling, completion flags, tone/attenuation output,
+      and explicit deferral of analog waveform synthesis.
+
+3142. Reported: "The current status file already calls out analog sound as
+      deferred, so the new chapter should make that explicit rather than
+      accidentally widening the target. I’m patching docs now: summary entry,
+      sound chapter, progress log, clean-room notes, and tracker wording."
+
+      Action/result: Added `docs/src/sound_and_audio.md`, linked it from
+      `docs/src/SUMMARY.md`, updated `PROGRESS.md` and
+      `docs/src/current_status.md`, and added this clean-room evidence note.
+
+3143. Reported: "The edit is mostly consolidation, not new claims. I’m
+      anchoring each rule to an existing local artifact: `tools/agi_sound.py`,
+      `tests/test_sound_resources.py`, the symbolic labels, and the prior SQ2
+      corpus observations."
+
+      Action/result: Completed the sound/audio documentation patch and prepared
+      to validate the mdBook and focused sound tests.
+
+3144. Reported: "The new chapter is in place. I’m validating it now with the
+      focused sound tests, mdBook build, and whitespace checks, then I’ll clean
+      up any generated Python caches."
+
+      Action/result: `mdbook build docs` passed and `git diff --check` passed.
+      The first focused sound test run failed because the explicit
+      `AGI_GAME_DIR`/`--game-dir` requirement was not supplied.
+
+3145. Reported: "The first focused test run reminded me of our newer
+      no-default-game rule: it failed fast because `AGI_GAME_DIR` was not set.
+      I’m rerunning it with the explicit local SQ2 evidence directory, which is
+      the right shape for these legacy SQ2 corpus tests."
+
+      Action/result: `AGI_GAME_DIR=games/SQ2 python3 -B -m unittest
+      tests.test_sound_resources` passed 16 tests. No `__pycache__` directories
+      were present under `tests/` or `tools/`.
+
+3146. Reported: "The explicit SQ2 sound tests pass: 16 tests in the focused
+      suite. I’m adding the validation notes, then I’ll rebuild the book once
+      more after that final docs edit."
+
+      Action/result: Added validation details to
+      `docs/src/clean_room_executable_notes.md` and this progress-log block.
+
+3147. Reported: "The validation trail is recorded. I’m doing the final quick
+      sweep after those log edits: rebuild mdBook, whitespace check, cache
+      check, and status."
+
+      Action/result: `mdbook build docs` passed, `git diff --check` passed, no
+      Python `__pycache__` directories were present under `tests/` or `tools/`,
+      and `git status --short` showed the expected documentation changes plus
+      the unrelated untracked `run.sh`.
+
+3148. Reported: "The final sweep is clean: mdBook and whitespace pass, no
+      Python caches, and the only untracked non-project file remains `run.sh`.
+      I’m going to log that and then move to the next `PROGRESS.md` item
+      instead of stopping at the sound chapter."
+
+      Action/result: Recorded the sound/audio final sweep and continued toward
+      the next high-value tracker item.
+
+3149. Reported: "Next I’m re-reading the high-value list and the v3/version
+      notes to choose a source-first task. I’ll prefer something that
+      strengthens the cross-version spec without needing a QEMU run unless the
+      disassembly leaves a behavior ambiguous."
+
+      Action/result: Re-read `PROGRESS.md`, `docs/src/versions.md`, and
+      `docs/src/cross_version_workflow.md`.
+
+3150. Reported: "The v3 notes are currently concentrated in the Versions
+      chapter, while Resource Files still begins as an SQ2-only chapter. A
+      portable implementer will need the v2/v3 container contract in the
+      resource chapter too, so I’m checking whether that chapter already covers
+      the v3 combined directory and transformed records before adding
+      anything."
+
+      Action/result: Confirmed `docs/src/resource_files.md` already contains a
+      detailed Gold Rush / AGI v3 container comparison, including combined
+      directory sections, 7-byte volume headers, dictionary expansion, and
+      picture-nibble expansion.
+
+3151. Reported: "Resource Files already has a solid v3 container section, so I
+      won’t duplicate it. Since you’ve added more local games, the next useful
+      cross-version step is a read-only census tool/report that can summarize
+      each game’s layout, version string, resource counts, and transform mix
+      without hard-coding SQ2 or GR."
+
+      Action/result: Inspected the local `games/` directory and found PQ1,
+      KQ1, KQ2, KQ3, KQ4D, LSL1, SQ2, and GR.
+
+3152. Reported: "The local `games/` directory now has several interpreters:
+      PQ1, KQ1-3, KQ4D, LSL1, SQ2, and GR. I’m going to add a small read-only
+      census script that requires explicit paths, so future comparison passes
+      can start from a reproducible inventory instead of ad hoc shell scans."
+
+      Action/result: Reviewed shared path handling and existing tests, then
+      designed `tools/game_census.py` around explicit `--game-dir` or
+      `--games-root` inputs.
+
+3153. Reported: "I’m adding this as reusable infrastructure, not just a one-off
+      report: repeated `--game-dir` for selected inputs, or explicit
+      `--games-root` for a first-level scan. The tool will emit JSON or
+      Markdown and continue past individual bad records so malformed/out-of-
+      range entries are evidence, not fatal surprises."
+
+      Action/result: Added `tools/game_census.py` and synthetic unit tests in
+      `tests/test_game_census.py`.
+
+3154. Reported: "The census script and synthetic tests are added. Before using
+      it on the private `games/` tree, I’m running the isolated tests and a
+      compile check so the tool’s behavior is pinned down without depending on
+      any copyrighted local input."
+
+      Action/result: `python3 -B -m py_compile tools/game_census.py
+      tests/test_game_census.py` passed, and `python3 -B -m unittest
+      tests.test_game_census` passed 5 tests.
+
+3155. Reported: "The isolated census tests pass. I noticed two imports that
+      the first draft doesn’t need, so I’m cleaning those before running the
+      tool against the local game directories."
+
+      Action/result: Removed unused imports from `tools/game_census.py`.
+
+3156. Reported: "Now I’m running the census on the explicit local `games/`
+      root and writing reports under `build/`, which keeps the private
+      input-derived report out of source while still giving us concrete
+      observations for the docs."
+
+      Action/result: Wrote `build/cross-version/game_census.json` and
+      `build/cross-version/game_census.md`.
+
+3157. Reported: "The read-only census completed cleanly. I’m inspecting the
+      generated summary now for anything surprising, especially layout/version
+      spread and record errors that would affect the next comparison pass."
+
+      Action/result: Inspected the generated Markdown/JSON census and identified
+      six split-directory inputs plus two v3 combined-directory inputs.
+
+3158. Reported: "The census surfaced useful evidence: six split-directory
+      games plus two v3 combined-directory inputs, and a few record-header
+      errors in KQ1, KQ4D, and SQ2. I’m looking at those errors closely before
+      deciding whether they are malformed data, unsupported container variants,
+      or just directory sentinels our generic parser should treat more
+      carefully."
+
+      Action/result: Compared error details for KQ1, KQ4D, and SQ2. SQ2's two
+      errors are the already known out-of-range end entries; KQ1 and KQ4D sound
+      entries need later source inspection before being modeled.
+
+3159. Reported: "The error rows are themselves useful: SQ2’s two are the
+      already-known out-of-range end entries, while KQ1/KQ4D need later source
+      checks before we treat their suspect sound entries as valid resources. I’m
+      documenting the census tool and the current local findings as a starting
+      point for future version passes, without making those errors part of the
+      portable spec."
+
+      Action/result: Documented the census workflow and snapshot in
+      `docs/src/cross_version_workflow.md`, `docs/src/versions.md`,
+      `PROGRESS.md`, `docs/src/current_status.md`, and
+      `docs/src/clean_room_executable_notes.md`.
+
+3160. Reported: "The first doc patch missed because `PROGRESS.md` wording had
+      shifted. I’m applying the same content in smaller pieces against the
+      current text."
+
+      Action/result: Added the census workflow to
+      `docs/src/cross_version_workflow.md` and the local census snapshot to
+      `docs/src/versions.md`.
+
+3161. Reported: "The workflow and Versions docs now point at the census tool.
+      I’m updating the progress tracker next so this infrastructure shows up in
+      the dashboard rather than being buried in prose."
+
+      Action/result: Updated `PROGRESS.md` to mention the multi-game census in
+      the current snapshot, symbolic-map row, and resource-loading row.
+
+3162. Reported: "The tracker now reflects the census work. I’m adding the
+      clean-room evidence trail and Useful Files pointer, then I’ll run
+      validation over the new tool and docs."
+
+      Action/result: Added `tools/game_census.py` to Useful Files and recorded
+      the census work in `docs/src/clean_room_executable_notes.md`.
+
+3163. Reported: "One quick correction in the log: I typed 'seven
+      split-directory' in one entry, but the census shows six split-directory
+      inputs and two v3 combined inputs. I’m fixing that before validation so
+      the historical log is clean."
+
+      Action/result: Corrected the progress-log census count.
+
+3164. Reported: "The census docs are in. I’m validating the new tool and
+      resource parser tests together, plus mdBook and whitespace, because this
+      touched both tooling and the cross-version chapters."
+
+      Action/result: `python3 -B -m py_compile tools/game_census.py
+      tests/test_game_census.py` passed; `python3 -B -m unittest
+      tests.test_game_census tests.test_agi_resources` passed 13 tests;
+      `mdbook build docs` passed; and `git diff --check` passed.
+
+3165. Reported: "Focused validation passed: 13 tests covering the new census
+      tool plus resource parser, and mdBook/whitespace are clean. I’m running
+      the full local unittest discovery once too, since this added a new test
+      file that should fit the normal suite."
+
+      Action/result: `AGI_GAME_DIR=games/SQ2 python3 -B -m unittest discover
+      -s tests` passed 304 tests and generated `tests/__pycache__` plus
+      `tools/__pycache__`.
+
+3166. Reported: "Full local discovery passed 304 tests, and it generated the
+      usual Python cache directories. I’m removing only those generated caches,
+      then I’ll update the test count and final validation notes."
+
+      Action/result: Removed `tests/__pycache__` and `tools/__pycache__`.
+
+3167. Reported: "Full local discovery is up to 304 tests now and caches are
+      removed. I’m finding the current tracker count so I can update only the
+      live dashboard, leaving the older progress-log counts as historical
+      entries."
+
+      Action/result: Found the live count in the compatibility-suite tracker
+      row.
+
+3168. Reported: "The live test-count line is in the compatibility-suite row,
+      currently 299. I’m bumping that to 304 and recording the validation
+      commands/results for the census pass."
+
+      Action/result: Updated `PROGRESS.md` to 304 tests and added validation
+      details to `docs/src/clean_room_executable_notes.md`.
+
+3169. Reported: "The final sweep is clean, with `run.sh` still the only
+      unrelated untracked file. The census exposed a concrete next source-first
+      question, so I’m going one level deeper on KQ4D’s v3 directory: why the
+      sound section has many present-looking entries that fail the generic v3
+      record header check."
+
+      Action/result: Inspected KQ4D `DMDIR`, `DMVOL.*`, and executable file
+      types. The sound section starts at `0x02d5` and begins with many
+      `ff ff ff` absent entries.
+
+3170. Reported: "I’m checking the raw KQ4D directory and the referenced volume
+      offsets first. If the bad entries are just filler/trailing data, that
+      should show up before I spend time mapping the executable routine."
+
+      Action/result: Decoded KQ4D sound entries. Clean records appear at sound
+      indices `70..79`; later present-looking triples generally point inside
+      non-header volume data.
+
+3171. Reported: "The sound section starts with a long block of `ff ff ff`,
+      then real-looking entries. That makes the generic exact-`ff ff ff` absent
+      rule plausible, but the later bad entries are not obviously just the
+      initial empty range, so I’m decoding the sound section indices and target
+      headers next."
+
+      Action/result: Printed present-like KQ4D sound entries and confirmed the
+      clean `12 34` headers at indices `70..79`.
+
+3172. Reported: "The target dump is telling: KQ4D has ten clean sound records
+      at indices 70-79, then later present-looking triples that mostly land
+      inside compressed data rather than at `12 34` headers. I’m checking
+      decoded KQ4D logic references now, because if scripts never request those
+      later sound numbers, they are directory tail/data artifacts rather than
+      valid-resource semantics."
+
+      Action/result: Initial `disassemble_logic.py` calls used nonexistent
+      flags or the old GR-specific v3 table bases, revealing that KQ4D needed
+      per-build dispatch-table detection.
+
+3173. Reported: "I guessed nonexistent flags on `disassemble_logic.py`; it
+      takes explicit logic numbers plus `--stats`. I’m checking its CLI and
+      then I’ll use the supported path."
+
+      Action/result: Confirmed the supported CLI and reran with
+      `AGI_GAME_DIR=games/KQ4D`, still exposing wrong table data from the
+      hard-coded GR v3 bases.
+
+3174. Reported: "The script consumes `--game-dir` before its own parser, so
+      help itself needs `AGI_GAME_DIR` set. I’m using `--stats` now, then I’ll
+      narrow to sound-related opcodes."
+
+      Action/result: Verified KQ4D stats were incoherent before the fix, with
+      bogus handler/argc/meta values.
+
+3175. Reported: "KQ4D also exposed a tooling gap: `disassemble_logic.py`
+      hard-codes GR’s v3 dispatch-table offsets, so KQ4D `--stats` is decoding
+      with the wrong table. I’m going to inspect the dispatch-table signatures
+      and see if we can infer v3 table offsets per game instead of treating GR
+      as the only v3 layout."
+
+      Action/result: Compared SQ2, GR, and KQ4D AGIDATA bytes and found exact
+      action/condition argc/meta signatures at SQ2 `0x061d`/`0x08fd`, GR
+      `0x0440`/`0x0762`, and KQ4D `0x0620`/`0x0942`.
+
+3176. Reported: "Good, KQ4D’s action table scores perfectly at
+      `AGIDATA.OVL:0x0620` and its condition table at `0x0942`; GR’s are at
+      `0x0440`/`0x0762`. I’m going to replace the v3 hard-code with a
+      signature scan so KQ4D and future local v3 builds can disassemble with
+      their own table bases."
+
+      Action/result: Patched `tools/disassemble_logic.py` with signature-based
+      dispatch table detection and added `tests/test_disassemble_logic_tables.py`.
+
+3177. Reported: "The table shape is consistent: KQ4D has the same v3 extra
+      action slots `0xb0..0xb5`, just at different AGIDATA offsets. I’m adding
+      a small signature-based detector around the known operand metadata pattern
+      so the disassembler can use `0x0620`/`0x0942` for KQ4D automatically."
+
+      Action/result: Completed the detector patch and test file.
+
+3178. Reported: "The detector patch is in, but I don’t need to keep the old
+      hard-coded helper around as live code. I’m trimming that before running
+      KQ4D stats again."
+
+      Action/result: Removed the unused hard-coded static helper.
+
+3179. Reported: "Now I’m validating the detector and rerunning KQ4D
+      disassembly stats. If the stats become sane and still show no sound
+      opcodes, that supports treating the suspect KQ4D sound entries as
+      non-script-observed until source inspection says otherwise."
+
+      Action/result: `py_compile` passed, dispatch-table tests passed 3 tests,
+      KQ4D stats became coherent, and decoded KQ4D scripts referenced only sound
+      resources `70..79`.
+
+3180. Reported: "With the corrected table bases, KQ4D stats are sane and
+      decoded scripts only reference sound resources 70-79; those are exactly
+      the clean `12 34` sound records. The later bad sound-section triples
+      remain non-observed by current KQ4D scripts, so I’m documenting that and
+      the new table detector."
+
+      Action/result: Updated resource, bytecode, version, symbolic-label, and
+      progress docs to record build-specific v3 dispatch-table bases and KQ4D
+      sound-reference evidence.
+
+3181. Reported: "I’m updating the docs to stop presenting GR’s dispatch-table
+      offsets as the v3 offsets. The portable statement is now: v3 keeps the
+      same operand metadata shape and extra action slots, but the table bases
+      are per-build and detected from AGIDATA."
+
+      Action/result: Added the implementation/evidence section for KQ4D
+      dispatch-table detection and sound references.
+
+3182. Reported: "The KQ4D evidence is documented. I’m running focused
+      validation again, then the full suite so the tracker count reflects the
+      three new dispatch-table tests."
+
+      Action/result: `py_compile` passed; `python3 -B -m unittest
+      tests.test_disassemble_logic_tables tests.test_game_census
+      tests.test_agi_resources` passed 16 tests; `mdbook build docs` passed;
+      and `git diff --check` passed.
+
+3183. Reported: "Focused validation is clean: 16 tests for table detection,
+      census, and resources, plus mdBook/whitespace. I’m running full local
+      discovery now."
+
+      Action/result: `AGI_GAME_DIR=games/SQ2 python3 -B -m unittest discover
+      -s tests` passed 307 tests and generated `tests/__pycache__` plus
+      `tools/__pycache__`.
+
+3184. Reported: "Full discovery is now 307 tests. I’m removing the generated
+      cache directories again, then I’ll bump the live tracker count and do the
+      final sweep."
+
+      Action/result: Removed `tests/__pycache__` and `tools/__pycache__`.
+
+3185. Reported: "Caches are removed. I’m updating the live test count from 304
+      to 307 and recording the focused/full validation for the dispatch-table
+      work."
+
+      Action/result: Updated `PROGRESS.md` to 307 tests and added validation
+      details to `docs/src/clean_room_executable_notes.md`.
+
+3186. Reported: "The tracker and evidence log are current. I’m doing the final
+      sweep now: mdBook, whitespace, cache check, and status."
+
+      Action/result: `mdbook build docs` passed, `git diff --check` passed, no
+      Python `__pycache__` directories were present, and status showed the
+      expected working tree changes plus unrelated `run.sh`.
+
+3187. Reported: "The final sweep is clean. Because `tools/disassemble_logic.py`
+      changed, I’m also going to run the opcode-evidence freshness check and
+      the local compatibility wrapper so the generated evidence pipeline still
+      agrees with the updated disassembler."
+
+      Action/result: `AGI_GAME_DIR=games/SQ2 python3 -B
+      tools/logic_opcode_evidence.py --check` passed; `AGI_GAME_DIR=games/SQ2
+      python3 -B tools/compatibility_suite.py --report
+      build/compatibility-suite/local_game_census_dispatch_001.json` passed.
+
+3188. Reported: "The opcode-evidence check and local compatibility wrapper
+      passed. I’m checking the report and cleaning any caches the wrapper
+      regenerated, then I’ll record those validation results."
+
+      Action/result: The compatibility report had zero return codes for local
+      unit tests, mdBook, and opcode evidence. No Python cache directories were
+      present.
+
+3189. Reported: "The compatibility report has all zero return codes and no
+      cache directories were left behind. I’m appending that final validation
+      note now."
+
+      Action/result: Added final compatibility-suite validation notes to
+      `docs/src/clean_room_executable_notes.md`.
+
+3190. Reported: "Final validation notes are recorded. I’m running one last
+      mdBook/whitespace/cache/status sweep after that documentation edit."
+
+      Action/result: `mdbook build docs` passed, `git diff --check` passed, no
+      Python `__pycache__` directories were present, and status showed the
+      expected working tree changes plus unrelated `run.sh`.
+
+3191. Reported: "The last sweep is clean too. I’m adding that sweep result to
+      the progress log; then I’ll do a status-only check so the final note
+      reflects the exact working tree."
+
+      Action/result: Added this final sweep entry.

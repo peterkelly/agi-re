@@ -51,6 +51,66 @@ def load_table(data: bytes, base: int, count: int) -> list[TableEntry]:
     return out
 
 
+ACTION_META_SIGNATURE = (
+    (0, 0x00),
+    (1, 0x80),
+    (1, 0x80),
+    (2, 0x80),
+    (2, 0xC0),
+    (2, 0x80),
+    (2, 0xC0),
+    (2, 0x80),
+    (2, 0xC0),
+    (2, 0xC0),
+    (2, 0xC0),
+    (2, 0x80),
+    (1, 0x00),
+    (1, 0x00),
+    (1, 0x00),
+    (1, 0x80),
+)
+
+
+CONDITION_META_SIGNATURE = (
+    (0, 0x00),
+    (2, 0x80),
+    (2, 0xC0),
+    (2, 0x80),
+    (2, 0xC0),
+    (2, 0x80),
+    (2, 0xC0),
+    (1, 0x00),
+    (1, 0x80),
+    (1, 0x00),
+    (2, 0x40),
+    (5, 0x00),
+    (1, 0x00),
+    (0, 0x00),
+    (0, 0x00),
+    (2, 0x00),
+    (5, 0x00),
+    (5, 0x00),
+    (5, 0x00),
+)
+
+
+def find_table_by_meta_signature(data: bytes, signature: tuple[tuple[int, int], ...], name: str) -> int:
+    """Find a dispatch table by its observed argc/meta signature."""
+
+    table_span = len(signature) * 4
+    matches: list[int] = []
+    for base in range(0, len(data) - table_span + 1):
+        if all(
+            (data[base + opcode * 4 + 2], data[base + opcode * 4 + 3]) == expected
+            for opcode, expected in enumerate(signature)
+        ):
+            matches.append(base)
+    if len(matches) != 1:
+        rendered = ", ".join(f"0x{match:04x}" for match in matches)
+        raise ValueError(f"expected one {name} table signature match, found {len(matches)}: {rendered}")
+    return matches[0]
+
+
 def read_dir_entries(path: Path) -> list[tuple[int, int] | None]:
     data = path.read_bytes()
     entries: list[tuple[int, int] | None] = []
@@ -95,14 +155,18 @@ def logic_payload(logic_no: int) -> bytes:
     return read_volume_payload(*entry)
 
 
+def dispatch_table_layout_for(agidata: bytes, layout_version: str) -> tuple[int, int, int, int]:
+    action_base = find_table_by_meta_signature(agidata, ACTION_META_SIGNATURE, "action")
+    cond_base = find_table_by_meta_signature(agidata, CONDITION_META_SIGNATURE, "condition")
+    if layout_version == "v3_combined":
+        return action_base, 0xB6, cond_base, 0x13
+    return action_base, 0xB0, cond_base, 0x13
+
+
 def dispatch_table_layout() -> tuple[int, int, int, int]:
     layout = detect_layout(SQ2)
-    if layout.version == "v3_combined":
-        # The GR v3 dispatcher compares predicate bytes with 0x26, but local
-        # AGIDATA bytes after the shared 0x00..0x12 condition entries overlap
-        # punctuation/string data rather than valid four-byte handler records.
-        return 0x0440, 0xB6, 0x0762, 0x13
-    return 0x061D, 0xB0, 0x08FD, 0x13
+    agidata = AGIDATA.read_bytes()
+    return dispatch_table_layout_for(agidata, layout.version)
 
 
 COND_NAMES = {

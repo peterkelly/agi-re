@@ -12,6 +12,35 @@ not external AGI documentation.
 | `games/SQ2` | `AGIDATA.OVL` string `Version 2.936` | `AGI` is decrypted from the loader-managed local bytes before disassembly | Split `LOGDIR`, `PICDIR`, `VIEWDIR`, `SNDDIR`; `VOL.N` files; 5-byte record headers; direct resource payloads | Current generated QEMU fixtures target this v2 split layout |
 | `games/GR` | `AGIDATA.OVL` string `Version 3.002.149` | `AGI` is already an MZ executable | Combined `GRDIR`; prefixed `GRVOL.N` files; 7-byte record headers; dictionary and picture-nibble transforms | Decoding/parsing is implemented locally; generated fixtures can patch copied v3 directories/volumes with direct logic/view records and picture-nibble picture records under `build/` |
 
+## Local census snapshot
+
+The read-only census tool `tools/game_census.py` now provides a repeatable
+starting point for comparing the private local games without modifying them.
+The current command used was:
+
+```bash
+python3 -B tools/game_census.py --games-root games \
+  --format markdown \
+  --output build/cross-version/game_census.md
+```
+
+The local snapshot found these version/layout groups:
+
+| Local input | Version string | Layout | Notes |
+| --- | --- | --- | --- |
+| `games/KQ2` | `Version 2.411` | v2 split | Direct `VOL.N` records. |
+| `games/LSL1` | `Version 2.440` | v2 split | Direct `VOL.N` records. |
+| `games/KQ1` | `Version 2.917` | v2 split | Direct records for most resources; four sound entries currently fail the generic v2 header check and need source inspection before modeling. |
+| `games/PQ1` | `Version 2.917` | v2 split | Direct `VOL.N` records. |
+| `games/KQ3` | `Version 2.936` | v2 split | Direct `VOL.N` records. |
+| `games/SQ2` | `Version 2.936` | v2 split | Two known out-of-range end entries remain record errors in the generic census. |
+| `games/KQ4D` | `Version 3.002.102` | v3 combined | Combined `DMDIR`/`DMVOL.N`; dispatch tables are at AGIDATA offsets `0x0620`/`0x0942`. Decoded scripts currently reference only sound resources `70..79`, which are clean records; later suspect sound-section entries need source inspection before modeling. |
+| `games/GR` | `Version 3.002.149` | v3 combined | Combined `GRDIR`/`GRVOL.N`; all present records expand with the current v3 reader. |
+
+This is an inventory for planning. The portable spec should only gain a
+version-specific rule when disassembly or a valid-resource dynamic check shows
+that game scripts can observe the behavior.
+
 ## SQ2 / AGI 2.936
 
 SQ2 remains the main behavioral evidence target for the current spec. The

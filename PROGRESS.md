@@ -56,6 +56,15 @@ better understood, or a new remaining-work item is discovered.
   volumes with direct logic/view records plus picture-nibble picture records,
   and QEMU confirms that the original GR interpreter renders a generated
   picture-only fixture and a generated picture-plus-view fixture distinctly.
+- A read-only multi-game census tool now inventories explicit local game
+  directories without modifying `games/`. The current private-input snapshot
+  covers KQ1, KQ2, KQ3, KQ4D, LSL1, PQ1, SQ2, and GR, identifying v2 split
+  and v3 combined layouts, version strings, resource counts, transform mixes,
+  and record-header errors that require later source inspection before they are
+  modeled. `tools/disassemble_logic.py` now detects per-build action/condition
+  table bases from the observed argc/meta signatures, including KQ4D v3 bases
+  `0x0620`/`0x0942`; decoded KQ4D scripts reference only the clean sound
+  records `70..79`.
 
 ## GR / SQ2 Static Comparison Tracker
 
@@ -422,7 +431,10 @@ source-mapped well enough to justify a targeted probe.
 - [~] Executable and overlay symbolic map
   - Evidence: `docs/src/symbolic_labels.md`, now including initial Gold Rush
     / AGI v3 address associations for resource loading, decompression, and
-    dispatch tables.
+    dispatch tables. `tools/game_census.py` provides the first repeatable
+    inventory step for additional local interpreters before label mapping.
+    Dispatch-table base detection now maps KQ4D v3 action/condition tables at
+    `AGIDATA.OVL:0x0620` and `0x0942`.
   - Remaining: continue assigning role-based labels for cross-version work,
     especially where later interpreters add features or move routines.
 - [~] Startup, command-line flags, adapter selection, and display modes
@@ -435,7 +447,9 @@ source-mapped well enough to justify a targeted probe.
     Gold Rush / AGI v3 coverage now includes combined `GRDIR` sections,
     7-byte volume headers, prefixed `GRVOL.N` files, dictionary decompression,
     picture-nibble expansion/encoding in `tools/agi_resources.py`, and copied
-    v3 fixture patching in `tools/qemu_fixture.py`.
+    v3 fixture patching in `tools/qemu_fixture.py`. `tools/game_census.py`
+    inventories additional local games and records header errors without
+    treating them as valid-resource semantics.
   - Remaining: loader error-path behavior only where needed by compatibility
     tests; apply the v3 parser to additional games/interpreters as local inputs
     are selected.
@@ -542,7 +556,8 @@ source-mapped well enough to justify a targeted probe.
     across all present SQ2 sound resources, and source-backed hardware driver
     port-write behavior including the PC-speaker divisor formula and
     tone/silence output boundary plus non-PC-speaker attenuation/envelope output
-    bytes.
+    bytes. `docs/src/sound_and_audio.md` now consolidates these observations
+    into an implementation-facing subsystem contract.
   - Remaining: analog waveform synthesis beyond the interpreter's port-output
     boundary and optional dynamic confirmation of natural sound completion if
     that becomes useful.
@@ -614,7 +629,7 @@ source-mapped well enough to justify a targeted probe.
     path. `build/compatibility-suite/qemu_v3_synthetic_picture_view_001.json`
     confirms generated v3 picture-nibble picture and direct view fixtures by
     comparing blank, picture-only, and picture-plus-view captures. The current
-    full local unit run passed 299 tests.
+    full local unit run passed 307 tests.
   - Remaining: assemble a final broad suite that can validate a clean-room
     implementation against original-engine outputs; scale timed polling
     carousel sweeps to additional resource batches and future interpreter
@@ -636,7 +651,9 @@ source-mapped well enough to justify a targeted probe.
     behavioral fixtures for the static deltas, then repeat the workflow for
     additional local games/interpreter versions.
 - [~] Final human-readable implementation spec
-  - Evidence: mdBook chapters exist and are growing.
+  - Evidence: mdBook chapters exist and are growing; sound/audio now has a
+    dedicated subsystem chapter that separates normative interpreter behavior
+    from deferred analog synthesis.
   - Remaining: convert source/evidence notes into polished, subsystem-oriented
     normative spec text.
 
