@@ -218,7 +218,7 @@ Evidence levels:
 | `0xaa` | `copy_save_description_to_string_slot` | imm0 | copy save description to string slot | source-backed | Disassembly: action copies up to 0x1f bytes from runtime save-description buffer [0x0e72] into string slot 0x020d + arg0*0x28 via the shared bounded-copy helper. |
 | `0xab` | `save_event_buffer_count` | - | save event buffer count | QEMU-validated | logic_interpreter_probe: display_mode_replay_uses_rolled_back_event_count |
 | `0xac` | `restore_event_buffer_count` | - | restore event buffer count | QEMU-validated | logic_interpreter_probe: display_mode_replay_uses_rolled_back_event_count |
-| `0xad` | `increment_global_1530` | - | increment global 1530 | source-backed | Disassembly: action increments [0x1530]; the keyboard IRQ hook tests this nonzero gate before enqueueing a type-2 zero event on selected tracked-key release paths. |
+| `0xad` | `increment_global_1530` | - | increment global 1530 | source-backed | Disassembly plus agi_input source model: action increments byte [0x1530]; the keyboard IRQ hook uses a tracked scan-code latch and tests the nonzero gate before enqueueing a type-2 zero event on selected key releases. |
 | `0xae` | `rebuild_priority_table_from_y` | imm0 | rebuild priority table from y | QEMU-validated | object_overlay_probe: priority-table rebuild effects |
 | `0xaf` | `noop_1_table_count` | imm0 | noop 1 table count | QEMU-validated | logic_interpreter_probe: noop_af_runtime_consumes_no_operand |
 

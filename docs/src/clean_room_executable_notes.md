@@ -9210,3 +9210,300 @@ Conclusion:
   only when it was visible before action `0x80` erased it. The accepted-restart
   half remains source-backed because the reset path immediately restarts engine
   state, making a clean visual oracle less useful than the direct branch.
+
+## 2026-07-10: GR v3 menu interaction gate QEMU confirmation
+
+Goal: confirm the source-mapped GR-only action `0xb1`
+`set_menu_interaction_gate` with an original-engine fixture.
+
+Commands and local reads:
+
+- `git status --short`
+- `rg -n "menu-gate|menu gate|0xb1|Highest-Value|raw key-release|GR / SQ2|Menus|Compatibility|restart prompt|set_menu_interaction|code.menu.interact|0403" PROGRESS.md docs/src/versions.md docs/src/runtime_model.md docs/src/logic_bytecode.md docs/src/compatibility_testing.md docs/src/symbolic_labels.md docs/src/clean_room_executable_notes.md docs/src/progress_log.md AGENTS.md`
+- `sed -n '1,220p' PROGRESS.md`
+- `tail -n 80 docs/src/progress_log.md`
+- `sed -n '40,180p' docs/src/versions.md`
+- `sed -n '470,530p' docs/src/runtime_model.md`
+- `sed -n '110,140p' docs/src/logic_bytecode.md`
+- `sed -n '1488,1504p' docs/src/logic_bytecode.md`
+- `sed -n '1080,1135p' docs/src/compatibility_testing.md`
+- `sed -n '150,190p' AGENTS.md`
+- `tail -n 120 docs/src/clean_room_executable_notes.md`
+- `sed -n '500,640p' PROGRESS.md`
+- `sed -n '250,285p' docs/src/symbolic_labels.md`
+- `sed -n '428,545p' docs/src/symbolic_labels.md`
+- `sed -n '540,610p' PROGRESS.md`
+- `rg -n "282|test" PROGRESS.md docs/src/compatibility_testing.md`
+- `sed -n '1,260p' tools/gr_v3_behavior_probe.py`
+- `sed -n '494,516p' docs/src/runtime_model.md`
+- `sed -n '976,990p' docs/src/compatibility_testing.md`
+- `sed -n '70,90p' docs/src/compatibility_testing.md`
+- `sed -n '1478,1530p' docs/src/compatibility_testing.md`
+- `sed -n '380,438p' tools/compatibility_suite.py`
+- `rg -n "0403|1b67|970B|9724|038D|38d|000097|000038" build/gr-sq2-static/gr_agi_image.ndisasm`
+- `sed -n '17600,17760p' build/gr-sq2-static/gr_agi_image.ndisasm`
+- `sed -n '4250,4320p' build/gr-sq2-static/gr_agi_image.ndisasm`
+- `python3 -B -m py_compile tools/gr_v3_behavior_probe.py tools/compatibility_suite.py tests/test_gr_v3_behavior_probe.py tests/test_compatibility_suite.py`
+- `AGI_GAME_DIR=games/SQ2 python3 -B -m unittest tests.test_gr_v3_behavior_probe tests.test_compatibility_suite`
+- `python3 -B tools/gr_v3_behavior_probe.py --probe menu-gate --game-dir games/GR --fixture-root build/gr-v3-behavior/menu-gate-dryrun-fixtures --dos-prefix GRG --output build/gr-v3-behavior/menu_gate_dryrun_001.json`
+- `AGI_GAME_DIR=games/SQ2 python3 -B tools/compatibility_suite.py --dry-run --include-qemu-v3`
+- `python3 -B tools/gr_v3_behavior_probe.py --probe menu-gate --game-dir games/GR --fixture-root build/gr-v3-behavior/menu-gate-qemu-fixtures --dos-prefix GRG --run-qemu --output build/gr-v3-behavior/menu_gate_qemu_001.json --snapshot-raw build/gr-v3-behavior/snapshot/menu_gate_001.raw --snapshot-qcow build/gr-v3-behavior/snapshot/menu_gate_001.qcow2 --boot-wait 5 --draw-wait 8`
+- `python3 -B tools/gr_v3_behavior_probe.py --probe menu-gate --game-dir games/GR --fixture-root build/gr-v3-behavior/menu-gate-qemu-fixtures-2 --dos-prefix GRG --run-qemu --output build/gr-v3-behavior/menu_gate_qemu_002.json --snapshot-raw build/gr-v3-behavior/snapshot/menu_gate_002.raw --snapshot-qcow build/gr-v3-behavior/snapshot/menu_gate_002.qcow2 --boot-wait 5 --draw-wait 8`
+- `python3 -B tools/gr_v3_behavior_probe.py --probe menu-gate --game-dir games/GR --fixture-root build/gr-v3-behavior/menu-gate-qemu-fixtures-3 --dos-prefix GRG --run-qemu --output build/gr-v3-behavior/menu_gate_qemu_003.json --snapshot-raw build/gr-v3-behavior/snapshot/menu_gate_003.raw --snapshot-qcow build/gr-v3-behavior/snapshot/menu_gate_003.qcow2 --boot-wait 5 --draw-wait 8`
+- `AGI_GAME_DIR=games/SQ2 python3 -B tools/compatibility_suite.py --name gr_menu_gate_qemu --report build/compatibility-suite/qemu_v3_menu_gate_001.json`
+
+Source-first model:
+
+- GR-only action handler `0x970b` reads one immediate byte, zero-extends it,
+  and stores the word at `[0x0403]`.
+- GR action `0xa1` at `0x96eb` still tests flag 14 and writes word
+  `[0x1b67] = 1` as the ordinary menu request.
+- The GR main-cycle path around image `0x38dd` notices `[0x1b67] != 0` and
+  calls `code.menu.interact` at image `0x9724`.
+- `code.menu.interact` first compares word `[0x0403]` with zero. If it is
+  zero, it returns immediately; if nonzero, it proceeds into the existing
+  draw/wait modal menu path. Therefore `0xb1` is an interaction gate, not part
+  of menu construction.
+
+Fixture implementation:
+
+- Added `--probe menu-gate` to `tools/gr_v3_behavior_probe.py`.
+- The final probe builds three copied GR fixtures under `build/`:
+  `menu_gate_blocked_control`, `menu_gate_enabled_request`, and
+  `menu_gate_disabled_request`.
+- The blocked control draws a visible object marker at the blocked location.
+- The request fixtures build a one-heading, one-item menu, finalize it, set
+  flag 14, execute `0xb1(1)` or `0xb1(0)`, execute `0xa1`, and then end the
+  logic stream so the top-level engine cycle can service `[0x1b67]`.
+- The promoted oracle does not depend on pressing Enter inside the menu. It
+  checks only the gate: `0xb1(0)` should match the blocked control, while
+  `0xb1(1)` should differ by entering the modal menu path.
+
+Important correction:
+
+- An earlier fixture ended with a self-loop. That kept logic 0 executing inside
+  the interpreter and prevented the top-level main cycle from reaching the
+  `[0x1b67]` check. Both enabled and disabled cases therefore matched the
+  blocked control even though the generated `0xb1` bytes were correct.
+- Replacing the self-loop with the structural `end` action allowed the
+  original engine's main cycle to process the request. The Enter-driven
+  accepted-marker oracle still was not stable, so the final evidence uses a
+  no-key modal-gate oracle.
+
+QEMU result:
+
+- Direct report `build/gr-v3-behavior/menu_gate_qemu_003.json` passed.
+- `menu_gate_disabled_request` matched `menu_gate_blocked_control`.
+- `menu_gate_enabled_request` differed from both the blocked control and the
+  disabled request.
+- Capture SHA-256 values:
+  - blocked control and disabled request:
+    `160a4ed1bab5ec6eb901ae2c5e3198a081000c0261cf6ad89eec4033e88861b4`
+  - enabled request:
+    `e463cb17d86267bda970277df82d51c6b51dc743327f51c856a25de65399155b`
+- The named suite command
+  `build/compatibility-suite/qemu_v3_menu_gate_001.json` passed after rerunning
+  with VNC socket permission; the first unprivileged attempt failed before QEMU
+  launched with `Failed to bind socket: Operation not permitted`.
+
+Conclusion:
+
+- The original GR interpreter confirms the disassembly model for action
+  `0xb1`: zero blocks a requested menu before the modal menu draw/wait path,
+  and nonzero permits the existing menu interaction path to run after `0xa1`.
+
+## 2026-07-10: SQ2/GR tracked key-release IRQ source model
+
+Goal: turn the remaining source-backed raw key-release gate into an
+implementation-facing state model without relying on QEMU keyboard-release
+timing.
+
+Commands and local reads:
+
+- `git status --short`
+- `sed -n '621,640p' PROGRESS.md`
+- `rg -n "key-release|key release|0xad|0xb5|0405|1530|release_event|tracked-key|type-2 zero|raw key" PROGRESS.md docs/src tools tests build/gr-sq2-static/gr_agi_image.ndisasm build/gr-sq2-static/sq2_agi_image.ndisasm`
+- `rg -n "map_key|raw_key|status_byte|key_release|release|sendkey|post_launch_key_names|post_launch_keys|key_names" tools/logic_interpreter_probe.py tools/gr_v3_behavior_probe.py tests/test_logic_interpreter_probe.py tests/test_gr_v3_behavior_probe.py`
+- `sed -n '10870,11140p' build/gr-sq2-static/sq2_agi_image.ndisasm`
+- `sed -n '11220,11480p' build/gr-sq2-static/gr_agi_image.ndisasm`
+- `sed -n '188,240p' docs/src/symbolic_labels.md`
+- `sed -n '470,505p' docs/src/logic_bytecode.md`
+- `sed -n '1285,1305p' docs/src/compatibility_testing.md`
+- `sed -n '5677,5708p' docs/src/clean_room_executable_notes.md`
+- `rg -n "Restart|Save|heap|motion|keyboard|input|model|source-modeled|class .*Model|def .*model|gr_v3" tools tests | head -n 200`
+- `ls tools | sort`
+- `ls tests | sort`
+- `sed -n '1,220p' tools/agi_restart.py`
+- `sed -n '1,220p' tests/test_restart_model.py`
+- `python3 -B -m py_compile tools/agi_input.py tests/test_input_model.py`
+- `python3 -B -m unittest tests.test_input_model`
+
+Source observations:
+
+- SQ2 action `0xad` at image `0x602f` is `inc byte [0x1530]`, so the gate is
+  an unsigned byte and wraps from `0xff` to zero.
+- GR action `0xad` at image `0x63a8` stores byte `[0x0405] = 1`.
+- GR-only action `0xb5` at image `0x63b0` stores byte `[0x0405] = 0`.
+- The SQ2 keyboard IRQ hook at image `0x6036` and the GR hook at image
+  `0x63b8` have the same tracked-key latch shape after relocation:
+  - read the raw scan byte from port `0x60`;
+  - mask off bit `0x80` and accept only scan codes `0x47..0x51`;
+  - require the corresponding enable-table byte to be nonzero;
+  - on keydown, if the selected latch was clear, clear all tracked latches and
+    set only the selected latch;
+  - on duplicate keydown, do not enqueue a script event;
+  - on key release, clear the selected latch only if it had been set;
+  - enqueue event `(type=2, value=0)` only when that release path cleared a
+    latch and the version-specific gate byte is nonzero.
+
+Implementation/test updates:
+
+- Added `tools/agi_input.py` with a portable `KeyReleaseIrqState` model,
+  SQ2/GR gate-writer helpers, and `process_tracked_key_irq_scan()`.
+- Added `tests/test_input_model.py` to cover:
+  - SQ2 `0xad` enabling a later release event;
+  - SQ2 byte wraparound from `0xff` to zero;
+  - GR `0xad`/`0xb5` set/clear behavior;
+  - keydown clearing other tracked latches;
+  - disabled and out-of-range scan bytes producing no event;
+  - model validation for table lengths and gate byte range.
+
+Conclusion:
+
+- The tracked release-key behavior is now source-modeled at a portable state
+  level. A direct QEMU fixture remains optional only if the final target needs
+  raw hardware IRQ timing evidence; it is not necessary for the valid-data AGI
+  semantics currently being specified.
+
+## 2026-07-10: v3 generated picture/view fixture packing
+
+Goal: remove the remaining fixture-writer gap for targeted Gold Rush / AGI v3
+graphics probes without modifying private local inputs under `games/`.
+
+Commands and local reads:
+
+- `git status --short`
+- `sed -n '621,640p' PROGRESS.md`
+- `rg -n "does not yet pack|direct-record logic|v3.*picture/view|picture-nibble|v3-synthetic|v3 fixture" AGENTS.md PROGRESS.md docs/src tests tools`
+- `sed -n '220,340p' docs/src/resource_files.md`
+- `sed -n '1,220p' docs/src/versions.md`
+- `sed -n '660,900p' tools/qemu_fixture.py`
+- `sed -n '900,980p' tools/qemu_fixture.py`
+- `sed -n '1260,1365p' tools/qemu_fixture.py`
+- `rg -n "def encode_picture_nibbles|encode_picture_nibbles" tools/agi_resources.py tests/test_agi_resources.py tests/test_qemu_fixture.py`
+- `sed -n '265,345p' tools/agi_resources.py`
+- `python3 -B -m py_compile tools/agi_resources.py tools/qemu_fixture.py tests/test_agi_resources.py tests/test_qemu_fixture.py`
+- `AGI_GAME_DIR=games/SQ2 python3 -B -m unittest tests.test_agi_resources tests.test_qemu_fixture`
+
+Source/model observations:
+
+- The v3 generic reader accepts direct records when the expanded and stored
+  lengths in the 7-byte record header are equal. That path is already present
+  in original GR resources and is suitable for controlled generated logic/view
+  fixtures.
+- The v3 picture path is selected by metadata bit `0x80`; the low nibble still
+  names the volume and must match the directory entry volume. The stored
+  payload is a nibble stream that expands to ordinary picture bytes.
+- The inverse picture-nibble writer packs ordinary bytes as two nibbles, except
+  the operand following picture commands `0xf0` and `0xf2`, which is stored as
+  one nibble. The generated expanded stream must end at `0xff`.
+
+Implementation/test updates:
+
+- Added `encode_picture_nibbles()` to `tools/agi_resources.py` as the inverse
+  of the observed GR picture-nibble expansion for valid expanded picture
+  streams.
+- Added v3 fixture helpers in `tools/qemu_fixture.py`:
+  `v3_picture_volume_record()`, generic `patch_v3_resource()`,
+  `patch_v3_picture_resource()`, `patch_v3_view_resource()`,
+  `build_v3_synthetic_picture_fixture()`, and
+  `build_v3_synthetic_picture_view_fixture()`.
+- Added CLI commands `v3-synthetic-picture` and `v3-synthetic-picture-view`.
+- Added local read-back tests for the picture-nibble record wrapper, copied v3
+  picture patching, copied v3 view patching, and full synthetic picture/view
+  fixture construction.
+
+Conclusion:
+
+- Targeted v3 picture/view probes can now be generated under `build/` without
+  patching `games/`. The project still does not implement a v3 dictionary
+  compressor; generated view payloads use the original interpreter's
+  direct-record path, while original compressed local resources continue to be
+  decoded through the observed reader model.
+
+## 2026-07-10: v3 synthetic picture/view fixture QEMU probe
+
+Goal: confirm the generated GR v3 picture/view fixture writer against the
+original interpreter after adding local read-back tests.
+
+Commands and local reads:
+
+- `git status --short`
+- `sed -n '1,180p' PROGRESS.md`
+- `sed -n '180,360p' PROGRESS.md`
+- `sed -n '620,660p' PROGRESS.md`
+- `sed -n '1,260p' tools/gr_v3_behavior_probe.py`
+- `sed -n '260,620p' tools/gr_v3_behavior_probe.py`
+- `sed -n '620,980p' tools/gr_v3_behavior_probe.py`
+- `sed -n '980,1380p' tools/gr_v3_behavior_probe.py`
+- `sed -n '1380,1760p' tools/gr_v3_behavior_probe.py`
+- `sed -n '1760,2140p' tools/gr_v3_behavior_probe.py`
+- `sed -n '1,260p' tests/test_gr_v3_behavior_probe.py`
+- `sed -n '260,620p' tests/test_gr_v3_behavior_probe.py`
+- `sed -n '1,220p' tests/test_compatibility_suite.py`
+- `sed -n '1,340p' tools/compatibility_suite.py`
+- `sed -n '430,510p' tests/test_qemu_fixture.py`
+- `python3 -B -m py_compile tools/gr_v3_behavior_probe.py tools/compatibility_suite.py tests/test_gr_v3_behavior_probe.py tests/test_compatibility_suite.py`
+- `AGI_GAME_DIR=games/SQ2 python3 -B -m unittest tests.test_gr_v3_behavior_probe tests.test_compatibility_suite`
+- `python3 -B tools/gr_v3_behavior_probe.py --probe synthetic-picture-view --game-dir games/GR --fixture-root build/gr-v3-behavior/synthetic-picture-view-fixtures --dos-prefix GSP --output build/gr-v3-behavior/synthetic_picture_view_001.json`
+- `AGI_GAME_DIR=games/SQ2 python3 -B tools/compatibility_suite.py --name gr_synthetic_picture_view_qemu --report build/compatibility-suite/qemu_v3_synthetic_picture_view_001.json`
+- Repeated the same compatibility-suite command with elevated execution after
+  the first QEMU attempt failed before launch with `Failed to bind socket:
+  Operation not permitted`.
+
+Fixture design:
+
+- The blank control patches logic 0 to loop without drawing.
+- The picture-only fixture patches logic 0 to show generated picture 0 and
+  stores picture 0 as a v3 picture-nibble record in `GRVOL.1`.
+- The picture/view fixture uses the same generated picture plus a direct v3
+  view 0 record. The logic draws the picture, loads view 0, and uses action
+  `0x7a` to place group 0 frame 0 at `(20,80)` with priority `15`.
+- The generated picture payload is `f0 01 f8 50 50 ff`: select visual color 1,
+  seed fill at `(80,80)`, then terminate.
+- The generated view payload is a one-loop, one-frame, 4x4 opaque run-length
+  encoded cel with color 4 and transparent color 0:
+  `00 00 01 00 00 07 00 01 03 00 04 04 00 44 00 44 00 44 00 44 00`.
+
+Implementation/test updates:
+
+- Added `--probe synthetic-picture-view` to `tools/gr_v3_behavior_probe.py`.
+- Added `build_gr_synthetic_picture_view_fixtures()` and a QEMU reducer that
+  compares blank, picture-only, and picture-plus-view captures.
+- Added local tests that read the generated v3 records back through
+  `tools/agi_resources.py` and confirm the expected picture-nibble/direct
+  transforms.
+- Added compatibility-suite command `gr_synthetic_picture_view_qemu`.
+
+QEMU result:
+
+- `build/gr-v3-behavior/synthetic_picture_view_suite.json` passed.
+- The blank control had one unique color.
+- The picture-only capture had two unique colors and differed from blank by
+  215,040 pixels.
+- The picture-plus-view capture had three unique colors and differed from
+  picture-only by 128 pixels.
+- Capture hashes:
+  - blank control:
+    `f3ee47648d6ba080ffab59f9c5cc84d66a44ee6de07c5fa3edbe222e95021062`
+  - picture only:
+    `e9b3a51fc2fe85e39ba7c88c726e4835d8586d6cfa50bea45727e08e71a424a4`
+  - picture plus view:
+    `a1680189d4c06001263bbcec3edcea29b9323ca584e2a533918693d5cc60113a`
+
+Conclusion:
+
+- The original GR interpreter accepts the generated picture-nibble picture
+  record and direct view record for this controlled fixture. This promotes the
+  v3 fixture writer as reusable compatibility infrastructure while preserving
+  the source-backed renderer/model distinction.

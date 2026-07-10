@@ -144,7 +144,22 @@ qemu-system-i386 -m 16 -boot c \
   `python3 -B tools/qemu_fixture.py v3-logic payload.bin --game-dir games/GR --logic 0 --output build/qemu-fixtures/gr_logic_000`.
   This copies the selected v3 game under `build/`, appends an uncompressed
   logic record to the existing prefixed volume, and patches the combined
-  directory. It does not yet pack generated v3 picture/view payloads.
+  directory.
+- Generate v3 synthetic picture fixtures with
+  `python3 -B tools/qemu_fixture.py v3-synthetic-picture payload.pic --game-dir games/GR --picture 0 --volume 1 --output build/qemu-fixtures/gr_picture_000`.
+  The payload is expanded picture bytecode ending in `0xff`; the fixture writer
+  stores it with the observed v3 picture-nibble transform.
+- Generate v3 synthetic picture/view fixtures with
+  `python3 -B tools/qemu_fixture.py v3-synthetic-picture-view payload.pic 0 0 0 0 20 80 15 --view-payload payload.view --game-dir games/GR --volume 1 --output build/qemu-fixtures/gr_picture_view_000`.
+  The optional view payload is stored as a direct v3 record. The writer does
+  not implement the v3 dictionary compressor; use direct records for controlled
+  generated fixtures and the existing resource reader for original compressed
+  local game resources.
+- Run the current v3 synthetic picture/view fixture compatibility probe with
+  `python3 -B tools/gr_v3_behavior_probe.py --probe synthetic-picture-view --game-dir games/GR --fixture-root build/gr-v3-behavior/synthetic-picture-view-suite-fixtures --dos-prefix GSP --run-qemu --output build/gr-v3-behavior/synthetic_picture_view_suite.json --snapshot-raw build/gr-v3-behavior/snapshot/synthetic_picture_view_suite.raw --snapshot-qcow build/gr-v3-behavior/snapshot/synthetic_picture_view_suite.qcow2 --boot-wait 5 --draw-wait 8`.
+  It compares a blank control, a generated picture-nibble picture fixture, and
+  a generated picture-plus-direct-view fixture. The promoted suite report is
+  `build/compatibility-suite/qemu_v3_synthetic_picture_view_001.json`.
 - Run the current Gold Rush v3 room-remap behavior probe with
   `python3 -B tools/gr_v3_behavior_probe.py --game-dir games/GR --picture 1 --run-qemu --output build/gr-v3-behavior/room_remap_all_qemu_pic001_001.json`.
   This compares direct room target `0x49` with alias targets `0x7e`, `0x7f`,
@@ -165,6 +180,11 @@ qemu-system-i386 -m 16 -boot c \
   `python3 -B tools/gr_v3_behavior_probe.py --probe restart-prompt-marker --game-dir games/GR --fixture-root build/gr-v3-behavior/restart-prompt-suite-fixtures --dos-prefix GRP --run-qemu --output build/gr-v3-behavior/restart_prompt_marker_suite.json --snapshot-raw build/gr-v3-behavior/snapshot/restart_prompt_marker_suite.raw --snapshot-qcow build/gr-v3-behavior/snapshot/restart_prompt_marker_suite.qcow2 --boot-wait 5 --draw-wait 8`.
   It compares hidden/visible prompt-marker controls with Escape-canceled
   restart cases and confirms the canceled branch's redraw condition.
+- Run the current Gold Rush v3 menu interaction gate probe with
+  `python3 -B tools/gr_v3_behavior_probe.py --probe menu-gate --game-dir games/GR --fixture-root build/gr-v3-behavior/menu-gate-suite-fixtures --dos-prefix GRG --run-qemu --output build/gr-v3-behavior/menu_gate_suite.json --snapshot-raw build/gr-v3-behavior/snapshot/menu_gate_suite.raw --snapshot-qcow build/gr-v3-behavior/snapshot/menu_gate_suite.qcow2 --boot-wait 5 --draw-wait 8`.
+  It compares a blocked marker control with `0xb1(0)` and `0xb1(1)` menu
+  requests; zero matches the blocked control, while nonzero enters the modal
+  menu path and produces a distinct capture.
 - Compare original-engine picture captures with the local renderer using `python3 -B tools/compare_picture_capture.py N capture.ppm`.
 - Generate synthetic picture fuzz corpora with `python3 -B tools/picture_fuzz.py generate --count 1024 --seed 4097 --output build/picture-fuzz/corpus --clean`.
 - Run one synthetic picture fuzz case through the original engine with `python3 -B tools/picture_fuzz.py run-qemu CASE_ID --dos-dir DOSNAME --boot-wait 5 --draw-wait 8`.

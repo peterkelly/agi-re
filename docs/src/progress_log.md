@@ -23176,3 +23176,846 @@ Progress updates and outcomes:
       Action/result: `mdbook build docs` passed, `git diff --check` passed,
       and final status still showed only the intended modified files plus the
       pre-existing untracked `run.sh`.
+
+3028. Reported: "I’ll pick up where the menu-gate probe left off: first I’ll
+      update the docs and progress tracker with the source-backed/QEMU-confirmed
+      result, then I’ll run the local checks so this lands as a coherent
+      evidence step."
+
+      Action/result: Resumed from a clean committed baseline except for the
+      uncommitted menu-gate probe implementation, generated Python caches, and
+      the pre-existing untracked `run.sh`.
+
+3029. Reported: "The code/test side is already in place and the successful
+      QEMU evidence exists; the remaining work is bookkeeping and making the
+      docs describe the actual oracle cleanly, including the false start where
+      the logic never yielded back to the main cycle."
+
+      Action/result: Read the current tracker, versions chapter, runtime
+      model, opcode chapter, compatibility chapter, AGENTS instructions,
+      symbolic labels, and the tail of the clean-room evidence notes.
+
+3030. Reported: "I’m going to make a compact docs patch now: tracker status,
+      version/runtime bytecode notes, compatibility commands, symbolic labels,
+      AGENTS rerun instructions, and the chronological evidence/progress logs."
+
+      Action/result: Began the documentation pass for the GR v3 menu
+      interaction gate probe.
+
+3031. Reported: "The tracker currently still treats the menu gate as a
+      remaining item even though the new probe confirmed it. I’m tightening
+      that up so the dashboard points next at raw key-release behavior rather
+      than sending future-us back over solved ground."
+
+      Action/result: Updated `PROGRESS.md` current snapshot and GR/SQ2
+      comparison sections to mark the menu gate QEMU-confirmed and leave raw
+      key-release as the remaining source-backed gate behavior.
+
+3032. Reported: "That removes the stale remaining-work pointer. I’m folding
+      the same result into the menu subsystem summary and compatibility-suite
+      paragraph so the status reads consistently from both angles."
+
+      Action/result: Updated `PROGRESS.md` menu evidence, compatibility-suite
+      evidence, and `Highest-Value Remaining Work`.
+
+3033. Reported: "Next I’m updating the version ledger and opcode chapter.
+      These are the places someone comparing v2/v3 will probably land first,
+      so the wording needs to distinguish 'source says this gate exists' from
+      'we confirmed the observable gate effect.'"
+
+      Action/result: Updated `docs/src/versions.md` and
+      `docs/src/logic_bytecode.md` with the `menu_gate_suite` evidence and
+      the zero/nonzero gate behavior.
+
+3034. Reported: "The runtime model is getting a small implementation-facing
+      note too: for v2, `0xa1` plus flag 14 is enough to request the menu; for
+      GR v3, the request is additionally filtered by the `[0x0403]` gate before
+      drawing/waiting."
+
+      Action/result: First runtime-model patch missed the exact table anchor;
+      reread the nearby lines and inserted the GR v3 gate note before the menu
+      interaction lifecycle table.
+
+3035. Reported: "Compatibility docs already know about the v3 suite layer, but
+      not the promoted menu-gate named command. I’m adding both the short result
+      paragraph and the exact rerun command."
+
+      Action/result: Updated `docs/src/compatibility_testing.md` with the v3
+      menu-gate suite report, direct behavior paragraph, and rerun command.
+
+3036. Reported: "I’m adding the reusable command to AGENTS as well, since that
+      file is the quick-start memory for future sessions and needs to expose
+      promoted probes without hunting through the mdBook."
+
+      Action/result: Added the Gold Rush v3 menu interaction gate command and
+      expected comparisons to `AGENTS.md`.
+
+3037. Reported: "Now I’m appending the clean-room evidence section. I’m
+      including the useful failure, because it explains a subtle interpreter
+      scheduling point: a generated logic script that self-loops never returns
+      to the main cycle, so the menu request flag is never serviced."
+
+      Action/result: Appended the clean-room evidence section covering source
+      reads, generated fixture design, the self-loop correction, successful
+      QEMU direct report, and suite report.
+
+3038. Recorded retrospectively from the current menu-gate implementation pass:
+      Began from `PROGRESS.md` highest-value remaining work and selected the
+      source-backed GR v3 menu interaction gate `0xb1` as the next target.
+
+      Action/result: Chose a probe that could be driven from ordinary generated
+      logic in a copied GR fixture, using QEMU only as confirmation.
+
+3039. Recorded retrospectively from the current menu-gate implementation pass:
+      Reused the existing SQ2 menu probes as the behavioral template for
+      one-heading/one-item menu setup, finalization, item enable state, and
+      status-byte selection.
+
+      Action/result: Identified the pieces needed for a GR fixture:
+      `0x9c`/`0x9d`/`0x9e` menu construction, flag 14, `0xa1` menu request,
+      and GR-only `0xb1`.
+
+3040. Recorded retrospectively from the current menu-gate implementation pass:
+      Re-read the GR disassembly around action `0xb1`, action `0xa1`,
+      `code.menu.interact`, and the main-cycle request check.
+
+      Action/result: Confirmed that `0xb1` writes word `[0x0403]`, `0xa1`
+      writes request word `[0x1b67]`, the main cycle calls `0x9724`, and
+      `0x9724` returns immediately while `[0x0403] == 0`.
+
+3041. Recorded retrospectively from the current menu-gate implementation pass:
+      Added menu-gate constants and payload builders to
+      `tools/gr_v3_behavior_probe.py`.
+
+      Action/result: Implemented generated marker-draw helpers, direct control
+      payloads, menu-gate request payloads, fixture builders, QEMU comparison
+      logic, and the `--probe menu-gate` CLI branch.
+
+3042. Recorded retrospectively from the current menu-gate implementation pass:
+      Added local test coverage for the new fixture builder and suite command.
+
+      Action/result: Updated `tests/test_gr_v3_behavior_probe.py`,
+      `tools/compatibility_suite.py`, and
+      `tests/test_compatibility_suite.py`; focused syntax and unit checks
+      passed.
+
+3043. Recorded retrospectively from the current menu-gate implementation pass:
+      Ran the dry-run menu-gate fixture build and v3 compatibility-suite
+      dry-run.
+
+      Action/result: Confirmed the fixture cases and the named
+      `gr_menu_gate_qemu` suite command were wired into the manifest.
+
+3044. Recorded retrospectively from the current menu-gate implementation pass:
+      Ran the first Enter-driven QEMU oracle.
+
+      Action/result: The enabled and disabled cases both matched the blocked
+      marker control, so the initial visual oracle failed to prove the gate.
+
+3045. Recorded retrospectively from the current menu-gate implementation pass:
+      Rechecked the disassembly and generated logic bytes after the first QEMU
+      failure.
+
+      Action/result: The source model and `0xb1` byte encoding were still
+      correct; the failure pointed to fixture scheduling rather than a decoded
+      handler mistake.
+
+3046. Recorded retrospectively from the current menu-gate implementation pass:
+      Ran a longer-wait QEMU diagnostic and inspected why the request was never
+      serviced.
+
+      Action/result: Found that ending the generated logic with `self_loop()`
+      kept logic 0 inside the interpreter, preventing the main cycle from
+      reaching the `[0x1b67]` request check.
+
+3047. Recorded retrospectively from the current menu-gate implementation pass:
+      Replaced the generated self-loop with the structural `end` action and
+      reran QEMU.
+
+      Action/result: The fixture now yielded back to the main cycle, but the
+      Enter-driven accepted-marker oracle was still not reliable enough to
+      promote.
+
+3048. Recorded retrospectively from the current menu-gate implementation pass:
+      Refactored the probe into a no-key modal-gate oracle.
+
+      Action/result: The final comparisons became: disabled request must match
+      the blocked control, enabled request must differ from the blocked control,
+      and enabled request must differ from the disabled request.
+
+3049. Recorded retrospectively from the current menu-gate implementation pass:
+      Ran the direct QEMU confirmation
+      `build/gr-v3-behavior/menu_gate_qemu_003.json`.
+
+      Action/result: The report passed. Blocked control and disabled request
+      shared hash
+      `160a4ed1bab5ec6eb901ae2c5e3198a081000c0261cf6ad89eec4033e88861b4`;
+      enabled request had hash
+      `e463cb17d86267bda970277df82d51c6b51dc743327f51c856a25de65399155b`.
+
+3050. Recorded retrospectively from the current menu-gate implementation pass:
+      Ran the named compatibility-suite command
+      `gr_menu_gate_qemu`.
+
+      Action/result: The first unprivileged run failed before launch with VNC
+      socket permission, then the escalated rerun passed in
+      `build/compatibility-suite/qemu_v3_menu_gate_001.json`.
+
+3051. Reported: "The documentation is now aligned with the promoted result.
+      I’m going to run the focused checks first, then the full local suite and
+      mdBook build; after that I’ll update any test-count line that needs
+      changing."
+
+      Action/result: Focused `py_compile` checks passed, and
+      `AGI_GAME_DIR=games/SQ2 python3 -B -m unittest
+      tests.test_gr_v3_behavior_probe tests.test_compatibility_suite` passed
+      30 tests.
+
+3052. Reported: "Focused syntax and unit checks are clean. I’m running the
+      full local suite and mdBook now; this will also tell me whether the
+      tracker’s '282 tests' line needs to become '285 tests' after the added
+      menu-gate cases."
+
+      Action/result: `AGI_GAME_DIR=games/SQ2 python3 -B -m unittest discover
+      -s tests` passed 285 tests, and `mdbook build docs` passed.
+
+3053. Reported: "Full unit discovery passed 285 tests and mdBook built. I’m
+      updating the tracker count, then I’ll run the local compatibility wrapper
+      and final whitespace/status checks."
+
+      Action/result: Updated `PROGRESS.md` from 282 to 285 tests.
+
+3054. Reported: "The count is current. I’m running the local compatibility
+      wrapper now; it’s the project’s normal 'unit tests + mdBook + opcode
+      evidence' belt-and-suspenders check without launching QEMU."
+
+      Action/result: `AGI_GAME_DIR=games/SQ2 python3 -B
+      tools/compatibility_suite.py --report
+      build/compatibility-suite/local_menu_gate_001.json` passed.
+
+3055. Reported: "The local compatibility wrapper passed with 285 tests and a
+      clean mdBook build. I’m checking the report, whitespace, and generated
+      cache clutter now."
+
+      Action/result: The compatibility report showed zero return codes for
+      local unit tests, mdBook, and opcode-evidence freshness. `git diff
+      --check` passed. `tests/__pycache__` and `tools/__pycache__` were the
+      only generated cache directories.
+
+3056. Reported: "Whitespace is clean and the compatibility report has all zero
+      return codes. The only generated clutter is Python cache directories, so
+      I’m removing those before the final status."
+
+      Action/result: Removed `tests/__pycache__` and `tools/__pycache__`.
+
+3057. Reported: "One stale sentence jumped out in `PROGRESS.md`: that GR/SQ2
+      section still says QEMU confirmation is deferred, which is no longer true
+      for the promoted v3 probes. I’m correcting that and doing one tiny final
+      check."
+
+      Action/result: Updated the GR/SQ2 tracker preface to say QEMU
+      confirmation is added after source mapping justifies a targeted probe.
+
+3058. Reported: "I’ll continue from the updated tracker and leave the
+      uncommitted menu-gate work intact. The next obvious source-backed gap is
+      the GR v3 raw key-release gate, so I’ll start by rereading the
+      disassembly and existing input/event probes before deciding whether it
+      deserves a QEMU fixture."
+
+      Action/result: Read current status, `PROGRESS.md` highest-value work,
+      key-release references, and existing input/key probe helpers.
+
+3059. Reported: "The existing docs already describe the byte gate, but they
+      still avoid the exact release-event observable behavior because timing is
+      touchy. I’m going source-first here: the question is whether disassembly
+      gives enough detail to model the event shape without needing a brittle
+      keyboard fixture."
+
+      Action/result: Re-read SQ2 and GR keyboard IRQ disassembly windows plus
+      current opcode/runtime/compatibility notes for the release-gate path.
+
+3060. Reported: "The GR and SQ2 IRQ paths are nearly identical after
+      relocation: both filter scan codes `0x47..0x51`, require an enable byte,
+      set a per-scan pressed latch on keydown, and enqueue `(type=2, value=0)`
+      on release only when the gate is nonzero. The real v3 difference is the
+      gate writer: SQ2 increments `[0x1530]`; GR sets/clears `[0x0405]` with
+      `0xad`/`0xb5`."
+
+      Action/result: Identified the portable tracked-key latch state machine
+      and the version-specific gate-writer differences.
+
+3061. Reported: "I’m going to turn this source-only IRQ path into a small local
+      model with tests rather than a QEMU screenshot probe. That captures the
+      exact latch/gate semantics, including SQ2’s byte-increment wraparound,
+      without pretending QEMU key-release timing is a stable compatibility
+      oracle."
+
+      Action/result: Added `tools/agi_input.py` with `KeyReleaseIrqState`,
+      SQ2/GR gate helpers, and `process_tracked_key_irq_scan()`; added
+      `tests/test_input_model.py`.
+
+3062. Reported: "The model is in place. I’m running it now because there’s a
+      small but important edge in there: SQ2’s gate is an 8-bit increment, so
+      repeated `0xad` can wrap back to zero, while GR’s v3 gate is explicitly
+      set/clear."
+
+      Action/result: Focused `py_compile` and `tests.test_input_model` passed.
+
+3063. Reported: "The new model tests pass. I’m updating the evidence strings
+      and docs next so `0xad`/`0xb5` read as a modeled IRQ latch contract, not
+      just a loose 'key release gate' note."
+
+      Action/result: Read current opcode evidence, bytecode, runtime, versions,
+      and tracker text before patching.
+
+3064. Reported: "I’ve got enough to promote this as source-modeled behavior.
+      I’m updating the spec/tracker to remove raw key-release from the
+      'highest-value remaining' bucket, while keeping the caveat that a direct
+      QEMU release fixture is still optional and not the source of truth."
+
+      Action/result: Updated `tools/logic_opcode_evidence.py`,
+      `docs/src/logic_bytecode.md`, `docs/src/runtime_model.md`,
+      `docs/src/versions.md`, and `PROGRESS.md`.
+
+3065. Reported: "The progress tracker now treats the release-gate work as
+      source-modeled rather than a pending QEMU target. I’m updating labels and
+      compatibility notes so future readers can jump straight to the helper and
+      tests."
+
+      Action/result: First symbolic-label patch missed current wording; reread
+      exact rows, then updated `docs/src/symbolic_labels.md` and
+      `docs/src/compatibility_testing.md`.
+
+3066. Reported: "I’m appending a clean-room evidence note for this pass now.
+      It’s short but important: the useful new fact is not a screenshot, it’s a
+      portable state-machine contract extracted from the IRQ code."
+
+      Action/result: Appended the tracked key-release IRQ source-model evidence
+      section to `docs/src/clean_room_executable_notes.md`.
+
+3067. Reported: "Docs and labels now point to the model. I’m regenerating the
+      opcode evidence chapter so the generated table stays consistent with the
+      updated `0xad` evidence text."
+
+      Action/result: First generator run refused to assume a game directory.
+
+3068. Reported: "The generator correctly refused to assume a default game
+      directory. I’m rerunning it with the explicit local SQ2 evidence input."
+
+      Action/result: Regenerated `docs/src/logic_opcode_evidence.md` with
+      `AGI_GAME_DIR=games/SQ2 python3 -B tools/logic_opcode_evidence.py`.
+
+3069. Reported: "Opcode evidence regenerated cleanly with
+      `AGI_GAME_DIR=games/SQ2`. I’m doing the focused checks and then I’ll
+      update the final tracker count if the new six tests move the suite total
+      as expected."
+
+      Action/result: Focused `py_compile` passed; the first doc-coverage test
+      command failed because it lacked `AGI_GAME_DIR`.
+
+3070. Reported: "One focused test command failed for the same explicit-input
+      reason: the doc coverage test invokes the opcode evidence checker. I’m
+      rerunning that with `AGI_GAME_DIR=games/SQ2`."
+
+      Action/result: `AGI_GAME_DIR=games/SQ2 python3 -B -m unittest
+      tests.test_input_model tests.test_logic_doc_coverage` passed 11 tests.
+
+3071. Reported: "Focused source-model and doc-coverage tests are clean. I’m
+      adding the input-model test to the subsystem tracker now; the final suite
+      run will set the exact total count."
+
+      Action/result: Updated the text/input subsystem tracker in
+      `PROGRESS.md`.
+
+3072. Reported: "The log is current through the source-model pass. I’m moving
+      into the full validation cycle now: unit discovery, mdBook, opcode
+      evidence check, and whitespace/status cleanup."
+
+      Action/result: `AGI_GAME_DIR=games/SQ2 python3 -B -m unittest discover
+      -s tests` passed 291 tests; `mdbook build docs` passed; `AGI_GAME_DIR=games/SQ2
+      python3 -B tools/logic_opcode_evidence.py --check` passed.
+
+3073. Reported: "Full unit discovery passed 291 tests, mdBook built, and
+      opcode evidence is fresh. I’m updating the tracker count, then I’ll run
+      the local compatibility wrapper once more."
+
+      Action/result: Updated `PROGRESS.md` from 285 to 291 tests.
+
+3074. Reported: "The tracker count is current. The compatibility wrapper is
+      next; that redoes unit tests, mdBook, and opcode-evidence freshness from
+      the suite manifest."
+
+      Action/result: `AGI_GAME_DIR=games/SQ2 python3 -B
+      tools/compatibility_suite.py --report
+      build/compatibility-suite/local_input_model_001.json` passed.
+
+3075. Reported: "The local compatibility wrapper passed with 291 tests. I’m
+      checking its JSON result, whitespace, status, and generated cache
+      directories before the final note."
+
+      Action/result: The compatibility report showed zero return codes for
+      local unit tests, mdBook, and opcode-evidence freshness. `git diff
+      --check` passed. `tests/__pycache__` and `tools/__pycache__` were the
+      only generated cache directories.
+
+3076. Reported: "Validation is clean; only Python cache directories were
+      generated. I’m removing those, then I’ll do one last
+      mdBook/whitespace/status pass after adding the final log entries."
+
+      Action/result: Removed `tests/__pycache__` and `tools/__pycache__`.
+
+3077. Reported: "I’m picking back up from the v3 fixture-packing work: the
+      code path is already sketched in, so I’m going to finish the
+      documentation/tracker trail, then run the broader checks so the new
+      GR-style fixture support is grounded rather than just “looks plausible.”"
+
+      Action/result: Rechecked working-tree state and the current
+      `PROGRESS.md` remaining-work section.
+
+3078. Reported: "The tree has both the earlier interpreter/input-model
+      changes and the newer v3 fixture changes. I’m leaving the unrelated
+      `run.sh` alone and treating the current pass as additive: make the v3
+      fixture capability explicit in the docs, then verify it doesn’t disturb
+      the broader suite."
+
+      Action/result: Located stale documentation and tracker references that
+      still described v3 fixtures as logic-only.
+
+3079. Reported: "I found the stale spots: they still say v3 fixtures can only
+      patch direct logic records. I’m going to replace that with the narrower,
+      source-backed statement we can actually defend now: direct v3 logic/view
+      records plus v3 picture-nibble picture records in copied GR-style
+      fixtures."
+
+      Action/result: Read the resource, version, and current progress-log
+      sections that needed updates.
+
+3080. Reported: "I’m checking the exact helper shape before writing the
+      evidence note. One thing that matters for the spec is that this still
+      does not invent GR’s dictionary compressor; it deliberately uses the
+      interpreter’s already-observed direct-record path for logic/view and the
+      observed picture-nibble path for pictures."
+
+      Action/result: Confirmed the new helper/API shape in
+      `tools/qemu_fixture.py` and `tools/agi_resources.py`.
+
+3081. Reported: "I’m making the doc edits now. I’ll keep them factual and
+      scoped: this is a fixture-writing capability, not a claim that we have
+      implemented every v3 compression path or QEMU-validated a new graphics
+      behavior yet."
+
+      Action/result: Updated `PROGRESS.md` so v3 picture/view fixture packing
+      is no longer listed as missing work.
+
+3082. Reported: "The high-level tracker now treats v3 picture/view fixture
+      packing as available tooling, with the remaining work reframed around
+      using it for source-backed probes rather than building it from scratch."
+
+      Action/result: Updated `AGENTS.md` with the `v3-synthetic-picture` and
+      `v3-synthetic-picture-view` commands and the direct-record caveat.
+
+3083. Reported: "I’ve also updated the agent instructions so future runs don’t
+      rediscover the old limitation. Next I’m bringing the mdBook resource and
+      version chapters into sync with the new fixture commands."
+
+      Action/result: Updated `docs/src/resource_files.md` with picture-nibble
+      encoding and v3 copied-fixture patching evidence.
+
+3084. Reported: "The resource chapter now records the encoder and
+      fixture-writer boundary. I’m updating the Versions chapter next, because
+      that’s the most likely place future “compare another interpreter” work
+      will look first."
+
+      Action/result: Updated `docs/src/versions.md` with generated v3
+      picture/view fixture commands and compatibility notes.
+
+3085. Reported: "The Versions chapter now has the new commands and the
+      important caveat: direct records for controlled generated data,
+      dictionary decoding for original resources. I’m adding the clean-room
+      evidence note and progress-log entries before the validation pass."
+
+      Action/result: Added the v3 generated picture/view fixture-packing
+      section to `docs/src/clean_room_executable_notes.md`.
+
+3086. Reported: "The clean-room notes now have the evidence chain for this
+      pass. I’m adding the step-by-step progress log entries, then I’ll run the
+      full checks."
+
+      Action/result: Added this progress-log block through the documentation
+      update phase.
+
+3087. Reported: "The docs are now caught up with the implementation. I’m
+      starting validation from the narrow end first, then I’ll widen to full
+      unit discovery, mdBook, opcode-evidence freshness, and the compatibility
+      wrapper."
+
+      Action/result: `python3 -B -m py_compile tools/agi_resources.py
+      tools/qemu_fixture.py tests/test_agi_resources.py
+      tests/test_qemu_fixture.py` passed, and `AGI_GAME_DIR=games/SQ2
+      python3 -B -m unittest tests.test_agi_resources
+      tests.test_qemu_fixture` passed 59 tests.
+
+3088. Reported: "Focused validation is clean: the new resource and fixture
+      tests pass. I’m running the whole local suite now so we catch any
+      interaction with the existing opcode/resource tooling."
+
+      Action/result: `AGI_GAME_DIR=games/SQ2 python3 -B -m unittest discover
+      -s tests` passed 298 tests.
+
+3089. Reported: "Full unit discovery passed 298 tests, which matches the
+      expected bump from the new fixture/resource tests. I’m updating the
+      tracker count, then I’ll build the book and run the generated evidence
+      checks."
+
+      Action/result: Updated `PROGRESS.md` from 291 to 298 tests.
+
+3090. Reported: "There’s one current tracker count to bump from 291 to 298;
+      the older progress-log mentions are historical and I’m leaving those
+      as-is."
+
+      Action/result: Confirmed only the current tracker count was changed.
+
+3091. Reported: "The tracker count is current. I’m running mdBook and the
+      opcode evidence freshness check in parallel, then the compatibility
+      wrapper will re-run the core local checks as a single manifest."
+
+      Action/result: `mdbook build docs` passed and
+      `AGI_GAME_DIR=games/SQ2 python3 -B tools/logic_opcode_evidence.py
+      --check` passed.
+
+3092. Reported: "mdBook and the opcode evidence check passed. I’m running the
+      local compatibility wrapper now; that gives us one report file tying the
+      unit/book/evidence checks together."
+
+      Action/result: `AGI_GAME_DIR=games/SQ2 python3 -B
+      tools/compatibility_suite.py --report
+      build/compatibility-suite/local_v3_fixture_packing_001.json` passed with
+      zero return codes for local unit tests, mdBook, and opcode-evidence
+      freshness.
+
+3093. Reported: "The compatibility wrapper passed with 298 tests and rebuilt
+      the book. I’m checking the report JSON and whitespace/status now, then
+      I’ll clean any generated Python caches."
+
+      Action/result: The compatibility report showed zero return codes,
+      `git diff --check` passed, and `tests/__pycache__` plus
+      `tools/__pycache__` were the only generated cache directories.
+
+3094. Reported: "The report is clean and `git diff --check` passed. The only
+      generated clutter is Python cache directories, so I’m removing those
+      before the final status pass."
+
+      Action/result: Removed `tests/__pycache__` and `tools/__pycache__`.
+
+3095. Reported: "Caches are gone. I’m adding the validation results to the
+      progress log now, then I’ll do one last mdBook/whitespace/status sweep
+      because the log itself changed after the previous checks."
+
+      Action/result: Added this validation progress-log block.
+
+3096. Reported: "The validation log is recorded. I’m doing the last sweep now:
+      rebuild the book after the log edit, check whitespace, confirm caches
+      stayed gone, and summarize the remaining worktree cleanly."
+
+      Action/result: `mdbook build docs` passed, `git diff --check` passed,
+      no `__pycache__` directories remained under `tests/` or `tools/`, and
+      `git status --short` showed the expected modified/untracked files.
+
+3097. Reported: "Final sweep is clean: mdBook builds, whitespace check passes,
+      and cache dirs are gone. I’m reviewing the diff shape now so the handoff
+      is accurate and doesn’t blur this v3 fixture work with the earlier
+      uncommitted interpreter/input-model changes."
+
+      Action/result: Reviewed `git diff --stat` and the focused v3 resource,
+      fixture, test, and documentation diffs.
+
+3098. Reported: "The diff review confirms the newest slice is the v3 fixture
+      packing plus docs; the larger tree also contains the earlier uncommitted
+      menu-gate and input-model work from this batch. I’m logging these last
+      two status updates, then I’ll rerun the tiny final checks one more time."
+
+      Action/result: Added this final progress-log entry before the last
+      mdBook/whitespace/status check.
+
+3099. Reported: "I’ll continue from the freshly finished v3 fixture packing.
+      I’m going to re-read the current tracker and then pick the next
+      highest-value item, keeping the existing uncommitted work intact and
+      logging the new steps as I go."
+
+      Action/result: Re-read `git status --short` and the current
+      `PROGRESS.md` tracker sections.
+
+3100. Reported: "The tracker points to one useful bridge before more renderer
+      work: the v3 writer is locally tested, but not yet proven against the
+      original GR engine. I’m going to inspect the existing GR probe/QEMU
+      helpers and, if it fits cleanly, add a small QEMU smoke that draws a
+      synthetic v3 picture/view fixture produced by the new writer."
+
+      Action/result: Read the GR behavior probe, existing tests, and graphics
+      helpers.
+
+3101. Reported: "The existing GR probe is a good fit: it already builds copied
+      fixtures, runs QEMU cases, hashes captures, and compares controls. I’m
+      reading the runner/argument layer now so the new smoke can be plugged in
+      as one more probe instead of becoming a one-off script."
+
+      Action/result: Read the QEMU case runner, GR probe CLI, compatibility
+      manifest, and transient view/action references.
+
+3102. Reported: "I have the runner shape now. The new probe can be
+      deliberately modest: build one all-synthetic v3 picture/view fixture, run
+      it under the original GR interpreter, and assert the capture is nonblank
+      plus distinct from an end-only blank control."
+
+      Action/result: Inspected `picture_view_logic_payload`, existing
+      transient-object tests, and the new v3 synthetic fixture tests.
+
+3103. Reported: "This will also exercise the freshly added v3 picture-nibble
+      encoder under the real interpreter, which is exactly the confidence gap
+      left by the last pass. Before editing, I’m checking the low-level
+      picture/view payload builders so the synthetic resources stay tiny and
+      valid."
+
+      Action/result: Confirmed the probe should use a tiny picture fill and a
+      one-loop one-frame direct view payload.
+
+3104. Reported: "The probe will use three captures: blank control,
+      synthetic picture-only, synthetic picture+view. That gives a compact
+      oracle: the v3 picture-nibble record must draw something, and the direct
+      v3 view record must visibly change the picture capture."
+
+      Action/result: Reviewed compatibility-suite tests and manifest placement
+      before editing.
+
+3105. Reported: "I’m editing the GR probe now. The important design choice is
+      to keep this as a compatibility check for the fixture format, not as new
+      picture/view semantic evidence: the source-backed semantics are already
+      the v3 reader paths; QEMU will just prove the original engine accepts the
+      generated records and renders them."
+
+      Action/result: Added generated picture/view constants to
+      `tools/gr_v3_behavior_probe.py`.
+
+3106. Reported: "The synthetic payloads are intentionally tiny: picture fill
+      through the v3 nibble path, and a 4x4 opaque view frame stored as a
+      direct v3 view record. Next I’m adding fixture construction and capture
+      comparison helpers."
+
+      Action/result: Added `build_gr_synthetic_picture_view_fixtures()`.
+
+3107. Reported: "Fixture construction is in place. I’m adding the QEMU result
+      reducer now, so the report says exactly what changed instead of just
+      “the command exited.”"
+
+      Action/result: Added pixel-difference and unique-color report helpers
+      plus `run_gr_synthetic_picture_view_qemu()`.
+
+3108. Reported: "The reducer compares pixels between blank, picture-only, and
+      picture+view captures. I’m wiring the new probe into the CLI and then
+      I’ll add unit coverage around the generated records."
+
+      Action/result: Added CLI probe `--probe synthetic-picture-view`.
+
+3109. Reported: "The CLI now has `--probe synthetic-picture-view`. I’m
+      updating the local tests so fixture packing, directory patching, and the
+      new compatibility manifest entry are pinned before any QEMU run."
+
+      Action/result: Added local GR fixture read-back test coverage.
+
+3110. Reported: "The GR unit test now reads the generated v3 records back
+      through the parser, which is a nice little loop: writer output must be
+      accepted by the same resource reader model. I’m adding the new QEMU probe
+      to the opt-in compatibility manifest next."
+
+      Action/result: Added compatibility-suite command
+      `gr_synthetic_picture_view_qemu`.
+
+3111. Reported: "The manifest entry is in the v3 opt-in layer, so it won’t
+      slow the default local suite but can be run by name or with
+      `--include-qemu-v3`. I’m pinning that in the manifest tests."
+
+      Action/result: Updated `tests/test_compatibility_suite.py` to include
+      the new qemu-v3 command.
+
+3112. Reported: "The code and tests are patched. I’m running focused
+      validation now before touching docs, so any syntax or fixture-model
+      mistake gets caught while the change is still small."
+
+      Action/result: Focused `py_compile` passed and
+      `AGI_GAME_DIR=games/SQ2 python3 -B -m unittest
+      tests.test_gr_v3_behavior_probe tests.test_compatibility_suite` passed
+      31 tests.
+
+3113. Reported: "Focused local tests pass. I’m going to run the new probe
+      without QEMU first against `games/GR`; that will build the copied
+      fixtures and produce a report without launching the emulator."
+
+      Action/result: Fixture-only report
+      `build/gr-v3-behavior/synthetic_picture_view_001.json` was generated.
+
+3114. Reported: "The fixture-only run succeeded, so the actual local GR
+      directory layout accepts the generated entries. I’m checking the report
+      and then I’ll run the QEMU confirmation by compatibility-suite name."
+
+      Action/result: Inspected the fixture-only report and generated fixture
+      file list.
+
+3115. Reported: "The first QEMU attempt failed before the guest launched
+      because sandboxed QEMU couldn’t bind the local VNC socket. That’s the
+      same permission failure we’ve seen before, so I’m rerunning the exact
+      named compatibility command with escalation."
+
+      Action/result: Reran
+      `AGI_GAME_DIR=games/SQ2 python3 -B tools/compatibility_suite.py --name
+      gr_synthetic_picture_view_qemu --report
+      build/compatibility-suite/qemu_v3_synthetic_picture_view_001.json` with
+      elevated execution.
+
+3116. Reported: "QEMU is running now under the compatibility wrapper. I’m
+      waiting for the snapshot cases to finish and will inspect the JSON/captures
+      when it returns."
+
+      Action/result: The QEMU compatibility command completed successfully.
+
+3117. Reported: "The QEMU run completed. I’m checking the probe report now to
+      make sure both expected differences are present and to capture the exact
+      evidence values for the docs."
+
+      Action/result: Confirmed
+      `build/gr-v3-behavior/synthetic_picture_view_suite.json` passed:
+      picture-only differed from blank by 215,040 pixels, picture-plus-view
+      differed from picture-only by 128 pixels, and unique color counts were
+      1, 2, and 3.
+
+3118. Reported: "The QEMU probe passed. The useful numbers: picture-only
+      differs from blank by 215,040 pixels, picture+view differs from
+      picture-only by 128 pixels, and color counts go 1 → 2 → 3. I’m updating
+      the docs/tracker with that evidence now."
+
+      Action/result: Located the relevant AGENTS, tracker, resource, version,
+      compatibility, and clean-room evidence sections.
+
+3119. Reported: "I’ve got the relevant documentation locations. I’m adding the
+      new probe command and its result to the operational docs, then I’ll
+      update the high-level tracker and evidence log."
+
+      Action/result: Added the reusable synthetic picture/view QEMU command to
+      `AGENTS.md`.
+
+3120. Reported: "The reusable command is now in `AGENTS.md`. I’m updating the
+      tracker to show that v3 generated picture/view fixtures are no longer
+      just locally readable; they’ve been exercised by the original GR engine."
+
+      Action/result: First `PROGRESS.md` patch missed due paragraph wrapping.
+
+3121. Reported: "One tracker patch missed because that paragraph has shifted
+      wrapping. I’m reading the exact current lines and applying it in smaller
+      chunks."
+
+      Action/result: Re-read the current `PROGRESS.md` paragraphs.
+
+3122. Reported: "I found the exact current paragraphs. Applying the tracker
+      updates as focused replacements now."
+
+      Action/result: Updated `PROGRESS.md` with the QEMU-validated generated
+      v3 fixture path.
+
+3123. Reported: "The tracker now records the QEMU result but I’ll leave the
+      final unit-test count alone until the full suite rerun confirms it. Next
+      I’m updating the resource/version/compatibility chapters with the exact
+      probe outcome."
+
+      Action/result: Updated `docs/src/resource_files.md` with the QEMU result
+      and pixel counts.
+
+3124. Reported: "The resource chapter now has the direct QEMU evidence
+      numbers. I’m updating the version ledger so future interpreter
+      comparisons know this is validated tooling, not merely a parser round
+      trip."
+
+      Action/result: Updated `docs/src/versions.md` with the promoted
+      synthetic picture/view QEMU probe.
+
+3125. Reported: "The version ledger is updated. I’m adding a short
+      compatibility-testing section beside the other GR v3 probes, including
+      the command and the promoted pass criteria."
+
+      Action/result: Updated `docs/src/compatibility_testing.md`.
+
+3126. Reported: "The compatibility chapter now explains what this probe proves
+      and what it doesn’t. I’m appending the clean-room evidence note with the
+      source/model, commands, and QEMU result."
+
+      Action/result: Added the v3 synthetic picture/view fixture QEMU probe
+      section to `docs/src/clean_room_executable_notes.md`.
+
+3127. Reported: "The clean-room note is in place. I’m logging the
+      work-in-progress updates now, then I’ll run the full validation cycle and
+      update the test count if the suite total changes."
+
+      Action/result: Added this progress-log block through the documentation
+      update phase.
+
+3128. Reported: "The progress log is current through the docs pass. I’m
+      running full validation now: unit discovery, mdBook, opcode-evidence
+      freshness, and the local compatibility wrapper."
+
+      Action/result: `AGI_GAME_DIR=games/SQ2 python3 -B -m unittest discover
+      -s tests` passed 299 tests; `mdbook build docs` passed; and
+      `AGI_GAME_DIR=games/SQ2 python3 -B tools/logic_opcode_evidence.py
+      --check` passed.
+
+3129. Reported: "Full unit discovery passed 299 tests and the
+      book/evidence checks are clean. I’m bumping the tracker count from 298 to
+      299, then I’ll run the local compatibility wrapper."
+
+      Action/result: Found only the current `PROGRESS.md` count needed
+      updating; older progress-log mentions remained historical.
+
+3130. Reported: "Only the current tracker count needs updating; the
+      progress-log references are historical."
+
+      Action/result: Updated `PROGRESS.md` from 298 to 299 tests.
+
+3131. Reported: "The tracker count is updated. I’m running the local
+      compatibility wrapper now, which redoes the local unit suite, mdBook, and
+      opcode-evidence freshness from the manifest."
+
+      Action/result: `AGI_GAME_DIR=games/SQ2 python3 -B
+      tools/compatibility_suite.py --report
+      build/compatibility-suite/local_v3_synthetic_picture_view_001.json`
+      passed.
+
+3132. Reported: "The local compatibility wrapper passed with 299 tests and
+      rebuilt the book. I’m checking the reports, whitespace, and generated
+      caches now."
+
+      Action/result: The local compatibility report showed zero return codes,
+      `git diff --check` passed, and `tests/__pycache__` plus
+      `tools/__pycache__` were the only generated cache directories.
+
+3133. Reported: "The report and whitespace check are clean; only Python cache
+      directories were generated. I’m removing those, then I’ll add the final
+      validation log entries and do one last quick sweep."
+
+      Action/result: Removed `tests/__pycache__` and `tools/__pycache__`.
+
+3134. Reported: "Caches are removed. I’m recording the validation results in
+      the progress log now, then I’ll rebuild/check once more after that final
+      log edit."
+
+      Action/result: Added this validation progress-log block.
+
+3135. Reported: "The validation log is recorded. I’m doing the final quick
+      sweep now: mdBook after the log edit, whitespace, cache check, and
+      status."
+
+      Action/result: `mdbook build docs` passed, `git diff --check` passed,
+      no `__pycache__` directories remained under `tests/` or `tools/`, and
+      `git status --short` showed the expected modified/untracked files.
+
+3136. Reported: "The final sweep is clean: mdBook builds, whitespace passes,
+      and cache dirs are gone. I’m adding that last sweep result to the log and
+      doing one final status-only check after it."
+
+      Action/result: Added this final progress-log entry.

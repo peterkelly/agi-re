@@ -69,6 +69,58 @@ GR_RESTART_PROMPT_LEFT = 0
 GR_RESTART_PROMPT_RIGHT = 39
 GR_RESTART_PROMPT_TOP = GR_RESTART_PROMPT_ROW * 8
 GR_RESTART_PROMPT_BOTTOM = GR_RESTART_PROMPT_TOP + 7
+GR_MENU_GATE_TEST_PICTURE = 1
+GR_MENU_GATE_TEST_VIEW = 0
+GR_MENU_GATE_TEST_GROUP = 0
+GR_MENU_GATE_TEST_FRAME = 0
+GR_MENU_GATE_ACCEPTED_X = 50
+GR_MENU_GATE_BLOCKED_X = 90
+GR_MENU_GATE_BASELINE_Y = 80
+GR_MENU_GATE_PRIORITY = 15
+GR_MENU_GATE_CONTROL = 15
+GR_MENU_GATE_STATUS = 7
+GR_MENU_GATE_INIT_FLAG = 0xC7
+GR_MENU_GATE_VIEW_VAR = 0xD8
+GR_MENU_GATE_GROUP_VAR = 0xD9
+GR_MENU_GATE_FRAME_VAR = 0xDA
+GR_MENU_GATE_X_VAR = 0xDB
+GR_MENU_GATE_Y_VAR = 0xDC
+GR_MENU_GATE_PRIORITY_VAR = 0xDD
+GR_MENU_GATE_CONTROL_VAR = 0xDE
+GR_SYNTHETIC_PICTURE_NO = 0
+GR_SYNTHETIC_VIEW_NO = 0
+GR_SYNTHETIC_GROUP_NO = 0
+GR_SYNTHETIC_FRAME_NO = 0
+GR_SYNTHETIC_VIEW_X = 20
+GR_SYNTHETIC_VIEW_BASELINE_Y = 80
+GR_SYNTHETIC_VIEW_PRIORITY = 15
+GR_SYNTHETIC_VOLUME = 1
+GR_SYNTHETIC_PICTURE_PAYLOAD = bytes([0xF0, 0x01, 0xF8, 0x50, 0x50, 0xFF])
+GR_SYNTHETIC_VIEW_PAYLOAD = bytes(
+    [
+        0x00,
+        0x00,
+        0x01,
+        0x00,
+        0x00,
+        0x07,
+        0x00,
+        0x01,
+        0x03,
+        0x00,
+        0x04,
+        0x04,
+        0x00,
+        0x44,
+        0x00,
+        0x44,
+        0x00,
+        0x44,
+        0x00,
+        0x44,
+        0x00,
+    ]
+)
 GR_ACTION_51_MODE_STORE_OFFSET = 0x707F
 GR_ACTION_51_MODE_STORE_CONTEXT_OFFSET = GR_ACTION_51_MODE_STORE_OFFSET - 3
 GR_ACTION_51_MODE_STORE_CONTEXT = b"\xc6\x45\x22\x03"
@@ -355,6 +407,117 @@ def gr_restart_prompt_marker_payload(
     if include_restart:
         code += byte_action(0x80)
     return logic_resource(code + self_loop(), messages=[prompt_message])
+
+
+def gr_menu_gate_marker_var_setup(
+    marker_x: int,
+    *,
+    view_no: int = GR_MENU_GATE_TEST_VIEW,
+    group_no: int = GR_MENU_GATE_TEST_GROUP,
+    frame_no: int = GR_MENU_GATE_TEST_FRAME,
+    baseline_y: int = GR_MENU_GATE_BASELINE_Y,
+    priority: int = GR_MENU_GATE_PRIORITY,
+    control: int = GR_MENU_GATE_CONTROL,
+) -> bytes:
+    return (
+        byte_action(0x03, GR_MENU_GATE_VIEW_VAR, view_no)
+        + byte_action(0x03, GR_MENU_GATE_GROUP_VAR, group_no)
+        + byte_action(0x03, GR_MENU_GATE_FRAME_VAR, frame_no)
+        + byte_action(0x03, GR_MENU_GATE_X_VAR, marker_x)
+        + byte_action(0x03, GR_MENU_GATE_Y_VAR, baseline_y)
+        + byte_action(0x03, GR_MENU_GATE_PRIORITY_VAR, priority)
+        + byte_action(0x03, GR_MENU_GATE_CONTROL_VAR, control)
+    )
+
+
+def gr_menu_gate_draw_marker_from_vars() -> bytes:
+    return byte_action(
+        0x7B,
+        GR_MENU_GATE_VIEW_VAR,
+        GR_MENU_GATE_GROUP_VAR,
+        GR_MENU_GATE_FRAME_VAR,
+        GR_MENU_GATE_X_VAR,
+        GR_MENU_GATE_Y_VAR,
+        GR_MENU_GATE_PRIORITY_VAR,
+        GR_MENU_GATE_CONTROL_VAR,
+    )
+
+
+def gr_menu_gate_marker_draw_actions(
+    marker_x: int,
+    *,
+    picture_no: int = GR_MENU_GATE_TEST_PICTURE,
+    view_no: int = GR_MENU_GATE_TEST_VIEW,
+) -> bytes:
+    from qemu_fixture import load_show_picture_actions
+
+    return (
+        load_show_picture_actions(picture_no)
+        + byte_action(0x1E, view_no)
+        + gr_menu_gate_marker_var_setup(marker_x, view_no=view_no)
+        + gr_menu_gate_draw_marker_from_vars()
+    )
+
+
+def gr_menu_gate_direct_payload(
+    *,
+    marker_x: int,
+    picture_no: int = GR_MENU_GATE_TEST_PICTURE,
+    view_no: int = GR_MENU_GATE_TEST_VIEW,
+) -> bytes:
+    from qemu_fixture import logic_resource, self_loop
+
+    return logic_resource(
+        gr_menu_gate_marker_draw_actions(marker_x, picture_no=picture_no, view_no=view_no)
+        + self_loop()
+    )
+
+
+def gr_menu_gate_payload(
+    *,
+    gate_value: int,
+    picture_no: int = GR_MENU_GATE_TEST_PICTURE,
+    view_no: int = GR_MENU_GATE_TEST_VIEW,
+    status_index: int = GR_MENU_GATE_STATUS,
+    init_flag: int = GR_MENU_GATE_INIT_FLAG,
+) -> bytes:
+    from qemu_fixture import (
+        end_action,
+        if_then,
+        logic_resource,
+        not_flag_set_condition,
+        set_flag_action,
+        status_byte_condition,
+    )
+
+    if not 0 <= gate_value <= 0xFF:
+        raise ValueError("GR menu gate value must fit in one byte")
+    setup = (
+        byte_action(0x9C, 0x01)
+        + byte_action(0x9D, 0x02, status_index)
+        + byte_action(0x9E)
+        + byte_action(0xB1, gate_value)
+        + set_flag_action(0x0E)
+        + byte_action(0xA1)
+        + set_flag_action(init_flag)
+    )
+    accepted = gr_menu_gate_marker_draw_actions(
+        GR_MENU_GATE_ACCEPTED_X,
+        picture_no=picture_no,
+        view_no=view_no,
+    )
+    blocked = gr_menu_gate_marker_draw_actions(
+        GR_MENU_GATE_BLOCKED_X,
+        picture_no=picture_no,
+        view_no=view_no,
+    )
+    code = (
+        if_then(not_flag_set_condition(init_flag), setup)
+        + if_then(status_byte_condition(status_index), accepted)
+        + if_then(bytes([0xFD]) + status_byte_condition(status_index), blocked)
+        + end_action()
+    )
+    return logic_resource(code, messages=["FILE", "OPEN"])
 
 
 def frame_selection_gate_payload(
@@ -756,6 +919,112 @@ def build_gr_restart_prompt_marker_fixtures(
     return cases
 
 
+def build_gr_menu_gate_fixtures(
+    game_dir: Path,
+    fixture_root: Path,
+    *,
+    picture_no: int = GR_MENU_GATE_TEST_PICTURE,
+    dos_prefix: str = "GRG",
+) -> list[ProbeCase]:
+    from qemu_fixture import build_v3_logic_fixture
+
+    fixture_root.mkdir(parents=True, exist_ok=True)
+    specs = [
+        (
+            "menu_gate_blocked_control",
+            gr_menu_gate_direct_payload(
+                marker_x=GR_MENU_GATE_BLOCKED_X,
+                picture_no=picture_no,
+            ),
+            None,
+        ),
+        (
+            "menu_gate_enabled_request",
+            gr_menu_gate_payload(gate_value=1, picture_no=picture_no),
+            None,
+        ),
+        (
+            "menu_gate_disabled_request",
+            gr_menu_gate_payload(gate_value=0, picture_no=picture_no),
+            None,
+        ),
+    ]
+    cases: list[ProbeCase] = []
+    for index, (label, payload, keys) in enumerate(specs):
+        fixture = fixture_root / label
+        build_v3_logic_fixture(payload, fixture, game_dir=game_dir, logic_no=0)
+        cases.append(
+            ProbeCase(
+                label,
+                fixture,
+                f"{dos_prefix}{index}",
+                fixture / "qemu_capture.ppm",
+                post_launch_keys=keys or "",
+                post_launch_wait=1.0 if keys else 0.0,
+                post_launch_key_delay=0.12,
+                post_launch_after_text_wait=0.5 if keys else 0.0,
+            )
+        )
+    return cases
+
+
+def build_gr_synthetic_picture_view_fixtures(
+    game_dir: Path,
+    fixture_root: Path,
+    *,
+    dos_prefix: str = "GSP",
+) -> list[ProbeCase]:
+    from qemu_fixture import (
+        build_v3_logic_fixture,
+        build_v3_synthetic_picture_fixture,
+        build_v3_synthetic_picture_view_fixture,
+        logic_resource,
+        self_loop,
+    )
+
+    fixture_root.mkdir(parents=True, exist_ok=True)
+
+    blank_fixture = fixture_root / "synthetic_blank_control"
+    build_v3_logic_fixture(
+        logic_resource(self_loop()),
+        blank_fixture,
+        game_dir=game_dir,
+        logic_no=0,
+        volume=GR_SYNTHETIC_VOLUME,
+    )
+
+    picture_fixture = fixture_root / "synthetic_picture_only"
+    build_v3_synthetic_picture_fixture(
+        GR_SYNTHETIC_PICTURE_PAYLOAD,
+        picture_fixture,
+        picture_no=GR_SYNTHETIC_PICTURE_NO,
+        game_dir=game_dir,
+        volume=GR_SYNTHETIC_VOLUME,
+    )
+
+    view_fixture = fixture_root / "synthetic_picture_view"
+    build_v3_synthetic_picture_view_fixture(
+        GR_SYNTHETIC_PICTURE_PAYLOAD,
+        GR_SYNTHETIC_PICTURE_NO,
+        GR_SYNTHETIC_VIEW_NO,
+        GR_SYNTHETIC_GROUP_NO,
+        GR_SYNTHETIC_FRAME_NO,
+        GR_SYNTHETIC_VIEW_X,
+        GR_SYNTHETIC_VIEW_BASELINE_Y,
+        GR_SYNTHETIC_VIEW_PRIORITY,
+        view_fixture,
+        view_payload_bytes=GR_SYNTHETIC_VIEW_PAYLOAD,
+        game_dir=game_dir,
+        volume=GR_SYNTHETIC_VOLUME,
+    )
+
+    return [
+        ProbeCase("synthetic_blank_control", blank_fixture, f"{dos_prefix}0", blank_fixture / "qemu_capture.ppm"),
+        ProbeCase("synthetic_picture_only", picture_fixture, f"{dos_prefix}1", picture_fixture / "qemu_capture.ppm"),
+        ProbeCase("synthetic_picture_view", view_fixture, f"{dos_prefix}2", view_fixture / "qemu_capture.ppm"),
+    ]
+
+
 def build_room_remap_fixtures(
     game_dir: Path,
     fixture_root: Path,
@@ -929,6 +1198,111 @@ def run_gr_restart_prompt_marker_qemu(
         "checks": checks,
         "capture_matches": capture_matches,
         "prompt_foreground_counts": foreground_counts,
+        "capture_sha256": {
+            label: sha256_hex(data)
+            for label, data in captures.items()
+        },
+        "snapshot_raw": str(snapshot_raw),
+        "snapshot_qcow": str(snapshot_qcow),
+    }
+
+
+def run_gr_menu_gate_qemu(
+    cases: list[ProbeCase],
+    *,
+    snapshot_raw: Path,
+    snapshot_qcow: Path,
+    boot_wait: float,
+    draw_wait: float,
+) -> dict:
+    run_qemu_cases(
+        cases,
+        snapshot_raw=snapshot_raw,
+        snapshot_qcow=snapshot_qcow,
+        boot_wait=boot_wait,
+        draw_wait=draw_wait,
+    )
+    captures = {case.label: case.capture.read_bytes() for case in cases}
+    comparisons = {
+        "disabled_request_matches_blocked_control": (
+            captures["menu_gate_disabled_request"] == captures["menu_gate_blocked_control"]
+        ),
+        "enabled_request_differs_blocked_control": (
+            captures["menu_gate_enabled_request"] != captures["menu_gate_blocked_control"]
+        ),
+        "enabled_request_differs_disabled_request": (
+            captures["menu_gate_enabled_request"] != captures["menu_gate_disabled_request"]
+        ),
+    }
+    return {
+        "passed": all(comparisons.values()),
+        "comparisons": comparisons,
+        "capture_sha256": {
+            label: sha256_hex(data)
+            for label, data in captures.items()
+        },
+        "snapshot_raw": str(snapshot_raw),
+        "snapshot_qcow": str(snapshot_qcow),
+    }
+
+
+def differing_pixel_count(left: Path, right: Path) -> int:
+    from ppm_tools import read_ppm
+
+    left_image = read_ppm(left)
+    right_image = read_ppm(right)
+    if (
+        left_image.width != right_image.width
+        or left_image.height != right_image.height
+        or len(left_image.rgb) != len(right_image.rgb)
+    ):
+        raise ValueError("captures have different dimensions")
+    count = 0
+    for index in range(0, len(left_image.rgb), 3):
+        if left_image.rgb[index : index + 3] != right_image.rgb[index : index + 3]:
+            count += 1
+    return count
+
+
+def capture_unique_color_count(path: Path) -> int:
+    from ppm_tools import read_ppm, unique_colors
+
+    return len(unique_colors(read_ppm(path)))
+
+
+def run_gr_synthetic_picture_view_qemu(
+    cases: list[ProbeCase],
+    *,
+    snapshot_raw: Path,
+    snapshot_qcow: Path,
+    boot_wait: float,
+    draw_wait: float,
+) -> dict:
+    run_qemu_cases(
+        cases,
+        snapshot_raw=snapshot_raw,
+        snapshot_qcow=snapshot_qcow,
+        boot_wait=boot_wait,
+        draw_wait=draw_wait,
+    )
+    captures = {case.label: case.capture.read_bytes() for case in cases}
+    diff_pixels = {
+        "picture_vs_blank": differing_pixel_count(cases[1].capture, cases[0].capture),
+        "picture_view_vs_picture": differing_pixel_count(cases[2].capture, cases[1].capture),
+    }
+    unique_color_counts = {
+        case.label: capture_unique_color_count(case.capture)
+        for case in cases
+    }
+    checks = {
+        "picture_differs_blank_control": diff_pixels["picture_vs_blank"] > 0,
+        "picture_view_differs_picture_only": diff_pixels["picture_view_vs_picture"] > 0,
+    }
+    return {
+        "passed": all(checks.values()),
+        "checks": checks,
+        "diff_pixels": diff_pixels,
+        "unique_color_counts": unique_color_counts,
         "capture_sha256": {
             label: sha256_hex(data)
             for label, data in captures.items()
@@ -1192,6 +1566,8 @@ def main() -> int:
             "save-xor-extract",
             "signed-restore-roundtrip",
             "restart-prompt-marker",
+            "menu-gate",
+            "synthetic-picture-view",
         ),
         default="room-remap",
     )
@@ -1220,6 +1596,93 @@ def main() -> int:
     parser.add_argument("--boot-wait", type=float, default=5.0)
     parser.add_argument("--draw-wait", type=float, default=8.0)
     args = parser.parse_args()
+
+    if args.probe == "synthetic-picture-view":
+        cases = build_gr_synthetic_picture_view_fixtures(
+            args.game_dir,
+            args.fixture_root,
+            dos_prefix=args.dos_prefix,
+        )
+        result: dict = {
+            "probe": "gr_v3_synthetic_picture_view_fixture",
+            "game_dir": str(args.game_dir),
+            "picture": GR_SYNTHETIC_PICTURE_NO,
+            "view": GR_SYNTHETIC_VIEW_NO,
+            "group": GR_SYNTHETIC_GROUP_NO,
+            "frame": GR_SYNTHETIC_FRAME_NO,
+            "view_x": GR_SYNTHETIC_VIEW_X,
+            "view_baseline_y": GR_SYNTHETIC_VIEW_BASELINE_Y,
+            "view_priority": GR_SYNTHETIC_VIEW_PRIORITY,
+            "volume": GR_SYNTHETIC_VOLUME,
+            "picture_payload_hex": GR_SYNTHETIC_PICTURE_PAYLOAD.hex(),
+            "view_payload_hex": GR_SYNTHETIC_VIEW_PAYLOAD.hex(),
+            "expected_checks": {
+                "picture_differs_blank_control": True,
+                "picture_view_differs_picture_only": True,
+            },
+            "cases": [probe_case_report(case) for case in cases],
+            "qemu": {"ran": False},
+        }
+        if args.run_qemu:
+            qemu_result = run_gr_synthetic_picture_view_qemu(
+                cases,
+                snapshot_raw=args.snapshot_raw,
+                snapshot_qcow=args.snapshot_qcow,
+                boot_wait=args.boot_wait,
+                draw_wait=args.draw_wait,
+            )
+            result["qemu"] = {
+                "ran": True,
+                **qemu_result,
+            }
+        write_report(args.output, result)
+        print(args.output)
+        if args.run_qemu and not result["qemu"]["passed"]:
+            return 1
+        return 0
+
+    if args.probe == "menu-gate":
+        picture_no = args.picture if args.picture is not None else GR_MENU_GATE_TEST_PICTURE
+        cases = build_gr_menu_gate_fixtures(
+            args.game_dir,
+            args.fixture_root,
+            picture_no=picture_no,
+            dos_prefix=args.dos_prefix,
+        )
+        result: dict = {
+            "probe": "gr_v3_menu_interaction_gate",
+            "game_dir": str(args.game_dir),
+            "picture": picture_no,
+            "view": GR_MENU_GATE_TEST_VIEW,
+            "status_index": GR_MENU_GATE_STATUS,
+            "accepted_marker_x": GR_MENU_GATE_ACCEPTED_X,
+            "blocked_marker_x": GR_MENU_GATE_BLOCKED_X,
+            "expected_matches": {
+                "disabled_request_matches_blocked_control": True,
+                "enabled_request_differs_blocked_control": True,
+                "enabled_request_differs_disabled_request": True,
+            },
+            "cases": [probe_case_report(case) for case in cases],
+            "qemu": {"ran": False},
+        }
+        if args.run_qemu:
+            qemu_result = run_gr_menu_gate_qemu(
+                cases,
+                snapshot_raw=args.snapshot_raw,
+                snapshot_qcow=args.snapshot_qcow,
+                boot_wait=args.boot_wait,
+                draw_wait=args.draw_wait,
+            )
+            result["qemu"] = {
+                "ran": True,
+                **qemu_result,
+            }
+            result["qemu"]["expected_matches"] = result["expected_matches"]
+        write_report(args.output, result)
+        print(args.output)
+        if args.run_qemu and not result["qemu"]["passed"]:
+            return 1
+        return 0
 
     if args.probe == "restart-prompt-marker":
         picture_no = args.picture if args.picture is not None else GR_RESTART_TEST_PICTURE

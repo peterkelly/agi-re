@@ -489,7 +489,7 @@ Text/input UI lifecycle:
 | Prompt/status configured | `0x6c`, `0x6f`, `0x70`, `0x71` | Later configuration or cleanup | Prompt character, row/column-like globals, status-line enable word `[0x05d9]`, and display offset `[0x1379]` determine where text helpers draw and erase. QEMU validates that setting the prompt marker from an empty message suppresses marker drawing on the next input-line redraw, and that `0x70` visibly redraws the configured status row. |
 | Modal text window active | Message display, prompt/edit, menu, or diagnostic helpers | `0xa9` or the helper's own close path | The message-window opener at `0x1d96` first closes any already active saved window, formats the text, computes packed rectangle words `[0x0d23]` and `[0x0d25]`, draws/saves the boxed region through helper `0x5590`, then sets `[0x0d1d] = 1`. Closing through `0xa9`/`0x1f2b` restores that saved rectangle through helper `0x560c([0x0d23], [0x0d25])` when active, then clears `[0x0d0f]` and `[0x0d1d]`. |
 | Alternate text/input-width mode | `0x6a`, `0xa3`, and related display-mode helpers | `0x6b`, `0xa4`, or `0xa9`/cleanup paths | Byte `[0x1757]` alters text drawing, while word `[0x0d0f]` changes input-character width limits in helper `0x3652`. QEMU validates that `0x6a` clears the visible logical surface using the current text attribute pair in the observed EGA path, that `0x6b` restores ordinary picture/object drawing, that `0xa3` permits wrapped live input with a long blank string slot 0, and that both `0xa4` and inactive `0xa9` clear the width flag. |
-| Event/edit loop | `code.input.edit_string`, menus, inventory selection, confirmation dialogs, keyboard IRQ hook | Enter, Escape, selected mapped/status event, or tracked key release | The shared event queue feeds raw key predicates, line editors, menu status-byte events, and confirmation exits. Action `0xad` increments `[0x1530]`, a source-backed nonzero gate that lets the keyboard IRQ hook enqueue type-2 zero events on selected tracked-key releases. |
+| Event/edit loop | `code.input.edit_string`, menus, inventory selection, confirmation dialogs, keyboard IRQ hook | Enter, Escape, selected mapped/status event, or tracked key release | The shared event queue feeds raw key predicates, line editors, menu status-byte events, and confirmation exits. SQ2 action `0xad` increments byte `[0x1530]`; GR v3 action `0xad` sets byte `[0x0405]`, and GR-only `0xb5` clears it. In both observed hooks, selected scan codes `0x47..0x51` use an enable table and one pressed latch; release clears the latch and enqueues type-2 event value `0` only when the gate byte is nonzero. `tools/agi_input.py` models this source-backed latch contract. |
 
 Menu/list data model:
 
@@ -498,6 +498,14 @@ Menu/list data model:
 | Heading node | 18-byte heap node. Offsets `+0x00` and `+0x02` are next/previous heading links; `+0x04` is the heading text pointer; `+0x08` is the heading column; `+0x0a` is an enabled/usable word; `+0x0c` is the circular item-list root; `+0x0e` remembers the current item for this heading; `+0x10` is the item count. | Headings form a circular list rooted at `data.menu.heading_root`. Empty headings are marked disabled during later setup/finalization. Left/right navigation skips disabled headings. |
 | Item node | 14-byte heap node. Offsets `+0x00` and `+0x02` are next/previous item links; `+0x04` is the item text pointer; `+0x06` is the menu row/order; `+0x08` is the menu column; `+0x0a` is the enable word; `+0x0c` is the script-visible item id. | Items form a per-heading circular list. Item navigation does not skip disabled entries; the enable word is checked only when Enter is pressed. |
 | Menu globals | `data.menu.finalized`, `data.menu.request_interaction`, `data.menu.heading_root`, `data.menu.current_heading`, and `data.menu.current_item`. | Setup opcodes populate the list until finalized. Interactive movement persists the current heading/item before each event-loop iteration so later menu openings resume from the remembered position. |
+
+Gold Rush / AGI v3 adds one extra gate in front of the shared menu
+interaction path. Action `0xb1` stores its immediate byte in word `[0x0403]`;
+the GR `code.menu.interact` routine returns immediately while that word is
+zero, even if action `0xa1` has requested interaction. QEMU report
+`build/gr-v3-behavior/menu_gate_suite.json` validates this observable split:
+`0xb1(0)` plus a menu request matches a blocked control, while `0xb1(1)` plus
+the same request produces a distinct modal-menu capture.
 
 Menu interaction lifecycle:
 

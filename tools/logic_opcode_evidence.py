@@ -195,7 +195,7 @@ SOURCE_BACKED_ACTIONS = {
     0x83: "Disassembly: action clears [0x0139]; code.engine.main_cycle uses that selector before logic to choose object0->global direction mirroring, then restores object0 direction from global after logic.",
     0x8E: "Disassembly: action writes data.event.pair_capacity and calls code.event.reset_pair_buffer inside update-list flush/rebuild helpers; reset allocates capacity*2 bytes on first use and clears pair count/write cursor.",
     0xAA: "Disassembly: action copies up to 0x1f bytes from runtime save-description buffer [0x0e72] into string slot 0x020d + arg0*0x28 via the shared bounded-copy helper.",
-    0xAD: "Disassembly: action increments [0x1530]; the keyboard IRQ hook tests this nonzero gate before enqueueing a type-2 zero event on selected tracked-key release paths.",
+    0xAD: "Disassembly plus agi_input source model: action increments byte [0x1530]; the keyboard IRQ hook uses a tracked scan-code latch and tests the nonzero gate before enqueueing a type-2 zero event on selected key releases.",
 }
 
 

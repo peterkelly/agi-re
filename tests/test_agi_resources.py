@@ -16,9 +16,11 @@ from agi_resources import (  # noqa: E402
     decode_lzw_like,
     decode_picture_nibbles,
     detect_layout,
+    encode_picture_nibbles,
     iter_present_entries,
     read_directory_entries,
     read_volume_record,
+    ResourceFormatError,
 )
 
 
@@ -45,6 +47,22 @@ class ResourceContainerTests(unittest.TestCase):
             decode_picture_nibbles(compressed, 5),
             bytes([0xF0, 0x0A, 0xF2, 0x0B, 0xFF]),
         )
+
+    def test_picture_nibble_encoder_round_trips_expanded_stream(self) -> None:
+        expanded = bytes([0xF0, 0x0A, 0xF2, 0x0B, 0xF6, 0, 0, 1, 1, 0xFF])
+        stored = encode_picture_nibbles(expanded)
+
+        self.assertEqual(decode_picture_nibbles(stored, len(expanded)), expanded)
+
+    def test_picture_nibble_encoder_rejects_invalid_expanded_streams(self) -> None:
+        with self.assertRaisesRegex(ResourceFormatError, "one nibble"):
+            encode_picture_nibbles(bytes([0xF0, 0x10, 0xFF]))
+        with self.assertRaisesRegex(ResourceFormatError, "after a color/control command"):
+            encode_picture_nibbles(bytes([0xF0]))
+        with self.assertRaisesRegex(ResourceFormatError, "must end"):
+            encode_picture_nibbles(bytes([0xF6]))
+        with self.assertRaisesRegex(ResourceFormatError, "after 0xff"):
+            encode_picture_nibbles(bytes([0xFF, 0xF6, 0xFF]))
 
     @unittest.skipUnless(SQ2_DIR.exists(), "local SQ2 game directory is not present")
     def test_sq2_uses_split_directories_and_direct_records(self) -> None:

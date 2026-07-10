@@ -26,6 +26,8 @@ from qemu_fixture import (  # noqa: E402
     build_picture_timed_carousel_fixture,
     build_view_timed_carousel_fixture,
     build_v3_logic_fixture,
+    build_v3_synthetic_picture_fixture,
+    build_v3_synthetic_picture_view_fixture,
     approach_first_object_until_near_action,
     assignn_action,
     end_action,
@@ -47,6 +49,8 @@ from qemu_fixture import (  # noqa: E402
     patch_dir_entry,
     patch_logdir_entry_zero,
     patch_v3_logic_resource,
+    patch_v3_picture_resource,
+    patch_v3_view_resource,
     picture_carousel_logic_payload,
     picture_timed_carousel_logic_payload,
     view_carousel_case_actions,
@@ -79,6 +83,7 @@ from qemu_fixture import (  # noqa: E402
     start_random_motion_action,
     stop_motion_mode_action,
     var_eq_imm_condition,
+    v3_picture_volume_record,
     v3_volume_record,
     volume_record,
 )
@@ -270,6 +275,11 @@ class QemuFixtureTests(unittest.TestCase):
         record = v3_volume_record(b"abc", volume=1)
         self.assertEqual(record, b"\x12\x34\x01\x03\x00\x03\x00abc")
 
+    def test_v3_picture_volume_record_wraps_picture_nibble_payload(self) -> None:
+        payload = bytes([0xF0, 0x0A, 0xF2, 0x0B, 0xFF])
+        record = v3_picture_volume_record(payload, volume=1)
+        self.assertEqual(record, b"\x12\x34\x81\x05\x00\x04\x00\xf0\xaf\x2b\xff")
+
     def test_logic_resource_wraps_code_with_empty_message_table(self) -> None:
         self.assertEqual(logic_resource(b"\xff"), b"\x01\x00\xff\x00\x02\x00")
 
@@ -417,6 +427,78 @@ class QemuFixtureTests(unittest.TestCase):
 
             record = read_volume_record(fixture, "logic", 0)
             self.assertEqual(record.payload, replacement)
+
+    def test_v3_picture_resource_patch_appends_picture_nibble_record(self) -> None:
+        payload = bytes([0xF0, 0x02, 0xF6, 0, 0, 1, 1, 0xFF])
+        with tempfile.TemporaryDirectory() as temp_dir:
+            root = Path(temp_dir)
+            source = make_v3_source_game(root)
+            fixture = build_v3_logic_fixture(logic_resource(end_action()), root / "fixture", game_dir=source)
+
+            patch_v3_picture_resource(fixture, payload, picture_no=0, volume=1)
+
+            record = read_volume_record(fixture, "picture", 0)
+            self.assertEqual(record.transform, "picture_nibble")
+            self.assertEqual(record.payload, payload)
+
+    def test_v3_view_resource_patch_appends_direct_record(self) -> None:
+        payload = bytes([0x01, 0x01, 0x04, 0x00])
+        with tempfile.TemporaryDirectory() as temp_dir:
+            root = Path(temp_dir)
+            source = make_v3_source_game(root)
+            fixture = build_v3_logic_fixture(logic_resource(end_action()), root / "fixture", game_dir=source)
+
+            patch_v3_view_resource(fixture, payload, view_no=0, volume=1)
+
+            record = read_volume_record(fixture, "view", 0)
+            self.assertEqual(record.transform, "direct")
+            self.assertEqual(record.payload, payload)
+
+    def test_v3_synthetic_picture_fixture_patches_logic_and_picture(self) -> None:
+        payload = bytes([0xF0, 0x02, 0xF6, 0, 0, 1, 1, 0xFF])
+        with tempfile.TemporaryDirectory() as temp_dir:
+            root = Path(temp_dir)
+            source = make_v3_source_game(root)
+
+            fixture = build_v3_synthetic_picture_fixture(
+                payload,
+                root / "fixture",
+                picture_no=0,
+                game_dir=source,
+                volume=1,
+            )
+
+            logic = read_volume_record(fixture, "logic", 0)
+            picture = read_volume_record(fixture, "picture", 0)
+            self.assertEqual(logic.payload, picture_logic_payload(0))
+            self.assertEqual(picture.transform, "picture_nibble")
+            self.assertEqual(picture.payload, payload)
+
+    def test_v3_synthetic_picture_view_fixture_can_patch_view_payload(self) -> None:
+        picture = bytes([0xF0, 0x02, 0xF6, 0, 0, 1, 1, 0xFF])
+        view = bytes([0x01, 0x01, 0x04, 0x00])
+        with tempfile.TemporaryDirectory() as temp_dir:
+            root = Path(temp_dir)
+            source = make_v3_source_game(root)
+
+            fixture = build_v3_synthetic_picture_view_fixture(
+                picture,
+                0,
+                0,
+                0,
+                0,
+                20,
+                80,
+                15,
+                root / "fixture",
+                view_payload_bytes=view,
+                game_dir=source,
+                volume=1,
+            )
+
+            self.assertEqual(read_volume_record(fixture, "logic", 0).payload, picture_view_logic_payload(0, 0, 0, 0, 20, 80, 15))
+            self.assertEqual(read_volume_record(fixture, "picture", 0).payload, picture)
+            self.assertEqual(read_volume_record(fixture, "view", 0).payload, view)
 
     def test_synthetic_picture_fixture_patches_logdir_picdir_and_vol3(self) -> None:
         payload = bytes([0xF0, 0x02, 0xF6, 0, 0, 1, 1, 0xFF])

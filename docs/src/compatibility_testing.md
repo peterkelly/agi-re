@@ -74,9 +74,9 @@ carousel matched all 8 cases and the view/object carousel matched all 19 cases.
 
 The v3 manifest layer is separate because it depends on the private local
 `games/GR` input. It currently includes separate blank-prefix and signed GR
-save-XOR extraction probes, a signed restore round-trip probe, and a restart
-prompt-marker cancel probe. The first named suite run for the blank-prefix case
-passed in
+save-XOR extraction probes, a signed restore round-trip probe, a restart
+prompt-marker cancel probe, and a menu-gate probe. The first named suite run
+for the blank-prefix case passed in
 `build/compatibility-suite/qemu_v3_save_001.json`; the signed direct report
 `build/gr-v3-behavior/save_xor_extract_signed_qemu_001.json` and suite report
 `build/compatibility-suite/qemu_v3_signed_save_001.json` confirm the `GRSG.1`
@@ -86,7 +86,9 @@ same generated `GRSG.1` restores state by matching a restored capture to a
 direct saved-state control and differing from an unrestored control. The
 restart suite report `build/compatibility-suite/qemu_v3_restart_prompt_001.json`
 confirms that the canceled restart path redraws the prompt marker only when it
-was visible on entry.
+was visible on entry. The menu-gate suite report
+`build/compatibility-suite/qemu_v3_menu_gate_001.json` confirms that `0xb1(0)`
+blocks a requested menu while `0xb1(1)` enters the modal menu path.
 
 Generate current sample render outputs:
 
@@ -981,6 +983,14 @@ canceled branch in the original GR interpreter: hidden cancel matches a hidden
 control with 0 prompt-row foreground pixels, while visible cancel matches a
 visible control with 8 prompt-row foreground pixels.
 
+The Gold Rush / AGI v3 menu-gate probe covers action `0xb1`. The source model
+is that `0xb1` writes word `[0x0403]`, and GR `code.menu.interact` returns
+immediately while that word is zero. QEMU report
+`build/gr-v3-behavior/menu_gate_suite.json` validates the visible effect:
+`0xb1(0)` plus an `0xa1` menu request matches the blocked control, while
+`0xb1(1)` plus the same request differs from both the control and zero-gate
+case by entering the modal menu path.
+
 Run a dynamic original-engine save-write probe:
 
 ```bash
@@ -1283,11 +1293,14 @@ python3 -B tools/picture_fuzz.py compare-capture base_004_clamped_absolute build
   are restored from global `[0x000f]` before the next frame/update path can use
   them.
 - Source-backed keyboard-IRQ analysis covers `0xad`
-  (`increment_global_1530`): the action increments byte `[0x1530]`, and the IRQ
-  hook tests that byte before enqueueing a type-2 zero event on selected
-  tracked-key release paths. A direct QEMU fixture would depend on raw
-  scan-code release timing, so this remains source-backed rather than
-  QEMU-validated.
+  (`increment_global_1530`) and GR v3 `0xb5`
+  (`clear_key_release_event_gate`). `tests/test_input_model.py` models the
+  shared tracked-key IRQ latch: scan codes `0x47..0x51` use an enable table,
+  keydown clears the other latches and sets one latch, release clears that latch
+  and enqueues `(type=2, value=0)` only when the gate byte is nonzero. The same
+  tests pin SQ2 `0xad` byte-increment wraparound and GR v3 `0xad`/`0xb5`
+  set/clear behavior. A direct QEMU fixture would depend on raw scan-code
+  release timing, so this remains source-modeled rather than QEMU-validated.
 - Source-backed resource-event analysis covers `0x8e`
   (`set_global_0141_and_refresh`): the action writes `data.event.pair_capacity`
   and resets the pair buffer inside update-list flush/rebuild calls. Existing
@@ -1492,6 +1505,34 @@ the unmodified mode-3 capture, while a stationary control capture did not.
 Because this is an instrumented interpreter probe, it validates the internal GR
 dispatch branch but is not counted as evidence that ordinary script bytecode can
 create mode `4` by itself.
+
+The GR menu-gate probe validates action `0xb1` with ordinary generated logic in
+a copied GR fixture:
+
+```bash
+python3 -B tools/gr_v3_behavior_probe.py --probe menu-gate --game-dir games/GR --fixture-root build/gr-v3-behavior/menu-gate-suite-fixtures --dos-prefix GRG --run-qemu --output build/gr-v3-behavior/menu_gate_suite.json --snapshot-raw build/gr-v3-behavior/snapshot/menu_gate_suite.raw --snapshot-qcow build/gr-v3-behavior/snapshot/menu_gate_suite.qcow2 --boot-wait 5 --draw-wait 8
+```
+
+This probe compares a blocked marker control with two menu-request fixtures.
+The `0xb1(0)` request matches the blocked control; the `0xb1(1)` request differs
+from both the control and the zero-gate case, confirming that the gate controls
+entry into the modal menu interaction path.
+
+The generated GR v3 picture/view fixture probe validates the copied-fixture
+writer itself against the original interpreter:
+
+```bash
+python3 -B tools/gr_v3_behavior_probe.py --probe synthetic-picture-view --game-dir games/GR --fixture-root build/gr-v3-behavior/synthetic-picture-view-suite-fixtures --dos-prefix GSP --run-qemu --output build/gr-v3-behavior/synthetic_picture_view_suite.json --snapshot-raw build/gr-v3-behavior/snapshot/synthetic_picture_view_suite.raw --snapshot-qcow build/gr-v3-behavior/snapshot/synthetic_picture_view_suite.qcow2 --boot-wait 5 --draw-wait 8
+```
+
+This probe compares three copied GR fixtures: a blank control, a generated
+picture-nibble picture record, and the same generated picture with a direct v3
+view record overlaid through action `0x7a`. The promoted suite report
+`build/compatibility-suite/qemu_v3_synthetic_picture_view_001.json` passed:
+picture-only differed from blank by 215,040 pixels, and picture-plus-view
+differed from picture-only by 128 pixels. This promotes the fixture-writing
+path as reusable compatibility infrastructure; it does not replace the
+source-backed picture/view renderer model.
 
 The GR save-XOR extraction probe validates the source-mapped save transform:
 

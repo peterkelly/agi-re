@@ -276,6 +276,35 @@ def decode_picture_nibbles(stored: bytes, expected_length: int | None = None) ->
     return result
 
 
+def encode_picture_nibbles(payload: bytes) -> bytes:
+    """Pack an expanded picture command stream for the observed GR v3 picture path."""
+    nibbles: list[int] = []
+    next_is_packed_operand = False
+    for index, value in enumerate(payload):
+        if next_is_packed_operand:
+            if value > 0x0F:
+                raise ResourceFormatError("picture color/control operand must fit in one nibble")
+            nibbles.append(value)
+            next_is_packed_operand = False
+            continue
+
+        nibbles.extend((value >> 4, value & 0x0F))
+        if value in (0xF0, 0xF2):
+            next_is_packed_operand = True
+        if value == 0xFF:
+            if index != len(payload) - 1:
+                raise ResourceFormatError("picture stream has bytes after 0xff terminator")
+            break
+
+    if next_is_packed_operand:
+        raise ResourceFormatError("picture stream ended after a color/control command")
+    if not payload or payload[-1] != 0xFF:
+        raise ResourceFormatError("picture stream must end with 0xff")
+    if len(nibbles) & 1:
+        nibbles.append(0)
+    return bytes((nibbles[index] << 4) | nibbles[index + 1] for index in range(0, len(nibbles), 2))
+
+
 def read_volume_record(game_dir: Path, kind: ResourceKind, number: int) -> VolumeRecord:
     game_dir = Path(game_dir)
     layout = detect_layout(game_dir)

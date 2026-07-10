@@ -308,6 +308,9 @@ validate:
 - GR detection as combined-directory/7-byte-record layout.
 - Synthetic dictionary reset/literal/end expansion.
 - Synthetic `0xf0`/`0xf2` picture-nibble expansion.
+- Synthetic picture-nibble encoding back to the observed packed storage form.
+- v3 copied-fixture patching for direct logic/view records and picture-nibble
+  picture records.
 - All present GR resources expanding to their header-declared lengths.
 
 The full GR transform census from the local parser is:
@@ -318,6 +321,22 @@ The full GR transform census from the local parser is:
 | picture | 0 | 0 | 186 |
 | view | 0 | 247 | 0 |
 | sound | 3 | 41 | 0 |
+
+`tools/qemu_fixture.py` can now write generated v3 fixtures without modifying
+`games/`. It appends direct records for generated logic/view payloads and
+picture-nibble records for generated picture payloads, then patches the selected
+entry in the combined directory. This is intentionally not a general v3
+dictionary compressor: original compressed local resources are read through the
+decoder, while controlled synthetic fixtures use the direct-record path already
+present in the observed interpreter.
+
+The generated v3 fixture path is also original-engine checked. QEMU report
+`build/gr-v3-behavior/synthetic_picture_view_suite.json` compares a blank
+control, a generated picture-nibble picture fixture, and a generated
+picture-plus-direct-view fixture. The picture-only capture differs from blank by
+215,040 pixels, and the picture-plus-view capture differs from picture-only by
+128 pixels, proving that the original GR interpreter accepts both generated v3
+record forms for this controlled case.
 
 The logic disassembler now uses `tools/agi_resources.py` for payload loading.
 For GR it uses AGIDATA dispatch table bases `0x0440` for actions and `0x0762`

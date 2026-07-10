@@ -24,6 +24,21 @@ from gr_v3_behavior_probe import (  # noqa: E402
     GR_RESTART_PROMPT_MESSAGE,
     GR_RESTART_PROMPT_ROW,
     GR_RESTART_TEST_PICTURE,
+    GR_MENU_GATE_ACCEPTED_X,
+    GR_MENU_GATE_BLOCKED_X,
+    GR_MENU_GATE_INIT_FLAG,
+    GR_MENU_GATE_STATUS,
+    GR_MENU_GATE_TEST_PICTURE,
+    GR_MENU_GATE_X_VAR,
+    GR_SYNTHETIC_FRAME_NO,
+    GR_SYNTHETIC_GROUP_NO,
+    GR_SYNTHETIC_PICTURE_NO,
+    GR_SYNTHETIC_PICTURE_PAYLOAD,
+    GR_SYNTHETIC_VIEW_BASELINE_Y,
+    GR_SYNTHETIC_VIEW_NO,
+    GR_SYNTHETIC_VIEW_PAYLOAD,
+    GR_SYNTHETIC_VIEW_PRIORITY,
+    GR_SYNTHETIC_VIEW_X,
     GR_SAVE_SIGNATURE_MESSAGE,
     GR_SAVE_TEST_PICTURE,
     FRAME_GATE_EXACT4_VIEW,
@@ -47,6 +62,8 @@ from gr_v3_behavior_probe import (  # noqa: E402
     build_gr_signed_restore_fixture,
     build_gr_signed_restore_save_fixture,
     build_gr_restart_prompt_marker_fixtures,
+    build_gr_menu_gate_fixtures,
+    build_gr_synthetic_picture_view_fixtures,
     build_key_map_capacity_fixtures,
     build_motion_mode_4_fixtures,
     frame_selection_control_payload,
@@ -55,6 +72,8 @@ from gr_v3_behavior_probe import (  # noqa: E402
     gr_signed_restore_restore_payload,
     gr_signed_restore_save_payload,
     gr_restart_prompt_marker_payload,
+    gr_menu_gate_direct_payload,
+    gr_menu_gate_payload,
     gr_save_extract_payload,
     build_room_remap_fixtures,
     key_map_capacity_payload,
@@ -63,6 +82,7 @@ from gr_v3_behavior_probe import (  # noqa: E402
     switch_room_payload,
 )
 from qemu_fixture import logic_resource, picture_logic_payload, v3_volume_record, xor_message_text  # noqa: E402
+from qemu_fixture import picture_view_logic_payload  # noqa: E402
 
 
 def v3_entry(volume: int, offset: int) -> bytes:
@@ -483,6 +503,101 @@ class GoldRushV3BehaviorProbeTests(unittest.TestCase):
                     picture_no=GR_RESTART_TEST_PICTURE,
                 ),
             )
+
+    def test_gr_menu_gate_payload_sets_gate_and_branches_on_status(self) -> None:
+        enabled = gr_menu_gate_payload(gate_value=1)
+        disabled = gr_menu_gate_payload(gate_value=0)
+        enabled_code_len = enabled[0] | (enabled[1] << 8)
+        disabled_code_len = disabled[0] | (disabled[1] << 8)
+        enabled_code = enabled[2 : 2 + enabled_code_len]
+        disabled_code = disabled[2 : 2 + disabled_code_len]
+
+        self.assertIn(bytes([0x9C, 0x01, 0x9D, 0x02, GR_MENU_GATE_STATUS]), enabled_code)
+        self.assertIn(bytes([0x9E, 0xB1, 0x01, 0x0C, 0x0E, 0xA1]), enabled_code)
+        self.assertIn(bytes([0x9E, 0xB1, 0x00, 0x0C, 0x0E, 0xA1]), disabled_code)
+        self.assertIn(bytes([0x0C, GR_MENU_GATE_INIT_FLAG]), enabled_code)
+        self.assertIn(bytes([0x03, GR_MENU_GATE_X_VAR, GR_MENU_GATE_ACCEPTED_X]), enabled_code)
+        self.assertIn(bytes([0x03, GR_MENU_GATE_X_VAR, GR_MENU_GATE_BLOCKED_X]), enabled_code)
+
+    def test_gr_menu_gate_direct_payload_draws_selected_marker(self) -> None:
+        payload = gr_menu_gate_direct_payload(marker_x=GR_MENU_GATE_ACCEPTED_X)
+        code_len = payload[0] | (payload[1] << 8)
+        code = payload[2 : 2 + code_len]
+
+        self.assertIn(bytes([0x03, GR_MENU_GATE_X_VAR, GR_MENU_GATE_ACCEPTED_X]), code)
+        self.assertNotIn(bytes([0xB1]), code)
+
+    def test_gr_menu_gate_fixtures_patch_controls_and_gate_cases(self) -> None:
+        with tempfile.TemporaryDirectory() as temp_dir:
+            root = Path(temp_dir)
+            source = make_v3_source_game(root)
+
+            cases = build_gr_menu_gate_fixtures(
+                source,
+                root / "fixtures",
+                picture_no=GR_MENU_GATE_TEST_PICTURE,
+            )
+
+            self.assertEqual(
+                [case.label for case in cases],
+                [
+                    "menu_gate_blocked_control",
+                    "menu_gate_enabled_request",
+                    "menu_gate_disabled_request",
+                ],
+            )
+            self.assertEqual(cases[1].post_launch_keys, "")
+            self.assertEqual(cases[2].post_launch_keys, "")
+            self.assertEqual(
+                read_volume_record(cases[0].fixture, "logic", 0).payload,
+                gr_menu_gate_direct_payload(marker_x=GR_MENU_GATE_BLOCKED_X),
+            )
+            self.assertEqual(
+                read_volume_record(cases[1].fixture, "logic", 0).payload,
+                gr_menu_gate_payload(gate_value=1, picture_no=GR_MENU_GATE_TEST_PICTURE),
+            )
+            self.assertEqual(
+                read_volume_record(cases[2].fixture, "logic", 0).payload,
+                gr_menu_gate_payload(gate_value=0, picture_no=GR_MENU_GATE_TEST_PICTURE),
+            )
+
+    def test_gr_synthetic_picture_view_fixtures_patch_generated_v3_resources(self) -> None:
+        with tempfile.TemporaryDirectory() as temp_dir:
+            root = Path(temp_dir)
+            source = make_v3_source_game(root)
+
+            cases = build_gr_synthetic_picture_view_fixtures(source, root / "fixtures")
+
+            self.assertEqual(
+                [case.label for case in cases],
+                ["synthetic_blank_control", "synthetic_picture_only", "synthetic_picture_view"],
+            )
+            blank_logic = read_volume_record(cases[0].fixture, "logic", 0)
+            picture_logic = read_volume_record(cases[1].fixture, "logic", 0)
+            view_logic = read_volume_record(cases[2].fixture, "logic", 0)
+            self.assertEqual(blank_logic.payload, logic_resource(bytes([0xFE, 0xFD, 0xFF])))
+            self.assertEqual(picture_logic.payload, picture_logic_payload(GR_SYNTHETIC_PICTURE_NO))
+            self.assertEqual(
+                view_logic.payload,
+                picture_view_logic_payload(
+                    GR_SYNTHETIC_PICTURE_NO,
+                    GR_SYNTHETIC_VIEW_NO,
+                    GR_SYNTHETIC_GROUP_NO,
+                    GR_SYNTHETIC_FRAME_NO,
+                    GR_SYNTHETIC_VIEW_X,
+                    GR_SYNTHETIC_VIEW_BASELINE_Y,
+                    GR_SYNTHETIC_VIEW_PRIORITY,
+                ),
+            )
+
+            picture_record = read_volume_record(cases[1].fixture, "picture", GR_SYNTHETIC_PICTURE_NO)
+            view_picture_record = read_volume_record(cases[2].fixture, "picture", GR_SYNTHETIC_PICTURE_NO)
+            view_record = read_volume_record(cases[2].fixture, "view", GR_SYNTHETIC_VIEW_NO)
+            self.assertEqual(picture_record.transform, "picture_nibble")
+            self.assertEqual(picture_record.payload, GR_SYNTHETIC_PICTURE_PAYLOAD)
+            self.assertEqual(view_picture_record.payload, GR_SYNTHETIC_PICTURE_PAYLOAD)
+            self.assertEqual(view_record.transform, "direct")
+            self.assertEqual(view_record.payload, GR_SYNTHETIC_VIEW_PAYLOAD)
 
 
 if __name__ == "__main__":

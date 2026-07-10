@@ -10,7 +10,7 @@ not external AGI documentation.
 | Local input | Version evidence | Executable form | Resource container | Fixture status |
 | --- | --- | --- | --- | --- |
 | `games/SQ2` | `AGIDATA.OVL` string `Version 2.936` | `AGI` is decrypted from the loader-managed local bytes before disassembly | Split `LOGDIR`, `PICDIR`, `VIEWDIR`, `SNDDIR`; `VOL.N` files; 5-byte record headers; direct resource payloads | Current generated QEMU fixtures target this v2 split layout |
-| `games/GR` | `AGIDATA.OVL` string `Version 3.002.149` | `AGI` is already an MZ executable | Combined `GRDIR`; prefixed `GRVOL.N` files; 7-byte record headers; dictionary and picture-nibble transforms | Decoding/parsing is implemented locally; generated direct-record logic fixtures can patch copied v3 directories/volumes under `build/` |
+| `games/GR` | `AGIDATA.OVL` string `Version 3.002.149` | `AGI` is already an MZ executable | Combined `GRDIR`; prefixed `GRVOL.N` files; 7-byte record headers; dictionary and picture-nibble transforms | Decoding/parsing is implemented locally; generated fixtures can patch copied v3 directories/volumes with direct logic/view records and picture-nibble picture records under `build/` |
 
 ## SQ2 / AGI 2.936
 
@@ -67,18 +67,18 @@ Source-backed GR-only action slot notes:
 | Opcode | Local label | Evidence-backed effect |
 | ---: | --- | --- |
 | `0xb0` | `reserved_noop_v3_0` | Table entry has zero operands and routes to the generic no-op/return handler at image `0x5286`. |
-| `0xb1` | `set_menu_interaction_gate` | Reads one immediate byte, zero-extends it, and stores it in word `[0x0403]`. GR `code.menu.interact` at image `0x9724` returns immediately while `[0x0403] == 0`, so nonzero values enable the menu interaction path after the usual menu-request flag is set. |
+| `0xb1` | `set_menu_interaction_gate` | Reads one immediate byte, zero-extends it, and stores it in word `[0x0403]`. GR `code.menu.interact` at image `0x9724` returns immediately while `[0x0403] == 0`, so nonzero values enable the menu interaction path after the usual menu-request flag is set. QEMU `menu_gate_suite` validates zero as blocked and nonzero as modal-menu entry. |
 | `0xb2` | `reserved_noop_v3_2` | Table entry has zero operands and routes to the generic no-op/return handler at image `0x5286`. |
 | `0xb3` | `reserved_noop_v3_4args` | Table entry declares four fixed operands, but the handler is the generic no-op/return handler. |
 | `0xb4` | `reserved_noop_v3_2varargs` | Table entry declares two variable operands via metadata `0xc0`, but the handler is the generic no-op/return handler. |
-| `0xb5` | `clear_key_release_event_gate` | Stores zero in byte `[0x0405]`. GR action `0xad` sets the same byte to one, and the keyboard IRQ hook tests it before enqueueing a type-2 zero event on selected key-release paths. |
+| `0xb5` | `clear_key_release_event_gate` | Stores zero in byte `[0x0405]`. GR action `0xad` sets the same byte to one, and the keyboard IRQ hook tests it before enqueueing a type-2 zero event on selected key-release paths. Local source model `tools/agi_input.py` covers this set/clear gate with the shared tracked-key latch semantics. |
 
 Source-backed shared action deltas, relative to SQ2 / AGI 2.936:
 
 | Area | Opcodes | Observed GR / AGI 3.002.149 difference |
 | --- | --- | --- |
 | Input line and prompts | `0x6f`, `0x73`, `0x76`, `0x77`, `0x78`, `0x89`, `0x8a`, `0xa3`, `0xa4`, `0xa9` | GR keeps the normal EGA-style input-line model but removes SQ2's display-mode-2/input-width branches. It computes the display offset as `arg0 << 3`, always uses the normal prompt/editor path for string and number prompts, maps the SQ2 input-width set/clear actions to no-op, and closes active text-window state without clearing a width flag. |
-| Key and menu events | `0x79`, `0xad`, `0xb1`, `0xb5` | GR expands the script key-map table from `0x27` to `0x31` four-byte slots. A QEMU fixture validates slot 48 by filling 48 dummy slots, mapping typed `x` in the final slot, and comparing against a direct nonblank picture draw; the no-key control remains blank. GR also replaces SQ2's incrementing key-release byte `[0x1530]` with set/clear byte `[0x0405]`, and adds menu interaction gate word `[0x0403]`. |
+| Key and menu events | `0x79`, `0xad`, `0xb1`, `0xb5` | GR expands the script key-map table from `0x27` to `0x31` four-byte slots. A QEMU fixture validates slot 48 by filling 48 dummy slots, mapping typed `x` in the final slot, and comparing against a direct nonblank picture draw; the no-key control remains blank. GR also replaces SQ2's incrementing key-release byte `[0x1530]` with set/clear byte `[0x0405]`, and adds menu interaction gate word `[0x0403]`. The source-modeled IRQ latch helper covers the key-release gate change; the menu-gate QEMU fixture validates that `0xb1(0)` makes a requested menu match the blocked control, while `0xb1(1)` yields a distinct modal-menu capture. |
 | Room and state actions | `0x12`, `0x7c`, `0x7d`, `0x7e`, `0x80`, `0x84` | GR remaps immediate room targets `0x7e..0x80` to `0x49` before the ordinary room-switch helper; the decoded local GR scripts do contain those operands. The carried-item selector sets temporary word `[0x0dc1]` while handling a flag-13 input path and clears it on return. Save wraps the object/inventory chunk in an XOR pass before and after writing the save envelope; restore applies the same 59-byte XOR transform after reading that block. The observed transform comes from image `0x072c`, is modeled by `gr_v3_object_inventory_save_xor()`, and is QEMU-validated against blank-prefix `SG.1`, signed `GRSG.1`, and a signed restore round trip with block lengths `1028`, `989`, `1811`, `100`, and `12`. Restart records prompt-marker visibility before confirmation; accepted restart redraws the marker, and canceled restart redraws only if it had been visible. The canceled branch is QEMU-validated by hidden/visible prompt-row captures. Action `0x84` preserves object 0 motion mode `4` instead of always clearing byte `+0x22`. |
 | Object animation and motion | frame timer, motion dispatch | GR uses the four-plus direction table immediately for exactly-four-loop views, but gates views with more than four loops on flag `0x14`. QEMU `frame_selection_gate_qemu_001` validates exact-four view 177 selecting group 1 regardless of flag `0x14`, and more-than-four view 39 selecting group 1 only when flag `0x14` is set. GR also dispatches motion mode `4` to the same target-direction helper used by mode `3`; that branch is instrumented-QEMU-validated by patching only the copied GR action-`0x51` mode seed from `3` to `4`, while ordinary bytecode still has no observed direct setter for mode `4`. |
 
@@ -97,6 +97,13 @@ copied GR fixtures: a direct picture draw, a slot-48 key-map fixture that sends
 matching the direct draw and the no-key capture not matching, with the no-key
 capture blank. This confirms the observed `0x31` slot loop bound has an
 observable event-mapping consequence in the original GR interpreter.
+
+The probe tool also includes `--probe menu-gate`. The promoted suite run
+`build/gr-v3-behavior/menu_gate_suite.json` builds a blocked control plus two
+requested-menu fixtures. The `0xb1(0)` fixture matches the blocked control,
+while the `0xb1(1)` fixture differs from both the control and the zero-gate
+case. That confirms that `[0x0403]` is not part of menu construction; it gates
+whether a later `0xa1` menu request may enter the modal menu path.
 
 The probe tool also includes `--probe save-xor-extract`. The promoted run
 `build/gr-v3-behavior/save_xor_extract_qemu_001.json` omits
@@ -149,9 +156,46 @@ python3 -B tools/qemu_fixture.py v3-logic payload.bin \
 
 This copies the selected v3 game to the generated output directory, appends a
 direct/uncompressed v3 record to the existing prefixed volume for the selected
-logic resource, and patches that logic entry inside the combined directory. It
-does not yet pack generated v3 picture or view payloads; those should be added
-only when a targeted behavioral probe needs them.
+logic resource, and patches that logic entry inside the combined directory.
+
+Generated v3 picture fixtures can be built with:
+
+```bash
+python3 -B tools/qemu_fixture.py v3-synthetic-picture payload.pic \
+  --game-dir games/GR \
+  --picture 0 \
+  --volume 1 \
+  --output build/qemu-fixtures/gr_picture_000
+```
+
+The picture payload is the expanded picture command stream ending with `0xff`;
+the fixture writer stores it through the observed v3 picture-nibble transform
+and patches the selected picture directory entry. Passing `--volume` is useful
+when replacing a previously absent resource; otherwise the existing directory
+entry volume can be reused.
+
+Generated v3 picture/view fixtures can be built with:
+
+```bash
+python3 -B tools/qemu_fixture.py v3-synthetic-picture-view payload.pic \
+  0 0 0 0 20 80 15 \
+  --view-payload payload.view \
+  --game-dir games/GR \
+  --volume 1 \
+  --output build/qemu-fixtures/gr_picture_view_000
+```
+
+The optional view payload is appended as a direct v3 record. This is sufficient
+for controlled synthetic probes that need a known view body, but it is not a
+general dictionary-compression writer. Original compressed GR resources remain
+decoded through `tools/agi_resources.py`.
+
+The generated v3 picture/view path is QEMU-validated by
+`build/gr-v3-behavior/synthetic_picture_view_suite.json`. That run builds a
+blank control, a generated picture-only fixture, and a generated
+picture-plus-view fixture. The original GR interpreter renders the
+picture-nibble fixture differently from blank and renders the direct view record
+differently from the picture-only fixture.
 
 The static GR/SQ2 comparison report currently lives at
 `build/gr-sq2-static/opcode_static_report.md`. Source-level comparison found
@@ -169,6 +213,9 @@ may intentionally be read-only and because each interpreter version can require
 different container-writing rules.
 
 Current v2 fixture writers still assume the SQ2-style split-directory format.
-The v3 path currently supports direct/uncompressed logic-record replacement in
-a copied combined-directory game. Future v3 picture/view probes may need
-additional fixture packing for picture-nibble or view/general transforms.
+The v3 path supports direct/uncompressed logic and view replacement plus
+picture-nibble picture replacement in a copied combined-directory game. Future
+v3 probes that need generated compressed logic/view/sound records would still
+need a dictionary encoder, but controlled fixtures can use direct records. The
+current direct view and picture-nibble picture path has been checked against the
+original GR interpreter with the synthetic picture/view QEMU probe.

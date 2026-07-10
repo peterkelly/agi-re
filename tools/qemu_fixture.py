@@ -8,7 +8,15 @@ import stat
 import shutil
 from pathlib import Path
 
-from agi_resources import ResourceDirectoryLayout, ResourceFormatError, detect_layout, read_directory_entries, volume_path
+from agi_resources import (
+    ResourceDirectoryLayout,
+    ResourceFormatError,
+    ResourceKind,
+    detect_layout,
+    encode_picture_nibbles,
+    read_directory_entries,
+    volume_path,
+)
 from agi_graphics import picture_payload, view_payload
 from project_paths import game_dir as configured_game_dir
 
@@ -694,6 +702,14 @@ def v3_volume_record(payload: bytes, volume: int, *, metadata: int | None = None
     return b"\x12\x34" + bytes([metadata]) + u16le(length) + u16le(length) + payload
 
 
+def v3_picture_volume_record(payload: bytes, volume: int) -> bytes:
+    """Build an observed v3 picture-nibble volume record from expanded picture bytes."""
+    if not 0 <= volume <= 0x0F:
+        raise ValueError("volume number must fit in one nibble")
+    stored = encode_picture_nibbles(payload)
+    return b"\x12\x34" + bytes([0x80 | volume]) + u16le(len(payload)) + u16le(len(stored)) + stored
+
+
 def patch_logdir_entry_zero(logdir: bytes, volume: int, offset: int) -> bytes:
     return patch_dir_entry(logdir, 0, volume, offset)
 
@@ -839,6 +855,46 @@ def build_v3_logic_fixture(
     return destination
 
 
+def patch_v3_resource(
+    destination: Path,
+    kind: ResourceKind,
+    resource_payload: bytes,
+    *,
+    resource_no: int = 0,
+    volume: int | None = None,
+    transform: str = "direct",
+) -> Path:
+    layout = detect_layout(destination)
+    if layout.version != "v3_combined":
+        raise ValueError("v3 resource patching requires a v3 combined-directory game")
+    entries = read_directory_entries(destination, kind)
+    if volume is None:
+        if resource_no >= len(entries) or entries[resource_no] is None:
+            raise ValueError(f"{kind} resource has no existing volume; pass an explicit volume")
+        volume = entries[resource_no].volume
+
+    target_volume = volume_path(destination, layout, volume)
+    offset = target_volume.stat().st_size
+    if transform == "direct":
+        record = v3_volume_record(resource_payload, volume=volume)
+    elif transform == "picture_nibble":
+        if kind != "picture":
+            raise ValueError("picture_nibble transform is only valid for picture resources")
+        record = v3_picture_volume_record(resource_payload, volume=volume)
+    else:
+        raise ValueError(f"unsupported v3 fixture transform: {transform}")
+    with target_volume.open("ab") as handle:
+        handle.write(record)
+
+    if layout.directory_path is None:
+        raise ResourceFormatError("combined directory layout is missing a directory path")
+    directory = layout.directory_path.read_bytes()
+    layout.directory_path.write_bytes(
+        patch_combined_dir_entry(directory, layout, kind, resource_no, volume=volume, offset=offset)
+    )
+    return destination
+
+
 def patch_v3_logic_resource(
     destination: Path,
     logic_payload: bytes,
@@ -846,26 +902,83 @@ def patch_v3_logic_resource(
     logic_no: int = 0,
     volume: int | None = None,
 ) -> Path:
-    layout = detect_layout(destination)
-    if layout.version != "v3_combined":
-        raise ValueError("v3 logic patching requires a v3 combined-directory game")
-    entries = read_directory_entries(destination, "logic")
-    if volume is None:
-        if logic_no >= len(entries) or entries[logic_no] is None:
-            raise ValueError("logic resource has no existing volume; pass an explicit volume")
-        volume = entries[logic_no].volume
+    return patch_v3_resource(destination, "logic", logic_payload, resource_no=logic_no, volume=volume)
 
-    target_volume = volume_path(destination, layout, volume)
-    offset = target_volume.stat().st_size
-    with target_volume.open("ab") as handle:
-        handle.write(v3_volume_record(logic_payload, volume=volume))
 
-    if layout.directory_path is None:
-        raise ResourceFormatError("combined directory layout is missing a directory path")
-    directory = layout.directory_path.read_bytes()
-    layout.directory_path.write_bytes(
-        patch_combined_dir_entry(directory, layout, "logic", logic_no, volume=volume, offset=offset)
+def patch_v3_picture_resource(
+    destination: Path,
+    payload: bytes,
+    *,
+    picture_no: int = 0,
+    volume: int | None = None,
+) -> Path:
+    return patch_v3_resource(
+        destination,
+        "picture",
+        payload,
+        resource_no=picture_no,
+        volume=volume,
+        transform="picture_nibble",
     )
+
+
+def patch_v3_view_resource(
+    destination: Path,
+    payload: bytes,
+    *,
+    view_no: int = 0,
+    volume: int | None = None,
+) -> Path:
+    return patch_v3_resource(destination, "view", payload, resource_no=view_no, volume=volume)
+
+
+def build_v3_synthetic_picture_fixture(
+    picture_payload: bytes,
+    destination: Path,
+    *,
+    picture_no: int = 0,
+    game_dir: Path | None = None,
+    volume: int | None = None,
+) -> Path:
+    copy_game_tree(destination, game_dir=game_dir)
+    patch_v3_logic_resource(destination, picture_logic_payload(picture_no), logic_no=0, volume=volume)
+    patch_v3_picture_resource(destination, picture_payload, picture_no=picture_no, volume=volume)
+    return destination
+
+
+def build_v3_synthetic_picture_view_fixture(
+    picture_payload: bytes,
+    picture_no: int,
+    view_no: int,
+    group_no: int,
+    frame_no: int,
+    x: int,
+    baseline_y: int,
+    priority: int,
+    destination: Path,
+    *,
+    view_payload_bytes: bytes | None = None,
+    game_dir: Path | None = None,
+    volume: int | None = None,
+    control: int | None = None,
+    pre_overlay_actions: bytes = b"",
+) -> Path:
+    copy_game_tree(destination, game_dir=game_dir)
+    logic_payload = picture_view_logic_payload(
+        picture_no,
+        view_no,
+        group_no,
+        frame_no,
+        x,
+        baseline_y,
+        priority,
+        control,
+        pre_overlay_actions=pre_overlay_actions,
+    )
+    patch_v3_logic_resource(destination, logic_payload, logic_no=0, volume=volume)
+    patch_v3_picture_resource(destination, picture_payload, picture_no=picture_no, volume=volume)
+    if view_payload_bytes is not None:
+        patch_v3_view_resource(destination, view_payload_bytes, view_no=view_no, volume=volume)
     return destination
 
 
@@ -1167,6 +1280,28 @@ def main() -> None:
     v3_logic.add_argument("--game-dir", type=Path)
     v3_logic.add_argument("--output", type=Path)
 
+    v3_synthetic_picture = subparsers.add_parser("v3-synthetic-picture")
+    v3_synthetic_picture.add_argument("payload", type=Path)
+    v3_synthetic_picture.add_argument("--picture", type=int, default=0)
+    v3_synthetic_picture.add_argument("--volume", type=int)
+    v3_synthetic_picture.add_argument("--game-dir", type=Path)
+    v3_synthetic_picture.add_argument("--output", type=Path)
+
+    v3_synthetic_picture_view = subparsers.add_parser("v3-synthetic-picture-view")
+    v3_synthetic_picture_view.add_argument("payload", type=Path)
+    v3_synthetic_picture_view.add_argument("picture", type=int)
+    v3_synthetic_picture_view.add_argument("view", type=int)
+    v3_synthetic_picture_view.add_argument("group", type=int)
+    v3_synthetic_picture_view.add_argument("frame", type=int)
+    v3_synthetic_picture_view.add_argument("x", type=int)
+    v3_synthetic_picture_view.add_argument("baseline_y", type=int)
+    v3_synthetic_picture_view.add_argument("priority", type=int)
+    v3_synthetic_picture_view.add_argument("--view-payload", type=Path)
+    v3_synthetic_picture_view.add_argument("--control", type=int)
+    v3_synthetic_picture_view.add_argument("--volume", type=int)
+    v3_synthetic_picture_view.add_argument("--game-dir", type=Path)
+    v3_synthetic_picture_view.add_argument("--output", type=Path)
+
     args = parser.parse_args()
     if args.command == "picture":
         output = args.output or Path("build/qemu-fixtures") / f"picture_{args.picture:03d}"
@@ -1197,6 +1332,37 @@ def main() -> None:
             logic_no=args.logic,
             game_dir=args.game_dir,
             volume=args.volume,
+        )
+        print(output)
+    elif args.command == "v3-synthetic-picture":
+        output = args.output or Path("build/qemu-fixtures") / f"v3_synthetic_picture_{args.picture:03d}"
+        build_v3_synthetic_picture_fixture(
+            args.payload.read_bytes(),
+            output,
+            picture_no=args.picture,
+            game_dir=args.game_dir,
+            volume=args.volume,
+        )
+        print(output)
+    elif args.command == "v3-synthetic-picture-view":
+        output = args.output or (
+            Path("build/qemu-fixtures")
+            / f"v3_synthetic_picture_{args.picture:03d}_view_{args.view:03d}_{args.group:02d}_{args.frame:02d}"
+        )
+        build_v3_synthetic_picture_view_fixture(
+            args.payload.read_bytes(),
+            args.picture,
+            args.view,
+            args.group,
+            args.frame,
+            args.x,
+            args.baseline_y,
+            args.priority,
+            output,
+            view_payload_bytes=args.view_payload.read_bytes() if args.view_payload is not None else None,
+            game_dir=args.game_dir,
+            volume=args.volume,
+            control=args.control,
         )
         print(output)
     elif args.command == "synthetic-picture":

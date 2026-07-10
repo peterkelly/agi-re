@@ -41,6 +41,8 @@ class CompatibilitySuiteTests(unittest.TestCase):
         self.assertEqual(by_name["gr_signed_save_xor_extract_qemu"].layer, "qemu-v3")
         self.assertEqual(by_name["gr_signed_restore_roundtrip_qemu"].layer, "qemu-v3")
         self.assertEqual(by_name["gr_restart_prompt_marker_qemu"].layer, "qemu-v3")
+        self.assertEqual(by_name["gr_menu_gate_qemu"].layer, "qemu-v3")
+        self.assertEqual(by_name["gr_synthetic_picture_view_qemu"].layer, "qemu-v3")
 
     def test_default_selection_is_local_only(self) -> None:
         commands = selected_commands()
