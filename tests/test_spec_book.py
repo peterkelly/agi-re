@@ -54,6 +54,22 @@ class SpecBookTests(unittest.TestCase):
             with self.subTest(profile="3.002.149", opcode=opcode):
                 self.assertIn(f"`0x{opcode:02x}`", logic)
 
+    def test_conformance_matrix_classifies_claim_boundaries(self) -> None:
+        matrix = (SPEC_SRC / "conformance_matrix.md").read_text(encoding="ascii")
+        required = (
+            "Common behavioral core",
+            "Profile variants",
+            "Game-data dimensions",
+            "Partial domains",
+            "Outside the current target",
+            "Claim requirements",
+        )
+        for heading in required:
+            with self.subTest(heading=heading):
+                self.assertIn(f"## {heading}", matrix)
+        self.assertIn("2.936 binary save interchange", matrix)
+        self.assertIn("3.002.149 full-EGA gameplay", matrix)
+
     def test_picture_catalog_mentions_every_command(self) -> None:
         picture = (SPEC_SRC / "picture_resources.md").read_text(encoding="ascii")
         for command in range(0xF0, 0xFB):

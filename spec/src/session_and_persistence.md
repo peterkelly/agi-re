@@ -152,7 +152,7 @@ The five conceptual blocks are:
 4. the configured resource replay-pair storage;
 5. variable-sized loaded-logic/cache resume state.
 
-For profile 2.936, observed block lengths are:
+For the observed profile 2.936 game data, block lengths are:
 
 | Block | Length |
 | ---: | ---: |
@@ -162,30 +162,272 @@ For profile 2.936, observed block lengths are:
 | 4 | 200 (`0x00c8`) |
 | 5 | Variable. |
 
-For profile 3.002.149, the observed Gold Rush state uses lengths `1028`,
-`989`, `1811`, `100`, and `12`.
+For profile 3.002.149, the observed Gold Rush state uses lengths:
+
+| Block | Length |
+| ---: | ---: |
+| 1 | 1028 (`0x0404`) |
+| 2 | 989 (`0x03dd`) |
+| 3 | 1811 (`0x0713`) |
+| 4 | 100 (`0x0064`) |
+| 5 | Observed initial saves use 12 (`0x000c`); the record grammar is variable. |
 
 The envelope, lengths, signature prefix, and mapped subsystem effects are
-normative. A field-by-field portable encoding for every byte inside blocks 1
-through 5 is not yet complete; binary interchange claims must not treat the
-conceptual list above as a byte-offset map.
+normative. All five blocks in the observed profile 2.936 game data are mapped
+below. Profile-specific opaque bytes remain explicitly identified.
+
+All positions in the following tables are relative to the start of that block.
+All multi-byte integers are little-endian. Opaque ranges are part of the file
+contract even though their behavioral meaning is unresolved. A byte-preserving
+implementation must carry those bytes as profile-specific state and emit them
+unchanged unless another operation in the same profile is known to update them.
+
+## Profile 2.936 block 1
+
+Block 1 is exactly `0x05e1` bytes. Its complete partition is:
+
+| Position | Size | Portable state |
+| ---: | ---: | --- |
+| `0x0000` | 7 | Game/save signature area. |
+| `0x0007` | 256 | Variables `v0` through `v255`. |
+| `0x0107` | 32 | Packed flags `f0` through `f255`. |
+| `0x0127` | 4 | Unsigned 32-bit timer tick count. |
+| `0x012b` | 2 | Horizon baseline. |
+| `0x012d` | 2 | Opaque word; observed initialized bytes are `00 00`. |
+| `0x012f` | 2 | Movement rectangle left bound. |
+| `0x0131` | 2 | Movement rectangle top bound. |
+| `0x0133` | 2 | Movement rectangle right bound. |
+| `0x0135` | 2 | Movement rectangle bottom bound. |
+| `0x0137` | 2 | Object-0/global-direction coupling selector. |
+| `0x0139` | 2 | Most recently prepared picture number. |
+| `0x013b` | 2 | Movement rectangle enable value. |
+| `0x013d` | 2 | Opaque word; observed initialized bytes are `0f 00`. |
+| `0x013f` | 2 | Replay-pair capacity. |
+| `0x0141` | 2 | Active replay-pair count. |
+| `0x0143` | 156 | Thirty-nine key mappings, each `raw_key:u16le, status:u16le`. |
+| `0x01df` | 44 | Opaque bytes; observed initialized contents are all zero. |
+| `0x020b` | 480 | Twelve script string slots of 40 bytes each. |
+| `0x03eb` | 480 | Opaque bytes; observed initialized contents are all zero. |
+| `0x05cb` | 2 | Derived foreground text attribute. |
+| `0x05cd` | 2 | Derived background text attribute. |
+| `0x05cf` | 2 | Packed current text/window attribute. |
+| `0x05d1` | 2 | Input-line enabled value. |
+| `0x05d3` | 2 | Input text row. |
+| `0x05d5` | 1 | Prompt-marker character. |
+| `0x05d6` | 1 | Opaque byte; observed initialized value is zero. |
+| `0x05d7` | 2 | Status-line enabled value. |
+| `0x05d9` | 2 | Status text row. |
+| `0x05db` | 2 | Display base row. |
+| `0x05dd` | 2 | Display bottom row. |
+| `0x05df` | 2 | Replay checkpoint count. |
+
+The string region contains twelve addressable 40-byte slots. The following
+480-byte opaque region is not an additional set of script-visible slots.
+
+## Profile 2.936 block 2
+
+Block 2 is exactly 21 consecutive object records of `0x2b` bytes each. Object
+index `n` occupies block positions `n * 0x2b` through
+`n * 0x2b + 0x2a`. Each record has this complete partition:
+
+| Record position | Size | Portable state |
+| ---: | ---: | --- |
+| `0x00` | 1 | Movement-cadence interval. |
+| `0x01` | 1 | Movement-cadence countdown. |
+| `0x02` | 1 | Boundary/collision event identifier. |
+| `0x03` | 2 | Current left X coordinate. |
+| `0x05` | 2 | Current baseline Y coordinate. |
+| `0x07` | 1 | Selected view number. |
+| `0x08` | 2 | Serialized view-reference token. |
+| `0x0a` | 1 | Selected loop number. |
+| `0x0b` | 1 | Loop count in the selected view. |
+| `0x0c` | 2 | Serialized selected-loop-reference token. |
+| `0x0e` | 1 | Selected cel number. |
+| `0x0f` | 1 | Cel count in the selected loop. |
+| `0x10` | 2 | Serialized selected-cel-reference token. |
+| `0x12` | 2 | Serialized previous-cel-reference token. |
+| `0x14` | 2 | Serialized render-list-reference token. |
+| `0x16` | 2 | Previous or saved left X coordinate. |
+| `0x18` | 2 | Previous or saved baseline Y coordinate. |
+| `0x1a` | 2 | Selected cel width. |
+| `0x1c` | 2 | Selected cel height. |
+| `0x1e` | 1 | Movement step size. |
+| `0x1f` | 1 | Cel-cycling interval. |
+| `0x20` | 1 | Cel-cycling countdown. |
+| `0x21` | 1 | Movement direction. |
+| `0x22` | 1 | Autonomous motion mode. |
+| `0x23` | 1 | Cel-cycling mode. |
+| `0x24` | 1 | Priority/control byte. |
+| `0x25` | 2 | Object state flags. |
+| `0x27` | 4 | Mode-dependent motion parameters. |
+
+The five reference tokens are serialized profile data, not portable object
+identity. Successful restore keeps the selected view, loop, and cel numbers,
+then reconstructs their references, loop/cel counts, and cel dimensions from
+the loaded view resource. It reconstructs drawing-list participation from the
+saved flags and then restores the saved flag word. The event identifier is
+normalized to the object's table index. A clean runtime may organize these
+associations differently; it must reproduce that rebuilt state and subsequent
+behavior rather than expose the token values.
+
+## Profile 2.936 block 3
+
+Block 3 is the `runtime_inventory_data` from the game's decoded inventory
+metadata file. Its length, item count, and name-pool boundary are therefore
+game-data properties rather than universal constants of the interpreter
+profile.
+
+For the observed game data it is exactly `0x0148` bytes:
+
+| Position | Size | Portable state |
+| ---: | ---: | --- |
+| `0x0000` | 120 | Forty three-byte inventory entries. |
+| `0x0078` | 208 | Zero-terminated inventory display-name pool. |
+
+Each three-byte entry contains `name_offset:u16le, location:u8`. The name offset
+is relative to block 3 and must select a zero-terminated name in the name pool.
+Multiple entries may share a name offset. Item number is the entry index.
+
+The location byte is the mutable inventory state used by logic actions; `0xff`
+means carried. The name offsets and name pool originate in the game metadata
+and remain part of the serialized block. The block length is the decoded
+inventory metadata file length minus its three-byte header.
+
+## Profile 2.936 block 4
+
+Block 4 is exactly 100 consecutive two-byte `(kind, value)` replay-pair slots.
+The active count in block 1 selects the prefix that participates in replay.
+Slots after that prefix are inactive capacity and must not be executed. The
+checkpoint count in block 1 is also measured in pairs and identifies an earlier
+active-prefix length.
+
+The capacity value in block 1 and the block-4 byte length must agree for valid
+profile state: `block_4_length = replay_capacity * 2`.
+
+## Profile 2.936 block 5
+
+Block 5 is a variable-length sequence of four-byte logic-resume records:
+
+```text
+logic_number:u16le
+resume_offset:u16le
+```
+
+The block contains:
+
+1. A leading cache-head record, observed as `(0, 0)`.
+2. One record for each cached logic, in cache order.
+3. A final record whose logic number is `0xffff`.
+
+The terminator's second word is ignored and need not be zero. Block length is
+therefore `(cached_logic_count + 2) * 4` bytes. Nonterminal logic numbers are
+zero-extended 8-bit resource numbers. Resume offset is measured from the first
+byte of that logic's bytecode, not from a process-specific reference.
+
+This block does not decide which logic resources are restored. The replay
+sequence does. Whenever replay loads a logic, restoration scans block 5 from
+the beginning and uses the first record with that logic number. The resulting
+resume position is:
+
+```text
+loaded_logic_bytecode_start + resume_offset
+```
+
+No matching record leaves the newly loaded logic at its normal bytecode entry.
+Records for logics not loaded by replay have no effect. Duplicate logic numbers
+are permitted; only the first match is effective. Consequently the observed
+leading `(0, 0)` record would take precedence over a later cached-logic-0 record
+if logic 0 were replay-loaded.
+
+## Profile 3.002.149 observed Gold Rush blocks
+
+Profile 3.002.149 uses the same five-block envelope and conceptual block roles.
+The observed Gold Rush data changes capacities and applies the block-3
+transform described below.
+
+Block 1 is `0x0404` bytes in the observed Gold Rush saves. Its complete
+partition is:
+
+| Position | Size | Portable state |
+| ---: | ---: | --- |
+| `0x0000` | 7 | Game/save signature area; a valid signed save begins with `GR\0`. |
+| `0x0007` | 256 | Variables `v0` through `v255`. |
+| `0x0107` | 32 | Packed flags `f0` through `f255`. |
+| `0x0127` | 4 | Unsigned 32-bit timer tick count. |
+| `0x012b` | 2 | Horizon baseline. |
+| `0x012d` | 2 | Opaque word; observed initialized bytes are `00 00`. |
+| `0x012f` | 2 | Movement rectangle left bound. |
+| `0x0131` | 2 | Movement rectangle top bound. |
+| `0x0133` | 2 | Movement rectangle right bound. |
+| `0x0135` | 2 | Movement rectangle bottom bound. |
+| `0x0137` | 2 | Object-0/global-direction coupling selector. |
+| `0x0139` | 2 | Most recently prepared picture number. |
+| `0x013b` | 2 | Movement rectangle enable value. |
+| `0x013d` | 2 | Opaque word; observed initialized bytes are `0f 00`. |
+| `0x013f` | 2 | Replay-pair capacity; observed value is 50. |
+| `0x0141` | 2 | Active replay-pair count. |
+| `0x0143` | 196 | Forty-nine key mappings, each `raw_key:u16le, status:u16le`. |
+| `0x0207` | 4 | Opaque bytes; observed initialized contents are all zero. |
+| `0x020b` | 480 | Twelve script string slots of 40 bytes each. |
+| `0x03eb` | 2 | Derived foreground text attribute. |
+| `0x03ed` | 2 | Derived background text attribute. |
+| `0x03ef` | 2 | Packed current text/window attribute. |
+| `0x03f1` | 2 | Input-line enabled value. |
+| `0x03f3` | 2 | Input text row. |
+| `0x03f5` | 1 | Prompt-marker character. |
+| `0x03f6` | 1 | Opaque byte; observed initialized value is zero. |
+| `0x03f7` | 2 | Status-line enabled value. |
+| `0x03f9` | 2 | Status text row. |
+| `0x03fb` | 2 | Display base row. |
+| `0x03fd` | 2 | Display bottom row. |
+| `0x03ff` | 2 | Replay checkpoint count. |
+| `0x0401` | 2 | Menu interaction gate. |
+| `0x0403` | 1 | Key-release enqueue gate. |
+
+This profile keeps the same twelve string slots as profile 2.936. The expanded
+49-slot key map consumes most of the 2.936 opaque region that follows the key
+map; only the four bytes at `0x0207..0x020a` remain opaque in the observed
+Gold Rush block.
+
+Block 2 is 23 consecutive object records of `0x2b` bytes each. Each record uses
+the same record layout specified for profile 2.936 block 2. The record count is
+derived from the decoded Gold Rush object metadata header: maximum drawable
+object index `22` means records for objects `0..22`.
+
+Block 3 is transformed on disk. After applying the profile 3.002.149 transform,
+the decoded block is exactly the runtime inventory payload from the decoded
+Gold Rush `OBJECT` metadata file. Its decoded length is `0x0713` bytes:
+
+| Position | Size | Portable state |
+| ---: | ---: | --- |
+| `0x0000` | 393 | One hundred thirty-one three-byte inventory entries. |
+| `0x0189` | 1418 | Zero-terminated inventory display-name pool. |
+
+Each three-byte entry has the same `name_offset:u16le, location:u8` format as
+profile 2.936 block 3. Name offsets are relative to the decoded block.
+
+Block 4 is 50 consecutive two-byte `(kind, value)` replay-pair slots. The
+active count in block 1 selects the prefix that participates in replay, as in
+profile 2.936.
+
+Block 5 uses the same four-byte logic-resume record grammar as profile 2.936.
+The observed initial Gold Rush saves contain three records: leading `(0, 0)`,
+cached logic-0 `(0, 0)`, and terminator `(0xffff, 0)`. As with profile 2.936,
+the replay-pair sequence decides which logic resources are loaded; block 5 is
+only a resume-offset lookup consulted during replayed logic loads.
 
 ## Profile 3.002.149 block transform
 
-Profile 3.002.149 XOR-transforms block 3 on disk with this repeating 59-byte
-key:
+Profile 3.002.149 XOR-transforms block 3 on disk with this repeating ASCII key:
 
 ```text
-1e 2a e4 01 46 fc eb 4f 8a 44 1e 2a e4 01 46 fc
-8a 44 1e 2a e4 01 46 fa eb 3d 8a 44 1e 2a e4 29
-46 fc eb ec 8a 44 1e 2a e4 29 46 fc eb 29 8a 44
-1e 2a e4 29 46 fc eb b2 48 3d 07
+Avis Durgan
 ```
 
 For byte index `i` within block 3:
 
 ```text
-stored[i] = runtime[i] XOR key[i modulo 59]
+stored[i] = runtime[i] XOR key[i modulo 11]
 ```
 
 Saving applies the transform for output and restores the in-memory bytes before
@@ -256,9 +498,10 @@ display mode, and terminate with process exit code zero.
 
 ## Remaining persistence gap
 
-To claim complete binary save compatibility, each byte in all five state blocks
-must be mapped to portable state, including padding and profile-specific
-fields. Current conformance can cover selector behavior, envelope parsing,
-known lengths, signatures, replay reconstruction, the v3 block transform, and
-observable restore/restart state transitions, but not arbitrary save exchange
-with an independently organized implementation.
+Every byte position in the observed profile 2.936 save blocks now has a field
+or an explicit opaque-range assignment. The remaining persistence gap is to
+resolve whether the five opaque block-1 ranges ever acquire behavior in valid
+execution and to map other interpreter/game profiles independently. A
+byte-preserving implementation can carry these ranges without depending on
+their organization, but a newly synthesized save cannot assign them novel
+values and claim defined behavior.

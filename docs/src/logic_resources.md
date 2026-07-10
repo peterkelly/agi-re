@@ -219,7 +219,7 @@ This shows two distinct lifetimes:
 
 ## Saved interpreter positions
 
-Routine `0x1364` serializes the loaded logic list into a table at `0x0985`.
+Routine `0x1364` serializes logic resume metadata into a table at `0x0985`.
 Each entry is four bytes:
 
 ```text
@@ -227,11 +227,19 @@ Each entry is four bytes:
 +0x02: current_ip - bytecode_base
 ```
 
-It walks `[0x0977]`, emits one entry for each cache record, appends a terminator
-word `0xffff`, and returns the total table byte count, including the terminator
-entry. Routine `0x13a5(record)` performs the reverse lookup for one record: if
-it finds a matching logic number in `0x0985`, it restores
-`record[0x06] = record[0x04] + saved_offset`.
+It begins by treating the static head at `0x0977` as a 10-byte cache-shaped
+record, so the first emitted pair comes from bytes `0x0979`, `0x097b`, and
+`0x097d`; in current state this produces `(0, 0)`. It then follows the head's
+next pointer and emits one entry for each linked cache record. Finally it writes
+terminator word `0xffff` without clearing that record's second word, and returns
+the total table byte count including the full four-byte terminator record.
+
+Routine `0x13a5(record)` performs the reverse lookup for one record. It scans
+from the first table entry, stops at the first matching logic number, and
+restores `record[0x06] = record[0x04] + saved_offset`. If no record matches
+before `0xffff`, the loaded logic keeps its entry pointer. Resource replay,
+rather than this table, decides which logic records are loaded and receive this
+lookup.
 
 ## Heap and lifetime model
 

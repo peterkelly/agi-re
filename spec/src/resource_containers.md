@@ -61,6 +61,40 @@ The header is followed by exactly `payload length` bytes. The split profile
 does not transform those bytes: the stored payload is the expanded resource
 payload.
 
+### Inventory metadata file
+
+The profile's inventory metadata file is XOR-decoded byte for byte with the
+repeating ASCII key:
+
+```text
+Avis Durgan
+```
+
+The decoded bytes have this form:
+
+```text
+item_table_size:u16le
+maximum_drawable_object_index:u8
+runtime_inventory_data[]
+```
+
+`runtime_inventory_data` begins with `item_table_size / 3` item entries. The
+size must be divisible by three. Each entry is:
+
+```text
+name_offset:u16le
+location:u8
+```
+
+Name offsets are relative to the start of `runtime_inventory_data`. The name
+pool begins at `item_table_size`; names are zero-terminated byte strings. More
+than one item may refer to the same name. The one-based drawable-object record
+count is `maximum_drawable_object_index + 1`.
+
+For the observed 2.936 game data, the header is `78 00 14`: 40 inventory
+entries occupy 120 bytes and 21 drawable-object records are available. The
+complete decoded file is 331 bytes, leaving 328 runtime bytes after the header.
+
 ## Version 3 combined container
 
 The combined container uses a game-specific filename prefix `P`. Its primary

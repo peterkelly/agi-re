@@ -41,8 +41,10 @@ and `0x80` to room `0x49` before performing the ordinary room change. Other
 destination values are unchanged.
 
 The object-and-inventory portion of a saved game uses a profile-specific XOR
-transform. The exact save envelope and transform bytes will be specified in the
-persistence chapter before save-file conformance is claimed for this profile.
+transform. The save envelope and transform bytes are specified in the
+persistence chapter. The observed Gold Rush save block layout is byte-mapped
+there, with explicit opaque ranges where valid-execution meaning remains
+unresolved.
 
 Input-width actions `0xa3` and `0xa4` have no effect in this profile. Normal
 EGA text input remains available without those width-control branches. Action

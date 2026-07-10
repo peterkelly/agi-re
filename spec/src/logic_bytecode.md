@@ -508,16 +508,15 @@ field-mapping gap still prevents full binary save-file conformance.
 | ---: | --- | --- |
 | `0x95` | normally none | When action tracing is inactive and `f10` is set, enable and draw the trace window. If tracing is already active, consume one additional byte after the opcode and otherwise return. |
 | `0x96` | trace logic, row offset, height | Configure trace formatting and window placement; clamp height to at least 2. |
-| `0x97` | message, parameter 1, parameter 2, parameter 3 | Temporarily apply three message-display parameters, display the immediate message, then reset those parameters. |
-| `0x98` | message variable, parameter 1, parameter 2, parameter 3 | Variable-selected message form of `0x97`. |
+| `0x97` | message, row, column, width | Temporarily configure the modal message window, display the immediate message, then reset the temporary configuration. Row and column override the default centered placement; width controls message formatting and defaults to 30 when zero. |
+| `0x98` | message variable, row, column, width | Variable-selected message form of `0x97`. |
 | `0x99` | view variable | Discard the loaded variable-selected view. |
 | `0x9a` | top row, left column, bottom row, right column, attribute | Clear the inclusive text-cell rectangle with the selected attribute. Text cells are four logical pixels wide and eight logical pixels high in the EGA target. |
 | `0x9b` | two ignored bytes | Consume both bytes and otherwise do nothing. |
 
-The individual meanings of configured-message parameters 1 through 3 are not
-yet complete. Their temporary lifetime and operand consumption are normative;
-pixel-exact conformance for `0x97` and `0x98` remains pending that text-window
-contract.
+The temporary configuration exists only for that display action. After the
+message window has been opened, the row, column, and width overrides are reset
+to the ordinary default/centered behavior.
 
 ## Action opcodes: menus
 

@@ -964,8 +964,9 @@ other paths use DOS find-first with directory attributes.
 
 It also covers the source-modeled Gold Rush / AGI v3 object/inventory save
 transform. The helper `gr_v3_object_inventory_save_xor()` applies the observed
-59-byte repeating XOR sequence from GR image `0x072c`; tests prove the
-transform round-trips, wraps after byte 58, and rejects an empty generic key.
+repeating `Avis Durgan` XOR key from GR data address `DS:0x072c`; tests prove
+the original-save known vector, round-trip behavior, the 11-byte wrap point,
+and rejection of an empty generic key.
 QEMU extraction `build/gr-v3-behavior/save_xor_extract_qemu_001.json` now
 confirms that the original GR interpreter writes a five-block blank-prefix
 `SG.1` save whose third block changes and round-trips under this helper.

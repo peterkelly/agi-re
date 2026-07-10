@@ -349,7 +349,7 @@ Save/restore data model:
 | Save description buffer | Save/restore selector helper | `0x7d`, `0x7e`, `0xaa` | Runtime buffer `[0x0e72]` holds the selected or entered save description/path text. The selector also edits path buffer `0x1962`, fills header/description buffer `0x1c6c` for newly described saves, and formats the selected filename into `0x1c8c`. `0xaa` copies up to `0x1f` bytes from `[0x0e72]` into a fixed 40-byte logic string slot. |
 | Save selector lifecycle | `0x7d`, `0x7e` | DOS file I/O handlers | `code.save.select_slot_or_path` saves text/input state, erases the prompt marker, stops active sound, prompts for a path if needed, scans up to 12 numbered save files, displays descriptions, handles Enter/Escape/up/down selection, then restores text state and returns zero for cancel or a nonzero selection for file I/O. |
 | Save filename/signature prefix | `0x8f` | Save/restore selector and slot reader | The string at `DS:0x0002` is set by `verify_game_signature`, used as the third string in the `%s%s%ssg.%d` save filename format, and compared against the first bytes of the first saved state block when scanning restore candidates. For SQ2, the normal initialized prefix is `SQ2`, producing `SQ2SG.N`; for the observed Gold Rush v3 input, `0x8f("GR")` produces `GRSG.N`. |
-| Save file state blocks | `0x7d` | `0x7e` | Files store a 31-byte description/header followed by five little-endian length-prefixed blocks. The fixed local SQ2 block lengths are `1505`, `903`, `328`, and `200` for data rooted at `0x0002`, the object table, inventory/object metadata, and resource-event pairs; the fifth block rooted at `0x0985` has the variable size returned by `0x1364`. |
+| Save file state blocks | `0x7d` | `0x7e` | Files store a 31-byte description/header followed by five little-endian length-prefixed blocks. The fixed local SQ2 block lengths are `1505`, `903`, `328`, and `200` for global state, the object table, inventory metadata/names, and resource-event pairs. The fifth block contains variable four-byte logic-number/resume-offset records with a leading cache-head record and `0xffff` terminator. |
 | Replay pair block | `0x8e`, resource load/display/discard actions, `0xab`/`0xac` | Restore/display-mode replay | The saved pair block length is `data.event.pair_capacity * 2`; active count controls how much of the buffer replay consumes. |
 
 Save/restore selector state machine:
@@ -365,7 +365,7 @@ Save/restore selector state machine:
 
 Gold Rush / AGI v3 keeps the five-block save-envelope shape but changes the
 object/inventory block written from `[0x07d6]` with length `[0x07da]`: action
-`0x7d` applies a repeating 59-byte XOR sequence observed at image `0x072c`
+`0x7d` applies a repeating `Avis Durgan` XOR key from data address `DS:0x072c`
 before the save path and applies the same transform again before return, so the
 on-disk block is transformed while runtime memory is restored. QEMU extractions
 validate this for both blank-prefix and signed saves:
@@ -374,12 +374,22 @@ validate this for both blank-prefix and signed saves:
 `0x8f("GR")`, writes `GRSG.1`, and confirms that the first saved-state block
 starts with `GR\0`. Both saves have block lengths `1028`, `989`, `1811`,
 `100`, and `12`, and both third blocks change and round-trip under
-`gr_v3_object_inventory_save_xor()`. The signed restore probe in
+`gr_v3_object_inventory_save_xor()`. Source inspection shows the first block is
+the contiguous range `DS:0x0002..0x0405`, giving a byte-complete 1028-byte
+global-state partition with the same signature/variables/flags/timer/string
+roles as profile 2.936, an expanded 49-slot key map, no second 480-byte opaque
+string bank, and GR tail fields for the menu interaction and key-release gates.
+The observed GR `OBJECT` metadata decodes to item-table size `0x0189`, maximum
+object index `22`, and runtime payload length `0x0713`; therefore the GR save
+uses 23 object records in block 2, 131 three-byte inventory entries plus a
+1418-byte name pool in decoded block 3, 50 replay-pair slots in block 4, and
+the same four-byte logic-resume record grammar in block 5. The signed restore
+probe in
 `build/gr-v3-behavior/signed_restore_roundtrip_suite.json` uses a generated
 `GRSG.1` from the original engine, restores it in a second fixture, and matches
 the restored capture to a direct saved-state control while differing from an
 unrestored control. Source inspection shows GR action `0x7e` reads the same
-five length-prefixed blocks as SQ2, then applies the same 59-byte XOR helper
+five length-prefixed blocks as SQ2, then applies the same repeating-key helper
 over `[0x07d6]..[0x07d6]+[0x07da]` after the third block has been loaded.
 
 Restart, save/restore, and termination lifecycle:
@@ -487,7 +497,7 @@ Text/input UI lifecycle:
 | Input line hidden/disabled | `0x77` or display/text cleanup paths | `0x78` | Word `[0x05d3]` is zero; refresh helpers should not redraw the normal input line. |
 | Input line enabled | `0x78` | `0x77`, modal prompts, or text-window cleanup | Word `[0x05d3]` is one; `0x78` redraws/clears the configured input row in the normal EGA path, `0x89` redraws from the entered source input buffer, and `0x8a` erases visible input characters. |
 | Prompt/status configured | `0x6c`, `0x6f`, `0x70`, `0x71` | Later configuration or cleanup | Prompt character, row/column-like globals, status-line enable word `[0x05d9]`, and display offset `[0x1379]` determine where text helpers draw and erase. QEMU validates that setting the prompt marker from an empty message suppresses marker drawing on the next input-line redraw, and that `0x70` visibly redraws the configured status row. |
-| Modal text window active | Message display, prompt/edit, menu, or diagnostic helpers | `0xa9` or the helper's own close path | The message-window opener at `0x1d96` first closes any already active saved window, formats the text, computes packed rectangle words `[0x0d23]` and `[0x0d25]`, draws/saves the boxed region through helper `0x5590`, then sets `[0x0d1d] = 1`. Closing through `0xa9`/`0x1f2b` restores that saved rectangle through helper `0x560c([0x0d23], [0x0d25])` when active, then clears `[0x0d0f]` and `[0x0d1d]`. |
+| Modal text window active | Message display, prompt/edit, menu, or diagnostic helpers | `0xa9` or the helper's own close path | The message-window opener at `0x1d96` first closes any already active saved window, formats the text, applies temporary `0x97`/`0x98` row, column, and width overrides when present, computes packed rectangle words `[0x0d23]` and `[0x0d25]`, draws/saves the boxed region through helper `0x5590`, then sets `[0x0d1d] = 1`. Closing through `0xa9`/`0x1f2b` restores that saved rectangle through helper `0x560c([0x0d23], [0x0d25])` when active, then clears `[0x0d0f]` and `[0x0d1d]`. |
 | Alternate text/input-width mode | `0x6a`, `0xa3`, and related display-mode helpers | `0x6b`, `0xa4`, or `0xa9`/cleanup paths | Byte `[0x1757]` alters text drawing, while word `[0x0d0f]` changes input-character width limits in helper `0x3652`. QEMU validates that `0x6a` clears the visible logical surface using the current text attribute pair in the observed EGA path, that `0x6b` restores ordinary picture/object drawing, that `0xa3` permits wrapped live input with a long blank string slot 0, and that both `0xa4` and inactive `0xa9` clear the width flag. |
 | Event/edit loop | `code.input.edit_string`, menus, inventory selection, confirmation dialogs, keyboard IRQ hook | Enter, Escape, selected mapped/status event, or tracked key release | The shared event queue feeds raw key predicates, line editors, menu status-byte events, and confirmation exits. SQ2 action `0xad` increments byte `[0x1530]`; GR v3 action `0xad` sets byte `[0x0405]`, and GR-only `0xb5` clears it. In both observed hooks, selected scan codes `0x47..0x51` use an enable table and one pressed latch; release clears the latch and enqueues type-2 event value `0` only when the gate byte is nonzero. `tools/agi_input.py` models this source-backed latch contract. |
 

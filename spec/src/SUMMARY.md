@@ -3,6 +3,7 @@
 - [Introduction](./README.md)
 - [Scope and Conformance](./scope_and_conformance.md)
 - [Version Profiles](./version_profiles.md)
+- [Conformance Matrix](./conformance_matrix.md)
 - [Resource Containers](./resource_containers.md)
 - [Core Runtime State](./runtime_state.md)
 - [Logic Bytecode](./logic_bytecode.md)

@@ -50,6 +50,8 @@ Address columns use these meanings:
 | `code.logic.call_logic` | image `0x12ae` | Temporarily switches current logic, runs `code.logic.interpret_main`, and may unlink a transient record. |
 | `code.logic.save_resume_ip_action` | image `0x1335` | Action handler for `0x91`; stores the current bytecode pointer in the current logic record's resume pointer field `+0x06`. |
 | `code.logic.restore_entry_ip_action` | image `0x134a` | Action handler for `0x92`; copies the current logic record's entry pointer field `+0x04` back to resume pointer field `+0x06`. |
+| `code.logic.serialize_resume_table` | image `0x1364` | Serializes the static cache-head record and each linked logic cache record as four-byte logic-number/relative-resume pairs at `data.logic.resume_table`, then appends a `0xffff` terminator record and returns the byte length. |
+| `code.logic.restore_resume_from_table` | image `0x13a5` | Scans `data.logic.resume_table` for the first entry matching a loaded logic's byte resource number and rebuilds its resume pointer as bytecode entry plus saved offset. Stops without changing it at the `0xffff` terminator. |
 | `code.startup.allocate_runtime_memory` | image `0x43ea` | Startup memory setup around DOS `AH=4a`/`AH=48h`; seeds `data.heap.current_top_0a55` and `data.heap.base_0a57` from the allocated segment converted to a DS-relative byte offset, then computes `data.heap.limit_0a5b`. |
 | `code.heap.allocate` | image `0x13d6` | Bump-allocates from `data.heap.current_top_0a55` up to `data.heap.limit_0a5b`. On success it returns the old top, advances the current top, refreshes `data.vars.free_memory_pages_0011` through `code.heap.update_free_memory_var`, and updates `data.heap.high_water_0a5f`. On exhaustion it displays the out-of-memory message and calls the restart/exit helper at `0x02ae`; no recoverable failure return was observed. |
 | `code.heap.current_top` | image `0x1430` | Returns `data.heap.current_top_0a55`. |
@@ -206,6 +208,9 @@ Address columns use these meanings:
 | `code.input.set_width_flag_action` | image `0x3939` | Action handler for `0xa3`; sets `data.input.width_flag_0d0f`. QEMU validates the wider live-input path with a long blank string slot 0. |
 | `code.input.clear_width_flag_action` | image `0x394b` | Action handler for `0xa4`; clears `data.input.width_flag_0d0f`. QEMU validates the narrowed live-input path after `0xa3`. |
 | `data.input.width_flag_0d0f` | data `0x0d0f` | Word tested by input helper `code.input.handle_input_char`; when set, the helper uses a fixed `0x24` character cap, otherwise it derives the cap from fixed string slot 0. Also cleared by `code.text.close_window_state`. |
+| `data.text.configured_message_width_0d09` | data `0x0d09` | One-shot modal-message width override used by actions `0x97` and `0x98`; a zero operand is replaced with `0x1e`, and the value resets to `0xffff` after the display action. |
+| `data.text.configured_message_row_0d0b` | data `0x0d0b` | One-shot modal-message row override used by actions `0x97` and `0x98`; the display-window helper adds the current display base row when computing the text cursor row. |
+| `data.text.configured_message_column_0d0d` | data `0x0d0d` | One-shot modal-message column override used by actions `0x97` and `0x98`; without it the helper centers the window horizontally from the formatted line width. |
 | `data.text.window_active_0d1d` | data `0x0d1d` | Word set after a modal message window saves/draws its rectangle. `code.text.display_message_window` closes an existing active window before opening a new one; `code.text.close_window_state` tests this word before restoring the saved rectangle, then clears it. |
 | `data.text.window_saved_lower_right_0d23` | data `0x0d23` | Packed rectangle word computed by `code.text.display_message_window` and passed as the first restore argument to `code.text.restore_saved_rectangle`. |
 | `data.text.window_saved_upper_left_0d25` | data `0x0d25` | Packed rectangle word computed by `code.text.display_message_window` and passed as the second restore argument to `code.text.restore_saved_rectangle`. |
@@ -262,6 +267,7 @@ Address columns use these meanings:
 | `code.inventory.show_selection_action` | image `0x31d8` | Action handler for `0x7c`. Enters a text/list mode, builds the carried-item list through `code.inventory.build_selection_list`, restores text state, and returns to the caller after acknowledgement or selection. |
 | `code.inventory.build_selection_list` | image `0x3203` | Builds a stack-local 8-byte-per-row list from the 3-byte metadata table rooted at `data.inventory.table_root`; includes only entries with marker byte `0xff`. |
 | `code.inventory.draw_selection_list` | image `0x3346` | Draws the inventory header, carried item names or fallback text, and optional highlighted row/prompt depending on flag 13. |
+| `code.inventory.initialize_metadata_and_objects` | image `0x0fa5` | Loads and decodes the inventory metadata file, consumes its three-byte header, establishes the item-table end and runtime block length, and allocates/initializes the 43-byte drawable-object table from the header's maximum object index. |
 | `data.inventory.selection_result_byte` | data `0x0022` | Absolute byte written by `code.inventory.build_selection_list` on interactive Enter/Escape. Since script byte variables begin at `data.vars.byte_variables` (`0x0009`), this is script variable `0x19`. QEMU `inventory_selection_001` validates Enter and Escape effects. |
 | `code.menu.add_heading` | image `0x911d` | Action handler for `0x9c`; allocates and links an 18-byte menu heading node. |
 | `code.menu.add_item` | image `0x91cf` | Action handler for `0x9d`; allocates and links a 14-byte menu item node and stores the item id at node offset `+0x0c`. |
@@ -343,6 +349,16 @@ Address columns use these meanings:
 | `data.motion.global_direction_000f` | data `0x000f` | Global direction byte mirrored with object0 byte `+0x21` by `code.engine.main_cycle`; also written by first-object motion helpers. |
 | `data.motion.direction_mirror_selector_0139` | data `0x0139` | Word selector for the pre-logic object0/global direction mirror. Action `0x83` clears it; action `0x84`, room switch, and selected first-object stop/reset helpers set it. |
 | `data.flags.packed_flags` | data `0x0109` | Packed flag bitfield; flag 0 is the high bit of byte `0x0109`. |
+| `data.timer.tick_count_0129` | data `0x0129` | Four-byte tick counter included in profile 2.936 save block 1. |
+| `data.motion.horizon_012d` | data `0x012d` | Word horizon baseline used by placement and room reset. |
+| `data.unknown.saved_word_012f` | data `0x012f` | Saved word with no direct reference found in the current executable scan; all 11 local saves contain zero. |
+| `data.motion.rectangle_left_0131` | data `0x0131` | Word left bound for the configured movement rectangle. |
+| `data.motion.rectangle_top_0133` | data `0x0133` | Word top bound for the configured movement rectangle. |
+| `data.motion.rectangle_right_0135` | data `0x0135` | Word right bound for the configured movement rectangle. |
+| `data.motion.rectangle_bottom_0137` | data `0x0137` | Word bottom bound for the configured movement rectangle. |
+| `data.picture.prepared_number_013b` | data `0x013b` | Word holding the most recently prepared picture number. |
+| `data.motion.rectangle_enabled_013d` | data `0x013d` | Word gate for the configured movement rectangle. |
+| `data.unknown.saved_word_013f` | data `0x013f` | Saved word with no resolved behavioral use; all 11 local saves contain `0x000f`. |
 | `data.strings.slots` | data `0x020d` | Fixed 40-byte string slots. |
 | `data.strings.normalization_drop_chars` | data `0x094b` | Zero-terminated bytes skipped during normalized string comparison. |
 | `data.words.parser_separators_0c67` | data `0x0c67` | Zero-terminated separator bytes used by `code.words.normalize_string_for_parse`; SQ2 bytes are ` ,.?!();:[]{}`. |
@@ -356,8 +372,12 @@ Address columns use these meanings:
 | `data.objects.first_object` | pointer global `[0x096b]` | Start of 43-byte object record array. |
 | `data.objects.end` | pointer global `[0x096d]` | End pointer for object record array. |
 | `data.inventory.table_root` | pointer global `[0x0971]` | Root of 3-byte inventory/object metadata entries. |
+| `data.inventory.table_end` | pointer global `[0x0973]` | First byte after the three-byte item-entry table; initialized from the decoded metadata header's table-size word. |
+| `data.inventory.runtime_block_length` | global `[0x0975]` | Decoded inventory metadata file length minus its three-byte header; used as save block 3 length. |
 | `data.logic.cache_root` | pointer global `[0x0977]` | Root of 10-byte logic cache records. |
+| `data.logic.cache_head_record` | data `0x0977` | Static cache-shaped head whose `+0x00` word is the linked-list root. `code.logic.serialize_resume_table` also emits its zero-valued `+0x02` logic byte and `+0x06 - +0x04` offset as the first block-5 record. |
 | `data.logic.current_record` | pointer global `[0x0981]` | Current logic record used by message resolution and resume state. |
+| `data.logic.resume_table` | data `0x0985` | Scratch table serialized as save block 5: four-byte logic-number/relative-resume records followed by a `0xffff` record. |
 | `data.resource.logic_dir` | pointer global `[0x11b2]` | Loaded logic directory pointer. |
 | `data.resource.view_dir` | pointer global `[0x11b4]` | Loaded view directory pointer. |
 | `data.resource.picture_dir` | pointer global `[0x11b6]` | Loaded picture directory pointer. |
@@ -403,8 +423,16 @@ Address columns use these meanings:
 | `data.input.menu_direction_event_map` | data `0x16b3` | Four-byte raw key/event to movement-code table consulted by helper `0x46b6` before type-2 events are enqueued. Observed SQ2 entries map `0x4800`, `0x4900`, `0x4d00`, `0x5100`, `0x5000`, `0x4f00`, `0x4b00`, and `0x4700` to movement codes `1..8`. |
 | `data.input.display_adapter_event_map` | data `0x16d7` | Four-byte remap table used when display adapter word `[0x112e] == 2`; observed entries map numeric keypad values `0x38`, `0x39`, `0x36`, `0x33`, `0x32`, `0x31`, `0x34`, and `0x37` to movement values `1..8`. |
 | `data.input.prompt_marker_char` | data `0x05d7` | Prompt/input marker character configured by action `0x6c`; `code.input.show_prompt_marker` and `code.input.erase_prompt_marker` use it when drawing or erasing the marker. |
+| `data.text.foreground_attribute_05cd` | data `0x05cd` | Derived foreground text attribute included in profile 2.936 save block 1. |
+| `data.text.background_attribute_05cf` | data `0x05cf` | Derived background text attribute included in profile 2.936 save block 1. |
+| `data.text.packed_attribute_05d1` | data `0x05d1` | Packed current text/window attribute included in profile 2.936 save block 1. |
 | `data.text.status_line_enabled` | data `0x05d9` | Word flag controlled by actions `0x70` and `0x71`; `code.text.redraw_status_line` only draws the status line when this is nonzero. |
 | `data.text.input_line_enabled` | data `0x05d3` | Word flag controlled by actions `0x77` and `0x78`; input-line redraw/erase helpers test it before updating the visible input area. |
+| `data.text.input_row_05d5` | data `0x05d5` | Configured input-line text row. |
+| `data.unknown.saved_byte_05d8` | data `0x05d8` | Saved byte between the prompt marker and status-line word; all 11 local saves contain zero. |
+| `data.text.status_row_05db` | data `0x05db` | Configured status-line text row. |
+| `data.text.display_base_row_05dd` | data `0x05dd` | Configured base row for the text display area. |
+| `data.text.display_bottom_row_05df` | data `0x05df` | Bottom row derived from the configured display base row. |
 | `data.text.attr_mode_enabled` | data `0x1757` | Byte flag set by action `0x6a` and cleared by `code.text.leave_attr_mode`; text attribute derivation helpers branch on it. |
 | `data.text.attribute_stack` | data `0x1759` | Five-entry stack of triples saved/restored by helpers `0x7989` and `0x79c3`; count lives at `[0x1777]`. |
 | `data.event.pair_capacity` | global `[0x0141]` | Maximum number of two-byte resource/event pairs. Action `0x8e` writes this value before resetting the pair buffer. |
@@ -462,7 +490,7 @@ decrypted SQ2 executable, so file offsets are image offsets plus `0x200`.
 | `code.save.object_inventory_xor_range` | image `0x07bc` | GR helper called by save and object/inventory setup paths. XORs bytes in a caller-supplied range with repeating key bytes at `0x072c` until a zero key byte. |
 | `data.save.object_inventory_block_start_07d6` | GR data `[0x07d6]` | Pointer to the GR save block that is XOR-transformed before writing and transformed again before returning from action `0x7d`. |
 | `data.save.object_inventory_block_length_07da` | GR data `[0x07da]` | Length of the GR save block rooted at `data.save.object_inventory_block_start_07d6`; save action `0x7d` writes this as the third length-prefixed state block. |
-| `data.save.object_inventory_xor_key_072c` | GR image `0x072c..0x0766` | Observed 59-byte sequence used by `code.save.object_inventory_xor_range`; helper wraps when it reaches the zero byte at image `0x0767`. |
+| `data.save.object_inventory_xor_key_072c` | GR data `0x072c` | Zero-terminated repeating key bytes used by `code.save.object_inventory_xor_range`; observed in `AGIDATA.OVL` as `Avis Durgan`. This is a data-segment address, not a main-code image offset. |
 | `code.restart.confirm_restart_action` | image `0x26e0` | GR association for SQ2 action `0x80`; records prompt-marker visible state before confirmation, then redraws after accepted restart or after canceled restart only when the marker had been visible. QEMU report `build/gr-v3-behavior/restart_prompt_marker_qemu_001.json` confirms the canceled branch. |
 | `code.resource.load_all_directories` | image `0x44de` | v3 combined-directory loader. Formats `"%sdir"`, reads a whole combined directory, derives four section pointers from the first eight bytes, and falls back to separate `logdir`/`picdir`/`viewdir`/`snddir` loads if the combined open fails. |
 | `code.resource.dir_entry_or_null` | image `0x4599` | v3 shared absent-entry helper. Returns null only for exact `ff ff ff`, unlike SQ2's high-nibble `0xf` check. |

@@ -24859,3 +24859,446 @@ Progress updates and outcomes:
 
       Action/result: Both mdBooks, opcode evidence, and whitespace validation
       passed; the only unrelated untracked file remained `run.sh`.
+
+3231. Reported: "I’m picking up at the highest-value remaining item: profile
+      2.936 save block 1. I’ll map it in block-relative portable fields, use
+      the disassembly and existing symbolic data map to distinguish real state
+      from padding, and add a coverage check so every one of its 1,505 bytes is
+      either named or explicitly unknown rather than silently skipped."
+
+      Action/result: Began a byte-complete profile 2.936 block-1 map from the
+      local executable and saves.
+
+3232. Reported: "The block boundary is now clear: block 1 is a contiguous
+      runtime snapshot beginning with the seven-byte signature, followed
+      immediately by all 256 variables and 32 packed flag bytes. The harder
+      half is its tail, where key mappings, string slots, timers,
+      horizon/rectangle controls, and text configuration are interleaved with
+      currently unlabeled bytes; I’m inventorying every referenced field before
+      assigning unknown ranges."
+
+      Action/result: Regenerated the static instruction listing and inventoried
+      references throughout the full 1505-byte saved region.
+
+3233. Reported: "A useful anomaly turned up: the saved region from the first
+      string-slot base to the text globals is 960 bytes, exactly 24 slots of 40
+      bytes, while the parser explicitly accepts only the first 12. I’m
+      checking direct references around the midpoint before deciding whether
+      this is 24 general slots, two 12-slot banks, or 12 slots plus unrelated
+      zeroed state; the clean spec should not flatten those possibilities."
+
+      Action/result: Confirmed twelve parser-visible slots and retained the
+      following 480 bytes as an opaque bank rather than inferring extra slots.
+
+3234. Reported: "The source reference inventory supports a complete first-pass
+      partition: two small unknown words among the engine globals, a 44-byte
+      unreferenced gap after the 39-entry key map, and a 480-byte opaque bank
+      after the twelve validated string slots. I’m preserving those as byte
+      ranges with known initial values instead of guessing names, while mapping
+      the timer, horizon, movement rectangle, current prepared picture, replay
+      counters, and text configuration precisely."
+
+      Action/result: Added an exhaustive block-1 region map and checked the five
+      opaque ranges across all 11 local saves.
+
+3235. Reported: "The first save block map is ready to turn into both evidence
+      and a portable contract. I’m going to land that documentation first, then
+      use the same coverage discipline on blocks 2 and 4, which appear
+      structurally complete: 21 fixed-size object records and 100 replay pairs
+      respectively."
+
+      Action/result: Added complete block-relative maps for profile 2.936 save
+      blocks 1, 2, and 4, plus deterministic splitters and coverage tests.
+
+3236. Reported: "I have enough source evidence to make two distinctions
+      explicit in the spec: a save block may contain portable values plus
+      opaque compatibility bytes, and pointer-shaped object fields are
+      serialized but are not portable object identity. On restore, resource
+      replay and view rebinding reconstruct those associations, so the contract
+      will name the bytes while requiring implementations to rebuild references
+      from resource selections rather than preserve process addresses."
+
+      Action/result: Separated serialized reference tokens from portable object
+      identity in the normative block-2 contract.
+
+3237. Reported: "Before I describe those serialized references as disposable,
+      I’m checking the successful-restore path field by field. The key question
+      is not whether the bytes look like addresses, but whether any of them can
+      affect valid behavior before the restored view, loop, cel, and render
+      state is rebuilt."
+
+      Action/result: Confirmed that successful restore rebinds view/loop/cel
+      state, rebuilds list participation, restores flags, and normalizes the
+      event identifier to the object index.
+
+3238. Reported: "I’m editing the save helper, tests, and persistence chapter
+      now. The maps will be mechanically exhaustive, with a validator that
+      rejects gaps or overlaps; the prose will keep block-relative byte
+      positions separate from the portable state model and will mark unresolved
+      bytes instead of assigning speculative semantics."
+
+      Action/result: Updated the helper, tests, specification, dashboard,
+      symbolic labels, handoff, and chronological evidence record.
+
+3239. Reported: "The restore pass resolves the reference-token question
+      cleanly. It preserves the saved loop and cel selectors, reloads the
+      selected view, recomputes loop/cel counts and references plus cel
+      dimensions, rebuilds active/list state from saved flags, and restores
+      those flags afterward. It also normalizes each object’s event identifier
+      to its object index, so that byte is present in the file but is not
+      authoritative after a successful restore."
+
+      Action/result: Added the post-restore normalization rule to the clean
+      specification and a local save-corpus invariant test.
+
+3240. Reported: "The first tranche passes 28 focused checks. I’m moving
+      straight into block 3 now; its `328` bytes strongly suggest the inventory
+      table’s one-byte header plus 109 three-byte entries, but I’m treating that
+      only as a hypothesis until the loader, inventory actions, and save corpus
+      all agree on the boundary and field meanings."
+
+      Action/result: Rejected the initial arithmetic-only hypothesis after
+      comparing the loader, inventory actions, source file, and save corpus.
+
+3241. Reported: "The block-3 hypothesis has sharpened: it is not 109 records.
+      The saved bytes begin with 40 three-byte entries, each holding a name
+      offset and one-byte location; those offsets all point to byte `0x78`,
+      where the zero-terminated item-name pool begins. The local source file is
+      331 bytes while the runtime/save block is 328 bytes, indicating a
+      three-byte file prefix is consumed during loading. I’m tracing that
+      loader now to establish the item count and offset origin exactly."
+
+      Action/result: Identified the 120-byte entry table and 208-byte name pool
+      from the decoded data and source consumers.
+
+3242. Reported: "The loader confirms the format and ties three blocks together.
+      After XOR decoding, the metadata file begins with
+      `name_table_offset:u16le` and `maximum_object_index:u8`; the remaining
+      bytes are exactly save block 3. For this game those values are `120` and
+      `20`, yielding 40 inventory entries, 21 drawable-object records, a
+      208-byte name pool, and therefore the observed block-2 and block-3 lengths
+      without any padding."
+
+      Action/result: Added the inventory metadata file contract, exhaustive
+      block-3 parser/tests, symbolic loader labels, and the derived block-length
+      relationship to the evidence and clean specification.
+
+3243. Reported: "Block 3 is now complete and the focused suite remains green.
+      I’m on the genuinely variable part, block 5: I’ll first derive its sizing
+      formula and record grammar from the logic-cache allocator and save helper,
+      then correlate each 4-byte growth step with loaded logic/resume state
+      across the 11 saves."
+
+      Action/result: Reopened the logic-cache serializer, restore lookup, and
+      all local variable block-5 payloads.
+
+3244. Reported: "Block 5’s grammar is now source-complete. It is a sequence of
+      four-byte `(logic_number:u16le, resume_offset:u16le)` records, preceded by
+      a serialized zero-valued head record and terminated by a four-byte record
+      whose logic number is `0xffff`. The offset is measured from that logic’s
+      bytecode entry, so it remains portable across reloads; restore scans this
+      table by logic number and rebuilds each resume position as
+      `new_entry + saved_offset`."
+
+      Action/result: Added a variable block-5 parser with terminator, duplicate,
+      relative-offset, and first-match tests.
+
+3245. Reported: "One subtle but important distinction emerged from the corpus:
+      block 5 does not decide which logics are loaded. The replay-pair sequence
+      does that. Block 5 is only a lookup table consulted as each replayed logic
+      load occurs; the first matching entry supplies a relative resume offset,
+      no match leaves the logic at its entry, and unmatched block-5 records are
+      ignored. This explains why the saved cache list and replayed logic list
+      overlap without being identical."
+
+      Action/result: Completed the five-block profile 2.936 map and promoted the
+      replay-versus-resume-table distinction into the clean specification.
+
+3246. Reported: "All five blocks now pass 35 focused checks. I’m moving to the
+      next dashboard item rather than stopping: a conformance matrix that tells
+      an independent implementer what is universal, what is selected by
+      interpreter profile, what comes from each game’s data, what remains
+      unresolved, and what is deliberately outside the current full-EGA
+      target."
+
+      Action/result: Began the standalone subsystem/version conformance matrix.
+
+3247. Reported: "The matrix will not just be a progress checklist. I’m making
+      it normative claim guidance: an implementer can see which chapters must
+      be combined for a 2.936 full-EGA claim, which deltas must be added for
+      3.002.149, which dimensions come from the selected game rather than
+      interpreter code, and which incomplete areas prohibit narrower claims
+      such as exact four-channel amplitude or v3 binary save interchange."
+
+      Action/result: Added the matrix chapter, claim requirements, structural
+      test, summary link, and updated dashboard/handoff priorities.
+
+3248. Reported: "The conformance matrix passes its structural checks, bringing
+      the focused total to 36. I’m doing a consistency audit now because this
+      pass corrected two older evidence assumptions: block 3 is
+      game-metadata-sized rather than interpreter-fixed, and block 5 includes a
+      cache-head record before the linked logic records. After that audit I’ll
+      run the complete suite and both books."
+
+      Action/result: Corrected stale block-5 evidence text and the completed
+      matrix handoff item; source compilation and whitespace checks passed.
+
+3249. Reported: "The complete suite is green: 341 tests, up from 323 at the
+      last checkpoint. I’m building both books and checking opcode evidence
+      now, then I’ll do one final diff audit for stale claims and accidental
+      changes; `run.sh` remains unrelated and untouched."
+
+      Action/result: The full 341-test suite passed.
+
+3250. Reported: "Validation is fully clean: both mdBooks build, opcode evidence
+      is current, and whitespace checks pass. The final audit found only the
+      expected project files plus the pre-existing untracked `run.sh`; the
+      Python cache directories created during compilation have been removed."
+
+      Action/result: Completed the final validation and artifact audit for the
+      save-map and conformance-matrix pass.
+
+3251. Reported: "The profile 2.936 save map and conformance matrix are
+      complete, so I’m taking the next priority into source discovery rather
+      than editing more spec by analogy. I’ll inventory the available Gold Rush
+      save artifacts and locate the five v3 save source ranges first; any
+      v2-shaped fields will only be promoted after the relocated v3 code
+      confirms them."
+
+      Action/result: Reopened GR v3 save block evidence and source labels as
+      the next `PROGRESS.md` priority.
+
+3252. Reported: "The v3 inventory block exposed a correction rather than a new
+      mystery: the saved bytes decode exactly with the repeating `Avis Durgan`
+      key and then match the decoded `OBJECT` runtime block byte-for-byte. The
+      existing 59-byte helper constant produces nonsense on the same
+      original-engine save, so I’m reopening the v3 transform extraction before
+      changing the spec; this is precisely the kind of cross-check the
+      byte-complete pass is meant to catch."
+
+      Action/result: Compared the original-engine GR save block against the
+      decoded GR `OBJECT` runtime payload and found the previous helper key was
+      wrong despite round-trip tests passing.
+
+3253. Reported: "The correction is now conclusive: `0x072c` is a data-segment
+      address, and `AGIDATA.OVL` contains `Avis Durgan` there. The earlier
+      59-byte constant came from reading main-code bytes at the same numeric
+      offset, a segment-confusion error that round-trip-only tests failed to
+      detect. I’m correcting the helper, spec, labels, and tests, and adding a
+      known input/output assertion so this class of mistake cannot pass again."
+
+      Action/result: Corrected the GR save transform model from the accidental
+      code-image bytes to the `DS:0x072c` data key.
+
+3254. Reported: "I’m applying the correction now. The dynamic save remains
+      valid evidence for the transform, but the previous check only proved
+      “XOR twice returns the input,” which is true for any repeating key. The
+      replacement test pins the actual bytes: decoded runtime prefix
+      `89 01 00 8b 01 1c` must encode as `c8 77 69 f8 21 58`, matching the
+      original-engine save."
+
+      Action/result: Updated the helper/test/spec files with exact key,
+      wrap-point, and known-vector assertions.
+
+3255. Reported: "Continuing. The immediate thread is to finish validating the
+      GR v3 save-key correction, then I’ll keep moving into the next
+      `PROGRESS.md` item rather than stopping at the cleanup point."
+
+      Action/result: Resumed from the corrected GR save-key state and checked
+      the current tree before continuing.
+
+3256. Reported: "The code already has the corrected key, but the helper is
+      still SQ2-shaped in places. I’m going to validate the correction first,
+      then generalize the save parser enough to map GR’s block 2/3/4/5 from
+      source-derived metadata instead of hardcoded SQ2 constants."
+
+      Action/result: Ran the focused save/spec tests successfully and
+      identified generic parser work for GR save blocks.
+
+3257. Reported: "The GR saves all agree: block 2 is `23 * 43`, block 3 decodes
+      byte-for-byte to `OBJECT[3:]`, block 4 is 50 replay pairs, and block 5
+      currently contains head, cached logic 0, terminator. Block 1 still needs
+      a real source map; I’ll avoid pretending it is complete and mark only the
+      source-backed prefix/portable fields."
+
+      Action/result: Compared generated GR saves against the decoded GR
+      `OBJECT` metadata and derived blocks 2 through 5.
+
+3258. Reported: "The focused correction tests are green. I’m now deriving the
+      GR save dimensions from the GR `OBJECT` file and the generated
+      original-engine saves, so the next spec step can say “23 object records
+      and 131 inventory entries” because the data proves it, not because it
+      resembles SQ2."
+
+      Action/result: Promoted decoded-object metadata as the source for GR
+      object/inventory save dimensions.
+
+3259. Reported: "I’m going to add generic parsers rather than a second pile of
+      GR-only code. The durable contract is: object record stride is still 43
+      bytes, inventory table size comes from the decoded `OBJECT` header, and
+      replay capacity comes from the saved block length/profile, so the helper
+      should express those dimensions directly."
+
+      Action/result: Added generic object-record, replay-pair, inventory-block,
+      and object-metadata decode helpers in `tools/agi_save.py`.
+
+3260. Reported: "The generic parser helpers are in place. I’m adding tests that
+      use `games/GR` only when the private directory is present, and
+      QEMU-generated save artifacts only when they exist under `build/`, so the
+      public repo can still run without bundled game data."
+
+      Action/result: Added optional GR metadata/save structure tests with
+      private-input and generated-artifact guards.
+
+3261. Reported: "The tests now pin the GR dimensions against the decoded
+      metadata and the generated signed save. I’m running that focused suite;
+      if it passes, I’ll promote the block 2-5 mapping into the clean spec and
+      evidence docs."
+
+      Action/result: Focused save/spec tests passed with 39 checks.
+
+3262. Reported: "Focused tests are green at 39 checks. I’m updating the spec
+      now with the portable parts of the GR save layout: block 1
+      length/signature remains partial, while blocks 2-5 have concrete
+      structure for the observed initial save state."
+
+      Action/result: Added the profile 3.002.149 observed Gold Rush block
+      section to `spec/src/session_and_persistence.md`.
+
+3263. Reported: "The clean spec now has a separate GR v3 block section, with
+      block 1 deliberately partial and blocks 2-5 expressed in portable terms.
+      I’m reflecting that narrower completion state in the conformance matrix
+      and project tracker."
+
+      Action/result: Updated `spec/src/conformance_matrix.md`, `PROGRESS.md`,
+      and `docs/src/current_status.md`.
+
+3264. Reported: "The evidence-facing runtime notes are getting the same detail,
+      including the object metadata derivation. This keeps the source trail
+      clear: GR’s block dimensions come from decoded local metadata plus
+      original-engine saves, not from a hand-transposed SQ2 table."
+
+      Action/result: Updated runtime/evidence documentation with GR blocks 2-5
+      derivation.
+
+3265. Reported: "Validation is clean and there are no generated `__pycache__`
+      directories. I’m not stopping there: the next `PROGRESS.md` item is GR
+      block 1, so I’m moving back to disassembly around the v3 save writer to
+      identify the source ranges for that 1028-byte block."
+
+      Action/result: Reopened GR save/restore disassembly around image
+      `0x29e5` and `0x2aba`.
+
+3266. Reported: "The save writer gives the crucial source boundary: GR block 1
+      is a contiguous `0x0404` bytes from `DS:0x0002`, exactly like the SQ2
+      block-1 method but shorter. The expanded 49-slot key map consumes almost
+      all of SQ2’s old gap, the string-slot bank remains 12 slots, and the tail
+      includes the GR menu/key gates."
+
+      Action/result: Derived the GR block-1 address/length from the writer
+      helper arguments and mapped the main shifted regions.
+
+3267. Reported: "I’ve added the GR block-1 region table with explicit opaque
+      gaps rather than smoothing them over. I’m adding tests for byte coverage,
+      the expanded key-map/string/tail layout, and the observed signed save
+      values."
+
+      Action/result: Added `GR_V3_BLOCK1_REGIONS`,
+      `split_gr_v3_block1(...)`, and focused block-1 tests.
+
+3268. Reported: "The GR block-1 parser tests pass. That closes the current
+      highest-value item at the structural level, so I’m updating the clean
+      spec from “block 1 partial” to a byte-complete observed Gold Rush
+      block-1 map with explicit opaque ranges."
+
+      Action/result: Promoted the GR block-1 map into the clean persistence
+      specification.
+
+3269. Reported: "The spec now has the full observed GR block-1 partition,
+      including the expanded key-map and GR-specific tail gates. I’m moving the
+      dashboard from “finish GR block 1” to the next real gaps: text-window
+      parameters and sound envelope behavior."
+
+      Action/result: Updated the conformance matrix, `PROGRESS.md`, and current
+      status handoff.
+
+3270. Reported: "The tracker now reflects that the GR save-map task is
+      structurally complete for the observed Gold Rush profile, with opaque
+      ranges still honestly marked. I’m adding the evidence-note section for
+      the block-1 source boundary and region map."
+
+      Action/result: Added a clean-room evidence section for GR block-1 writer
+      source ranges and map coverage.
+
+3271. Reported: "The runtime chapter now includes the block-1 source boundary.
+      I’m recording the exact disassembly evidence in the clean-room notes,
+      because that writer call is the thing that makes the 1028-byte block
+      boundary solid."
+
+      Action/result: Updated runtime model prose and evidence notes with the
+      block-1 writer call details.
+
+3272. Reported: "The evidence note now contains the block-1 writer call and
+      full region map. I spotted one stale sentence in the version profile that
+      still says the v3 save maps are incomplete, so I’m correcting that before
+      validation."
+
+      Action/result: Corrected the profile 3.002.149 save-map status in the
+      clean version profile.
+
+3273. Reported: "Final audit is clean: no whitespace errors, no cache dirs, and
+      `run.sh` is still the unrelated untracked file. I’ll keep going into the
+      new top item: resolving actions `0x97`/`0x98` from disassembly before
+      changing the spec."
+
+      Action/result: Started the source-first configured modal-message pass.
+
+3274. Reported: "The existing evidence already has the handler addresses: SQ2
+      `0x97` at `0x1c54` and `0x98` at `0x1c71`, storing three bytes into
+      `[0x0d0b]`, `[0x0d0d]`, and `[0x0d09]`. I’m reading the callee chain now
+      to map what those globals actually do in the modal text-window geometry."
+
+      Action/result: Reopened the shared helper at `0x1c96` and modal
+      window-builder path at `0x1d96`.
+
+3275. Reported: "The disassembly resolves the parameters cleanly: parameter 3
+      is the maximum formatted text width, parameter 1 overrides the window
+      row, and parameter 2 overrides the window column. I’m checking the
+      derived rectangle math so the spec can describe observable behavior
+      rather than just naming globals."
+
+      Action/result: Mapped `[0x0d09]` to width, `[0x0d0b]` to row, and
+      `[0x0d0d]` to column, including zero-width default handling.
+
+3276. Reported: "The formulas show the display-helper role: parameter 3 feeds
+      the formatter width, parameter 1 becomes the message-window row
+      (relative to display base), and parameter 2 becomes the message-window
+      column; omitted/default behavior centers the computed text window. I’m
+      promoting that and leaving only pixel-rectangle exactness to the existing
+      text-window section."
+
+      Action/result: Promoted the row/column/width behavior into the clean
+      logic-bytecode and input/text chapters.
+
+3277. Reported: "The clean spec no longer treats the `0x97`/`0x98` parameters
+      as unknown. I’m updating the evidence docs and dashboard next, then the
+      only high-value partial domains left are mostly sound and font-target
+      details."
+
+      Action/result: Updated evidence logic-bytecode, runtime model, current
+      status, and `PROGRESS.md`.
+
+3278. Reported: "These labels make the cross-reference much clearer:
+      `[0x0d0b]` is the one-shot row override, `[0x0d0d]` the one-shot column
+      override, and `[0x0d09]` the one-shot width override. I’m patching those
+      labels and the evidence log now."
+
+      Action/result: Added symbolic labels for the configured modal-message
+      row, column, and width globals.
+
+3279. Reported: "One stale summary line still described the configured-message
+      fields as incomplete. I’m correcting that historical summary so the
+      evidence book doesn’t contradict the new source pass."
+
+      Action/result: Corrected the stale evidence summary and added the
+      configured modal-message source note.

@@ -138,7 +138,7 @@ The observed save blocks are:
 | `[0x096b]` | `[0x096f]` | `903` | Object table bytes. |
 | `[0x0971]` | `[0x0975]` | `328` | Three-byte entry table bytes. |
 | `[0x1707]` | `[0x0141] * 2` | `200` | Resource-event pair buffer. |
-| `0x0985` | return value from `0x1364` | `16..28` observed | Heap or logic/cache state region sized by helper `0x1364`. |
+| `0x0985` | return value from `0x1364` | `16..28` observed | Four-byte logic-number/resume-offset records, including a cache-head record and `0xffff` terminator. |
 
 Restore action `0x7e` (`restore_game_state`) at image offset `0x2512`:
 

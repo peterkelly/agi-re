@@ -15,9 +15,11 @@ portable behavioral contracts.
 The logic bytecode catalog is complete for the current SQ2 interpreter. The
 standalone specification now also covers picture commands, view/cel decoding,
 object behavior, parser/input/menu/inventory behavior, and the room/replay/save
-state machine. The highest-value remaining specification work is the
-field-by-field portable mapping of all five save blocks, followed by the
-version-conformance matrix and the remaining text/sound presentation gaps.
+state machine. All five observed profile 2.936 save blocks now have exhaustive
+block-relative maps, with five unresolved block-1 ranges retained explicitly.
+The subsystem/version conformance matrix is now present. The highest-value
+remaining specification work is the profile 3.002.149 save-block map, followed
+by the remaining text/sound presentation gaps.
 
 The current top-level compatibility runner is `tools/compatibility_suite.py`.
 The latest smoke report is
@@ -172,10 +174,10 @@ clearing.
 
 ## Immediate Next Work
 
-1. Map profile 2.936 save block 1 into portable fields, preserving padding and
-   unresolved bytes explicitly, then continue through blocks 2 through 5.
-2. Build the version-conformance matrix after the save mapping has stable
-   subsystem names.
+1. Complete the four-channel attenuation-envelope contract from source first,
+   then promote the externally observable sound-amplitude behavior into the
+   clean spec and tests.
+2. Decide whether exact platform glyph bitmaps belong in any target profile.
 3. Keep source-first renderer work going only when disassembly reveals a
    concrete valid-stream edge. Use QEMU as confirmation or regression coverage,
    not as the primary discovery method.

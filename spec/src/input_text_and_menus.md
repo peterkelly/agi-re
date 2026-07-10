@@ -198,6 +198,13 @@ A modal message saves the covered visible rectangle, draws and formats its
 text window, waits for acknowledgement, and restores the prior rectangle when
 closed. Opening another saved window first closes the current one.
 
+Configured modal-message actions can supply temporary row, column, and width
+overrides. The width is the maximum formatted text width; a zero width means
+30. Row and column override the default centered placement for that single
+message. Without an override, row is centered within the current display text
+area and column is centered within the 40-column text surface from the
+formatted line width.
+
 Entering alternate text-attribute mode suppresses normal object graphics
 updates and clears/fills the visible full-screen surface using the configured
 text foreground/background pair. Leaving restores normal graphics presentation
@@ -265,8 +272,6 @@ request.
 ## Remaining presentation gaps
 
 Message substitution and ordinary window layout are specified by their action
-effects and observed modal geometry, but the precise meanings of both
-configuration parameters used by actions `0x97` and `0x98` remain unresolved.
-Exact glyph shapes also remain a platform-font concern. Those gaps prevent a
-full text-presentation conformance claim but do not make parser, event, menu,
-or inventory state provisional.
+effects and observed modal geometry. Exact glyph shapes remain a platform-font
+concern, so full bitmap-identical text-presentation claims must provide a font
+input. This does not make parser, event, menu, or inventory state provisional.

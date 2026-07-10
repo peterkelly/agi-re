@@ -8373,7 +8373,7 @@ Room/inventory/save/restart/object-state observations:
   GR save action `0x7d` at `0x29e5` writes the relocated five-block envelope
   but calls helper `0x07bc` over the object/inventory chunk before and after
   the save writes. Helper `0x07bc` XORs a caller-supplied byte range with
-  repeating key bytes at image `0x072c` until the key byte is zero.
+  repeating key bytes at data address `DS:0x072c` until the key byte is zero.
 - SQ2 restart action `0x80` at `0x2472` redraws the prompt marker at the end of
   the accepted path. GR restart action `0x80` at `0x26e0` first records the
   prompt-marker visible word through helper `0x3b00`, erases the marker, and
@@ -8619,7 +8619,9 @@ Commands and local reads:
 - `python3 -B tools/disassemble_logic.py --game-dir games/GR --limit 256 | rg "verify_game_signature|save_game_state|restore_game_state|copy_save_description|0x8f|0x7d|0x7e|0xaa"`
 - Exact-offset local Python/`ndisasm` reads for GR image offsets `0x29e5`,
   `0x2aba`, `0x2b5b`, `0x2b7c`, `0x07bc`, and `0x2792`.
-- Local Python byte read of the sequence starting at image `0x072c`.
+- Local Python byte read of the sequence starting at numeric image offset
+  `0x072c`; this was later recognized as a segment-confusion error, because the
+  helper uses `DI = 0x072c` as a data-segment address.
 - `AGI_GAME_DIR=games/SQ2 python3 -B -m unittest tests/test_save_resources.py`
 - `python3 -B -m py_compile tools/agi_save.py`
 
@@ -8636,30 +8638,26 @@ Source observations:
 - Helper `0x07bc` initializes `DI = 0x072c`, XORs each byte in the caller range
   with byte `[DI]`, increments both pointers, and when byte `[DI]` is zero it
   resets `DI` to `0x072c`.
-- The first zero byte after `0x072c` is at image `0x0767`, making the observed
-  repeating sequence 59 bytes long:
-
-```text
-1e 2a e4 01 46 fc eb 4f 8a 44 1e 2a e4 01 46 fc
-8a 44 1e 2a e4 01 46 fa eb 3d 8a 44 1e 2a e4 29
-46 fc eb ec 8a 44 1e 2a e4 29 46 fc eb 29 8a 44
-1e 2a e4 29 46 fc eb b2 48 3d 07
-```
+- Rechecking the addressing against `games/GR/AGIDATA.OVL` shows that
+  data-segment address `0x072c` contains the zero-terminated ASCII text
+  `Avis Durgan`. The earlier 59-byte byte sequence came from reading main-code
+  bytes at the same numeric offset and is not the save transform key.
 
 Implementation/test updates:
 
 - Added `GR_V3_OBJECT_INVENTORY_XOR_KEY`,
   `xor_with_repeating_key(...)`, and
   `gr_v3_object_inventory_save_xor(...)` to `tools/agi_save.py`.
-- Added tests proving the GR transform round-trips, wraps at byte 59, and
-  rejects an empty generic XOR key.
+- Added tests proving the GR transform uses the exact `Avis Durgan` key, wraps
+  after byte 10, matches the original-engine save prefix known vector, round
+  trips, and rejects an empty generic XOR key.
 
 Conclusion:
 
 - The GR v3 save transform is now source-backed and executable in the local
   save helper model. The current model describes the on-disk third block as the
-  XOR-transformed form of the runtime object/inventory block, with the second
-  in-memory pass restoring runtime bytes before action return.
+  `Avis Durgan` XOR-transformed form of the runtime object/inventory block,
+  with the second in-memory pass restoring runtime bytes before action return.
 - A later QEMU save-file extraction probe promoted the source-backed transform
   to original-engine evidence; see the next section. The promoted fixture uses
   a blank save prefix and does not resolve the GR verifier/save-prefix path.
@@ -8737,7 +8735,7 @@ QEMU result:
 - The third block's on-disk prefix is
   `c87769f82158e57363fb6f5dd6686f91457dca6606ac4011`.
 - After `gr_v3_object_inventory_save_xor()`, the third block prefix is
-  `d65d8df967a40e3ce9bf71773269296dcf39d44ce2ad06eb`.
+  `8901008b011c9001049a011ca0011cb10108b80167c20167`.
 - Applying the same XOR helper a second time restores the emitted third-block
   bytes. The report marks all checks passed.
 
@@ -8814,7 +8812,7 @@ QEMU result:
   `c87769f82158e57363fb6f5dd6686f91457dca6606ac4011` and
   `00c9fc2f1cc1ff71f2779804f993dea7389227c486a016556c45a9a0fb63f6a8`.
 - Third-block decoded prefix and SHA-256 also match the blank-prefix run:
-  `d65d8df967a40e3ce9bf71773269296dcf39d44ce2ad06eb` and
+  `8901008b011c9001049a011ca0011cb10108b80167c20167` and
   `5a833f40a62fc2e367e60600592d8033219586797a3e0a1b3a142accb64bc237`.
 
 Conclusion:
@@ -8954,9 +8952,9 @@ Conclusion:
 
 - GR action `0x7e` is now source-backed and original-engine validated for a
   valid, signature-prefixed `GRSG.1` restore. The v3 save/restore model should
-  apply the repeating 59-byte XOR transform to the object/inventory block on
-  both write and read sides, with successful restore returning through restored
-  state rather than continuing after the restore opcode.
+  apply the repeating `Avis Durgan` XOR transform to the object/inventory block
+  on both write and read sides, with successful restore returning through
+  restored state rather than continuing after the restore opcode.
 - Malformed save behavior remains intentionally out of scope for the
   compatibility spec because invalid files can drive the original interpreter
   into garbage-memory/exploit-like behavior.
@@ -9858,8 +9856,8 @@ The final action-catalog group promotes `0x65..0xaf` plus v3 slots
 `0xb0..0xb5`. It preserves two unusual byte-stream effects: `0x95` consumes an
 extra byte when tracing is already active, while runtime `0xaf` consumes no
 operand despite table-driven scanners assigning it length one. The configured
-message parameters used by `0x97`/`0x98` remain explicitly incomplete rather
-than receiving inferred names. A structural test now requires every accepted
+message parameters used by `0x97`/`0x98` were later resolved from source as
+row, column, and width overrides. A structural test now requires every accepted
 v2 and v3 action opcode to appear in the specification.
 
 Validation:
@@ -9969,3 +9967,322 @@ Full validation after the complete promotion pass:
 - `AGI_GAME_DIR=games/SQ2 python3 -B
   tools/logic_opcode_evidence.py --check` passed.
 - `git diff --check` passed.
+
+## 2026-07-10: profile 2.936 save-block mapping
+
+The save-state work resumed with a byte-complete map rather than a list of only
+recognized fields. A fresh static instruction listing was generated from the
+disposable decrypted executable:
+
+```text
+ndisasm -b 16 -o 0 -e 512 build/cleanroom/AGI.decrypted.exe \
+  > build/cleanroom/SQ2_AGI_image.ndisasm
+```
+
+The first saved block starts with the seven-byte signature area and continues
+through all 256 variables, 32 packed-flag bytes, timer/horizon/movement globals,
+the key map, string storage, text configuration, and replay checkpoint. Block
+positions in the clean specification are relative to the block start; the
+evidence-side source association is the contiguous range `0x0002..0x05e2`.
+
+An absolute-data-reference scan plus focused reads of the string actions found
+five unresolved ranges. All 11 local SQ2 saves agree on their current contents:
+
+| Block-1 position | Size | Observed bytes |
+| ---: | ---: | --- |
+| `0x012d` | 2 | `00 00` |
+| `0x013d` | 2 | `0f 00` |
+| `0x01df` | 44 | all zero |
+| `0x03eb` | 480 | all zero |
+| `0x05d6` | 1 | zero |
+
+The 960-byte range beginning at source address `0x020d` is exactly 24 groups
+of 40 bytes, but that arithmetic alone is not a slot contract. The parser action
+at image `0x750b` explicitly accepts only indexes below 12, and current local
+logic resources use only the lower slots. The first 480 bytes are therefore
+mapped as twelve script-visible string slots; the following 480 bytes remain an
+opaque bank. String-copy actions can calculate beyond the lower bank without a
+bounds check, but malformed/out-of-range script behavior is outside the valid
+data model and is not evidence for 24 portable slots.
+
+Block 2 has length `0x0387`, exactly 21 records times the already source-mapped
+43-byte object stride. Its field map covers every byte without padding. The
+restore routine at `code.restore.replay_resource_events` first preserves each
+record's low X byte and flag word while caches/lists are reset. After resource
+replay it restores X, replaces object byte `+0x02` with the object index, reloads
+the selected view when available, and calls the normal view-binding path. That
+path preserves valid selected loop/cel indexes while rebuilding payload, loop,
+and cel pointers, loop/cel counts, width, and height. Active/list state is
+rebuilt from the saved flags before the exact saved flag word is restored.
+Consequently the serialized pointer-shaped words are compatibility tokens, not
+portable object identity, and the event byte is normalized to object index on
+successful restore. All 11 local saves already contain indexes `0..20` there.
+
+Block 4 has length `0x00c8`, exactly 100 two-byte replay-pair slots. The active
+pair count and checkpoint count are in block 1. Only the active prefix is replay
+semantics; the remaining pairs are inactive capacity but still serialized.
+
+The block-3 pass reopened `code.inventory.initialize_metadata_and_objects` at
+image `0x0fa5`, the carried-item list builder at `0x3203`, and inventory actions
+`0x5c..0x61`. The local 331-byte `OBJECT` file XOR-decodes with the already
+source-derived repeating `Avis Durgan` key. Its decoded prefix is:
+
+```text
+78 00 14
+```
+
+The loader interprets the first word as the item-table byte size and the third
+byte as the maximum drawable-object index. It advances the runtime inventory
+root past that header, sets the item-table end to root plus `0x78`, records the
+runtime/save length as file length minus 3, and allocates `(0x14 + 1)` object
+records. This derives the observed structures rather than merely fitting them:
+
+- 40 three-byte inventory entries occupy block-3 positions `0x0000..0x0077`;
+- 21 drawable objects times 43 bytes produce block-2 length `0x0387`; and
+- the remaining 208 block-3 bytes are the zero-terminated item-name pool.
+
+Each inventory entry is `name_offset:u16le, location:u8`; name offsets are
+relative to the runtime block. The current block has 40 entries, including 20
+placeholder entries sharing the `?` string and 20 distinct later names. Across
+all 11 local saves, only 11 location-byte positions vary. Every name offset and
+all 208 name-pool bytes match the decoded metadata file exactly. The location
+value `0xff` is the carried-item marker consumed by the inventory list builder.
+
+Block 5 was resolved directly from `code.logic.serialize_resume_table` at image
+`0x1364` and `code.logic.restore_resume_from_table` at `0x13a5`. The serializer
+starts with `SI = 0x0977`, not the pointer stored there. It therefore emits a
+four-byte pair from the static cache-shaped head before following its `+0x00`
+next pointer through the linked logic records. Current state makes that leading
+pair `(logic 0, offset 0)`. Each linked record contributes:
+
+```text
+logic_number:u16le = zero-extended record byte +0x02
+resume_offset:u16le = word(+0x06) - word(+0x04)
+```
+
+After the last linked record, the serializer writes only `0xffff` into the next
+record's first word. It includes all four bytes of that terminator record in the
+returned block length, so the second word is ignored/stale rather than
+necessarily initialized by this pass. All 11 local saves happen to contain zero
+there. Their block lengths `16`, `20`, `24`, and `28` are exact multiples of
+four and their nonterminal records begin with the static `(0,0)` head followed
+by the cached logic-0 record and other cached logics.
+
+The restore helper scans block 5 from the beginning for the first record whose
+logic number matches a newly loaded cache record. On a match it sets the resume
+pointer to the newly loaded bytecode-entry pointer plus the saved offset; on
+`0xffff` it returns without changing the default entry pointer. Only resource
+replay kind 0 calls this helper. The replay-pair sequence is therefore
+authoritative for which logics are loaded, while block 5 only supplies relative
+resume metadata. Corpus comparison confirms the two lists need not be equal:
+some block-5 cache records have no replay load, and some replayed logic numbers
+have no matching block-5 record and retain offset zero.
+
+`tools/agi_save.py` now contains exhaustive maps/parsers for blocks 1 through 4
+and the decoded metadata header that relates blocks 2 and 3. Region validation
+rejects gaps, overlaps, duplicate names, nonpositive sizes, and wrong total
+lengths. Tests cover all 1505 block-1 bytes, every field in each 43-byte object
+record, the fixed 21-record count, all 328 inventory/name bytes, the 100 replay
+pairs, the five unresolved block-1 ranges across all local saves, and the
+object-index event-byte invariant. The block-5 parser additionally validates
+four-byte alignment, byte-sized logic numbers, terminal placement, first-match
+lookup, duplicate entries, and ignored terminator payload. All five observed
+profile 2.936 save blocks now have byte-complete maps; the next specification
+task is the subsystem/version conformance matrix.
+
+## 2026-07-10: clean specification conformance matrix
+
+`spec/src/conformance_matrix.md` now turns the accumulated chapter boundaries
+into explicit claim guidance. It classifies the shared behavior of promoted
+profiles, the known 2.936/3.002.149 variants, dimensions supplied by each
+selected game's data, partially specified domains, and behavior outside the
+current full-EGA target.
+
+The matrix separates gameplay conformance from binary save interchange. The
+2.936 save claim requires all five block maps, replay reconstruction,
+first-match logic-resume lookup, and byte preservation for opaque block-1
+ranges. The 3.002.149 gameplay variants are listed, but arbitrary binary save
+interchange remains explicitly unavailable until its five blocks receive the
+same portable field mapping. A structural test requires all matrix sections and
+both profile claim statements to remain present.
+
+Validation after the save mapping and matrix pass:
+
+- `AGI_GAME_DIR=games/SQ2 python3 -B -m unittest discover -s tests` passed
+  341 tests.
+- `mdbook build docs` passed.
+- `mdbook build spec` passed.
+- `AGI_GAME_DIR=games/SQ2 python3 -B
+  tools/logic_opcode_evidence.py --check` passed.
+- `git diff --check` passed.
+
+## 2026-07-10: Gold Rush v3 save XOR key correction
+
+The GR v3 save-map pass reopened the save helper at image `0x07bc` after the
+original-engine save block failed to decode to a plausible runtime block under
+the previously modeled 59-byte key. The key observation is that helper `0x07bc`
+loads `DI = 0x072c` and reads `[DI]`, so `0x072c` is a data-segment address.
+Reading the same numeric offset from the main executable image had accidentally
+sampled code bytes.
+
+Local evidence:
+
+- `games/GR/AGIDATA.OVL` contains zero-terminated ASCII `Avis Durgan` at offset
+  `0x072c`.
+- The original-engine encoded save-block prefix
+  `c87769f82158e57363fb6f5dd6686f91457dca6606ac4011` decodes with repeating
+  `Avis Durgan` to
+  `8901008b011c9001049a011ca0011cb10108b80167c20167`.
+- The decoded block matches the decoded GR `OBJECT` runtime payload, confirming
+  the block transform rather than merely proving XOR round-trip behavior.
+
+Implementation/test correction:
+
+- `GR_V3_OBJECT_INVENTORY_XOR_KEY` is now `b"Avis Durgan"`.
+- The focused tests assert the exact key, the 11-byte wrap point, and the
+  original save prefix known vector. This prevents any arbitrary repeating XOR
+  key from passing by self-inverse round-trip behavior alone.
+
+## 2026-07-10: Gold Rush v3 save blocks 2-5 structure pass
+
+After correcting the GR v3 block-3 transform, the generated original-engine
+saves and decoded local metadata were rechecked for portable block dimensions.
+
+Local reads:
+
+- `games/GR/OBJECT`, decoded with repeating `Avis Durgan`.
+- Generated original-engine saves under `build/gr-v3-behavior/`, including
+  `GRSG_001.1`, `GRSG_restore_001.1`, and suite-generated signed/blank-prefix
+  saves.
+
+Observed metadata and save layout:
+
+- Decoded `OBJECT` header:
+  - item-table byte size `0x0189`;
+  - maximum drawable object index `0x16` (`22`);
+  - runtime inventory payload length `0x0713`.
+- All checked generated GR saves have block lengths `1028`, `989`, `1811`,
+  `100`, and `12`.
+- Block 2 length `989` is exactly `23 * 43`, matching object indexes `0..22`
+  and the already source-mapped object-record stride.
+- Block 3 decodes with `gr_v3_object_inventory_save_xor()` to the decoded
+  `OBJECT` runtime payload byte-for-byte. The decoded block contains 131
+  three-byte inventory entries followed by a 1418-byte zero-terminated name
+  pool.
+- Block 4 length `100` is exactly 50 replay pairs.
+- The observed block 5 payload is
+  `00 00 00 00 00 00 00 00 ff ff 00 00`, matching the same four-byte
+  logic-resume grammar used by the 2.936 profile: leading head record, cached
+  logic-0 record, and terminator.
+
+Implementation/test updates:
+
+- `tools/agi_save.py` now exposes generic object-record, replay-pair,
+  inventory-block, and decoded-object-metadata helpers, plus GR-specific
+  constants/wrappers for the observed profile 3.002.149 dimensions.
+- `tests/test_save_resources.py` now checks the GR `OBJECT` metadata dimensions
+  when `games/GR` is present and checks the generated signed save dimensions
+  when `build/gr-v3-behavior/GRSG_001.1` is present.
+
+Conclusion:
+
+- Blocks 2 through 5 of the observed Gold Rush v3 save state now have portable
+  structure maps. Block 1 remains the outstanding byte-complete mapping task
+  for profile 3.002.149 binary save interchange.
+
+## 2026-07-10: Gold Rush v3 save block 1 structure pass
+
+Goal: map the first observed profile 3.002.149 save block with the same
+byte-complete discipline used for profile 2.936.
+
+Source observations:
+
+- GR save action `0x7d` at image `0x29e5` writes the first state block at
+  image `0x2aba..0x2ac9`.
+- The writer helper call receives:
+  - file handle from `[bp-0xcc]`;
+  - start address `0x0002`;
+  - length `0x0406 - 0x0002 = 0x0404`.
+- Therefore block 1 is exactly `DS:0x0002..0x0405`, serialized as 1028 bytes.
+- The same action uses `[0x0141] * 2` for block 4 length; observed saves have
+  `[0x0141] = 0x0032`, matching 50 replay pairs.
+
+Mapped block-1 partition:
+
+| Position | Size | Meaning |
+| ---: | ---: | --- |
+| `0x0000` | 7 | Signature prefix. |
+| `0x0007` | 256 | Variables. |
+| `0x0107` | 32 | Flags. |
+| `0x0127` | 4 | Timer ticks. |
+| `0x012b` | 2 | Horizon. |
+| `0x012d` | 2 | Opaque word. |
+| `0x012f` | 12 | Movement rectangle/coupling/prepared-picture fields. |
+| `0x013b` | 2 | Movement rectangle enabled word. |
+| `0x013d` | 2 | Opaque word, observed `0f 00`. |
+| `0x013f` | 2 | Replay-pair capacity, observed `0x0032`. |
+| `0x0141` | 2 | Active replay-pair count. |
+| `0x0143` | 196 | Forty-nine four-byte key-map entries. |
+| `0x0207` | 4 | Opaque gap before string slots. |
+| `0x020b` | 480 | Twelve 40-byte string slots rooted at `DS:0x020d`. |
+| `0x03eb` | 22 | Text/status/display/replay-checkpoint words and prompt byte. |
+| `0x0401` | 2 | Menu interaction gate word at `DS:0x0403`. |
+| `0x0403` | 1 | Key-release enqueue gate byte at `DS:0x0405`. |
+
+The detailed clean spec table expands the grouped ranges above into individual
+fields. The region map covers every byte exactly once and keeps four opaque
+ranges explicit: `0x012d..0x012e`, `0x013d..0x013e`, `0x0207..0x020a`, and
+`0x03f6`.
+
+Implementation/test updates:
+
+- `tools/agi_save.py` now defines `GR_V3_BLOCK1_REGIONS` and
+  `split_gr_v3_block1(...)`.
+- `tests/test_save_resources.py` validates full byte coverage, the expanded
+  49-slot key map, twelve string slots, observed `GR\0` signature prefix,
+  replay capacity `0x0032`, row defaults, menu gate, key-release gate, and
+  explicit opaque ranges.
+
+Conclusion:
+
+- The observed Gold Rush profile 3.002.149 save state now has a byte-complete
+  structural map for all five blocks. The remaining save-related work is to
+  resolve whether the explicit opaque ranges change during valid execution and
+  to repeat this process for other interpreter/game profiles when promoted.
+
+## 2026-07-10: configured modal-message parameters
+
+Goal: resolve the action `0x97`/`0x98` parameter meanings from source before
+leaving text-window behavior as a partial clean-spec gap.
+
+Source observations:
+
+- SQ2 action `0x97` at image `0x1c54` reads an immediate message number and
+  calls shared helper `0x1c96`.
+- SQ2 action `0x98` at image `0x1c71` reads a variable number, fetches
+  `var[arg0]` as the message number, and calls the same helper.
+- Helper `0x1c96` reads three following bytes into:
+  - `[0x0d0b]`;
+  - `[0x0d0d]`;
+  - `[0x0d09]`.
+- If the third byte is zero, helper `0x1c96` stores `0x001e` in `[0x0d09]`
+  before display.
+- After the display path returns, helper `0x1c96` resets all three globals to
+  `0xffff`.
+- `code.text.display_message_window` at image `0x1d96` consumes those globals:
+  - `[0x0d09]`, when not `0xffff`, overrides the maximum formatted text width;
+  - `[0x0d0b]`, when not `0xffff`, overrides the computed message-window row;
+  - `[0x0d0d]`, when not `0xffff`, overrides the computed message-window
+    column.
+- Without a row override, the helper centers vertically from the formatted line
+  count and the current display text area; it then adds the display base row
+  `[0x05dd]`.
+- Without a column override, the helper centers horizontally with
+  `(40 - formatted_line_width) / 2`.
+
+Conclusion:
+
+- The three configured-message operands are now resolved as one-shot
+  row/column/width parameters. The remaining text presentation limitation is
+  exact glyph bitmap selection for a target platform, not the meaning of
+  actions `0x97` and `0x98`.

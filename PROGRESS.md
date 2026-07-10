@@ -129,17 +129,29 @@ better understood, or a new remaining-work item is discovered.
     queue, key mapping and release gates, text geometry and display offset,
     modal/alternate text state, inventory selection, and menu construction and
     navigation.
-  - Remaining: resolve configured-window action parameters `0x97`/`0x98` and
-    decide whether exact platform glyph bitmaps belong in any target profile.
+  - Remaining: decide whether exact platform glyph bitmaps belong in any target
+    profile.
 - [~] Room changes, restart, save/restore, and replay
   - Current: `spec/src/session_and_persistence.md` defines room-switch ordering,
     entry boundaries, replay pair kinds/packets/checkpoints, selector behavior,
     save names/signatures, five-block framing and known lengths, the v3 block-3
     XOR transform, recoverable/fatal failures, restore continuation, restart,
-    and process cleanup.
-  - Remaining: map every byte of all five save blocks to portable state before
-    claiming arbitrary binary save interchange.
-- [ ] Compatibility and version-conformance matrix
+    and process cleanup. All five blocks in the observed profile 2.936 game
+    data now have byte-complete maps: global state, 21 object records, 40
+    inventory entries plus names, 100 replay pairs, and variable logic-resume
+    records. The observed profile 3.002.149 Gold Rush save state now has a
+    byte-complete structural map: 1028-byte global block with explicit opaque
+    ranges, 23 object records, decoded 131-entry inventory/name data, 50
+    replay pairs, and the same variable logic-resume grammar.
+  - Remaining: determine whether the five explicit block-1 opaque ranges ever
+    change in valid execution, determine whether the GR block-1 opaque ranges
+    ever change in valid execution, and map save layouts for additional
+    profiles.
+- [x] Compatibility and version-conformance matrix
+  - Current: `spec/src/conformance_matrix.md` separates the common core,
+    2.936/3.002.149 variants, game-data dimensions, partial domains,
+    out-of-scope behavior, and requirements for gameplay/save-interchange
+    claims. Structural tests guard its section and claim boundaries.
 
 ## GR / SQ2 Static Comparison Tracker
 
@@ -205,8 +217,9 @@ source-mapped well enough to justify a targeted probe.
       targets `0x7e`, `0x7f`, and `0x80` converge to the same nonblank
       destination-room capture. GR save wraps the object/inventory chunk in an
       XOR pass before and after writing the save envelope; local helper
-      `gr_v3_object_inventory_save_xor()` models the observed 59-byte key and
-      is covered by round-trip/wrap tests. QEMU
+      `gr_v3_object_inventory_save_xor()` models the observed repeating
+      `Avis Durgan` data-segment key and is covered by known-vector,
+      round-trip, and wrap tests. QEMU
       `save_xor_extract_qemu_001` extracts the original engine's blank-prefix
       `SG.1`, confirms five length-prefixed blocks with lengths `1028`, `989`,
       `1811`, `100`, and `12`, and proves the third block changes and
@@ -708,8 +721,9 @@ source-mapped well enough to justify a targeted probe.
     path. `build/compatibility-suite/qemu_v3_synthetic_picture_view_001.json`
     confirms generated v3 picture-nibble picture and direct view fixtures by
     comparing blank, picture-only, and picture-plus-view captures. The current
-    full local unit run passed 323 tests after adding the specification
-    structure/boundary checks and deterministic object-motion transitions.
+    full local unit run passed 341 tests after adding the complete profile
+    2.936 save-block maps, metadata relations, logic-resume grammar, and
+    conformance-matrix checks.
   - Remaining: assemble a final broad suite that can validate a clean-room
     implementation against original-engine outputs; scale timed polling
     carousel sweeps to additional resource batches and future interpreter
@@ -736,16 +750,21 @@ source-mapped well enough to justify a targeted probe.
     The existing `docs/` book remains the implementation-detail evidence
     record. Promoted chapters now include version profiles, resource
     containers, core runtime state, logic bytecode, pictures, views, objects,
-    and sound scheduling/output boundaries.
+    sound scheduling/output boundaries, input/text/menu/inventory behavior,
+    and room/replay/persistence behavior.
     Structural tests reject evidence-only terminology in substantive spec
     chapters and verify every summary link.
-  - Remaining: promote input/UI, room/persistence, and the conformance matrix.
-    The final spec must stand alone for a separate implementation team.
+    All five observed profile 2.936 save blocks now have exhaustive
+    block-relative partitions, with unresolved bytes retained explicitly.
+  - Remaining: resolve or preserve block-1 opaque ranges, map other profile
+    save layouts, and close the partial text/sound domains. The final spec must
+    stand alone for a separate implementation team.
 
 ## Highest-Value Remaining Work
 
-1. Map the five save-state blocks field by field into portable state, starting
-   with profile 2.936 block 1 and preserving padding/unknown bytes explicitly.
+1. Complete the four-channel attenuation-envelope contract from source first,
+   then promote the externally observable sound-amplitude behavior into the
+   clean spec and tests.
 2. Continue v3 behavioral probes from source-mapped deltas only when the
    portable specification still has an observable ambiguity. Use synthetic v3
    resources when a focused confirmation requires them.
