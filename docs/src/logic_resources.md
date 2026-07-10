@@ -205,7 +205,10 @@ call_logic(number):
 
 The action handlers propagate the interpreter result: if `0x12ae` returns zero,
 the action dispatcher receives zero as the next instruction pointer and the
-current logic loop stops. A nonzero result advances to the next action.
+current logic loop stops. A normal opcode `0x00` termination returns the
+callee's nonzero instruction pointer, so the caller advances to its next
+action. Zero is reserved for action paths that deliberately abort/restart the
+current logic flow, such as room switching.
 
 This shows two distinct lifetimes:
 

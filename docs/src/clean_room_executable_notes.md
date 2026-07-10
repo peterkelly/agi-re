@@ -9800,3 +9800,60 @@ Validation:
   build/compatibility-suite/local_spec_split_001.json` passed all 307 local
   tests, built both mdBooks, and passed the opcode-evidence freshness check.
 - `git diff --check` passed.
+
+## 2026-07-10: first behavioral-specification promotion pass
+
+The first substantive clean-room specification pass promoted evidence into
+four implementation-independent chapters:
+
+- version profiles for the currently promoted 2.936 and 3.002.149 behavior;
+- split-v2 and combined-v3 resource container formats, including dictionary
+  and picture-nibble expansion;
+- portable scalar, logic, resource, object, inventory, graphics, and cycle
+  state; and
+- sound resource parsing, countdown scheduling, completion flags, channel
+  participation, PC-speaker divisor output, and four-channel tone/silence
+  output.
+
+No original addresses, symbolic machine-code labels, disassembly commands,
+local paths, or test-harness references were copied into the substantive
+chapters. A new structural test verifies mdBook summary targets and rejects
+evidence-only terminology in future substantive spec chapters.
+
+The four-channel attenuation-envelope contract was intentionally not promoted
+as complete. The evidence records that channels 0 through 2 reset their
+envelope index on each event while channel 3 preserves it, but the complete
+portable initialization/transition contract still needs a focused source pass.
+The spec states this limitation rather than filling the gap by inference.
+
+A direct scan of all 468 readable dictionary-compressed Gold Rush records found
+initial 9-bit code `0x100` in every case. The valid v3 dictionary stream contract
+therefore requires a reset code at the beginning, removing ambiguity around
+decoder startup state.
+
+The next specification pass added logic payload/message framing, message XOR
+decoding, main-stream jumps and conditional blocks, AND/OR/NOT condition-list
+semantics, all 19 valid 2.936 condition opcodes, and action opcodes
+`0x00..0x20`. Room switching is stated as portable state transitions and
+re-entry ordering rather than as cleanup routine calls. Picture load, prepare,
+overlay, and show remain separate operations in the normative text because
+their visibility distinction is observable.
+
+Before validation, the nested-call return rule was checked directly against
+the local instruction stream. This exposed a stale earlier statement in the
+evidence chapters: ordinary opcode `0x00` returns the instruction pointer after
+the terminator and does not clear the logic record's resume field. Therefore a
+normally terminated callee returns to the caller's next action. Only an action
+path that returns a zero continuation, such as room switching, propagates an
+abort through `call_logic`. Both the evidence book and specification were
+corrected before the chapter was promoted as validated.
+
+Validation:
+
+- `AGI_GAME_DIR=games/SQ2 python3 -B -m unittest discover -s tests` passed
+  309 tests.
+- `mdbook build docs` passed.
+- `mdbook build spec` passed.
+- `AGI_GAME_DIR=games/SQ2 python3 -B
+  tools/logic_opcode_evidence.py --check` passed.
+- `git diff --check` passed.

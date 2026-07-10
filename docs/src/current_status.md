@@ -132,6 +132,12 @@ clearing.
 
 ## Useful Files
 
+- `spec/src/README.md`: entry point for the independent behavioral
+  specification.
+- `spec/src/resource_containers.md`: normative v2/v3 container and expansion
+  contract.
+- `spec/src/runtime_state.md`: normative portable state and cycle model.
+- `spec/src/sound.md`: normative sound payload, scheduling, and output boundary.
 - `docs/src/logic_bytecode.md`: main opcode and interpreter bytecode reference.
 - `docs/src/logic_opcode_evidence.md`: generated opcode evidence matrix with
   QEMU/source-backed/reserved status for every action and condition row.
@@ -158,27 +164,27 @@ clearing.
 
 ## Immediate Next Work
 
-1. Keep source-first renderer work going only when disassembly reveals a
+1. Continue promoting well-supported evidence into the standalone `spec/`
+   book, beginning with the complete logic bytecode grammar and operation
+   catalog.
+2. Keep source-first renderer work going only when disassembly reveals a
    concrete valid-stream edge. Use QEMU as confirmation or regression coverage,
    not as the primary discovery method.
-2. Continue turning dense subsystem notes into implementation-ready contracts in
-   `docs/src/runtime_model.md`, `docs/src/graphics_object_pipeline.md`, and
-   subsystem-specific chapters.
 3. Keep `tools/compatibility_suite.py` current as new local/QEMU evidence is
    promoted. Re-run `--include-qemu-smoke` or `--include-qemu-broad` when the
    manifest changes.
 4. Continue assigning symbolic labels for helpers, globals, dispatch tables, and
    overlay entries so later interpreter versions can be compared by role rather
    than by absolute address.
-5. Defer cross-version comparison and broader real-resource parity until
-   additional local interpreter/game inputs are available.
+5. Apply the cross-version workflow to the additional local interpreter/game
+   inputs when a selected version can add or refine an observable spec variant.
 
 ## Deferred Or Conditional Work
 
 The remaining open rows in `PROGRESS.md` are mostly conditional:
 
-- Cross-version comparison is blocked until additional local interpreter/game
-  inputs are available.
+- Cross-version work is no longer blocked on inputs. It should be prioritized
+  by the value of an observed version difference to the behavioral spec.
 - Non-EGA display/input paths are outside the current full-EGA compatibility
   target unless another local interpreter version requires them.
 - Menu arrow navigation and a few UI paths would benefit from direct event
@@ -190,6 +196,6 @@ The remaining open rows in `PROGRESS.md` are mostly conditional:
 - Out-of-memory, invalid-path, and other error UI cases should be added only if
   they become necessary for the final compatibility suite.
 
-Use `PROGRESS.md` as the completion dashboard and the subsystem chapters as the
-normative source. Use `docs/src/clean_room_executable_notes.md` when the exact
-evidence trail or command history is needed.
+Use `PROGRESS.md` as the completion dashboard and `spec/src/` as the normative
+source. Use `docs/src/clean_room_executable_notes.md` when the exact evidence
+trail or command history is needed.

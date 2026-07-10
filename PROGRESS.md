@@ -29,8 +29,9 @@ better understood, or a new remaining-work item is discovered.
   `0x6e`/`0x83`/`0x8e`/`0xaa`/`0xad` source-backed).
 - Logic condition opcodes: all 19 of 19 are QEMU-validated.
 - Main remaining risk areas: full picture/view renderer edge behavior, text and
-  input UI details, sound/audio semantics, final compatibility suite breadth,
-  and turning the accumulated notes into implementation-ready subsystem specs.
+  input UI details, the remaining four-channel sound envelope contract, final
+  compatibility suite breadth, and promoting the accumulated evidence into the
+  standalone behavioral specification.
 - Cross-version comparison has begun with Gold Rush (`games/GR`) / AGI v3:
   resource directory and volume compression differences are source-backed,
   locally decoded, and documented. Static opcode/subsystem comparison against
@@ -65,6 +66,46 @@ better understood, or a new remaining-work item is discovered.
   table bases from the observed argc/meta signatures, including KQ4D v3 bases
   `0x0620`/`0x0942`; decoded KQ4D scripts reference only the clean sound
   records `70..79`.
+
+## Behavioral Specification Coverage
+
+- [x] Clean-room scope and conformance boundary
+  - Current: `spec/src/scope_and_conformance.md` defines externally observable
+    behavior, valid-data scope, version variants, nondeterminism, and the
+    separation from the evidence book.
+- [~] Version profiles
+  - Current: `spec/src/version_profiles.md` defines the primary 2.936 profile
+    and the promoted observable 3.002.149 resource/opcode variants.
+  - Remaining: add profiles for other local versions only after their
+    observable differences have been mapped.
+- [x] Resource containers
+  - Current: `spec/src/resource_containers.md` specifies split v2 and combined
+    v3 directories, packed entries, volume records, direct payloads,
+    dictionary expansion, and picture-nibble expansion for valid data.
+- [~] Core runtime state and cycle ordering
+  - Current: `spec/src/runtime_state.md` defines portable variable, flag,
+    string, parsed-word, logic activation, resource, object, inventory, logical
+    graphics, and top-level cycle concepts.
+  - Remaining: refine subsystem-owned fields as their normative chapters are
+    promoted.
+- [~] Sound resources and playback
+  - Current: `spec/src/sound.md` defines payload parsing, sound opcodes,
+    countdown scheduling, completion flags, channel participation, PC-speaker
+    divisors, four-channel tone order, and silence.
+  - Remaining: complete the four-channel attenuation-envelope initialization
+    and transition contract before claiming full amplitude parity.
+- [~] Logic bytecode operation catalog
+  - Current: `spec/src/logic_bytecode.md` specifies logic payload framing,
+    message XOR decoding, main-stream control flow, AND/OR/NOT condition
+    grammar, all 19 condition opcodes, and action opcodes `0x00..0x20`.
+  - Remaining: promote action opcodes `0x21..0xaf`, plus the v3 extension rows,
+    with portable names and complete observable side effects.
+- [ ] Picture command decoding and logical rendering
+- [ ] View/cel decoding and drawing
+- [ ] Object state, movement, collision, animation, and update ordering
+- [ ] Text, parser, keyboard, menu, and inventory behavior
+- [ ] Room changes, restart, save/restore, and replay
+- [ ] Compatibility and version-conformance matrix
 
 ## GR / SQ2 Static Comparison Tracker
 
@@ -449,7 +490,9 @@ source-mapped well enough to justify a targeted probe.
     picture-nibble expansion/encoding in `tools/agi_resources.py`, and copied
     v3 fixture patching in `tools/qemu_fixture.py`. `tools/game_census.py`
     inventories additional local games and records header errors without
-    treating them as valid-resource semantics.
+    treating them as valid-resource semantics. The valid split/combined
+    container and expansion contract is now promoted into
+    `spec/src/resource_containers.md`.
   - Remaining: loader error-path behavior only where needed by compatibility
     tests; apply the v3 parser to additional games/interpreters as local inputs
     are selected.
@@ -557,10 +600,12 @@ source-mapped well enough to justify a targeted probe.
     port-write behavior including the PC-speaker divisor formula and
     tone/silence output boundary plus non-PC-speaker attenuation/envelope output
     bytes. `docs/src/sound_and_audio.md` now consolidates these observations
-    into an implementation-facing subsystem contract.
-  - Remaining: analog waveform synthesis beyond the interpreter's port-output
-    boundary and optional dynamic confirmation of natural sound completion if
-    that becomes useful.
+    into an evidence-facing subsystem contract. `spec/src/sound.md` now
+    promotes the payload, scheduling, completion, tone, and silence behavior.
+  - Remaining: complete the portable four-channel attenuation-envelope state
+    transition contract. Analog waveform synthesis remains outside scope;
+    optional dynamic confirmation of natural completion is useful only if the
+    written scheduling contract exposes an unresolved ambiguity.
 - [~] DOS file I/O, logging, save descriptions, and path selection
   - Evidence: log-file QEMU content check, save/restore source map, selector
     path/slot source map, save-description buffer copy source map, corrected
@@ -629,7 +674,8 @@ source-mapped well enough to justify a targeted probe.
     path. `build/compatibility-suite/qemu_v3_synthetic_picture_view_001.json`
     confirms generated v3 picture-nibble picture and direct view fixtures by
     comparing blank, picture-only, and picture-plus-view captures. The current
-    full local unit run passed 307 tests.
+    full local unit run passed 309 tests after adding the specification
+    structure/boundary checks.
   - Remaining: assemble a final broad suite that can validate a clean-room
     implementation against original-engine outputs; scale timed polling
     carousel sweeps to additional resource batches and future interpreter
@@ -654,24 +700,26 @@ source-mapped well enough to justify a targeted probe.
   - Evidence: a separate clean-room mdBook now lives under `spec/`, with an
     explicit externally observable behavior boundary and conformance model.
     The existing `docs/` book remains the implementation-detail evidence
-    record. Sound/audio and other subsystem evidence is ready to be distilled
-    without carrying DOS addresses or control flow into the specification.
-  - Remaining: promote well-supported behavior from `docs/` into complete,
-    portable, subsystem-oriented chapters under `spec/src/`. The final spec
+    record. The first promotion pass now includes version profiles, resource
+    containers, core runtime state, and sound scheduling/output boundaries.
+    Structural tests reject evidence-only terminology in substantive spec
+    chapters and verify every summary link.
+  - Remaining: promote the complete logic operation catalog, graphics, views,
+    objects, input/UI, room/persistence, and conformance matrix. The final spec
     must stand alone for a separate implementation team.
 
 ## Highest-Value Remaining Work
 
-1. Continue v3 behavioral probes from the source-mapped GR/SQ2 deltas only when
-   source-backed descriptions still need observable confirmation. Use the new
-   v3 picture/view fixture packing when a probe needs synthetic resources
-   rather than original local game resources.
-2. Continue source-first renderer work only when disassembly or a valid local
+1. Continue promoting well-supported evidence into `spec/src/`, beginning with
+   the complete logic bytecode grammar and operation catalog, then picture/view
+   rendering and object behavior. Keep every normative chapter independent of
+   disassembly and analysis tooling.
+2. Continue v3 behavioral probes from source-mapped deltas only when the
+   portable specification still has an observable ambiguity. Use synthetic v3
+   resources when a focused confirmation requires them.
+3. Continue source-first renderer work only when disassembly or a valid local
    resource exposes a concrete edge not already modeled. Use QEMU as
    confirmation/regression evidence.
-3. Continue converting dense evidence notes into portable behavioral contracts
-   under `spec/src/`. Keep disassembly, original addresses, and investigation
-   history in `docs/`; the specification must be usable without them.
 4. Keep expanding `tools/compatibility_suite.py` when a new behavior is promoted
    to reusable evidence. Re-run the smoke or broad QEMU layer whenever the
    manifest changes.

@@ -75,8 +75,7 @@ loop:
     opcode = *si++
 
     if opcode == 0x00:
-        logic_record[0x06] = 0
-        return 0
+        return si
 
     if opcode == 0xfe:
         delta = s16le(*si); si += 2
@@ -603,10 +602,10 @@ Examples of action entries:
 
 This table entry points at the same no-op helper used by action `0x7f`, but the
 main interpreter loop handles opcode byte `0x00` before entering the action
-dispatcher. Runtime opcode `0x00` stores zero in the current logic record's
-resume pointer field `[logic_record+0x06]` and returns from the interpreter.
-Later bytes in the same logic payload can still be reached by a jump from
-earlier code.
+dispatcher. Runtime opcode `0x00` returns the instruction pointer immediately
+after the terminator. It does not write the logic record's resume-pointer
+field. Later bytes in the same logic payload can still be reached by a jump
+from earlier code.
 
 The action dispatcher itself does not use the operand-count byte; handlers
 consume operands directly from `SI` and return the next `SI` in `AX`. The table

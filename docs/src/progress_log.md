@@ -24511,3 +24511,126 @@ Progress updates and outcomes:
       Action/result: Recorded the successful `spec/` build and default local
       compatibility report `local_spec_split_001.json`; `git diff --check`
       also passed.
+
+3196. Reported: "The highest-value gap is now the deliverable itself: `spec/`
+      has its boundary but almost no AGI behavior yet. I’ll start promoting the
+      strongest, least ambiguous material into portable chapters: the
+      resource-container contract, the shared runtime/state model, and sound
+      scheduling, while keeping addresses, registers, DOS calls, and
+      evidentiary commentary in `docs/`."
+
+      Action/result: Selected resource containers, core runtime state, and
+      sound scheduling as the first substantive specification promotion set.
+
+3197. Reported: "The evidence separates cleanly into two kinds of contract.
+      Resource files and sound streams have byte-exact external formats;
+      runtime state is better specified as abstract types and ordered effects,
+      not as copies of the DOS memory layout. I’m extracting those separately
+      so the spec stays precise without becoming a disguised decompilation."
+
+      Action/result: Extracted byte-exact format rules separately from abstract
+      state and lifecycle rules.
+
+3198. Reported: "The first promotion set is now bounded: exact v2/v3 resource
+      containers, abstract runtime state and cycle ordering, and the sound
+      resource/scheduler contract. I’m deliberately leaving incomplete
+      four-channel envelope initialization and other evidence-only details out
+      of the normative text until the observable rule can be stated without
+      gaps."
+
+      Action/result: Defined the promotion boundary and recorded the remaining
+      sound-envelope gap rather than inferring missing behavior.
+
+3199. Reported: "I’m writing the chapters now and adding a small structural
+      test around the clean-room boundary. It will verify that every
+      specification chapter linked by the mdBook exists and that substantive
+      chapters do not accumulate analysis paths, debugger names, symbolic
+      machine-code labels, or disassembly terminology."
+
+      Action/result: Added version, resource, runtime, and sound specification
+      chapters plus `tests/test_spec_book.py`.
+
+3200. Reported: "The new chapters build and pass their boundary checks. Before
+      promoting them in `PROGRESS.md`, I’m doing a second accuracy pass against
+      the actual local resource bytes and existing models, especially around
+      dictionary stream initialization and the distinction between engine-cycle
+      behavior and game-authored logic conventions."
+
+      Action/result: Rechecked the promoted contracts and scanned all 468
+      readable Gold Rush dictionary streams; every stream begins with reset
+      code `0x100`.
+
+3201. Reported: "The accuracy pass confirmed all 468 currently readable Gold
+      Rush dictionary-compressed records begin with reset code `0x100`, so I’m
+      making that a valid-stream requirement rather than leaving decoder
+      startup ambiguous. I’m also correcting the handoff dashboard, which
+      still contained stale language saying additional interpreter inputs were
+      unavailable."
+
+      Action/result: Added the valid-stream reset requirement, created a
+      specification-coverage dashboard, reprioritized remaining work around
+      the behavioral deliverable, and corrected the stale handoff text.
+
+3202. Reported: "The specification now has its first real behavioral content,
+      and `PROGRESS.md` tracks specification coverage separately from
+      reverse-engineering coverage. I’ve also reprioritized the remaining work
+      so completing portable chapters comes before gathering more evidence
+      that does not resolve a spec ambiguity."
+
+      Action/result: Completed the first specification promotion pass and
+      moved validation into progress.
+
+3203. Reported: "Validation is clean at 309 tests, including the new
+      specification guardrails. I’m continuing with the next dashboard item
+      rather than stopping there: the logic bytecode chapter will begin with
+      the complete stream grammar and all 19 conditions, then promote action
+      families in bounded, reviewable groups."
+
+      Action/result: Began the logic-bytecode promotion pass after both books,
+      all 309 tests, opcode evidence, and whitespace checks passed.
+
+3204. Reported: "The bytecode format has a clean portable boundary: resource
+      framing and message decoding, stream control bytes, condition-list
+      semantics, operand interpretation, and operation effects. I’m promoting
+      the complete condition set plus actions `0x00..0x20` first, including
+      room-switch re-entry and picture load/prepare/show distinctions that a
+      compatible engine must preserve."
+
+      Action/result: Added `spec/src/logic_bytecode.md` with the complete
+      grammar and condition catalog plus the first 33 action rows.
+
+3205. Reported: "The first logic section is written, but I’m not treating the
+      existing prose as infallible. I’m checking the nested-call return rule
+      directly against the local disassembly before validation, because a
+      single mistaken 'callee termination propagates' sentence would materially
+      alter control flow for every implementation using the spec."
+
+      Action/result: Re-read the local logic call and interpreter instruction
+      streams and found a stale opcode-`0x00` return description.
+
+3206. Reported: "That check caught a real documentation error before it reached
+      validation. Opcode `0x00` returns the instruction position after the
+      terminator, not zero; ordinary called logic therefore returns to its
+      caller. Only a callee path that explicitly returns zero, such as room
+      switching, propagates termination into the caller. I’m correcting both
+      the evidence book and the new spec now."
+
+      Action/result: Corrected normal logic termination and nested-call
+      continuation semantics in both documentation roles.
+
+3207. Reported: "The source-level correction is now reflected on both sides of
+      the clean-room boundary. I’m running the full suite again, including the
+      spec terminology guard, so the final state verifies both behavioral
+      content and separation discipline."
+
+      Action/result: All 309 tests, both mdBook builds, opcode-evidence
+      freshness, and whitespace checks passed.
+
+3208. Reported: "Everything passes after the control-flow correction: 309
+      tests, both mdBooks, opcode evidence, and whitespace checks. I’m
+      recording that validation and leaving the next specification task clearly
+      bounded at action opcodes `0x21..0xaf`, rather than mixing more unreviewed
+      material into this pass."
+
+      Action/result: Recorded final validation and retained the remaining
+      action catalog as the next bounded specification task.
