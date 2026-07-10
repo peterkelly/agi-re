@@ -28,10 +28,10 @@ better understood, or a new remaining-work item is discovered.
   (`170` QEMU-validated, `0x00` structural, and
   `0x6e`/`0x83`/`0x8e`/`0xaa`/`0xad` source-backed).
 - Logic condition opcodes: all 19 of 19 are QEMU-validated.
-- Main remaining risk areas: full picture/view renderer edge behavior, text and
-  input UI details, the remaining four-channel sound envelope contract, final
-  compatibility suite breadth, and promoting the accumulated evidence into the
-  standalone behavioral specification.
+- Main remaining risk areas: full picture/view renderer edge behavior, final
+  compatibility suite breadth, additional cross-version profiles, and
+  promoting the accumulated evidence into the standalone behavioral
+  specification.
 - Cross-version comparison has begun with Gold Rush (`games/GR`) / AGI v3:
   resource directory and volume compression differences are source-backed,
   locally decoded, and documented. Static opcode/subsystem comparison against
@@ -49,6 +49,25 @@ better understood, or a new remaining-work item is discovered.
   interpreter under `build/` so action `0x51` seeds mode `4` instead of mode
   `3`, then compares the resulting capture with the unmodified mode-3 capture
   and a stationary control.
+- KQ4D / 3.002.102 now has a promoted full-EGA profile. Generic static table
+  comparison finds identical operand contracts for all 182 actions and 19
+  conditions versus GR, with 12 shared-action handler differences. Direct SQ2
+  comparison reduces those to five v3 deltas: inventory temporary state, save
+  block-3 XOR, restart prompt handling, motion-mode-4 preservation, and the
+  set-style release gate. KQ4D otherwise retains 2.936 room/input-width behavior
+  and a 39-entry key map. Its source-derived KQ4D demo save dimensions are
+  mapped. A 52-role KQ4D/GR source comparison now covers view loading and cel
+  selection, picture lifecycle and every command/raster helper, object lists,
+  animation, placement, collision, control acceptance, dirty rectangles, and
+  motion. Primary full-EGA paths match after relocation; the only renderer
+  deltas are retained alternate display-mode branches outside the target.
+- KQ1 / 2.917 now has a promoted full-EGA profile. Decryption with KQ1's own
+  loader key exposes 174 actions `0x00..0xad` and 19 conditions; every shared
+  handler and parser contract matches 2.936. A 52-role subsystem pass finds one
+  observable runtime delta: automatic direction-based selection uses the
+  four-loop table only for exactly four loops, not for larger loop counts. The
+  selected KQ1 five-block save dimensions are mapped, including 18 object
+  records, 27 inventory entries, and 100 replay pairs.
 - Generated original-engine fixture builders now treat `games/` as immutable:
   they copy the selected game input to a generated destination, make copied
   files writable, and reject fixture destinations under `games/`. The v2
@@ -64,8 +83,9 @@ better understood, or a new remaining-work item is discovered.
   and record-header errors that require later source inspection before they are
   modeled. `tools/disassemble_logic.py` now detects per-build action/condition
   table bases from the observed argc/meta signatures, including KQ4D v3 bases
-  `0x0620`/`0x0942`; decoded KQ4D scripts reference only the clean sound
-  records `70..79`.
+  `0x0620`/`0x0942`. `tools/resource_reference_audit.py` now checks immediate
+  script-visible resource references against unreadable directory entries; the
+  current KQ1/KQ4D focused audit finds no referenced unreadable sound entries.
 
 ## Behavioral Specification Coverage
 
@@ -75,9 +95,10 @@ better understood, or a new remaining-work item is discovered.
     separation from the evidence book.
 - [~] Version profiles
   - Current: `spec/src/version_profiles.md` defines the primary 2.936 profile
-    and the promoted observable 3.002.149 resource/opcode variants.
-  - Remaining: add profiles for other local versions only after their
-    observable differences have been mapped.
+    and promoted full-EGA 2.917, 3.002.102, and 3.002.149 profiles. KQ1, KQ4D,
+    and Gold Rush supply mapped profile-specific binary-save dimensions.
+  - Remaining: add further versions only after observable differences are
+    mapped.
 - [x] Resource containers
   - Current: `spec/src/resource_containers.md` specifies split v2 and combined
     v3 directories, packed entries, volume records, direct payloads,
@@ -88,12 +109,13 @@ better understood, or a new remaining-work item is discovered.
     graphics, and top-level cycle concepts.
   - Remaining: refine subsystem-owned fields as their normative chapters are
     promoted.
-- [~] Sound resources and playback
+- [x] Sound resources and playback
   - Current: `spec/src/sound.md` defines payload parsing, sound opcodes,
     countdown scheduling, completion flags, channel participation, PC-speaker
-    divisors, four-channel tone order, and silence.
-  - Remaining: complete the four-channel attenuation-envelope initialization
-    and transition contract before claiming full amplitude parity.
+    divisors, four-channel tone order, silence, and four-channel attenuation
+    envelope command output.
+  - Remaining: analog waveform synthesis remains outside the current
+    interpreter-output compatibility target.
 - [x] Logic bytecode operation catalog
   - Current: `spec/src/logic_bytecode.md` specifies logic payload framing,
     message XOR decoding, main-stream control flow, AND/OR/NOT condition
@@ -123,15 +145,15 @@ better understood, or a new remaining-work item is discovered.
     and approach-mode stuck-recovery delay arithmetic are source-backed and
     covered by deterministic local transition tests using supplied random
     words.
-- [~] Text, parser, keyboard, menu, and inventory behavior
+- [x] Text, parser, keyboard, menu, and inventory behavior
   - Current: `spec/src/input_text_and_menus.md` defines dictionary compression,
     string slots, parser normalization/results/matching, the shared event
     queue, key mapping and release gates, text geometry and display offset,
     modal/alternate text state, inventory selection, and menu construction and
-    navigation.
-  - Remaining: decide whether exact platform glyph bitmaps belong in any target
-    profile.
-- [~] Room changes, restart, save/restore, and replay
+    navigation. Exact glyph bitmaps are a declared font-profile input outside
+    the current portable core, not an unresolved interpreter behavior.
+  - Remaining: bitmap-identical text claims must supply a font profile.
+- [x] Room changes, restart, save/restore, and replay
   - Current: `spec/src/session_and_persistence.md` defines room-switch ordering,
     entry boundaries, replay pair kinds/packets/checkpoints, selector behavior,
     save names/signatures, five-block framing and known lengths, the v3 block-3
@@ -140,13 +162,14 @@ better understood, or a new remaining-work item is discovered.
     data now have byte-complete maps: global state, 21 object records, 40
     inventory entries plus names, 100 replay pairs, and variable logic-resume
     records. The observed profile 3.002.149 Gold Rush save state now has a
-    byte-complete structural map: 1028-byte global block with explicit opaque
-    ranges, 23 object records, decoded 131-entry inventory/name data, 50
+    byte-complete structural map: 1028-byte global block with explicit reserved
+    state, 23 object records, decoded 131-entry inventory/name data, 50
     replay pairs, and the same variable logic-resume grammar.
-  - Remaining: determine whether the five explicit block-1 opaque ranges ever
-    change in valid execution, determine whether the GR block-1 opaque ranges
-    ever change in valid execution, and map save layouts for additional
-    profiles.
+    Cross-version layout and complete-code reference analysis classify the
+    former block-1 gaps as inactive key-map records, a reserved string bank,
+    fixed reserved words, and alignment bytes. The spec defines canonical
+    initialization plus byte preservation for interchange.
+  - Remaining: map save layouts for additional profiles when promoted.
 - [x] Compatibility and version-conformance matrix
   - Current: `spec/src/conformance_matrix.md` separates the common core,
     2.936/3.002.149 variants, game-data dimensions, partial domains,
@@ -537,9 +560,10 @@ source-mapped well enough to justify a targeted probe.
     picture-nibble expansion/encoding in `tools/agi_resources.py`, and copied
     v3 fixture patching in `tools/qemu_fixture.py`. `tools/game_census.py`
     inventories additional local games and records header errors without
-    treating them as valid-resource semantics. The valid split/combined
-    container and expansion contract is now promoted into
-    `spec/src/resource_containers.md`.
+    treating them as valid-resource semantics. `tools/resource_reference_audit.py`
+    distinguishes unreadable directory entries from entries immediately
+    referenced by decoded scripts. The valid split/combined container and
+    expansion contract is now promoted into `spec/src/resource_containers.md`.
   - Remaining: loader error-path behavior only where needed by compatibility
     tests; apply the v3 parser to additional games/interpreters as local inputs
     are selected.
@@ -626,8 +650,7 @@ source-mapped well enough to justify a targeted probe.
     source-modeled tracked key-release IRQ latch/gate tests, and an
     implementation-facing UI lifecycle state machine.
   - Remaining: non-EGA text paths only if they become relevant to explaining
-    SQ2 behavior, plus any polish needed to turn the UI notes into a final
-    normative spec.
+    SQ2 behavior.
 - [~] Menus and inventory UI
   - Evidence: inventory selection, menu setup, disabled/enabled item probes,
     a source-backed `code.menu.interact` movement dispatch table, and an
@@ -638,7 +661,7 @@ source-mapped well enough to justify a targeted probe.
     direct event injection or a more precise QEMU input path; existing QEMU
     keyboard attempts did not produce reusable movement evidence, but the
     current movement semantics are source-backed.
-- [~] Sound and audio
+- [x] Sound and audio
   - Evidence: load/start/stop completion-flag behavior; source-backed sound
     cache/channel pointer setup; local parser/tests for the four-channel sound
     payload header, duration/tone/control event streams, active-channel
@@ -648,11 +671,11 @@ source-mapped well enough to justify a targeted probe.
     tone/silence output boundary plus non-PC-speaker attenuation/envelope output
     bytes. `docs/src/sound_and_audio.md` now consolidates these observations
     into an evidence-facing subsystem contract. `spec/src/sound.md` now
-    promotes the payload, scheduling, completion, tone, and silence behavior.
-  - Remaining: complete the portable four-channel attenuation-envelope state
-    transition contract. Analog waveform synthesis remains outside scope;
-    optional dynamic confirmation of natural completion is useful only if the
-    written scheduling contract exposes an unresolved ambiguity.
+    promotes the payload, scheduling, completion, tone, silence, and
+    attenuation-envelope command-output behavior.
+  - Remaining: analog waveform synthesis remains outside scope; optional
+    dynamic confirmation of natural completion is useful only if the written
+    scheduling contract exposes an unresolved ambiguity.
 - [~] DOS file I/O, logging, save descriptions, and path selection
   - Evidence: log-file QEMU content check, save/restore source map, selector
     path/slot source map, save-description buffer copy source map, corrected
@@ -740,7 +763,9 @@ source-mapped well enough to justify a targeted probe.
     write copied v3 fixtures with direct logic/view records and picture-nibble
     picture records for generated Gold Rush-style copies under `build/`; a
     QEMU compatibility probe confirms those generated records run under the
-    original GR interpreter.
+    original GR interpreter. `tools/resource_reference_audit.py` adds a
+    script-visible reference check for deciding whether unreadable
+    directory-looking entries are valid behavior candidates.
   - Remaining: continue the GR v3 comparison into loader error paths and
     behavioral fixtures for the static deltas, then repeat the workflow for
     additional local games/interpreter versions.
@@ -754,17 +779,19 @@ source-mapped well enough to justify a targeted probe.
     and room/replay/persistence behavior.
     Structural tests reject evidence-only terminology in substantive spec
     chapters and verify every summary link.
-    All five observed profile 2.936 save blocks now have exhaustive
-    block-relative partitions, with unresolved bytes retained explicitly.
-  - Remaining: resolve or preserve block-1 opaque ranges, map other profile
-    save layouts, and close the partial text/sound domains. The final spec must
-    stand alone for a separate implementation team.
+    All five observed profile 2.936 and Gold Rush 3.002.149 save blocks now have
+    exhaustive block-relative partitions. Former opaque block-1 ranges are
+    classified as reserved serialization state with canonical initialization
+    and byte-preservation rules.
+  - Remaining: map other profile save layouts and close remaining conditional
+    domains. The final spec must stand alone for a separate implementation
+    team.
 
 ## Highest-Value Remaining Work
 
-1. Complete the four-channel attenuation-envelope contract from source first,
-   then promote the externally observable sound-amplitude behavior into the
-   clean spec and tests.
+1. Apply the source-first comparison workflow to 2.411 or 2.440. Their table
+   geometry exposes only 170 actions `0x00..0xa9`; inspect the dispatcher and
+   shared handlers before promoting that earlier boundary.
 2. Continue v3 behavioral probes from source-mapped deltas only when the
    portable specification still has an observable ambiguity. Use synthetic v3
    resources when a focused confirmation requires them.

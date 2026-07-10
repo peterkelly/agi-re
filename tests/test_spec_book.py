@@ -68,6 +68,10 @@ class SpecBookTests(unittest.TestCase):
             with self.subTest(heading=heading):
                 self.assertIn(f"## {heading}", matrix)
         self.assertIn("2.936 binary save interchange", matrix)
+        self.assertIn("2.917 full-EGA gameplay", matrix)
+        self.assertIn("2.917 KQ1 binary save interchange", matrix)
+        self.assertIn("3.002.102 full-EGA gameplay", matrix)
+        self.assertIn("3.002.102 KQ4D demo binary save interchange", matrix)
         self.assertIn("3.002.149 full-EGA gameplay", matrix)
 
     def test_picture_catalog_mentions_every_command(self) -> None:
@@ -118,11 +122,36 @@ class SpecBookTests(unittest.TestCase):
             "Text geometry and surfaces",
             "Inventory selection",
             "Menu interaction",
-            "Remaining presentation gaps",
+            "Font boundary",
         )
         for heading in required:
             with self.subTest(heading=heading):
                 self.assertIn(f"## {heading}", input_spec)
+
+    def test_sound_chapter_covers_timing_and_envelope_domains(self) -> None:
+        sound = (SPEC_SRC / "sound.md").read_text(encoding="ascii")
+        required_headings = (
+            "Payload format",
+            "Logic operations",
+            "Tick schedule",
+            "Channel profiles",
+            "PC-speaker output",
+            "Four-channel command output",
+            "Output boundary",
+        )
+        for heading in required_headings:
+            with self.subTest(heading=heading):
+                self.assertIn(f"## {heading}", sound)
+        required_terms = (
+            "Envelope index",
+            "Table byte `0x80`",
+            "global attenuation adjustment",
+            "device value `2`",
+            "channel selector byte",
+        )
+        for term in required_terms:
+            with self.subTest(term=term):
+                self.assertIn(term, sound)
 
     def test_persistence_chapter_covers_room_replay_and_save_domains(self) -> None:
         persistence = (SPEC_SRC / "session_and_persistence.md").read_text(encoding="ascii")
@@ -131,10 +160,12 @@ class SpecBookTests(unittest.TestCase):
             "Resource replay sequence",
             "Save selector",
             "Save-file envelope",
-            "Profile 3.002.149 block transform",
+            "Profile 2.917 observed KQ1 blocks",
+            "Profile 3.002.102 observed KQ4D demo blocks",
+            "V3 block-3 transform",
             "Restore action outcomes",
             "Restart",
-            "Remaining persistence gap",
+            "Reserved-state rule",
         )
         for heading in required:
             with self.subTest(heading=heading):

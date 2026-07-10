@@ -67,7 +67,8 @@ Bytes `0x01..0xaf` are action opcodes in the 2.936 profile. Bytes
 `0xb0..0xfb` are not valid actions in that profile. Bytes `0xfc` and `0xfd`
 are condition-list markers and are invalid in the ordinary action stream.
 
-The 3.002.149 profile extends the action range through `0xb5` as specified in
+The 2.917 profile ends at `0xad`. Profiles 3.002.102 and 3.002.149 extend the
+action range through `0xb5` as specified in
 [Version Profiles](./version_profiles.md).
 
 ## Conditional blocks
@@ -453,8 +454,9 @@ The complete resource and scheduling contract is in
 | `0x78` | none | Enable and redraw the input line. |
 | `0x79` | key low byte, key high byte, status number | Add a key mapping for the little-endian key word. A matching raw key becomes a mapped event carrying the status number. |
 
-The 2.936 key map accepts at most 39 entries. Mapped events set the status
-observed by condition `0x0c`. The 3.002.149 profile accepts 49 entries.
+Profiles 2.917, 2.936, and 3.002.102 accept at most 39 key-map entries. Mapped
+events set the status observed by condition `0x0c`. The 3.002.149 profile
+accepts 49 entries.
 
 ## Action opcodes: transient views and inventory UI
 
@@ -538,7 +540,7 @@ Heading and item navigation wrap through enabled entries.
 | Opcode | Operands | Behavior |
 | ---: | --- | --- |
 | `0xa2` | view variable | Variable-selected form of `0x81`. |
-| `0xa3` | none | Enable the 2.936 fixed input-width override, using a 36-character starting cap. |
+| `0xa3` | none | Enable the fixed input-width override, using a 36-character starting cap in profiles that support it. |
 | `0xa4` | none | Disable the fixed input-width override and return to width derived from normal input state. |
 | `0xa5` | variable, immediate | Multiply and retain the low 8 bits. |
 | `0xa6` | destination variable, source variable | Multiply and retain the low 8 bits. |
@@ -548,13 +550,13 @@ Heading and item navigation wrap through enabled entries.
 | `0xaa` | string slot | Copy up to 31 bytes of the current save-selector description/path buffer into the slot. |
 | `0xab` | none | Save the current resource replay-pair count as a rollback point. |
 | `0xac` | none | Restore the saved replay-pair count and place the next write after the restored final pair. |
-| `0xad` | none | Increment the 2.936 key-release event gate modulo 256. A nonzero gate permits selected tracked-key releases to enqueue a movement-type zero event. |
+| `0xad` | none | Increment the key-release event gate modulo 256 in the v2 profiles. A nonzero gate permits selected tracked-key releases to enqueue a movement-type zero event. |
 | `0xae` | horizon row | Rebuild the baseline-to-priority table: rows below the argument map to 4; rows from it upward rise from 5 toward 15 across the remaining 168-row picture height. |
 | `0xaf` | none at runtime | Do nothing and consume no following byte during execution, despite this opcode's one-byte scanner length metadata. |
 
 ## Version 3 extension actions
 
-The 3.002.149 profile adds:
+Profiles 3.002.102 and 3.002.149 add:
 
 | Opcode | Operands | Behavior |
 | ---: | --- | --- |
@@ -565,13 +567,15 @@ The 3.002.149 profile adds:
 | `0xb4` | two variable operands | Consume two variable-index operands and otherwise do nothing. |
 | `0xb5` | none | Clear the key-release event gate. |
 
-In this profile shared action `0xad` sets the key-release gate to one rather
-than incrementing it. Shared actions `0xa3` and `0xa4` do nothing. Other shared
-differences are listed in [Version Profiles](./version_profiles.md).
+In these profiles shared action `0xad` sets the key-release gate to one rather
+than incrementing it. In 3.002.149, shared actions `0xa3` and `0xa4` do
+nothing; 3.002.102 retains their v2 effects. Other shared differences are
+listed in [Version Profiles](./version_profiles.md).
 
 ## Catalog completeness
 
 Every action opcode accepted by the 2.936 profile (`0x00..0xaf`) now has an
-operand and behavioral entry in this chapter. The 3.002.149 extension range
-`0xb0..0xb5` is also listed. Subsystem chapters may refine these summaries;
+operand and behavioral entry in this chapter. The 2.917 range is its
+`0x00..0xad` subset. The version-3 extension range `0xb0..0xb5` is also listed.
+Subsystem chapters may refine these summaries;
 when they do, the more detailed subsystem contract controls.

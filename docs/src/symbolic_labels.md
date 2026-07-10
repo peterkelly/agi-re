@@ -351,15 +351,18 @@ Address columns use these meanings:
 | `data.flags.packed_flags` | data `0x0109` | Packed flag bitfield; flag 0 is the high bit of byte `0x0109`. |
 | `data.timer.tick_count_0129` | data `0x0129` | Four-byte tick counter included in profile 2.936 save block 1. |
 | `data.motion.horizon_012d` | data `0x012d` | Word horizon baseline used by placement and room reset. |
-| `data.unknown.saved_word_012f` | data `0x012f` | Saved word with no direct reference found in the current executable scan; all 11 local saves contain zero. |
+| `data.save.reserved_word_012f` | data `0x012f` | Reserved serialized word with no direct reference in the complete executable scan; canonical bytes are zero and loaded bytes are preserved for interchange. |
 | `data.motion.rectangle_left_0131` | data `0x0131` | Word left bound for the configured movement rectangle. |
 | `data.motion.rectangle_top_0133` | data `0x0133` | Word top bound for the configured movement rectangle. |
 | `data.motion.rectangle_right_0135` | data `0x0135` | Word right bound for the configured movement rectangle. |
 | `data.motion.rectangle_bottom_0137` | data `0x0137` | Word bottom bound for the configured movement rectangle. |
 | `data.picture.prepared_number_013b` | data `0x013b` | Word holding the most recently prepared picture number. |
 | `data.motion.rectangle_enabled_013d` | data `0x013d` | Word gate for the configured movement rectangle. |
-| `data.unknown.saved_word_013f` | data `0x013f` | Saved word with no resolved behavioral use; all 11 local saves contain `0x000f`. |
+| `data.save.reserved_word_013f` | data `0x013f` | Reserved serialized word with no direct reference in the complete executable scan; canonical value is `0x000f` and loaded bytes are preserved for interchange. |
+| `data.save.reserved_key_map_tail_01e1` | data `0x01e1..0x0208` | Ten inactive four-byte key-map records beyond SQ2's 39-entry loop bound. GR expands the bound to 49 and consumes this exact range. |
+| `data.save.reserved_pre_string_padding_0209` | data `0x0209..0x020c` | Four reserved bytes retained before the shared string-slot root. Both promoted profiles serialize them as canonical zero bytes. |
 | `data.strings.slots` | data `0x020d` | Fixed 40-byte string slots. |
+| `data.save.reserved_string_bank_03ed` | data `0x03ed..0x05cc` | Twelve reserved 40-byte records beyond the valid 12-slot string range. GR removes this exact bank and places its text attributes at `0x03ed`. |
 | `data.strings.normalization_drop_chars` | data `0x094b` | Zero-terminated bytes skipped during normalized string comparison. |
 | `data.words.parser_separators_0c67` | data `0x0c67` | Zero-terminated separator bytes used by `code.words.normalize_string_for_parse`; SQ2 bytes are ` ,.?!();:[]{}`. |
 | `data.words.parser_ignored_0c75` | data `0x0c75` | Zero-terminated ignored punctuation bytes dropped by `code.words.normalize_string_for_parse`; SQ2 bytes are apostrophe, backtick, hyphen, and double quote. |
@@ -429,7 +432,7 @@ Address columns use these meanings:
 | `data.text.status_line_enabled` | data `0x05d9` | Word flag controlled by actions `0x70` and `0x71`; `code.text.redraw_status_line` only draws the status line when this is nonzero. |
 | `data.text.input_line_enabled` | data `0x05d3` | Word flag controlled by actions `0x77` and `0x78`; input-line redraw/erase helpers test it before updating the visible input area. |
 | `data.text.input_row_05d5` | data `0x05d5` | Configured input-line text row. |
-| `data.unknown.saved_byte_05d8` | data `0x05d8` | Saved byte between the prompt marker and status-line word; all 11 local saves contain zero. |
+| `data.save.reserved_text_padding_05d8` | data `0x05d8` | Reserved byte aligning the following word state; all 11 local saves contain the canonical zero value. |
 | `data.text.status_row_05db` | data `0x05db` | Configured status-line text row. |
 | `data.text.display_base_row_05dd` | data `0x05dd` | Configured base row for the text display area. |
 | `data.text.display_bottom_row_05df` | data `0x05df` | Bottom row derived from the configured display base row. |
@@ -578,3 +581,123 @@ decrypted SQ2 executable, so file offsets are image offsets plus `0x200`.
 | `data.text.window_saved_lower_right_0b2a` | GR data `[0x0b2a]` | Relocated packed saved-window rectangle word passed to GR rectangle restore helper. |
 | `data.text.window_saved_upper_left_0b2c` | GR data `[0x0b2c]` | Relocated packed saved-window rectangle word passed to GR rectangle restore helper. |
 | `data.inventory.selection_event_gate_0dc1` | GR data `[0x0dc1]` | Temporary word set while GR's interactive carried-item selector waits/handles events and cleared before action `0x7c` returns. |
+
+## KQ4D / AGI 3.002.102 Address Associations
+
+These loaded-image offsets come from `games/KQ4D/AGI`. The generic table
+comparison reports preserve build-specific addresses while relating them to the
+same role labels used for SQ2 and GR.
+
+| Label | KQ4D address | Notes/evidence |
+| --- | --- | --- |
+| `code.room.switch_room_action` | image `0x1a1b` | Reads the immediate operand and calls the ordinary room-switch helper directly; unlike GR it has no reserved-room remap call. |
+| `code.input.map_key_event` | image `0x5081` | Uses the shared key-map root and stops at `0x27` four-byte records, matching SQ2's 39-entry capacity. |
+| `code.input.set_width_flag_action` | image `0x3cec` | Action `0xa3`; stores one in KQ4D width word `[0x0d58]`. |
+| `code.input.clear_width_flag_action` | image `0x3cfe` | Action `0xa4`; clears KQ4D width word `[0x0d58]`. |
+| `code.text.close_window_state` | image `0x21fa` | Restores active window state, then clears both width word `[0x0d58]` and active-window word `[0x0d66]`, matching SQ2's two-state cleanup shape. |
+| `opcode.action.set_menu_interaction_gate` | table slot `0xb1`, image `0x9838` | Stores its immediate byte as a word in `[0x05e3]`; menu interaction at `0x9851` returns while zero. |
+| `opcode.action.clear_key_release_event_gate` | table slot `0xb5`, image `0x647f` | Clears byte `[0x05e5]`; shared action `0xad` at `0x6477` sets it to one. |
+| `code.save.save_game_state` | image `0x2a46` | Writes the five-block envelope, with first-block range `DS:0x0002..0x05e5`, and XORs block 3 before and after the write. |
+| `code.save.restore_game_state` | image `0x27f3` | Reads the same five block roles and XORs the restored block-3 range. |
+| `code.save.object_inventory_xor_range` | image `0x07c3` | Same instruction skeleton as GR `0x07bc`; repeats key bytes at data `0x090c` across a caller-supplied range. |
+| `data.save.object_inventory_xor_key_090c` | data `0x090c` | Zero-terminated `Avis Durgan` key in KQ4D `AGIDATA.OVL`. |
+| `data.save.object_inventory_block_start_09b6` | data `[0x09b6]` | KQ4D runtime inventory block pointer written after the decoded three-byte metadata header. |
+| `data.save.object_inventory_block_length_09ba` | data `[0x09ba]` | Decoded metadata file length minus three; written as block 3 length. |
+| `data.menu.interaction_gate_05e3` | data `[0x05e3]` | KQ4D menu gate appended after the 2.936-shaped save block-1 state. |
+| `data.input.key_release_enqueue_gate_05e5` | data `[0x05e5]` | KQ4D set/clear release gate and final byte of the `0x05e4`-byte first save block. |
+| `code.view.load_resource` | image `0x3daa` | Relocation match for GR `0x3c5b`. |
+| `code.object.bind_view` | image `0x3e9a` | Relocation match for GR `0x3d4b`. |
+| `code.object.select_group` | image `0x3f6a` | Relocation match for GR `0x3e1b`. |
+| `code.object.select_group_table` | image `0x3fce` | Relocation match for GR `0x3e7f`. |
+| `code.object.select_frame` | image `0x407e` | Relocation match for GR `0x3f2f`. |
+| `code.view.discard` | image `0x4280` | Relocation match for GR `0x4131`. |
+| `code.picture.load_resource` | image `0x4e7f` | Relocation match for GR `0x4c96`. |
+| `code.picture.prepare` | image `0x4f13` | Relocation match for GR `0x4d2a`. |
+| `code.picture.overlay_prepare` | image `0x4f7f` | Relocation match for GR `0x4d96`. |
+| `code.picture.discard` | image `0x5012` | Relocation match for GR `0x4e29`. |
+| `code.picture.decode_no_clear` | image `0x6891` | Primary EGA path matches GR `0x67c2`; KQ4D retains the older display-mode-2 refresh branch. |
+| `code.picture.command_scan` | image `0x68c6` | Relocation match for GR `0x67ed`. |
+| `code.picture.cmd_set_visual_draw_nibble` | image `0x68e5` | Relocation match for GR `0x680c`. |
+| `code.picture.cmd_disable_visual_draw_nibble` | image `0x6906` | Relocation match for GR `0x682d`. |
+| `code.picture.cmd_set_control_draw_nibble` | image `0x6918` | Relocation match for GR `0x683f`. |
+| `code.picture.cmd_disable_control_draw_nibble` | image `0x693e` | Relocation match for GR `0x6865`. |
+| `code.picture.cmd_pattern_plot` | image `0x6950` | Relocation match for GR `0x6877`. |
+| `code.picture.cmd_set_pattern_mode` | image `0x6975` | Relocation match for GR `0x689c`. |
+| `code.picture.cmd_draw_corner_path_x_first` | image `0x6a54` | Relocation match for GR `0x697b`. |
+| `code.picture.cmd_draw_corner_path_y_first` | image `0x6a63` | Relocation match for GR `0x698a`. |
+| `code.picture.cmd_draw_absolute_lines` | image `0x6a97` | Relocation match for GR `0x69be`. |
+| `code.picture.cmd_draw_relative_lines` | image `0x6aaf` | Relocation match for GR `0x69d6`. |
+| `code.picture.cmd_seed_fill` | image `0x6afc` | Relocation match for GR `0x6a23`. |
+| `code.picture.read_coord_pair` | image `0x6b09` | Relocation match for GR `0x6a30`. |
+| `code.picture.draw_line` | image `0x6b32` | Relocation match for GR `0x6a59`. |
+| `code.display.fill_buffer_word` | image `0x5673` | Primary EGA path matches GR `0x548a`; KQ4D retains the older display-mode-2 refresh branch. |
+| `code.display.draw_horizontal_line` | image `0x568b` | Relocation match for GR `0x5498`. |
+| `code.display.draw_vertical_line` | image `0x56c7` | Relocation match for GR `0x54d4`. |
+| `code.display.pixel_write` | image `0x5715` | Relocation match for GR `0x5522`. |
+| `code.picture.seed_fill` | image `0x5757` | Relocation match for GR `0x5564`. |
+| `code.display.full_refresh` | image `0x5962` | Primary EGA path matches GR `0x576f`; KQ4D retains the older display-mode-2 refresh branch. |
+| `code.object.build_update_list_sorted` | image `0x0358` | Relocation match for GR `0x0351`. |
+| `code.object.insert_update_node_head` | image `0x042f` | Relocation match for GR `0x0428`. |
+| `code.object.draw_update_list_tail_to_head` | image `0x045e` | Relocation match for GR `0x0457`. |
+| `code.object.refresh_update_list_saved_pos` | image `0x0488` | Relocation match for GR `0x0481`. |
+| `code.object.frame_timer_update` | image `0x0563` | Relocation match for GR `0x055c`. |
+| `code.object.collision_test` | image `0x4b5d` | Relocation match for GR `0x4974`. |
+| `code.object.advance_frame_by_mode` | image `0x4cf7` | Branch bodies match GR `0x4b0e`; the normalized difference is embedded jump-table data. |
+| `code.object.control_acceptance` | image `0x5ae2` | Relocation match for GR `0x58e5`. |
+| `code.object.update_dirty_rect` | image `0x5b8c` | Relocation match for GR `0x598f`. |
+| `code.object.place` | image `0x5d64` | Relocation match for GR `0x5cb3`. |
+| `code.object.build_active_update_list` | image `0x6e77` | Relocation match for GR `0x6d9e`. |
+| `code.object.build_inactive_partition_list` | image `0x6e8e` | Relocation match for GR `0x6db5`. |
+| `code.object.flush_update_lists_restore` | image `0x6ea5` | Relocation match for GR `0x6dcc`. |
+| `code.object.rebuild_draw_update_lists` | image `0x6edf` | Relocation match for GR `0x6e06`. |
+| `code.object.refresh_update_lists` | image `0x6efc` | Relocation match for GR `0x6e23`. |
+| `code.object.clear_root_16ff_membership` | image `0x6f95` | Relocation match for GR `0x6ebc`. |
+| `code.object.set_root_16ff_membership` | image `0x6fb3` | Relocation match for GR `0x6eda`. |
+| `code.motion.update_objects` | image `0x1767` | Relocation match for GR `0x1720`, including collision, control acceptance, placement, and edge reporting. |
+| `code.motion.pre_mode_and_boundary_update` | image `0x065b` | Relocation match for GR `0x0654`. |
+| `code.motion.dispatch_mode_step` | image `0x0691` | Branch bodies match GR `0x068a`; the normalized difference is embedded jump-table data. |
+| `code.motion.rectangle_boundary_check` | image `0x06f2` | Branch bodies and post-table state changes match GR `0x06eb`; the normalized difference is embedded direction-table data. |
+
+## KQ1 / AGI 2.917 Address Associations
+
+These loaded-image offsets come from the KQ1-key-decoded image at
+`build/cross-version/kq1_agi.decrypted.exe`. The complete normalized role pass
+is recorded in the evidence notes; this table preserves its principal anchors
+and the one observable renderer/object delta.
+
+| Label | KQ1 address | Notes/evidence |
+| --- | --- | --- |
+| `code.logic.action_dispatch` | image `0x02c4` | Accepts action bytes through `0xad`; otherwise matches SQ2's dispatcher skeleton. |
+| `table.logic.action_dispatch` | `AGIDATA.OVL:0x061d` | 174 four-byte records for `0x00..0xad`. |
+| `table.logic.condition_dispatch` | `AGIDATA.OVL:0x08f5` | Nineteen common condition records. |
+| `code.resource.load_all_directories` | image `0x4305` | Normalized match for SQ2 `0x4305`. |
+| `code.resource.read_volume_payload_once` | image `0x2e56` | Normalized match for SQ2 `0x2e56`. |
+| `code.view.load_resource` | image `0x39f7` | Normalized match for SQ2 `0x39f7`. |
+| `code.object.bind_view` | image `0x3ae7` | Normalized match for SQ2 `0x3ae7`. |
+| `code.object.select_group` | image `0x3bb7` | Normalized match for SQ2 `0x3bb7`. |
+| `code.object.select_group_table` | image `0x3c1b` | Normalized match for SQ2 `0x3c1b`. |
+| `code.object.select_frame` | image `0x3ccb` | Normalized match for SQ2 `0x3ccb`. |
+| `code.view.discard` | image `0x3ecd` | Normalized match for SQ2 `0x3ecd`. |
+| `code.picture.load_resource` | image `0x4a3b` | Normalized match for SQ2 `0x4a3b`. |
+| `code.picture.prepare` | image `0x4acf` | Normalized match for SQ2 `0x4acf`. |
+| `code.picture.overlay_prepare` | image `0x4b3b` | Normalized match for SQ2 `0x4b3b`. |
+| `code.picture.discard` | image `0x4bce` | Normalized match for SQ2 `0x4bce`. |
+| `code.picture.decode_no_clear` | image `0x6379` | Relocation match for SQ2 `0x6440`. |
+| `code.picture.command_scan` | image `0x63ae` | Relocation match for SQ2 `0x6475`; all command handlers share the same displacement band. |
+| `code.display.fill_buffer_word` | image `0x518f` | Relocation match for SQ2 `0x5257`. |
+| `code.display.pixel_write` | image `0x5231` | Relocation match for SQ2 `0x52f9`. |
+| `code.picture.seed_fill` | image `0x5273` | Relocation match for SQ2 `0x533b`. |
+| `code.display.full_refresh` | image `0x547e` | Relocation match for SQ2 `0x5546`. |
+| `code.object.frame_timer_update` | image `0x0563` | Differs from SQ2 only at the loop-count-4 branch: equality in 2.917 versus four-or-more in 2.936. |
+| `code.object.advance_frame_by_mode` | image `0x48b3` | Normalized match for SQ2 `0x48b3`. |
+| `code.object.collision_test` | image `0x4719` | Normalized match for SQ2 `0x4719`. |
+| `code.object.control_acceptance` | image `0x55f0` | Relocation match for SQ2 `0x56b8`. |
+| `code.object.update_dirty_rect` | image `0x569a` | Relocation match for SQ2 `0x5762`. |
+| `code.object.place` | image `0x5872` | Relocation match for SQ2 `0x593a`. |
+| `code.object.build_active_update_list` | image `0x695f` | Relocation match for SQ2 `0x6a26`; the remaining list helpers share this displacement band. |
+| `code.motion.update_objects` | image `0x150a` | Normalized match for SQ2 `0x150a`. |
+| `code.motion.pre_mode_and_boundary_update` | image `0x0644` | Normalized match for SQ2 `0x0644`. |
+| `code.motion.dispatch_mode_step` | image `0x067a` | Normalized match for SQ2 `0x067a`. |
+| `code.motion.rectangle_boundary_check` | image `0x06d9` | Normalized match for SQ2 `0x06d9`. |
+| `code.save.save_game_state` | image `0x2753` | Writes the common five-block envelope with first-block length `0x05e1`. |
+| `code.save.restore_game_state` | image `0x2512` | Reads the same five block roles and rebuilds restored references. |

@@ -25302,3 +25302,597 @@ Progress updates and outcomes:
 
       Action/result: Corrected the stale evidence summary and added the
       configured modal-message source note.
+
+3280. Reported: "I’ll re-anchor on `PROGRESS.md` and the current status notes,
+      then pick the highest-value unfinished item that keeps the clean-room
+      spec moving. After that I’ll update the evidence/spec/docs alongside any
+      tests so the trail stays coherent."
+
+      Action/result: Re-read the tracker, handoff note, conformance matrix, and
+      current git status. Selected the four-channel sound attenuation envelope
+      as the top stale specification gap.
+
+3281. Reported: "The tracker says the biggest remaining spec gap is the
+      four-channel sound attenuation envelope, with glyph exactness as a policy
+      decision rather than something to chase blindly. I’m going source-first on
+      sound now: labels, disassembly notes, then portable behavior only if the
+      evidence is strong enough."
+
+      Action/result: Reopened sound/audio evidence, the clean sound chapter,
+      symbolic labels, and existing sound helper/tests.
+
+3282. Reported: "There’s already a surprisingly good source model in
+      `tools/agi_sound.py`; the spec is lagging behind it. I’m reading the
+      helper/tests and the exact disassembly notes so I can promote the
+      envelope contract without accidentally smuggling implementation addresses
+      into `spec/`."
+
+      Action/result: Confirmed local tests already model the envelope table,
+      delta clamps, channel masks, selector-2 adjustment, tone output, and
+      stop-silence output.
+
+3283. Reported: "The evidence book already records the key envelope mechanics:
+      reset timing, channel-3 persistence, signed deltas from base attenuation,
+      `0x80` sentinel, global adjustment, selector-2 adjustment, and channel
+      masks. I’m doing one fresh disassembly spot-check before editing the
+      spec, just to keep the promotion grounded in the actual bytes."
+
+      Action/result: Re-ran `ndisasm` windows for the driver start, playback
+      tick, and attenuation helper, plus an `xxd` table dump for the envelope
+      bytes.
+
+3284. Reported: "The spot-check agrees with the existing helper: start seeds
+      envelope pointers/indexes, ticks reset indices for channels 0-2 but not
+      channel 3, and the attenuation helper applies one table byte per call
+      until `0x80`. I’m going to update the clean spec, conformance matrix, and
+      progress tracker to mark the four-channel amplitude contract as specified
+      at the command-output boundary."
+
+      Action/result: Promoted the four-channel attenuation envelope transition
+      contract into `spec/src/sound.md`.
+
+3285. Reported: "The clean sound chapter now has the missing attenuation state
+      machine. I’m tightening the matrix and tracker so they no longer call
+      sound partial for envelope reasons, while still keeping analog waveform
+      synthesis outside the target."
+
+      Action/result: Updated the conformance matrix and began revising the
+      progress dashboard.
+
+3286. Reported: "One of the tracker hunks drifted since the last commit, so
+      I’m splitting the update into smaller patches against the current text.
+      Same intent, just less brittle."
+
+      Action/result: Re-read the exact `PROGRESS.md` sections and split the
+      tracker update.
+
+3287. Reported: "The dashboard now treats sound as covered at the
+      command-output boundary. I’m checking the renumbered high-value list and
+      then I’ll patch the handoff note plus evidence log."
+
+      Action/result: Found and corrected stale sound-next-work wording and
+      high-value list numbering.
+
+3288. Reported: "The handoff note now points at cross-version and remaining
+      renderer/text questions instead of already-promoted sound work. I’m
+      adding a structural test for the sound chapter’s envelope terms."
+
+      Action/result: Updated `docs/src/current_status.md` and added a spec-book
+      structural test for sound timing/envelope coverage.
+
+3289. Reported: "That closes the stale sound item. I’m continuing into the next
+      `PROGRESS.md` item rather than stopping: source-first cross-version work,
+      looking for a mapped v3/SQ2 delta that still has a real observable spec
+      ambiguity."
+
+      Action/result: Re-read the GR/SQ2 static comparison, version profiles,
+      and remaining cross-version rows.
+
+3290. Reported: "The remaining v3 deltas in `PROGRESS.md` are mostly already
+      source-mapped, and the tracker says additional versions should only
+      become spec profiles after observable differences are checked. I’m going
+      to refresh the local multi-game census and pick one concrete
+      interpreter/version difference to document without assuming SQ2 or GR
+      behavior applies."
+
+      Action/result: Re-ran the explicit local game census over
+      KQ1/KQ2/KQ3/KQ4D/LSL1/PQ1/SQ2/GR and reviewed the versions chapter.
+
+3291. Reported: "The census refresh still points to one useful source-first
+      question: KQ1 `Version 2.917` has four sound-directory entries that look
+      present to the generic v2 parser but do not point at valid volume
+      headers. Before treating that as a container rule, I’m checking whether
+      KQ1 scripts can actually reference those sound numbers."
+
+      Action/result: Disassembled KQ1 logic stats and sound actions; inspected
+      KQ1 `SNDDIR` entries `34..37`.
+
+3292. Reported: "KQ1 scripts heavily use sound, but the decoded references I
+      saw are all in the low range. I’m extracting the unique referenced sound
+      numbers directly so we can distinguish directory-looking garbage/end
+      padding from anything scripts can observe."
+
+      Action/result: Extracted KQ1 immediate sound references `0..21` with gaps
+      and confirmed unreadable sounds `34..37` are not immediately referenced.
+      Rechecked KQ4D and found immediate sound references only `70..79`.
+
+3293. Reported: "The one-off audit is clear enough to document, but
+      repeatability would be better. I’m checking whether `disassemble_logic.py`
+      exposes enough parser pieces to add a lightweight 'script-referenced
+      resources' audit without reimplementing the whole bytecode decoder."
+
+      Action/result: Determined that importing `disassemble_logic.py` would
+      force an environment-selected game path, so a standalone audit helper was
+      more appropriate.
+
+3294. Reported: "I’m adding a small repeatable audit tool now. It scans decoded
+      logic bytecode for immediate resource references and compares those
+      against readable/unreadable directory entries, which is exactly the
+      question raised by KQ1/KQ4D’s suspect sound records."
+
+      Action/result: Added `tools/resource_reference_audit.py`.
+
+3295. Reported: "The audit tool is added. I’m writing a synthetic test now so
+      its bytecode scan catches immediate sound references and distinguishes
+      unreadable directory entries that are actually script-referenced."
+
+      Action/result: Added `tests/test_resource_reference_audit.py`.
+
+3296. Reported: "The test fixture makes one valid sound and one bad sound that
+      the script references, so it exercises the failure mode we care about.
+      I’m running it now before applying the tool to KQ1/KQ4D."
+
+      Action/result: Py-compile and focused unit test for the audit tool
+      passed.
+
+3297. Reported: "The audit test passes. I’m applying the tool to KQ1 and KQ4D
+      now, since those are the two local inputs with suspect sound-directory
+      records in the census."
+
+      Action/result: Generated
+      `build/cross-version/resource_reference_audit_kq1_kq4d.json`.
+
+3298. Reported: "The raw JSON is large, so I’m summarizing the fields that
+      matter: referenced unreadable records and unreferenced unreadable records
+      per game/resource kind."
+
+      Action/result: Confirmed no referenced unreadable resources for KQ1 or
+      KQ4D; KQ1 unreadable sounds `34..37` and KQ4D unreadable high sound
+      entries are unreferenced by immediate decoded script operands.
+
+3299. Reported: "The audit confirms both suspicious sets are unreferenced by
+      decoded scripts: KQ1 bad sounds 34-37, and KQ4D’s suspect high sound
+      entries. I’m documenting that as planning evidence, not a new runtime
+      rule."
+
+      Action/result: Updated `docs/src/versions.md` with the focused
+      script-visible resource reference audit.
+
+3300. Reported: "The versions chapter now has the focused audit result and the
+      clean-room boundary: unreferenced bad entries stay out of the behavioral
+      model. I’m updating the tracker and handoff files so this tool is
+      discoverable later."
+
+      Action/result: Updated `PROGRESS.md` and `docs/src/current_status.md`
+      with the new audit tool and KQ1/KQ4D conclusion.
+
+3301. Reported: "The tracker has one policy-shaped gap that is worth resolving
+      cleanly before chasing more probes: exact glyph bitmaps. Since the
+      project target is portable full-EGA behavior, I’m checking the current
+      text chapter and spec boundary to decide whether glyph pixels belong in
+      the core profile or stay as an optional font input."
+
+      Action/result: Reviewed the text/input chapter, scope/conformance
+      boundary, conformance matrix, and existing glyph-related evidence notes.
+
+3302. Reported: "The spec already leans the right way: glyph pixels are
+      described as font inputs, not interpreter behavior. I’m going to make
+      that explicit as a conformance decision: core AGI compatibility requires
+      text cell geometry and text bytes/attributes, while bitmap-identical
+      screenshot claims must supply a font profile."
+
+      Action/result: Added the text cell/font-profile boundary to the clean
+      scope chapter.
+
+3303. Reported: "The scope chapter now makes the font boundary explicit. I’m
+      updating the text chapter and conformance matrix so glyph exactness is no
+      longer presented as unresolved work."
+
+      Action/result: Replaced the text chapter's remaining glyph gap with a
+      `Font boundary` section and moved exact glyph bitmaps outside the core
+      target unless a font profile is supplied.
+
+3304. Reported: "The conformance matrix now excludes exact glyph bitmaps unless
+      a font profile is declared. I’m updating the tracker/current-status
+      wording to remove the glyph decision from the remaining work."
+
+      Action/result: Updated `PROGRESS.md`, `docs/src/current_status.md`, and
+      the spec structural test for the renamed text chapter section.
+
+3305. Reported: "I’m picking up from the completed sound, resource-reference,
+      and font-boundary work. I’ll use `PROGRESS.md` to choose the next
+      concrete, source-first gaps, keep both books and the evidence trail
+      synchronized, and carry each item through tests before moving on."
+
+      Action/result: Reviewed the dashboard, handoff, worktree, compatibility
+      manifest, and remaining partial/opaque-state references.
+
+3306. Reported: "The dashboard is now mostly complete; the two genuinely open
+      portable contracts are persistence’s opaque global-state bytes and
+      broader version coverage. I’m going after the opaque save ranges first
+      because they directly limit binary save interchange, and I’ll begin with
+      static cross-references in the SQ2 and GR executables before deciding
+      whether any narrow runtime probe is warranted."
+
+      Action/result: Reopened both save maps, existing save tests, symbolic
+      labels, and the complete SQ2/GR disassembly listings.
+
+3307. Reported: "A useful cross-version pattern has emerged already: three SQ2
+      'opaque' areas line up exactly with capacity or alignment changes in GR.
+      I’m now checking every direct code reference to the underlying data
+      addresses, including range-based accesses that a simple exact-address
+      search can miss; that should let us distinguish reserved serialization
+      bytes from state that merely lacked a label."
+
+      Action/result: Confirmed the SQ2 39-slot and GR 49-slot key-map bounds,
+      common string root, removed 480-byte SQ2 tail, and absent direct
+      references to the standalone reserved words.
+
+3308. Reported: "The static evidence supports a stronger result than
+      'unknown': the SQ2 tail after slot 39 is ten inactive key-map records plus
+      four reserved bytes, the 480-byte bank is a removed legacy/reserved
+      string bank, and the single-byte holes are word-alignment storage. GR
+      confirms those boundaries by expanding the key map and deleting the
+      extra bank. I’m going to encode these as reserved, preserved serialization
+      state with canonical initialization, which closes the valid-execution
+      ambiguity without inventing game-visible fields."
+
+      Action/result: Defined the portable reserved-state classification and
+      canonical/preservation rule.
+
+3309. Reported: "I’m adding the save reserved-state contract now. The changes
+      will rename the unresolved save regions into explicit reserved
+      categories, define their canonical bytes and preservation rule, update
+      the clean spec’s interchange claims, and add regression tests that
+      prevent them from drifting back into vague 'unknown' state."
+
+      Action/result: Updated save helpers, save tests, the persistence chapter,
+      version profile, and conformance matrix.
+
+3310. Reported: "The focused save/spec tests pass with the new partition. This
+      also upgrades the GR claim: its five blocks were already byte-complete,
+      and the only stated blocker was the supposedly opaque block-1 bytes; with
+      those now classified as reserved serialization state, the spec can
+      define Gold Rush save interchange for the mapped game/profile dimensions
+      rather than leaving it categorically partial."
+
+      Action/result: `tests.test_save_resources` and `tests.test_spec_book`
+      passed 43 focused tests.
+
+3311. Reported: "I’ve got enough evidence to edit. The changes will rename the
+      unresolved save regions into explicit reserved categories, define their
+      canonical bytes and preservation rule, update the clean spec’s
+      interchange claims, and add regression tests that prevent them from
+      drifting back into vague 'unknown' state. I’ll keep the
+      disassembly/address rationale confined to the evidence book and symbolic
+      map."
+
+      Action/result: Updated the evidence-facing versions ledger, symbolic
+      labels, progress dashboard, and current handoff.
+
+3312. Reported: "The save-state gap is now closed cleanly and both mdBooks
+      build. I’m moving to the next dashboard item: KQ4D’s 3.002.102
+      interpreter is the best next profile candidate because it sits close to
+      GR’s 3.002.149 but has a distinct dispatch-table layout, so a source
+      comparison can tell us which GR variants are family-wide and which are
+      build-specific."
+
+      Action/result: Selected KQ4D as the next profile and inspected its MZ
+      executable, combined resources, table offsets, and existing census.
+
+3313. Reported: "KQ4D is suitable: its `AGI` is directly disassemblable and its
+      v3 action table has the same 182-entry shape as GR. I’m adding a generic
+      table-comparison helper rather than hard-coding another pair, so future
+      interpreter versions can be compared by detected contracts and
+      normalized handler bodies with explicit game directories."
+
+      Action/result: Added `tools/compare_interpreter_tables.py` and tests.
+
+3314. Reported: "The comparison helper will stay deliberately conservative:
+      matching operand contracts are meaningful, while normalized entry-snippet
+      differences are only triage leads until the disassembled routines are
+      read. I’m wiring that distinction into both the report and tests so a
+      future agent cannot accidentally promote 'different bytes' into
+      'different behavior.'"
+
+      Action/result: Generated the first KQ4D/GR table report with explicit
+      triage language.
+
+3315. Reported: "The generic comparator is working and the first KQ4D/GR report
+      is generated. Both builds have identical parser contracts for every
+      shared action and condition; I’m now reading the smaller set of
+      handler-entry differences to identify actual observable deltas, starting
+      with the v3-only slots and any shared actions already known to vary
+      between SQ2 and GR."
+
+      Action/result: Found zero contract differences, zero condition snippet
+      differences, and 12 shared action snippet differences.
+
+3316. Reported: "The first real result is crisp: 3.002.102 is not just 'older
+      GR.' It shares GR’s v3 opcode-table shape and all 19 condition handlers,
+      but for the 12 differing shared actions it mostly retains the 2.936
+      behavior: no room alias remap, 39 key slots, and the
+      display-mode/input-width branches that GR later removes. I’m verifying
+      each cluster in focused disassembly before promoting a 3.002.102 profile."
+
+      Action/result: Read focused KQ4D/GR disassembly for room, key map, input
+      width, close-window, v3 gates, and save handlers.
+
+3317. Reported: "Focused disassembly confirms the table triage: KQ4D’s room
+      action passes the byte directly, key mapping stops at 39, `0xa3/0xa4`
+      really set and clear the input-width word, and `0xa9` clears it.
+      Separately, KQ4D shares GR’s set/clear release gate, menu gate, v3 no-op
+      slots, and pre-save XOR call. I’m comparing it directly with SQ2 now to
+      pin the mixed profile precisely rather than describing it by age."
+
+      Action/result: Generated the KQ4D/SQ2 table comparison.
+
+3318. Reported: "The direct SQ2 comparison narrows KQ4D’s shared-action deltas
+      to just five: inventory temporary state, v3 save transform, restart
+      prompt handling, motion-mode-4 preservation, and the set-style release
+      gate. Everything else among `0x00..0xaf`, including room switching and
+      input-width behavior, matches 2.936 at normalized source level. I’m
+      extending this into KQ4D’s save layout now; its writer exposes a
+      particularly clean hybrid block: the full 2.936 block-1 shape plus the
+      v3 menu/release gates."
+
+      Action/result: Source-mapped the `0x05e4` first block and writer roles.
+
+3319. Reported: "One KQ4D-specific wrinkle needs resolving before I write the
+      save dimensions into the spec: the eight-byte `OBJECT` file is
+      structurally valid as plain metadata, while the interpreter’s startup
+      path appears to apply the same `Avis Durgan` XOR helper used by GR. I’m
+      tracing the demo launcher/install path and file handling around that call,
+      because treating those eight bytes with the wrong transform would produce
+      impossible counts and contaminate the save map."
+
+      Action/result: Confirmed the launcher does not transform `OBJECT` and the
+      interpreter XOR helper is instruction-identical to GR's relocated helper.
+
+3320. Reported: "The source path is unambiguous enough to justify one
+      confirmation probe. I’m adding a reusable v3 inventory-metadata encoding
+      probe that makes two writable copies under `build/`: one with the
+      supplied `OBJECT` bytes unchanged and one XOR-encoded with the
+      interpreter’s local key, then boots both in one QEMU snapshot run. This
+      will tell us whether the local demo input is pre-decoded packaging or
+      whether another startup step compensates for it."
+
+      Action/result: Added the copied-fixture encoding probe and local test.
+
+3321. Reported: "The QEMU confirmation is running as a two-case snapshot batch
+      now. It uses copied fixtures only; the private KQ4D directory remains
+      untouched. Once both captures are in, I’ll distinguish 'engine failed
+      before graphics' from 'same playable output' by inspecting the actual
+      framebuffer rather than relying on process completion."
+
+      Action/result: Sandbox VNC binding failed; requested the required local
+      QEMU elevation.
+
+3322. Reported: "The first elevated run exposed a fixture hygiene bug before
+      QEMU started: `copytree` preserved the read-only directory modes from
+      `games/`, so the generated copy could not be replaced on the second
+      attempt. I’m fixing the probe to make directories as well as files
+      writable under `build/`, matching the project’s other fixture builders,
+      then I’ll rerun the same two cases."
+
+      Action/result: Corrected copied directory modes and reran the probe.
+
+3323. Reported: "Both first captures are the Sierra loader splash, so they
+      prove only that the launcher starts; the palette difference is timing
+      during that animated screen. I’m advancing past the loader in the same
+      probe and recapturing after the interpreter has actually consumed
+      `OBJECT`, which is the point where the two encodings can meaningfully
+      diverge."
+
+      Action/result: Added `--advance-loader` and reran both cases past Enter.
+
+3324. Reported: "After advancing into the actual demo, both copies produce the
+      same game frame. That rules out a simple 'plain file fails, encoded file
+      works' story. I’m returning to the disassembly around the second XOR
+      call; the likely explanation is that this build treats the metadata
+      buffer as a reversible encoded store and toggles it at two different
+      lifecycle points, so the eight-byte file alone is not enough to infer
+      which representation is canonical."
+
+      Action/result: Determined the second XOR call belongs to logic-message
+      decoding, not an inventory re-encode lifecycle.
+
+3325. Reported: "The second XOR call was unrelated logic-message decoding, so
+      the dynamic result does not make the unchanged `OBJECT` file valid; it
+      only shows this demo reaches its intro despite malformed inventory
+      metadata it does not yet exercise. The source-backed valid path is still
+      clear: decode with the repeating key, yielding the eight-byte intended
+      metadata. I’m using that bounded valid representation to map KQ4D’s save
+      blocks and keeping the packaging anomaly in the evidence book, outside
+      the clean behavioral contract."
+
+      Action/result: Added KQ4D save constants, parsers, and source-derived
+      dimension tests.
+
+3326. Reported: "The save helper tests now pin KQ4D’s source-derived
+      dimensions: block 1 is `0x05e4`, object state is 16 records, decoded
+      inventory state is one three-byte entry plus `\"?\\0\"`, and the demo
+      configures one replay-pair slot. I’m promoting this as a bounded 3.002.102
+      resource/logic/persistence profile, while explicitly withholding a full
+      gameplay claim until its renderer and object-update subsystems receive
+      the same source comparison."
+
+      Action/result: Added the bounded profile, persistence map, and conformance
+      limitation to the clean specification.
+
+3327. Reported: "The bounded 3.002.102 profile is now in the clean spec and its
+      focused tests pass. It deliberately stops short of a gameplay claim: we
+      now know exactly how KQ4D mixes 2.936-style room/input behavior with v3
+      gates, save transform, restart, and motion state, but pictures, views,
+      and object-update internals still need role-based comparison before
+      inheriting either complete profile."
+
+      Action/result: Updated the versions ledger, symbolic labels, progress
+      dashboard, and handoff toward KQ4D renderer/object comparison.
+
+3328. Reported: "The source mapping is settling into stable relocation bands,
+      so I’m extending the generic comparator with explicit symbolic role
+      pairs. That keeps the comparison address-independent at the reporting
+      level and lets later builds reuse the same role vocabulary."
+
+      Action/result: Added repeatable `--role-pair` support and a parser/report
+      regression test to `tools/compare_interpreter_tables.py`.
+
+3329. Reported: "With logic and persistence mapped, I’m now comparing KQ4D’s
+      view loader, picture scanner/raster helpers, and object update pipeline
+      against the already-labeled Gold Rush build. I’ll treat normalized
+      snippets as triage and inspect every reported difference in disassembly."
+
+      Action/result: Generated the first 46-role KQ4D/GR subsystem report.
+
+3330. Reported: "Rizin can analyze both MZ files, but its raw 16-bit function
+      matcher is not reliable enough here: it includes the DOS header in raw
+      offsets and the function-diff command rejects the required 16-bit
+      architecture setting. I’m using the local `ndisasm`-based role comparator
+      and direct call relationships instead, with every candidate checked at
+      the instruction level."
+
+      Action/result: Kept Rizin as exploratory triage only; no behavioral
+      conclusion depends on its function matcher.
+
+3331. Reported: "The source mapping is already strong: all six view roles, the
+      full picture command scanner, every line/fill/pattern helper, and the
+      object update-list pipeline match after relocation. The only picture
+      differences so far are KQ4D retaining the older alternate-display refresh
+      branches; its primary full-EGA path is the same."
+
+      Action/result: Classified the decode/fill/full-refresh differences as
+      alternate display-mode wrappers outside the current target.
+
+3332. Reported: "The role-pair report now covers 46 renderer/object helpers.
+      One animation result is a false mismatch caused by an embedded jump table;
+      I’m manually checking its branch bodies and filling the remaining
+      dirty-rectangle, placement, and motion roles before upgrading the
+      profile."
+
+      Action/result: Confirmed the animation branch bodies and identified the
+      remaining KQ4D helper entries from their callers.
+
+3333. Reported: "I’m resuming at the KQ4D/Gold Rush source comparison. The
+      immediate goal is to finish mapping motion, placement, and
+      dirty-rectangle behavior from disassembly, then decide whether the
+      3.002.102 profile has enough evidence to graduate beyond its current
+      bounded status."
+
+      Action/result: Confirmed the complete KQ4D object-motion loop and
+      dirty-rectangle helper as relocation matches.
+
+3334. Reported: "The main object-motion loop is a direct relocation match
+      between KQ4D and Gold Rush, including collision, control-line acceptance,
+      placement adjustment, edge reporting, and motion completion. I also
+      confirmed the dirty-rectangle routine instruction-for-instruction; the
+      remaining work is locating two helper entry points whose addresses
+      shifted outside the dominant relocation band."
+
+      Action/result: Located placement at image `0x5d64`, pre-mode update at
+      `0x065b`, mode dispatch at `0x0691`, and boundary checking at `0x06f2`.
+
+3335. Reported: "All six remaining role pairs are now mapped. Four normalize
+      exactly, while the motion dispatcher and boundary checker differ only
+      where `ndisasm` interprets their embedded jump tables as instructions;
+      their executable branch bodies and state transitions match after
+      relocation. That completes the source comparison named as the blocker in
+      `PROGRESS.md`, so I’m recording the evidence and promoting the KQ4D
+      profile for the primary full-EGA valid-data target, while keeping its
+      alternate display path explicitly version-specific."
+
+      Action/result: Promoted 3.002.102 to a full-EGA profile and recorded all
+      52 KQ4D renderer/object role associations.
+
+3336. Reported: "The clean spec now carries an explicit 3.002.102 full-EGA
+      claim, with KQ4D’s mixed variant choices spelled out rather than inherited
+      by version number. I’ve also added every KQ4D renderer/object address to
+      the cross-version symbol map and preserved the failed Rizin matcher
+      attempt in the evidence trail, so this promotion remains auditable."
+
+      Action/result: Focused 49-test set and both mdBooks passed.
+
+3337. Reported: "The profile promotion passes its focused 49-test set, and both
+      mdBooks build cleanly. I’m moving straight to the next dashboard item:
+      selecting another local interpreter version by census, then comparing its
+      dispatch contracts and subsystem roles source-first before deciding
+      whether it adds a genuinely new behavioral profile."
+
+      Action/result: Selected KQ1/2.917 as the next earlier v2 source target.
+
+3338. Reported: "The first 2.917 table pass exposed a tooling issue rather than
+      an engine delta: KQ1’s table addresses line up strikingly with 2.936, but
+      the executable body is still transformed, so every disassembly snippet
+      becomes nonsense and the last two table records are misread. I’m tracing
+      the project’s existing SQ2 decryption path and will make the comparator
+      reject or decode this state instead of producing a misleading '176
+      differences' report."
+
+      Action/result: Discarded the transformed-file report and decoded KQ1 with
+      its own `SIERRA.COM` key.
+
+3339. Reported: "After decrypting KQ1 with its own local loader key, the
+      comparison collapses from nonsense to one clean result: all 19 conditions
+      and actions `0x00..0xad` match 2.936 exactly, including handler bodies and
+      operand contracts. The apparent `0xae`/`0xaf` rows are not valid 2.917
+      table records; I’m verifying the dispatch bound and adjacent data in
+      disassembly before defining the earlier profile’s opcode range."
+
+      Action/result: Confirmed the action dispatcher maximum is `0xad`.
+
+3340. Reported: "The table geometry gives a reusable answer across every local
+      v2 build: a fixed 32-byte trailer separates the action and condition
+      tables, so the valid action count is derivable instead of assumed. It
+      yields 170 actions for 2.411/2.440, 174 for 2.917, and 176 for 2.936. I’m
+      correcting the disassembler/comparator now so future earlier-version
+      reports cannot accidentally parse trailer bytes as opcodes."
+
+      Action/result: Implemented geometry-derived v2 action counts and added
+      KQ1/KQ2/LSL1 regression tests.
+
+3341. Reported: "The subsystem pass found one real 2.917 runtime delta amid
+      otherwise matching code: direction-driven loop selection uses the
+      four-loop table only when a view has exactly four loops. In 2.936 the
+      same branch accepts four or more loops. Everything else in the 52-role
+      renderer/object set matches after relocation, so I’m now mapping 2.917’s
+      save dimensions and absent opcode boundary before deciding how complete
+      the new profile can be."
+
+      Action/result: Promoted the exact-four-loop rule as a 2.917 variant.
+
+3342. Reported: "The 2.917 save writer confirms the same five-block grammar and
+      identical `0x05e1` first-state block. KQ1’s game data changes only the
+      object count: 18 records instead of 21; its decoded inventory block
+      remains `0x0148`, and logic 0 configures the same 100 replay pairs. I’m
+      encoding those dimensions as tests before promoting the profile, so the
+      gameplay claim and the KQ1-specific binary-save claim stay properly
+      separated."
+
+      Action/result: Added KQ1 save constants, split/decode helpers, and tests.
+
+3343. Reported: "The 2.917 model is now internally consistent: 174 actions, 19
+      conditions, the full-EGA renderer/object pipeline, the exact-four-loop
+      variant, and all five KQ1 save-block dimensions are covered by
+      source-derived tests. I’m writing the evidence/profile ledger next,
+      including the loader-specific executable transform so later comparisons
+      do not repeat the encrypted-image false start."
+
+      Action/result: Promoted the 2.917 full-EGA and KQ1 binary-save claims.
+
+3344. Reported: "I’ve reached a coherent commit point: the KQ4D profile
+      promotion is complete, and the new KQ1/2.917 profile has source-backed
+      opcode, renderer/object, loop-selection, and save-dimension coverage. I’m
+      doing the final evidence-log and validation pass now, then I’ll commit
+      only the intended project files and leave `run.sh` untouched."
+
+      Action/result: Began final full-suite, mdBook, and diff validation.

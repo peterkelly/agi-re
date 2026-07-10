@@ -27,6 +27,15 @@ class DispatchTableDetectionTests(unittest.TestCase):
     def test_sq2_v2_tables_are_detected(self) -> None:
         self.assert_layout("SQ2", "v2_split", (0x061D, 0xB0, 0x08FD, 0x13))
 
+    def test_kq1_2917_shorter_v2_action_table_is_detected(self) -> None:
+        self.assert_layout("KQ1", "v2_split", (0x061D, 0xAE, 0x08F5, 0x13))
+
+    def test_kq2_2411_shorter_v2_action_table_is_detected(self) -> None:
+        self.assert_layout("KQ2", "v2_split", (0x061B, 0xAA, 0x08E3, 0x13))
+
+    def test_lsl1_2440_shorter_v2_action_table_is_detected(self) -> None:
+        self.assert_layout("LSL1", "v2_split", (0x061B, 0xAA, 0x08E3, 0x13))
+
     def test_gr_v3_tables_are_detected(self) -> None:
         self.assert_layout("GR", "v3_combined", (0x0440, 0xB6, 0x0762, 0x13))
 

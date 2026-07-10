@@ -14,12 +14,30 @@ portable behavioral contracts.
 
 The logic bytecode catalog is complete for the current SQ2 interpreter. The
 standalone specification now also covers picture commands, view/cel decoding,
-object behavior, parser/input/menu/inventory behavior, and the room/replay/save
-state machine. All five observed profile 2.936 save blocks now have exhaustive
-block-relative maps, with five unresolved block-1 ranges retained explicitly.
-The subsystem/version conformance matrix is now present. The highest-value
-remaining specification work is the profile 3.002.149 save-block map, followed
-by the remaining text/sound presentation gaps.
+object behavior, parser/input/menu/inventory behavior, sound command-output
+behavior, and the room/replay/save state machine. All five observed profile
+2.936 save blocks now have exhaustive block-relative maps. The profile
+3.002.149 Gold Rush save map is also complete for the observed local save
+envelope. Former opaque block-1 ranges are classified as reserved words,
+inactive key-map/string records, and alignment bytes; the clean spec defines
+canonical initialization and byte preservation. The subsystem/version
+conformance matrix is now
+present. The exact text-glyph bitmap question is now resolved as a font-profile
+boundary: core compatibility specifies text cells, bytes, attributes, geometry,
+and modal behavior, while bitmap-identical text screenshots must declare a font
+set. The KQ4D/3.002.102 picture, view, and object-update comparison is now
+complete. Fifty-two role pairs cover the primary full-EGA renderer/object path
+and match Gold Rush after relocation; the remaining renderer differences are
+alternate display-mode branches outside the target. The highest-value
+remaining work is applying the same source-first workflow to 2.411 or 2.440,
+whose table geometry exposes only 170 action entries, followed by any concrete
+renderer edge behavior that still affects the portable full-EGA target.
+
+KQ1/2.917 is now the fourth promoted full-EGA profile. Its valid action range
+ends at `0xad`; all shared action and condition handlers match 2.936. The sole
+renderer/object delta in the 52-role pass is exact-four-loop automatic
+selection, and the selected KQ1 save dimensions are mapped for binary
+interchange.
 
 The current top-level compatibility runner is `tools/compatibility_suite.py`.
 The latest smoke report is
@@ -163,6 +181,14 @@ clearing.
 - `tools/disassemble_logic.py`: local logic bytecode disassembler.
 - `tools/game_census.py`: read-only multi-game resource/version/layout census
   for explicit local game directories.
+- `tools/resource_reference_audit.py`: compares immediate script-visible
+  resource references with readable/unreadable directory entries for explicit
+  local game directories.
+- `tools/compare_interpreter_tables.py`: detects and compares dispatch-table
+  contracts and normalized handler-entry shapes across two explicit local
+  interpreter inputs.
+- `tools/v3_object_encoding_probe.py`: builds copied unchanged/XOR-encoded
+  inventory-metadata fixtures and can compare them in one QEMU snapshot run.
 - `tools/logic_interpreter_probe.py`: QEMU logic-interpreter compatibility
   harness for small bytecode behavior probes.
 - `tools/qemu_snapshot.py`: shared snapshot runner; fixtures can now request
@@ -174,10 +200,10 @@ clearing.
 
 ## Immediate Next Work
 
-1. Complete the four-channel attenuation-envelope contract from source first,
-   then promote the externally observable sound-amplitude behavior into the
-   clean spec and tests.
-2. Decide whether exact platform glyph bitmaps belong in any target profile.
+1. Apply the source-first comparison workflow to 2.411 or 2.440, beginning
+   with the source-confirmed 170-action boundary and shared-handler deltas.
+2. Continue v3 and other cross-version probes from source-mapped deltas only
+   when the portable specification still has an observable ambiguity.
 3. Keep source-first renderer work going only when disassembly reveals a
    concrete valid-stream edge. Use QEMU as confirmation or regression coverage,
    not as the primary discovery method.

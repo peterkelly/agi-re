@@ -210,9 +210,9 @@ updates and clears/fills the visible full-screen surface using the configured
 text foreground/background pair. Leaving restores normal graphics presentation
 and redraws configured status/input areas.
 
-The exact 8-by-8 glyph bitmaps are platform-font inputs and are not yet a
-portable conformance requirement. Text placement, row/column geometry, modal
-blocking, and save/restore behavior remain normative.
+The exact 8-by-8 glyph bitmaps are platform-font inputs, not a portable core
+interpreter requirement. Text placement, row/column geometry, modal blocking,
+and save/restore behavior remain normative.
 
 ## Inventory selection
 
@@ -269,7 +269,7 @@ stores its current item. Exit restores the saved visible menu rectangle,
 redraws or clears the status row as configured, and clears the interaction
 request.
 
-## Remaining presentation gaps
+## Font boundary
 
 Message substitution and ordinary window layout are specified by their action
 effects and observed modal geometry. Exact glyph shapes remain a platform-font

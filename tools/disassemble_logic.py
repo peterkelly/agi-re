@@ -160,7 +160,16 @@ def dispatch_table_layout_for(agidata: bytes, layout_version: str) -> tuple[int,
     cond_base = find_table_by_meta_signature(agidata, CONDITION_META_SIGNATURE, "condition")
     if layout_version == "v3_combined":
         return action_base, 0xB6, cond_base, 0x13
-    return action_base, 0xB0, cond_base, 0x13
+    trailer_size = 0x20
+    action_bytes = cond_base - action_base - trailer_size
+    if action_bytes < 0 or action_bytes % 4:
+        raise ValueError(
+            "v2 action/condition tables do not have the observed 0x20-byte trailer"
+        )
+    action_count = action_bytes // 4
+    if not 0x80 <= action_count <= 0xB0:
+        raise ValueError(f"implausible v2 action table count: {action_count:#x}")
+    return action_base, action_count, cond_base, 0x13
 
 
 def dispatch_table_layout() -> tuple[int, int, int, int]:

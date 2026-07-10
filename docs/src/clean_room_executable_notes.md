@@ -10286,3 +10286,456 @@ Conclusion:
   row/column/width parameters. The remaining text presentation limitation is
   exact glyph bitmap selection for a target platform, not the meaning of
   actions `0x97` and `0x98`.
+
+## 2026-07-10: four-channel sound envelope spec promotion
+
+Goal: close the stale clean-spec gap for four-channel sound attenuation
+semantics by rechecking the source-backed sound model and promoting only the
+portable command-output contract.
+
+Commands run from `/Users/peter/ai/agi/reverse`:
+
+- `sed -n '1,260p' PROGRESS.md`
+- `sed -n '1,220p' docs/src/current_status.md`
+- `sed -n '1,260p' docs/src/sound_and_audio.md`
+- `sed -n '1,260p' spec/src/sound.md`
+- `sed -n '1,380p' tools/agi_sound.py`
+- `sed -n '1,360p' tests/test_sound_resources.py`
+- `sed -n '7192,7238p' docs/src/clean_room_executable_notes.md`
+- `sed -n '7794,7824p' docs/src/clean_room_executable_notes.md`
+- `ndisasm -b 16 -o 0x7f96 build/cleanroom/AGI.decrypted.exe -e 0x8196 | sed -n '1,90p'`
+- `ndisasm -b 16 -o 0x801c build/cleanroom/AGI.decrypted.exe -e 0x821c | sed -n '1,170p'`
+- `ndisasm -b 16 -o 0x8162 build/cleanroom/AGI.decrypted.exe -e 0x8362 | sed -n '1,170p'`
+- `xxd -g 1 -s 0x17b8 -l 96 games/SQ2/AGIDATA.OVL`
+
+Source observations rechecked:
+
+- `code.sound.driver_start` copies four channel stream pointers, initializes
+  all four channel countdowns to `1`, stores the default envelope table pointer
+  for each channel, disables each channel's envelope index with `0xffff`, and
+  marks each channel active.
+- The playback tick decrements each active channel countdown. While the
+  countdown is still nonzero, it calls the attenuation helper without consuming
+  a new sound event.
+- When a countdown reaches zero, channels 0, 1, and 2 reset their envelope
+  index to zero before reading the next event. Channel 3 (`BX == 6`) does not
+  take that reset branch, so it preserves its current envelope index across
+  event boundaries.
+- A channel terminator decrements the remaining-active-channel count, clears
+  the channel active word, sets the channel base attenuation to `0x0f`, and
+  calls the attenuation helper.
+- The attenuation helper skips envelope and device-specific adjustment when the
+  base attenuation is `0x0f`.
+- Otherwise, if the envelope index is enabled, the helper reads one byte from
+  the channel envelope table. Byte `0x80` disables the envelope and copies the
+  previous envelope value back into the base attenuation. Other bytes are
+  added to the event's base attenuation as signed 8-bit deltas; negative
+  underflow clamps to zero and positive overflow clamps to `0x0f`.
+- The helper stores each clamped envelope result as the previous envelope
+  value, adds runtime global attenuation adjustment byte `0x0020`, clamps to
+  `0x0f`, applies the selector-2 non-silent below-8 adjustment, combines the
+  result with the channel mask, and writes the resulting command byte.
+- The default table bytes are:
+  `fe fd fe ff 00 00 01 01 01 01 02 02 02 02 02 02 02 02 03 03 03 03 03 03 03 04 04 04 04 05 05 05 05 06 06 06 06 06 07 07 07 07 08 08 08 08 09 09 09 09 0a 0a 0a 0a 0b 0b 0b 0b 0b 0b 0c 0c 0c 0c 0c 0c 0d 80`.
+- Existing helper/test coverage in `tools/agi_sound.py` and
+  `tests/test_sound_resources.py` already models the table bytes, channel
+  masks, delta-from-base behavior, clamps, sentinel handling, selector-2
+  adjustment, stop-silence bytes, PC-speaker divisor, and channel scheduling.
+
+Documentation/spec updates:
+
+- `spec/src/sound.md` now defines the four-channel attenuation-envelope state
+  fields, start/event initialization, channel-3 persistence, default envelope
+  table, delta/clamp/sentinel behavior, global adjustment, selector-2
+  adjustment, and silent-base bypass.
+- `spec/src/conformance_matrix.md` no longer lists four-channel sound as a
+  partial domain. Exact analog waveform synthesis remains outside the target;
+  compatibility is defined at the resource, timing, tone/divisor, attenuation
+  command, silence, active-state, and completion-flag boundary.
+- `PROGRESS.md` marks sound resources and playback as covered for the current
+  spec target and removes the sound envelope from the highest-value remaining
+  work.
+- `tests/test_spec_book.py` now guards the clean sound chapter's timing and
+  envelope coverage.
+
+## 2026-07-10: script-visible resource reference audit
+
+Goal: follow up on the multi-game census record errors without treating
+unreadable directory-looking entries as valid AGI behavior unless decoded
+scripts can observe them.
+
+Commands run from `/Users/peter/ai/agi/reverse`:
+
+- `python3 -B tools/game_census.py --game-dir games/KQ1 --game-dir games/KQ2 --game-dir games/KQ3 --game-dir games/KQ4D --game-dir games/LSL1 --game-dir games/PQ1 --game-dir games/SQ2 --game-dir games/GR`
+- `AGI_GAME_DIR=games/KQ1 python3 -B tools/disassemble_logic.py --stats`
+- `AGI_GAME_DIR=games/KQ1 python3 -B tools/disassemble_logic.py --limit 200 | rg -n "load_sound|start_sound|stop_sound|sound|0x62|0x63|0x64"`
+- Python local print of KQ1 `SNDDIR` entries `30..39`.
+- `xxd -g1 -s $((34*3)) -l 24 games/KQ1/SNDDIR`
+- `AGI_GAME_DIR=games/KQ1 python3 -B tools/disassemble_logic.py --limit 100000 | python3 -c ...`
+- Python local readable/unreadable scan for KQ1 and KQ4D sound resources.
+- `AGI_GAME_DIR=games/KQ4D python3 -B tools/disassemble_logic.py --limit 100000 | python3 -c ...`
+- `python3 -B -m py_compile tools/resource_reference_audit.py tests/test_resource_reference_audit.py`
+- `python3 -B -m unittest tests.test_resource_reference_audit`
+- `python3 -B tools/resource_reference_audit.py --game-dir games/KQ1 --game-dir games/KQ4D --output build/cross-version/resource_reference_audit_kq1_kq4d.json`
+
+Observations:
+
+- KQ1 `Version 2.917` has four sound-directory entries that the generic v2
+  directory parser treats as present-like: sounds `34`, `35`, `36`, and `37`.
+  Their directory bytes are immediately followed by `ff ff ff` absent entries,
+  and the pointed-to data does not have a valid v2 volume header.
+- Decoded KQ1 logic uses immediate sound numbers
+  `0, 1, 2, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20,
+  21`. None of the unreadable sound entries `34..37` are immediately
+  referenced by decoded scripts.
+- KQ4D `Version 3.002.102` has clean readable sound records including
+  `70..79`, plus readable but currently unreferenced high entries `198` and
+  `435`, and many unreadable high sound-section entries.
+- Decoded KQ4D logic uses immediate sound numbers `70..79` only. None of the
+  unreadable high sound entries are immediately referenced by decoded scripts.
+
+Implementation:
+
+- Added `tools/resource_reference_audit.py`. The tool scans decoded logic
+  bytecode using the observed action/condition table signatures, collects
+  immediate resource references for selected resource-loading/display actions,
+  and compares those references with readable and unreadable directory entries.
+  Variable-derived resource numbers are intentionally not counted as fixed
+  immediate references.
+- Added `tests/test_resource_reference_audit.py`, which builds a synthetic
+  split-directory fixture with one readable sound and one unreadable but
+  script-referenced sound.
+
+Validation:
+
+- `python3 -B -m py_compile tools/resource_reference_audit.py tests/test_resource_reference_audit.py`
+  passed.
+- `python3 -B -m unittest tests.test_resource_reference_audit` passed.
+
+Conclusion:
+
+- KQ1's bad sound entries and KQ4D's suspect high sound-section entries remain
+  planning evidence, not promoted valid-resource behavior. If a future script
+  reaches such numbers through variables, or a future interpreter version has a
+  source-backed path for them, inspect that local case directly before adding a
+  clean-spec rule.
+
+## 2026-07-10: text glyph conformance boundary
+
+Goal: resolve the remaining policy question in `PROGRESS.md` about whether
+exact platform glyph bitmaps belong in the current target profile.
+
+Inputs reviewed:
+
+- `spec/src/input_text_and_menus.md`
+- `spec/src/scope_and_conformance.md`
+- `spec/src/conformance_matrix.md`
+- `PROGRESS.md`
+- Existing evidence notes and compatibility notes for prompt/status/input rows,
+  text rectangles, configured modal-message geometry, and glyph-bearing QEMU
+  probes.
+
+Decision:
+
+- The current clean-room core specifies text at the character-cell boundary:
+  text bytes, attributes, rows, columns, rectangles, modal blocking, prompt and
+  status behavior, and save/restore of covered regions.
+- Exact 8-by-8 glyph bitmap shapes are a font-profile input, not an
+  interpreter semantic for the portable full-EGA core. A bitmap-identical
+  screenshot claim for text output must declare a font set in addition to the
+  interpreter profile.
+- This decision matches the existing test strategy: QEMU probes can use glyph
+  pixels as evidence that text was drawn, but the clean spec should not
+  require a particular BIOS or platform font unless a future conformance tier
+  deliberately adds that font profile.
+
+Documentation updates:
+
+- `spec/src/scope_and_conformance.md` now states the text cell/font boundary.
+- `spec/src/input_text_and_menus.md` now has a `Font boundary` section instead
+  of treating glyphs as a remaining presentation gap.
+- `spec/src/conformance_matrix.md` removes glyph output from partial domains
+  and lists exact glyph bitmaps outside the current target unless a font
+  profile is supplied.
+- `PROGRESS.md` marks the text/parser/menu/inventory chapter as covered for
+  the current portable target.
+
+## 2026-07-10: save reserved-state classification
+
+Goal: resolve whether the remaining profile 2.936 and 3.002.149 block-1 ranges
+represent valid-execution state or reserved serialization capacity.
+
+Source-first checks:
+
+- Rechecked the complete SQ2 and GR instruction listings for direct references
+  to the two standalone saved words, the post-key-map tail, the string-bank
+  tail, and the prompt/status gap.
+- SQ2 action `0x79` roots its key map at `DS:0x0145` and stops after `0x27`
+  four-byte records. The serialized bytes immediately following those 39
+  records contain ten additional zeroed four-byte records plus four zero bytes.
+- GR keeps the same key-map root but raises the source loop bound to `0x31`.
+  Its 49 records consume exactly the ten-record SQ2 tail, while the same final
+  four zero bytes remain before string storage.
+- Both builds root valid 40-byte string slots at `DS:0x020d`. Source validation
+  and local valid logic use only indexes `0..11`. SQ2 serializes another twelve
+  zeroed 40-byte records after those slots; GR removes that exact 480-byte bank
+  and relocates the following text-state words to `DS:0x03ed`.
+- The standalone saved words at SQ2 `DS:0x012f` and `DS:0x013f` have no direct
+  reference in the complete instruction listing. All 11 local SQ2 saves contain
+  canonical bytes `0000` and `0f00`; the observed GR save has the same values at
+  the same serialized positions.
+- The one-byte prompt/status gap is zero in all local SQ2 saves and the observed
+  GR save. In both layouts it separates byte state from following word state.
+
+Interpretation:
+
+- The ranges are reserved serialization state, not unresolved game-visible
+  fields. The post-key-map and post-string ranges are profile capacity/legacy
+  storage demonstrated by their exact cross-version consumption or removal;
+  the remaining words and bytes are reserved values or alignment storage.
+- A newly initialized save uses the observed canonical values. Restoring and
+  re-saving an existing save preserves its supplied reserved bytes. Valid game
+  operations do not assign behavior to those bytes.
+
+Implementation and specification updates:
+
+- `tools/agi_save.py` replaces the `unknown_*` block-1 regions with explicit
+  reserved words, inactive key-map tail, pre-string padding, reserved string
+  bank, and text padding.
+- `tests/test_save_resources.py` checks the exact reserved partition and
+  canonical values across all 11 local SQ2 saves and the generated GR save.
+- `spec/src/session_and_persistence.md` defines canonical initialization and
+  byte-preserving interchange for reserved state.
+- `spec/src/conformance_matrix.md` now permits a binary save-interchange claim
+  for the mapped Gold Rush/profile dimensions as well as profile 2.936.
+- `docs/src/versions.md`, `docs/src/symbolic_labels.md`, `PROGRESS.md`, and the
+  current handoff note record the cross-version classification.
+
+## 2026-07-10: KQ4D 3.002.102 bounded profile
+
+Goal: apply the source-first cross-version workflow to KQ4D / AGI 3.002.102 and
+promote only differences supported by the local executable and valid data.
+
+Repeatable tooling:
+
+- Added `tools/compare_interpreter_tables.py`. It accepts two explicit game
+  directories and executables, detects each action/condition table from the
+  established argc/meta signatures, compares parser contracts, and triages
+  normalized handler-entry differences. Its report warns that a differing
+  snippet is not itself a behavioral conclusion.
+- Added `tests/test_compare_interpreter_tables.py` for contract-versus-handler
+  classification and local v3 table detection.
+- Generated:
+  - `build/cross-version/kq4d_gr_table_comparison.md`
+  - `build/cross-version/kq4d_sq2_table_comparison.md`
+
+Table-level results:
+
+- KQ4D and GR expose 182 actions `0x00..0xb5` and 19 structured conditions
+  `0x00..0x12` with zero parser-contract differences.
+- All 19 condition entry snippets normalize identically.
+- KQ4D/GR shared action differences are exactly:
+  `0x12`, `0x6f`, `0x73`, `0x76`, `0x77`, `0x78`, `0x79`, `0x89`, `0x8a`,
+  `0xa3`, `0xa4`, and `0xa9`.
+- KQ4D/SQ2 shared action differences are exactly `0x7c`, `0x7d`, `0x80`,
+  `0x84`, and `0xad`; all 19 condition entries again normalize identically.
+
+Focused source conclusions:
+
+- KQ4D action `0x12` at image `0x1a1b` passes its immediate byte directly to
+  room switching. It does not call GR's `0x7e..0x80 -> 0x49` remap helper.
+- KQ4D input actions retain SQ2's display-mode/input-width branches. Action
+  `0xa3` at `0x3cec` sets word `[0x0d58]`, `0xa4` at `0x3cfe` clears it, and
+  close-window action `0xa9` at `0x21fa` clears both `[0x0d58]` and active
+  window word `[0x0d66]`.
+- KQ4D key mapping at `0x5081` compares its slot index with `0x27`, preserving
+  the 39-entry capacity. GR compares with `0x31`.
+- KQ4D action `0xad` at `0x6477` sets byte `[0x05e5]` to one and v3 action
+  `0xb5` at `0x647f` clears it. Action `0xb1` at `0x9838` writes menu gate word
+  `[0x05e3]`; menu interaction at `0x9851` returns while it is zero.
+- The six v3-only slots have the same contracts and normalized handler bodies
+  as GR. KQ4D also shares GR's inventory temporary-state, restart marker,
+  motion-mode-4 preservation, and save-XOR action variants.
+
+Save-map source pass:
+
+- Save action `0x7d` is at image `0x2a46`. Its first-block write uses start
+  `0x0002` and length `0x05e6 - 0x0002 = 0x05e4`.
+- The first `0x05e1` positions match the complete profile 2.936 block-1 map.
+  KQ4D appends menu gate word at block position `0x05e1` and release-gate byte
+  at position `0x05e3`.
+- The valid intended decoded eight-byte inventory metadata is
+  `03 00 0f 03 00 00 3f 00`: item-table size 3, maximum object index 15, one
+  runtime entry, and name pool `?\0`.
+- Therefore block 2 is `16 * 0x2b = 0x02b0` bytes and decoded block 3 is five
+  bytes. KQ4D logic 0 calls action `0x8e(1)`, establishing one replay-pair slot
+  and a two-byte block 4 for the selected demo data. Block 5 retains the common
+  variable resume-record grammar.
+- The KQ4D save/restore paths and startup reader call XOR helper `0x07c3`, whose
+  body matches GR `0x07bc` and repeats the `Avis Durgan` key at data `0x090c`.
+
+Local `OBJECT` packaging check:
+
+- The selected local `games/KQ4D/OBJECT` already contains the intended decoded
+  eight bytes, although the source reader applies the XOR transform to the
+  on-disk file. This is inconsistent with the valid source contract.
+- Added `tools/v3_object_encoding_probe.py` and
+  `tests/test_v3_object_encoding_probe.py`. The tool makes unchanged and
+  XOR-encoded writable copies under `build/`; it never modifies `games/`.
+- The first QEMU attempt failed before launch because the sandbox denied the
+  local VNC bind. The elevated retry exposed a fixture bug: copied read-only
+  directory modes prevented replacement. The tool now makes copied directories
+  and files writable, matching the other fixture builders.
+- The initial successful captures were only the Sierra loader splash. A second
+  run used `--advance-loader` and captured after Enter. Both variants reached
+  the same KQ4D intro frame. That does not establish dual valid encodings: the
+  intro had not exercised inventory metadata. The clean profile follows the
+  source-defined XOR-decoded valid representation and treats the unchanged
+  local packaging as an evidence anomaly.
+- QEMU report:
+  `build/kq4d-profile/object_encoding_after_loader_qemu_001.json`.
+
+Implementation/specification updates:
+
+- `tools/agi_save.py` now defines KQ4D block-1, object-record, inventory, and
+  replay dimensions plus split/decode helpers.
+- `tests/test_save_resources.py` checks the `0x05e4` block-1 partition, 16
+  object records, one `?` inventory entry, transformed five-byte block 3, and
+  one replay pair.
+- `spec/src/version_profiles.md` defines a bounded 3.002.102
+  resource/logic/input/persistence profile.
+- `spec/src/session_and_persistence.md` adds the KQ4D demo block dimensions and
+  makes the block-3 XOR rule common to the promoted v3 profiles.
+- `spec/src/conformance_matrix.md` explicitly withholds a full 3.002.102
+  gameplay claim until picture/view and object-update roles are compared.
+
+## 2026-07-10: KQ4D 3.002.102 renderer/object source comparison
+
+Goal: close the renderer/object blocker without inferring behavior from version
+numbers. Candidate helpers were paired by symbolic role, normalized snippets
+were used only for triage, and every reported mismatch was read in direct
+16-bit disassembly.
+
+The generic comparator gained repeatable explicit role pairs:
+
+```bash
+python3 -B tools/compare_interpreter_tables.py \
+  --left-label KQ4D-3.002.102 --left-game-dir games/KQ4D \
+  --left-exe games/KQ4D/AGI \
+  --right-label GR-3.002.149 --right-game-dir games/GR \
+  --right-exe games/GR/AGI \
+  --role-pair LABEL=KQ4D_ADDRESS,GR_ADDRESS \
+  --output build/cross-version/kq4d_gr_subsystem_roles.md
+```
+
+Rizin was also tried as a function-matching aid. Raw 16-bit analysis retained
+MZ-header-relative offsets, while `rz-diff -t functions` rejected the required
+16-bit architecture configuration. It was therefore not used as evidence.
+
+The completed pass covers 52 roles:
+
+- six view roles: resource load/discard, object view binding, loop-table and
+  loop selection, and cel selection;
+- four picture lifecycle roles;
+- picture decode completion, command scanner, all channel/pattern/path/fill
+  command handlers, coordinate reading, and line drawing;
+- buffer fill, horizontal/vertical line drawing, pixel writes, seed fill, and
+  full refresh;
+- update-list construction, insertion, draw/refresh order, active/inactive
+  partitions, list rebuild/flush, root membership, collision, control
+  acceptance, dirty rectangles, and placement; and
+- frame timing/mode advance plus the object motion, pre-mode, mode-dispatch,
+  and rectangle-boundary passes.
+
+Exact KQ4D entries added to the symbolic map include:
+
+```text
+code.object.update_dirty_rect              0x5b8c
+code.object.place                          0x5d64
+code.motion.update_objects                 0x1767
+code.motion.pre_mode_and_boundary_update   0x065b
+code.motion.dispatch_mode_step             0x0691
+code.motion.rectangle_boundary_check       0x06f2
+```
+
+The first four above normalize exactly against GR `0x598f`, `0x5cb3`,
+`0x1720`, and `0x0654`. The mode dispatcher and boundary checker report a
+normalized difference only inside embedded jump-table bytes. Manual
+disassembly confirms that their selected branch bodies and post-table state
+changes match GR `0x068a` and `0x06eb`. The same embedded-table issue explains
+the earlier frame-mode report for KQ4D `0x4cf7` versus GR `0x4b0e`.
+
+The only renderer differences in the 52-role pass are KQ4D's retained
+display-mode-2 branches in picture decode completion (`0x6891`), buffer fill
+(`0x5673`), and full refresh (`0x5962`). The underlying full-EGA command and
+raster helpers match. Non-EGA presentation is outside the current conformance
+target.
+
+Conclusion: for valid expanded resources and the primary full-EGA target,
+KQ4D 3.002.102 shares the promoted picture, view, object, motion, animation,
+and refresh contracts. Combined with the previously mapped resource, logic,
+input, room, sound, and persistence behavior, this is sufficient to promote a
+3.002.102 full-EGA gameplay profile. Binary save interchange remains scoped to
+the mapped KQ4D demo dimensions.
+
+## 2026-07-10: KQ1 2.917 source-first profile
+
+Goal: apply the same comparison workflow to an earlier v2 interpreter without
+assuming that its shared file layout implies shared behavior.
+
+The first table report incorrectly used `games/KQ1/AGI` directly. Handler
+addresses aligned with SQ2, but every instruction decoded as nonsense because
+the file still had the loader transform applied. It was discarded. KQ1 was
+decoded with its own local loader key:
+
+```bash
+python3 -B tools/decrypt_agi.py --game-dir games/KQ1 \
+  --output build/cross-version/kq1_agi.decrypted.exe
+
+python3 -B tools/compare_interpreter_tables.py \
+  --left-label KQ1-2.917 --left-game-dir games/KQ1 \
+  --left-exe build/cross-version/kq1_agi.decrypted.exe \
+  --right-label SQ2-2.936 --right-game-dir games/SQ2 \
+  --right-exe build/cleanroom/SQ2_AGI.decrypted.exe \
+  --output build/cross-version/kq1_sq2_table_comparison.md
+```
+
+The decoded report finds zero parser-contract or normalized-handler
+differences across 174 shared actions and 19 conditions. Direct disassembly of
+`code.logic.action_dispatch` at image `0x02c4` shows KQ1 accepts action bytes
+through `0xad`; SQ2 accepts through `0xaf`.
+
+The v2 action count is source-independent table geometry: a fixed `0x20`-byte
+trailer lies between the action and condition tables. Therefore
+`(condition_base - action_base - 0x20) / 4` yields 170 actions for local
+2.411/2.440, 174 for 2.917, and 176 for 2.936. The detector and tests now use
+this rule rather than assuming every split-layout build has 176 actions.
+
+Fifty-one of the 52 picture/view/object/motion roles normalize exactly after
+accounting for the later linked-code displacement. The remaining role,
+`code.object.frame_timer_update` at image `0x0563`, differs in one branch:
+
+```text
+2.917: cmp byte [object+0x0b],4 ; jnz skip_four_loop_table
+2.936: cmp byte [object+0x0b],4 ; jc  skip_four_loop_table
+```
+
+Thus 2.917 automatically direction-selects the four-loop table only for
+exactly four loops, while 2.936 accepts four or more. The two/three-loop paths,
+cel timer, movement, collision, placement, raster, update-list, and refresh
+roles match.
+
+Save source and selected-game dimensions:
+
+- writer image `0x2753` and restore image `0x2512` use the common five-block
+  grammar and a `0x05e1` first block;
+- decoded KQ1 `OBJECT` metadata has item-table size `0x51`, maximum object
+  index 17, 18 object records, 27 inventory entries, and a `0x0148` runtime
+  inventory block;
+- logic 0 executes action `0x8e(100)`, defining 100 replay pairs; and
+- KQ1 block lengths are `0x05e1`, `0x0306`, `0x0148`, `0x00c8`, and a
+  variable common logic-resume block.
+
+The promoted 2.917 profile is limited to valid resource records. Four KQ1
+sound directory entries fail the generic header check, and the immediate
+resource-reference audit finds no script reference to them.

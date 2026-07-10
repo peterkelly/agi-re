@@ -2,8 +2,8 @@
 
 This chapter defines room transitions, the resource replay sequence, restart,
 save/restore selection, and the known save-file envelope. Save-state semantics
-are normative where mapped; opaque serialized portions are identified
-explicitly rather than described through an original memory layout.
+are normative where mapped. Reserved serialized portions are identified
+explicitly and have defined initialization and preservation rules.
 
 ## Room transition
 
@@ -162,6 +162,16 @@ For the observed profile 2.936 game data, block lengths are:
 | 4 | 200 (`0x00c8`) |
 | 5 | Variable. |
 
+For profile 2.917, the observed KQ1 state uses lengths:
+
+| Block | Length |
+| ---: | ---: |
+| 1 | 1505 (`0x05e1`) |
+| 2 | 774 (`0x0306`) |
+| 3 | 328 (`0x0148`) |
+| 4 | 200 (`0x00c8`) |
+| 5 | Variable. |
+
 For profile 3.002.149, the observed Gold Rush state uses lengths:
 
 | Block | Length |
@@ -174,13 +184,29 @@ For profile 3.002.149, the observed Gold Rush state uses lengths:
 
 The envelope, lengths, signature prefix, and mapped subsystem effects are
 normative. All five blocks in the observed profile 2.936 game data are mapped
-below. Profile-specific opaque bytes remain explicitly identified.
+below. Profile-specific reserved bytes remain explicitly identified.
 
 All positions in the following tables are relative to the start of that block.
-All multi-byte integers are little-endian. Opaque ranges are part of the file
-contract even though their behavioral meaning is unresolved. A byte-preserving
-implementation must carry those bytes as profile-specific state and emit them
-unchanged unless another operation in the same profile is known to update them.
+All multi-byte integers are little-endian. Reserved ranges are part of the file
+contract even though valid game operations do not address them. A newly
+initialized state uses the canonical bytes listed below. A save loaded for
+binary interchange preserves the bytes it supplied and emits them unchanged.
+
+## Profile 2.917 observed KQ1 blocks
+
+The selected KQ1 data uses the profile 2.936 block-1 partition and reserved
+state rules exactly. Block 1 is `0x05e1` bytes.
+
+Block 2 contains 18 consecutive `0x2b`-byte object records with the record
+partition specified below for profile 2.936. The decoded inventory metadata
+header's maximum object index is 17, establishing that count.
+
+Block 3 is `0x0148` bytes. Its first 81 bytes contain 27 three-byte inventory
+entries and its remaining 247 bytes are the zero-terminated display-name pool.
+The block is stored directly, without the v3 transform.
+
+The selected game configures 100 replay-pair slots, so block 4 is `0x00c8`
+bytes. Block 5 uses the common variable-length logic-resume grammar.
 
 ## Profile 2.936 block 1
 
@@ -193,7 +219,7 @@ Block 1 is exactly `0x05e1` bytes. Its complete partition is:
 | `0x0107` | 32 | Packed flags `f0` through `f255`. |
 | `0x0127` | 4 | Unsigned 32-bit timer tick count. |
 | `0x012b` | 2 | Horizon baseline. |
-| `0x012d` | 2 | Opaque word; observed initialized bytes are `00 00`. |
+| `0x012d` | 2 | Reserved word; canonical bytes are `00 00`. |
 | `0x012f` | 2 | Movement rectangle left bound. |
 | `0x0131` | 2 | Movement rectangle top bound. |
 | `0x0133` | 2 | Movement rectangle right bound. |
@@ -201,20 +227,21 @@ Block 1 is exactly `0x05e1` bytes. Its complete partition is:
 | `0x0137` | 2 | Object-0/global-direction coupling selector. |
 | `0x0139` | 2 | Most recently prepared picture number. |
 | `0x013b` | 2 | Movement rectangle enable value. |
-| `0x013d` | 2 | Opaque word; observed initialized bytes are `0f 00`. |
+| `0x013d` | 2 | Reserved word; canonical bytes are `0f 00`. |
 | `0x013f` | 2 | Replay-pair capacity. |
 | `0x0141` | 2 | Active replay-pair count. |
 | `0x0143` | 156 | Thirty-nine key mappings, each `raw_key:u16le, status:u16le`. |
-| `0x01df` | 44 | Opaque bytes; observed initialized contents are all zero. |
+| `0x01df` | 40 | Ten inactive key-map records outside this profile's 39-entry capacity; canonical contents are all zero. |
+| `0x0207` | 4 | Reserved pre-string padding; canonical contents are all zero. |
 | `0x020b` | 480 | Twelve script string slots of 40 bytes each. |
-| `0x03eb` | 480 | Opaque bytes; observed initialized contents are all zero. |
+| `0x03eb` | 480 | Twelve reserved 40-byte records outside the valid string-slot range; canonical contents are all zero. |
 | `0x05cb` | 2 | Derived foreground text attribute. |
 | `0x05cd` | 2 | Derived background text attribute. |
 | `0x05cf` | 2 | Packed current text/window attribute. |
 | `0x05d1` | 2 | Input-line enabled value. |
 | `0x05d3` | 2 | Input text row. |
 | `0x05d5` | 1 | Prompt-marker character. |
-| `0x05d6` | 1 | Opaque byte; observed initialized value is zero. |
+| `0x05d6` | 1 | Reserved byte before following word state; canonical value is zero. |
 | `0x05d7` | 2 | Status-line enabled value. |
 | `0x05d9` | 2 | Status text row. |
 | `0x05db` | 2 | Display base row. |
@@ -222,7 +249,7 @@ Block 1 is exactly `0x05e1` bytes. Its complete partition is:
 | `0x05df` | 2 | Replay checkpoint count. |
 
 The string region contains twelve addressable 40-byte slots. The following
-480-byte opaque region is not an additional set of script-visible slots.
+480-byte reserved bank is not an additional set of script-visible slots.
 
 ## Profile 2.936 block 2
 
@@ -339,6 +366,33 @@ are permitted; only the first match is effective. Consequently the observed
 leading `(0, 0)` record would take precedence over a later cached-logic-0 record
 if logic 0 were replay-loaded.
 
+## Profile 3.002.102 observed KQ4D demo blocks
+
+The selected KQ4D demo uses the same five-block envelope and the same block-1
+positions as profile 2.936 through position `0x05e0`. It appends two v3 fields:
+
+| Position | Size | Portable state |
+| ---: | ---: | --- |
+| `0x05e1` | 2 | Menu interaction gate. |
+| `0x05e3` | 1 | Key-release enqueue gate. |
+
+Block 1 is therefore `0x05e4` bytes. Its 39-entry key map, reserved key-map
+tail, twelve valid string slots, reserved string bank, text fields, and replay
+checkpoint use the profile 2.936 layout and reserved-state rules.
+
+Block 2 is 16 consecutive object records of `0x2b` bytes each. Block 3 is
+XOR-transformed on disk as described below. Its decoded five-byte payload is:
+
+| Position | Size | Portable state |
+| ---: | ---: | --- |
+| `0x0000` | 3 | One inventory entry: `name_offset:u16le, location:u8`. |
+| `0x0003` | 2 | Zero-terminated display-name pool containing `?`. |
+
+The decoded inventory metadata header's maximum object index is 15, establishing
+the 16 block-2 records. The selected demo sets replay-pair capacity to one, so
+block 4 contains one two-byte `(kind, value)` slot. Block 5 uses the common
+variable-length logic-resume grammar.
+
 ## Profile 3.002.149 observed Gold Rush blocks
 
 Profile 3.002.149 uses the same five-block envelope and conceptual block roles.
@@ -355,7 +409,7 @@ partition is:
 | `0x0107` | 32 | Packed flags `f0` through `f255`. |
 | `0x0127` | 4 | Unsigned 32-bit timer tick count. |
 | `0x012b` | 2 | Horizon baseline. |
-| `0x012d` | 2 | Opaque word; observed initialized bytes are `00 00`. |
+| `0x012d` | 2 | Reserved word; canonical bytes are `00 00`. |
 | `0x012f` | 2 | Movement rectangle left bound. |
 | `0x0131` | 2 | Movement rectangle top bound. |
 | `0x0133` | 2 | Movement rectangle right bound. |
@@ -363,11 +417,11 @@ partition is:
 | `0x0137` | 2 | Object-0/global-direction coupling selector. |
 | `0x0139` | 2 | Most recently prepared picture number. |
 | `0x013b` | 2 | Movement rectangle enable value. |
-| `0x013d` | 2 | Opaque word; observed initialized bytes are `0f 00`. |
+| `0x013d` | 2 | Reserved word; canonical bytes are `0f 00`. |
 | `0x013f` | 2 | Replay-pair capacity; observed value is 50. |
 | `0x0141` | 2 | Active replay-pair count. |
 | `0x0143` | 196 | Forty-nine key mappings, each `raw_key:u16le, status:u16le`. |
-| `0x0207` | 4 | Opaque bytes; observed initialized contents are all zero. |
+| `0x0207` | 4 | Reserved pre-string padding; canonical contents are all zero. |
 | `0x020b` | 480 | Twelve script string slots of 40 bytes each. |
 | `0x03eb` | 2 | Derived foreground text attribute. |
 | `0x03ed` | 2 | Derived background text attribute. |
@@ -375,7 +429,7 @@ partition is:
 | `0x03f1` | 2 | Input-line enabled value. |
 | `0x03f3` | 2 | Input text row. |
 | `0x03f5` | 1 | Prompt-marker character. |
-| `0x03f6` | 1 | Opaque byte; observed initialized value is zero. |
+| `0x03f6` | 1 | Reserved byte before following word state; canonical value is zero. |
 | `0x03f7` | 2 | Status-line enabled value. |
 | `0x03f9` | 2 | Status text row. |
 | `0x03fb` | 2 | Display base row. |
@@ -385,9 +439,9 @@ partition is:
 | `0x0403` | 1 | Key-release enqueue gate. |
 
 This profile keeps the same twelve string slots as profile 2.936. The expanded
-49-slot key map consumes most of the 2.936 opaque region that follows the key
-map; only the four bytes at `0x0207..0x020a` remain opaque in the observed
-Gold Rush block.
+49-slot key map consumes the ten inactive key-map records serialized by the
+2.936 profile. The four reserved bytes at `0x0207..0x020a` remain before the
+string slots.
 
 Block 2 is 23 consecutive object records of `0x2b` bytes each. Each record uses
 the same record layout specified for profile 2.936 block 2. The record count is
@@ -416,9 +470,10 @@ cached logic-0 `(0, 0)`, and terminator `(0xffff, 0)`. As with profile 2.936,
 the replay-pair sequence decides which logic resources are loaded; block 5 is
 only a resume-offset lookup consulted during replayed logic loads.
 
-## Profile 3.002.149 block transform
+## V3 block-3 transform
 
-Profile 3.002.149 XOR-transforms block 3 on disk with this repeating ASCII key:
+Profiles 3.002.102 and 3.002.149 XOR-transform block 3 on disk with this
+repeating ASCII key:
 
 ```text
 Avis Durgan
@@ -496,12 +551,11 @@ failure, unrecoverable allocation failure, and restore read failure share the
 cleanup path: close the log if open, restore input/timer hooks and the prior
 display mode, and terminate with process exit code zero.
 
-## Remaining persistence gap
+## Reserved-state rule
 
-Every byte position in the observed profile 2.936 save blocks now has a field
-or an explicit opaque-range assignment. The remaining persistence gap is to
-resolve whether the five opaque block-1 ranges ever acquire behavior in valid
-execution and to map other interpreter/game profiles independently. A
-byte-preserving implementation can carry these ranges without depending on
-their organization, but a newly synthesized save cannot assign them novel
-values and claim defined behavior.
+Every byte position in the observed profile 2.936 and 3.002.149 save blocks has
+a portable field or a reserved-state assignment. Valid operations do not read
+or modify the reserved records and padding as game state. A newly synthesized
+save uses their canonical values; restoring and re-saving an existing save
+preserves its supplied reserved bytes. Other interpreter/game profiles require
+independent save-layout maps before binary interchange can be claimed.

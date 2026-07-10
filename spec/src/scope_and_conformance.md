@@ -31,6 +31,13 @@ The primary display target is the full 16-color EGA behavior exercised by valid
 local game data. Other display adapters and modes are specified only when they
 are deliberately added as compatibility targets.
 
+Text output is specified at the character-cell boundary: text bytes,
+attributes, rows, columns, rectangles, blocking behavior, and save/restore of
+covered regions are part of the core contract. Exact glyph bitmaps are a font
+profile input, not an interpreter semantic in the current portable core. A
+bitmap-identical screenshot claim for text output must state the font bitmap
+set it uses in addition to the interpreter profile.
+
 Behavior caused by malformed data escaping a resource and causing the original
 interpreter to read or execute unrelated memory is outside this specification.
 Bounded malformed input may be specified when its effects remain within the

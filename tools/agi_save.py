@@ -116,7 +116,7 @@ SQ2_BLOCK1_REGIONS = (
     SaveStateRegion(0x0107, 0x0020, "flags", True, "Packed flags f0 through f255."),
     SaveStateRegion(0x0127, 0x0004, "timer_ticks", True, "Little-endian 32-bit timer tick counter."),
     SaveStateRegion(0x012B, 0x0002, "horizon", True, "Object horizon baseline."),
-    SaveStateRegion(0x012D, 0x0002, "unknown_012d", False, "Unmapped saved word."),
+    SaveStateRegion(0x012D, 0x0002, "reserved_012d", True, "Reserved word; canonically zero and preserved on interchange."),
     SaveStateRegion(0x012F, 0x0002, "motion_rect_left", True, "Configured movement rectangle left bound."),
     SaveStateRegion(0x0131, 0x0002, "motion_rect_top", True, "Configured movement rectangle top bound."),
     SaveStateRegion(0x0133, 0x0002, "motion_rect_right", True, "Configured movement rectangle right bound."),
@@ -124,20 +124,21 @@ SQ2_BLOCK1_REGIONS = (
     SaveStateRegion(0x0137, 0x0002, "direction_coupling", True, "Object-0/v6 direction coupling selector."),
     SaveStateRegion(0x0139, 0x0002, "prepared_picture", True, "Most recently prepared picture number."),
     SaveStateRegion(0x013B, 0x0002, "motion_rect_enabled", True, "Configured movement rectangle enable word."),
-    SaveStateRegion(0x013D, 0x0002, "unknown_013d", False, "Unmapped saved word; initialized to 0x000f."),
+    SaveStateRegion(0x013D, 0x0002, "reserved_013d", True, "Reserved word; canonical value 0x000f and preserved on interchange."),
     SaveStateRegion(0x013F, 0x0002, "replay_capacity", True, "Resource replay capacity in pairs."),
     SaveStateRegion(0x0141, 0x0002, "replay_count", True, "Active resource replay pair count."),
     SaveStateRegion(0x0143, 0x009C, "key_map", True, "Thirty-nine four-byte raw-key/status mappings."),
-    SaveStateRegion(0x01DF, 0x002C, "unknown_01df", False, "Unreferenced saved gap after the key map."),
+    SaveStateRegion(0x01DF, 0x0028, "reserved_key_map_tail", True, "Ten inactive four-byte key-map records outside the profile capacity."),
+    SaveStateRegion(0x0207, 0x0004, "reserved_pre_string_padding", True, "Reserved bytes before the string slots."),
     SaveStateRegion(0x020B, 0x01E0, "string_slots", True, "Twelve 40-byte script string slots."),
-    SaveStateRegion(0x03EB, 0x01E0, "unknown_03eb", False, "Unmapped zero-initialized 480-byte bank."),
+    SaveStateRegion(0x03EB, 0x01E0, "reserved_string_bank", True, "Twelve reserved 40-byte records outside the valid string-slot range."),
     SaveStateRegion(0x05CB, 0x0002, "text_foreground", True, "Derived foreground text attribute."),
     SaveStateRegion(0x05CD, 0x0002, "text_background", True, "Derived background text attribute."),
     SaveStateRegion(0x05CF, 0x0002, "text_attribute", True, "Packed current text/window attribute."),
     SaveStateRegion(0x05D1, 0x0002, "input_line_enabled", True, "Input-line enabled word."),
     SaveStateRegion(0x05D3, 0x0002, "input_row", True, "Configured input text row."),
     SaveStateRegion(0x05D5, 0x0001, "prompt_marker", True, "Input prompt marker byte."),
-    SaveStateRegion(0x05D6, 0x0001, "unknown_05d6", False, "Unmapped byte between prompt and status state."),
+    SaveStateRegion(0x05D6, 0x0001, "reserved_text_padding", True, "Reserved byte aligning the following word state."),
     SaveStateRegion(0x05D7, 0x0002, "status_line_enabled", True, "Status-line enabled word."),
     SaveStateRegion(0x05D9, 0x0002, "status_row", True, "Configured status text row."),
     SaveStateRegion(0x05DB, 0x0002, "display_base_row", True, "Configured display base row."),
@@ -186,6 +187,15 @@ SQ2_BLOCK3_LENGTH = 0x0148
 SQ2_INVENTORY_ITEM_COUNT = 40
 SQ2_INVENTORY_ITEM_SIZE = 3
 SQ2_INVENTORY_ITEM_TABLE_SIZE = 0x78
+KQ1_2917_BLOCK1_LENGTH = SQ2_BLOCK1_LENGTH
+KQ1_2917_BLOCK1_REGIONS = SQ2_BLOCK1_REGIONS
+KQ1_2917_OBJECT_RECORD_COUNT = 18
+KQ1_2917_BLOCK2_LENGTH = KQ1_2917_OBJECT_RECORD_COUNT * SQ2_OBJECT_RECORD_SIZE
+KQ1_2917_INVENTORY_ITEM_COUNT = 27
+KQ1_2917_INVENTORY_ITEM_TABLE_SIZE = 0x51
+KQ1_2917_BLOCK3_LENGTH = SQ2_BLOCK3_LENGTH
+KQ1_2917_REPLAY_PAIR_COUNT = 100
+KQ1_2917_BLOCK4_LENGTH = KQ1_2917_REPLAY_PAIR_COUNT * SQ2_REPLAY_PAIR_SIZE
 GR_V3_BLOCK1_LENGTH = 0x0404
 GR_V3_BLOCK2_LENGTH = 0x03DD
 GR_V3_BLOCK3_LENGTH = 0x0713
@@ -195,13 +205,25 @@ GR_V3_OBJECT_RECORD_COUNT = 23
 GR_V3_INVENTORY_ITEM_COUNT = 131
 GR_V3_INVENTORY_ITEM_TABLE_SIZE = 0x0189
 GR_V3_REPLAY_PAIR_COUNT = 50
+KQ4D_V3_BLOCK1_LENGTH = SQ2_BLOCK1_LENGTH + 3
+KQ4D_V3_OBJECT_RECORD_COUNT = 16
+KQ4D_V3_BLOCK2_LENGTH = KQ4D_V3_OBJECT_RECORD_COUNT * SQ2_OBJECT_RECORD_SIZE
+KQ4D_V3_INVENTORY_ITEM_COUNT = 1
+KQ4D_V3_INVENTORY_ITEM_TABLE_SIZE = 3
+KQ4D_V3_BLOCK3_LENGTH = 5
+KQ4D_V3_REPLAY_PAIR_COUNT = 1
+KQ4D_V3_BLOCK4_LENGTH = KQ4D_V3_REPLAY_PAIR_COUNT * SQ2_REPLAY_PAIR_SIZE
+KQ4D_V3_BLOCK1_REGIONS = SQ2_BLOCK1_REGIONS + (
+    SaveStateRegion(0x05E1, 0x0002, "menu_interaction_gate", True, "V3 menu interaction gate word."),
+    SaveStateRegion(0x05E3, 0x0001, "key_release_enqueue_gate", True, "V3 key-release enqueue gate byte."),
+)
 GR_V3_BLOCK1_REGIONS = (
     SaveStateRegion(0x0000, 0x0007, "signature", True, "Seven-byte game/save signature area."),
     SaveStateRegion(0x0007, 0x0100, "variables", True, "Variables v0 through v255."),
     SaveStateRegion(0x0107, 0x0020, "flags", True, "Packed flags f0 through f255."),
     SaveStateRegion(0x0127, 0x0004, "timer_ticks", True, "Little-endian 32-bit timer tick counter."),
     SaveStateRegion(0x012B, 0x0002, "horizon", True, "Object horizon baseline."),
-    SaveStateRegion(0x012D, 0x0002, "unknown_012d", False, "Unmapped saved word."),
+    SaveStateRegion(0x012D, 0x0002, "reserved_012d", True, "Reserved word; canonically zero and preserved on interchange."),
     SaveStateRegion(0x012F, 0x0002, "motion_rect_left", True, "Configured movement rectangle left bound."),
     SaveStateRegion(0x0131, 0x0002, "motion_rect_top", True, "Configured movement rectangle top bound."),
     SaveStateRegion(0x0133, 0x0002, "motion_rect_right", True, "Configured movement rectangle right bound."),
@@ -209,11 +231,11 @@ GR_V3_BLOCK1_REGIONS = (
     SaveStateRegion(0x0137, 0x0002, "direction_coupling", True, "Object-0/v6 direction coupling selector."),
     SaveStateRegion(0x0139, 0x0002, "prepared_picture", True, "Most recently prepared picture number."),
     SaveStateRegion(0x013B, 0x0002, "motion_rect_enabled", True, "Configured movement rectangle enable word."),
-    SaveStateRegion(0x013D, 0x0002, "unknown_013d", False, "Unmapped saved word; initialized to 0x000f."),
+    SaveStateRegion(0x013D, 0x0002, "reserved_013d", True, "Reserved word; canonical value 0x000f and preserved on interchange."),
     SaveStateRegion(0x013F, 0x0002, "replay_capacity", True, "Replay-pair capacity."),
     SaveStateRegion(0x0141, 0x0002, "replay_count", True, "Active resource replay pair count."),
     SaveStateRegion(0x0143, 0x00C4, "key_map", True, "Forty-nine four-byte raw-key/status mappings."),
-    SaveStateRegion(0x0207, 0x0004, "unknown_0207", False, "Unmapped four-byte gap before string slots."),
+    SaveStateRegion(0x0207, 0x0004, "reserved_pre_string_padding", True, "Reserved bytes before the string slots."),
     SaveStateRegion(0x020B, 0x01E0, "string_slots", True, "Twelve 40-byte script string slots."),
     SaveStateRegion(0x03EB, 0x0002, "text_foreground", True, "Derived foreground text attribute."),
     SaveStateRegion(0x03ED, 0x0002, "text_background", True, "Derived background text attribute."),
@@ -221,7 +243,7 @@ GR_V3_BLOCK1_REGIONS = (
     SaveStateRegion(0x03F1, 0x0002, "input_line_enabled", True, "Input-line enabled word."),
     SaveStateRegion(0x03F3, 0x0002, "input_row", True, "Configured input text row."),
     SaveStateRegion(0x03F5, 0x0001, "prompt_marker", True, "Input prompt marker byte."),
-    SaveStateRegion(0x03F6, 0x0001, "unknown_03f6", False, "Unmapped byte between prompt and status state."),
+    SaveStateRegion(0x03F6, 0x0001, "reserved_text_padding", True, "Reserved byte aligning the following word state."),
     SaveStateRegion(0x03F7, 0x0002, "status_line_enabled", True, "Status-line enabled word."),
     SaveStateRegion(0x03F9, 0x0002, "status_row", True, "Configured status text row."),
     SaveStateRegion(0x03FB, 0x0002, "display_base_row", True, "Configured display base row."),
@@ -266,8 +288,16 @@ def split_sq2_block1(data: bytes) -> dict[str, bytes]:
     return split_state_regions(data, SQ2_BLOCK1_REGIONS, SQ2_BLOCK1_LENGTH)
 
 
+def split_kq1_2917_block1(data: bytes) -> dict[str, bytes]:
+    return split_state_regions(data, KQ1_2917_BLOCK1_REGIONS, KQ1_2917_BLOCK1_LENGTH)
+
+
 def split_gr_v3_block1(data: bytes) -> dict[str, bytes]:
     return split_state_regions(data, GR_V3_BLOCK1_REGIONS, GR_V3_BLOCK1_LENGTH)
+
+
+def split_kq4d_v3_block1(data: bytes) -> dict[str, bytes]:
+    return split_state_regions(data, KQ4D_V3_BLOCK1_REGIONS, KQ4D_V3_BLOCK1_LENGTH)
 
 
 def split_object_records(
@@ -296,6 +326,14 @@ def split_sq2_block2(data: bytes) -> tuple[dict[str, bytes], ...]:
     return split_object_records(data, record_count=SQ2_OBJECT_RECORD_COUNT)
 
 
+def split_kq1_2917_block2(data: bytes) -> tuple[dict[str, bytes], ...]:
+    return split_object_records(
+        data,
+        record_count=KQ1_2917_OBJECT_RECORD_COUNT,
+        block_name="KQ1 2.917 save-state block 2",
+    )
+
+
 def split_replay_pairs(data: bytes, *, pair_count: int) -> tuple[tuple[int, int], ...]:
     expected_length = pair_count * SQ2_REPLAY_PAIR_SIZE
     if len(data) != expected_length:
@@ -310,6 +348,10 @@ def split_replay_pairs(data: bytes, *, pair_count: int) -> tuple[tuple[int, int]
 
 def split_sq2_block4(data: bytes) -> tuple[tuple[int, int], ...]:
     return split_replay_pairs(data, pair_count=SQ2_REPLAY_PAIR_COUNT)
+
+
+def split_kq1_2917_block4(data: bytes) -> tuple[tuple[int, int], ...]:
+    return split_replay_pairs(data, pair_count=KQ1_2917_REPLAY_PAIR_COUNT)
 
 
 def u16le(data: bytes, offset: int) -> int:
@@ -361,6 +403,15 @@ def split_sq2_block3(data: bytes) -> SaveInventoryState:
     if SQ2_INVENTORY_ITEM_TABLE_SIZE != SQ2_INVENTORY_ITEM_COUNT * SQ2_INVENTORY_ITEM_SIZE:
         raise ValueError("inventory item table constants do not agree")
     return split_inventory_block(data, item_table_size=SQ2_INVENTORY_ITEM_TABLE_SIZE)
+
+
+def split_kq1_2917_block3(data: bytes) -> SaveInventoryState:
+    if len(data) != KQ1_2917_BLOCK3_LENGTH:
+        raise ValueError(
+            f"KQ1 2.917 save-state block 3 length {len(data):#x}, "
+            f"expected {KQ1_2917_BLOCK3_LENGTH:#x}"
+        )
+    return split_inventory_block(data, item_table_size=KQ1_2917_INVENTORY_ITEM_TABLE_SIZE)
 
 
 def split_sq2_block5(data: bytes) -> SaveLogicResumeState:
@@ -419,6 +470,29 @@ def decode_sq2_object_file(data: bytes) -> tuple[int, int, bytes]:
     return item_table_size, maximum_object_index, runtime_block
 
 
+def decode_kq1_2917_object_file(data: bytes) -> ObjectMetadata:
+    metadata = decode_object_metadata_file(data, key=SQ2_OBJECT_FILE_XOR_KEY)
+    if metadata.item_table_size != KQ1_2917_INVENTORY_ITEM_TABLE_SIZE:
+        raise ValueError(
+            f"KQ1 2.917 object metadata item table size "
+            f"{metadata.item_table_size:#x}, "
+            f"expected {KQ1_2917_INVENTORY_ITEM_TABLE_SIZE:#x}"
+        )
+    if metadata.object_record_count != KQ1_2917_OBJECT_RECORD_COUNT:
+        raise ValueError(
+            f"KQ1 2.917 object metadata record count "
+            f"{metadata.object_record_count}, "
+            f"expected {KQ1_2917_OBJECT_RECORD_COUNT}"
+        )
+    if len(metadata.runtime_block) != KQ1_2917_BLOCK3_LENGTH:
+        raise ValueError(
+            f"KQ1 2.917 object runtime block length "
+            f"{len(metadata.runtime_block):#x}, "
+            f"expected {KQ1_2917_BLOCK3_LENGTH:#x}"
+        )
+    return metadata
+
+
 def decode_gr_v3_object_file(data: bytes) -> ObjectMetadata:
     metadata = decode_object_metadata_file(data, key=SQ2_OBJECT_FILE_XOR_KEY)
     if metadata.item_table_size != GR_V3_INVENTORY_ITEM_TABLE_SIZE:
@@ -439,12 +513,54 @@ def decode_gr_v3_object_file(data: bytes) -> ObjectMetadata:
     return metadata
 
 
+def decode_kq4d_v3_object_file(data: bytes) -> ObjectMetadata:
+    metadata = decode_object_metadata_file(data, key=SQ2_OBJECT_FILE_XOR_KEY)
+    if metadata.item_table_size != KQ4D_V3_INVENTORY_ITEM_TABLE_SIZE:
+        raise ValueError(
+            f"KQ4D v3 object metadata item table size {metadata.item_table_size:#x}, "
+            f"expected {KQ4D_V3_INVENTORY_ITEM_TABLE_SIZE:#x}"
+        )
+    if metadata.object_record_count != KQ4D_V3_OBJECT_RECORD_COUNT:
+        raise ValueError(
+            f"KQ4D v3 object metadata record count {metadata.object_record_count}, "
+            f"expected {KQ4D_V3_OBJECT_RECORD_COUNT}"
+        )
+    if len(metadata.runtime_block) != KQ4D_V3_BLOCK3_LENGTH:
+        raise ValueError(
+            f"KQ4D v3 object runtime block length {len(metadata.runtime_block):#x}, "
+            f"expected {KQ4D_V3_BLOCK3_LENGTH:#x}"
+        )
+    return metadata
+
+
 def split_gr_v3_block2(data: bytes) -> tuple[dict[str, bytes], ...]:
     return split_object_records(
         data,
         record_count=GR_V3_OBJECT_RECORD_COUNT,
         block_name="GR v3 save-state block 2",
     )
+
+
+def split_kq4d_v3_block2(data: bytes) -> tuple[dict[str, bytes], ...]:
+    return split_object_records(
+        data,
+        record_count=KQ4D_V3_OBJECT_RECORD_COUNT,
+        block_name="KQ4D v3 save-state block 2",
+    )
+
+
+def split_kq4d_v3_block3(data: bytes) -> SaveInventoryState:
+    decoded = gr_v3_object_inventory_save_xor(data)
+    if len(decoded) != KQ4D_V3_BLOCK3_LENGTH:
+        raise ValueError(
+            f"KQ4D v3 save-state block 3 length {len(decoded):#x}, "
+            f"expected {KQ4D_V3_BLOCK3_LENGTH:#x}"
+        )
+    return split_inventory_block(decoded, item_table_size=KQ4D_V3_INVENTORY_ITEM_TABLE_SIZE)
+
+
+def split_kq4d_v3_block4(data: bytes) -> tuple[tuple[int, int], ...]:
+    return split_replay_pairs(data, pair_count=KQ4D_V3_REPLAY_PAIR_COUNT)
 
 
 def split_gr_v3_block3(data: bytes) -> SaveInventoryState:

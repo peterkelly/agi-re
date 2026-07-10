@@ -113,15 +113,49 @@ Attenuation commands combine a channel selector with a low-nibble attenuation:
 | 2 | `0xd0` |
 | 3 | `0xf0` |
 
-The exact four-channel attenuation-envelope initialization and transition
-contract is not yet complete in this revision. Until that contract is added,
-this chapter supports resource parsing, event timing, tone command order,
-silence, and completion conformance, but not a claim of complete
-four-channel amplitude-envelope equivalence.
+Each participating channel has three attenuation-envelope state fields:
+
+| Field | Initial value when playback starts | Meaning |
+| --- | ---: | --- |
+| Base attenuation | Event-defined | The low nibble from the most recently consumed event, or `0x0f` after channel termination. |
+| Envelope index | Disabled | The current position in the envelope table. |
+| Envelope value | Unspecified until first envelope step | The last clamped envelope result. |
+
+Playback start disables the envelope index for every channel. When a channel
+consumes a new event, channels 0, 1, and 2 reset their envelope index to zero
+before storing the event's base attenuation. Channel 3 preserves its current
+envelope index across event boundaries. This channel-3 persistence is part of
+the 2.936 profile.
+
+On each attenuation output for a non-silent base attenuation, an enabled
+envelope index consumes one byte from the default envelope table:
+
+```text
+fe fd fe ff 00 00 01 01 01 01 02 02 02 02 02 02
+02 02 03 03 03 03 03 03 03 04 04 04 04 05 05 05
+05 06 06 06 06 06 07 07 07 07 08 08 08 08 09 09
+09 09 0a 0a 0a 0a 0b 0b 0b 0b 0b 0b 0c 0c 0c 0c
+0c 0c 0d 80
+```
+
+Table byte `0x80` disables the envelope and copies the previous envelope value
+into the base attenuation. Any other table byte is treated as an 8-bit signed
+delta from the current event's base attenuation, not from the previous
+envelope output. The result is clamped to `0..0x0f`, stored as the new envelope
+value, and then used as the emitted attenuation for that output.
+
+After envelope processing, the runtime global attenuation adjustment is added
+and clamped to `0x0f`. The four-channel profile selected by device value `2`
+then increases any non-silent attenuation below `8` by `2`. Finally, the
+channel selector byte is combined with the low-nibble attenuation and emitted.
+
+If the base attenuation is already `0x0f`, no envelope step, global
+adjustment, or device-2 adjustment occurs; the channel emits its selector byte
+combined with `0x0f`.
 
 ## Output boundary
 
 Exact analog waveform synthesis is outside the specification. Compatibility is
 defined by resource interpretation, participating channels, event order,
-timing, tone values or divisors, silence transitions, active state, and
-completion flags.
+timing, tone values or divisors, attenuation command bytes, silence
+transitions, active state, and completion flags.

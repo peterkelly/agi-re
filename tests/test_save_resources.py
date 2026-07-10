@@ -23,6 +23,20 @@ from agi_save import (  # noqa: E402
     GR_V3_INVENTORY_ITEM_TABLE_SIZE,
     GR_V3_OBJECT_RECORD_COUNT,
     GR_V3_REPLAY_PAIR_COUNT,
+    KQ4D_V3_BLOCK1_LENGTH,
+    KQ4D_V3_BLOCK1_REGIONS,
+    KQ4D_V3_BLOCK2_LENGTH,
+    KQ4D_V3_BLOCK3_LENGTH,
+    KQ4D_V3_BLOCK4_LENGTH,
+    KQ4D_V3_INVENTORY_ITEM_COUNT,
+    KQ4D_V3_OBJECT_RECORD_COUNT,
+    KQ1_2917_BLOCK1_LENGTH,
+    KQ1_2917_BLOCK1_REGIONS,
+    KQ1_2917_BLOCK2_LENGTH,
+    KQ1_2917_BLOCK3_LENGTH,
+    KQ1_2917_BLOCK4_LENGTH,
+    KQ1_2917_INVENTORY_ITEM_COUNT,
+    KQ1_2917_OBJECT_RECORD_COUNT,
     SAVE_HEADER_LENGTH,
     SQ2_BLOCK1_LENGTH,
     SQ2_BLOCK1_REGIONS,
@@ -41,6 +55,8 @@ from agi_save import (  # noqa: E402
     SavePathValidationPlan,
     SOURCE_BACKED_FIXED_BLOCK_LENGTHS,
     decode_gr_v3_object_file,
+    decode_kq4d_v3_object_file,
+    decode_kq1_2917_object_file,
     gr_v3_object_inventory_save_xor,
     decode_sq2_object_file,
     load_save,
@@ -56,12 +72,22 @@ from agi_save import (  # noqa: E402
     split_gr_v3_block3,
     split_gr_v3_block4,
     split_gr_v3_block1,
+    split_kq4d_v3_block1,
+    split_kq4d_v3_block2,
+    split_kq4d_v3_block3,
+    split_kq4d_v3_block4,
+    split_kq1_2917_block1,
+    split_kq1_2917_block2,
+    split_kq1_2917_block3,
+    split_kq1_2917_block4,
     validate_state_regions,
     xor_with_repeating_key,
 )
 from disassemble_logic import SQ2  # noqa: E402
 
 GR = ROOT / "games" / "GR"
+KQ4D = ROOT / "games" / "KQ4D"
+KQ1 = ROOT / "games" / "KQ1"
 GR_SAVE = ROOT / "build" / "gr-v3-behavior" / "GRSG_001.1"
 
 
@@ -73,6 +99,22 @@ def sq2_save_paths() -> list[Path]:
 
 
 class SaveResourceTests(unittest.TestCase):
+    @unittest.skipUnless(KQ1.exists(), "local KQ1 game directory is not present")
+    def test_kq1_2917_object_metadata_defines_save_dimensions(self) -> None:
+        metadata = decode_kq1_2917_object_file((KQ1 / "OBJECT").read_bytes())
+
+        self.assertEqual(KQ1_2917_BLOCK1_REGIONS, SQ2_BLOCK1_REGIONS)
+        self.assertEqual(KQ1_2917_BLOCK1_LENGTH, SQ2_BLOCK1_LENGTH)
+        self.assertEqual(len(split_kq1_2917_block1(bytes(KQ1_2917_BLOCK1_LENGTH))), len(SQ2_BLOCK1_REGIONS))
+        self.assertEqual(metadata.object_record_count, KQ1_2917_OBJECT_RECORD_COUNT)
+        self.assertEqual(len(split_kq1_2917_block2(bytes(KQ1_2917_BLOCK2_LENGTH))), 18)
+        self.assertEqual(len(metadata.runtime_block), KQ1_2917_BLOCK3_LENGTH)
+        inventory = split_kq1_2917_block3(metadata.runtime_block)
+        self.assertEqual(len(inventory.items), KQ1_2917_INVENTORY_ITEM_COUNT)
+        self.assertEqual(inventory.items[0].name, "?")
+        self.assertEqual(inventory.items[1].name, "dagger")
+        self.assertEqual(len(split_kq1_2917_block4(bytes(KQ1_2917_BLOCK4_LENGTH))), 100)
+
     def test_sq2_block1_map_covers_every_byte_once(self) -> None:
         validate_state_regions(SQ2_BLOCK1_REGIONS, SQ2_BLOCK1_LENGTH)
         self.assertEqual(SQ2_BLOCK1_REGIONS[0].offset, 0)
@@ -88,24 +130,33 @@ class SaveResourceTests(unittest.TestCase):
         self.assertEqual(len(regions["key_map"]), 39 * 4)
         self.assertEqual(len(regions["string_slots"]), 12 * 40)
 
-    def test_sq2_block1_unknown_ranges_remain_explicit(self) -> None:
-        unknown = [region for region in SQ2_BLOCK1_REGIONS if not region.known]
+    def test_sq2_block1_reserved_ranges_are_explicit(self) -> None:
+        reserved = [region for region in SQ2_BLOCK1_REGIONS if region.name.startswith("reserved_")]
         self.assertEqual(
-            [(region.offset, region.size) for region in unknown],
-            [(0x012D, 2), (0x013D, 2), (0x01DF, 0x2C), (0x03EB, 0x1E0), (0x05D6, 1)],
+            [(region.offset, region.size) for region in reserved],
+            [
+                (0x012D, 2),
+                (0x013D, 2),
+                (0x01DF, 0x28),
+                (0x0207, 4),
+                (0x03EB, 0x1E0),
+                (0x05D6, 1),
+            ],
         )
+        self.assertTrue(all(region.known for region in reserved))
 
     def test_sq2_block1_split_rejects_other_lengths(self) -> None:
         with self.assertRaisesRegex(ValueError, "block length"):
             split_sq2_block1(bytes(SQ2_BLOCK1_LENGTH - 1))
 
-    def test_sq2_block1_observed_unknown_bytes_remain_accounted_for(self) -> None:
+    def test_sq2_block1_reserved_bytes_have_canonical_observed_values(self) -> None:
         expected = {
-            "unknown_012d": b"\0\0",
-            "unknown_013d": b"\x0f\0",
-            "unknown_01df": bytes(0x2C),
-            "unknown_03eb": bytes(0x1E0),
-            "unknown_05d6": b"\0",
+            "reserved_012d": b"\0\0",
+            "reserved_013d": b"\x0f\0",
+            "reserved_key_map_tail": bytes(0x28),
+            "reserved_pre_string_padding": bytes(4),
+            "reserved_string_bank": bytes(0x1E0),
+            "reserved_text_padding": b"\0",
         }
         for path in sq2_save_paths():
             with self.subTest(save=path.name):
@@ -355,6 +406,37 @@ class SaveResourceTests(unittest.TestCase):
         self.assertEqual(GR_V3_BLOCK1_REGIONS[-1].end, GR_V3_BLOCK1_LENGTH)
         self.assertEqual(len({region.name for region in GR_V3_BLOCK1_REGIONS}), len(GR_V3_BLOCK1_REGIONS))
 
+    def test_kq4d_v3_block1_extends_the_2936_shape_with_v3_gates(self) -> None:
+        validate_state_regions(KQ4D_V3_BLOCK1_REGIONS, KQ4D_V3_BLOCK1_LENGTH)
+        self.assertEqual(KQ4D_V3_BLOCK1_REGIONS[:-2], SQ2_BLOCK1_REGIONS)
+        self.assertEqual(
+            [(region.offset, region.size, region.name) for region in KQ4D_V3_BLOCK1_REGIONS[-2:]],
+            [
+                (0x05E1, 2, "menu_interaction_gate"),
+                (0x05E3, 1, "key_release_enqueue_gate"),
+            ],
+        )
+        regions = split_kq4d_v3_block1(bytes(KQ4D_V3_BLOCK1_LENGTH))
+        self.assertEqual(regions["menu_interaction_gate"], b"\0\0")
+        self.assertEqual(regions["key_release_enqueue_gate"], b"\0")
+
+    @unittest.skipUnless(KQ4D.exists(), "local KQ4D game directory is not present")
+    def test_kq4d_v3_intended_decoded_object_metadata_defines_save_dimensions(self) -> None:
+        decoded_local = (KQ4D / "OBJECT").read_bytes()
+        encoded_valid_input = xor_with_repeating_key(decoded_local, SQ2_OBJECT_FILE_XOR_KEY)
+        metadata = decode_kq4d_v3_object_file(encoded_valid_input)
+
+        self.assertEqual(metadata.item_table_size, 3)
+        self.assertEqual(metadata.object_record_count, KQ4D_V3_OBJECT_RECORD_COUNT)
+        self.assertEqual(len(metadata.runtime_block), KQ4D_V3_BLOCK3_LENGTH)
+        self.assertEqual(len(split_kq4d_v3_block2(bytes(KQ4D_V3_BLOCK2_LENGTH))), 16)
+
+        stored_block3 = gr_v3_object_inventory_save_xor(metadata.runtime_block)
+        inventory = split_kq4d_v3_block3(stored_block3)
+        self.assertEqual(len(inventory.items), KQ4D_V3_INVENTORY_ITEM_COUNT)
+        self.assertEqual(inventory.items[0].name, "?")
+        self.assertEqual(split_kq4d_v3_block4(bytes(KQ4D_V3_BLOCK4_LENGTH)), ((0, 0),))
+
     @unittest.skipUnless(GR_SAVE.exists(), "local Gold Rush generated save is not present")
     def test_gr_v3_block1_split_extracts_portable_core_state(self) -> None:
         regions = split_gr_v3_block1(load_save(GR_SAVE).blocks[0].data)
@@ -371,13 +453,14 @@ class SaveResourceTests(unittest.TestCase):
         self.assertEqual(regions["key_release_enqueue_gate"], b"\0")
 
     @unittest.skipUnless(GR_SAVE.exists(), "local Gold Rush generated save is not present")
-    def test_gr_v3_block1_unknown_ranges_remain_explicit(self) -> None:
+    def test_gr_v3_block1_reserved_ranges_have_canonical_values(self) -> None:
         regions = split_gr_v3_block1(load_save(GR_SAVE).blocks[0].data)
 
-        self.assertEqual(regions["unknown_012d"], b"\0\0")
-        self.assertEqual(regions["unknown_013d"], b"\x0f\0")
-        self.assertEqual(regions["unknown_0207"], b"\0\0\0\0")
-        self.assertEqual(regions["unknown_03f6"], b"\0")
+        self.assertEqual(regions["reserved_012d"], b"\0\0")
+        self.assertEqual(regions["reserved_013d"], b"\x0f\0")
+        self.assertEqual(regions["reserved_pre_string_padding"], b"\0\0\0\0")
+        self.assertEqual(regions["reserved_text_padding"], b"\0")
+        self.assertTrue(all(region.known for region in GR_V3_BLOCK1_REGIONS))
 
     @unittest.skipUnless(GR.exists(), "local Gold Rush game directory is not present")
     def test_gr_v3_object_file_defines_blocks_two_and_three(self) -> None:

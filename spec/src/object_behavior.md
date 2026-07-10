@@ -140,10 +140,11 @@ For views with four or more loops:
 | 1 | 3 |
 | 0 | no change |
 
-In profile 3.002.149, exactly-four-loop views always use the second table.
-Views with more than four loops use it only while `f20` is set; otherwise the
-selected loop does not change automatically. Profile 2.936 does not apply this
-extra gate.
+Profile 2.917 uses the second table only for exactly four loops; a view with
+more loops does not change automatically. Profile 2.936 uses the table for
+every view with four or more loops. In profiles 3.002.102 and 3.002.149,
+exactly-four-loop views always use it, while views with more than four loops
+use it only while `f20` is set.
 
 ## Cel cycling
 

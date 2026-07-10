@@ -9,7 +9,9 @@ not external AGI documentation.
 
 | Local input | Version evidence | Executable form | Resource container | Fixture status |
 | --- | --- | --- | --- | --- |
+| `games/KQ1` | `AGIDATA.OVL` string `Version 2.917` | `AGI` is decrypted with the selected game's `SIERRA.COM` key before disassembly | Split `LOGDIR`, `PICDIR`, `VIEWDIR`, `SNDDIR`; direct `VOL.N` records | Full-EGA resource, logic, input, persistence, renderer, and object profile is promoted; KQ1 save dimensions are mapped |
 | `games/SQ2` | `AGIDATA.OVL` string `Version 2.936` | `AGI` is decrypted from the loader-managed local bytes before disassembly | Split `LOGDIR`, `PICDIR`, `VIEWDIR`, `SNDDIR`; `VOL.N` files; 5-byte record headers; direct resource payloads | Current generated QEMU fixtures target this v2 split layout |
+| `games/KQ4D` | `AGIDATA.OVL` string `Version 3.002.102` | `AGI` is an MZ executable | Combined `DMDIR`; prefixed `DMVOL.N` files; v3 transforms | Full-EGA resource, logic, input, persistence, renderer, and object profile is promoted |
 | `games/GR` | `AGIDATA.OVL` string `Version 3.002.149` | `AGI` is already an MZ executable | Combined `GRDIR`; prefixed `GRVOL.N` files; 7-byte record headers; dictionary and picture-nibble transforms | Decoding/parsing is implemented locally; generated fixtures can patch copied v3 directories/volumes with direct logic/view records and picture-nibble picture records under `build/` |
 
 ## Local census snapshot
@@ -40,6 +42,193 @@ The local snapshot found these version/layout groups:
 This is an inventory for planning. The portable spec should only gain a
 version-specific rule when disassembly or a valid-resource dynamic check shows
 that game scripts can observe the behavior.
+
+## KQ1 / AGI 2.917
+
+KQ1's `AGI` file uses the same loader-managed evolving-key transform previously
+observed for SQ2, but with the key bytes from KQ1's own `SIERRA.COM`. The local
+transform command was:
+
+```bash
+python3 -B tools/decrypt_agi.py --game-dir games/KQ1 \
+  --output build/cross-version/kq1_agi.decrypted.exe
+```
+
+Comparing the still-transformed file produced nonsense at every handler entry.
+The transformed-state report was discarded. The decoded MZ image yields a
+clean table comparison:
+
+- the action table starts at `AGIDATA.OVL:0x061d` and has 174 entries
+  `0x00..0xad`;
+- the condition table starts at `0x08f5` and has the common 19 entries;
+- every shared action/condition operand contract and normalized handler body
+  matches 2.936; and
+- the action dispatcher at image `0x02c4` accepts through `0xad`, while 2.936
+  accepts through `0xaf`.
+
+The v2 table count is derived from the fixed `0x20`-byte data trailer between
+the action and condition tables. Across current local inputs this yields 170
+actions for 2.411/2.440, 174 for 2.917, and 176 for 2.936.
+
+A 52-role subsystem comparison found relocation matches for resource loading,
+views, picture lifecycle and command/raster helpers, update lists, placement,
+collision, control acceptance, dirty rectangles, motion, and cel-mode branch
+bodies. The one observable branch difference is in frame-timer helper
+`0x0563`:
+
+- 2.917 applies the four-direction loop table only when loop count equals four;
+- 2.936 applies it when loop count is four or greater.
+
+The selected KQ1 save writer uses the common five-block envelope and the same
+`0x05e1` block-1 partition as 2.936. Its decoded `OBJECT` metadata defines 18
+object records and a `0x0148`-byte inventory block containing 27 entries.
+Logic 0 calls action `0x8e(100)`, so replay block 4 remains `0x00c8` bytes.
+The resulting block dimensions are `0x05e1`, `0x0306`, `0x0148`, `0x00c8`,
+and a variable logic-resume block.
+
+Four KQ1 sound directory entries fail the generic record-header check, but the
+script-visible reference audit finds no immediate logic reference to them.
+They are not included in the promoted valid-data contract.
+
+This evidence promotes a 2.917 full-EGA gameplay profile and KQ1-specific
+binary-save interchange dimensions.
+
+## Script-visible resource reference audit
+
+The helper `tools/resource_reference_audit.py` compares immediate resource
+numbers used by decoded logic bytecode against the selected game's readable and
+unreadable directory entries. It is intentionally conservative: variable-based
+resource numbers are not counted as fixed script references.
+
+The current focused command was:
+
+```bash
+python3 -B tools/resource_reference_audit.py \
+  --game-dir games/KQ1 \
+  --game-dir games/KQ4D \
+  --output build/cross-version/resource_reference_audit_kq1_kq4d.json
+```
+
+Current result:
+
+| Local input | Resource family | Immediate script references | Unreadable directory entries | Referenced unreadable entries |
+| --- | --- | ---: | --- | --- |
+| `games/KQ1` | sound | 21 entries, max `21` | `34`, `35`, `36`, `37` | none |
+| `games/KQ4D` | sound | 10 entries, max `79` | `221`, `223..236`, `387..394`, `423..427`, `583..587`, `660..661` | none |
+
+Conclusion: these unreadable sound-directory entries remain cross-version
+planning evidence, not valid-resource behavior for the clean spec. If a future
+game script computes those numbers through variables, or if another interpreter
+version accepts the same directory bytes through a source-mapped path, inspect
+that case directly before promoting a rule.
+
+## Save reserved-state comparison
+
+The SQ2 and Gold Rush block-1 layouts resolve the ranges that were previously
+recorded only as opaque bytes:
+
+| Serialized role | SQ2 / 2.936 | Gold Rush / 3.002.149 | Conclusion |
+| --- | --- | --- | --- |
+| Key-map tail | Ten zeroed four-byte records follow SQ2's 39 active slots. | The active capacity grows to 49 and consumes those ten records. | Inactive profile capacity, not hidden runtime state. |
+| Pre-string bytes | Four zero bytes precede the common string root. | The same four zero bytes remain after the expanded key map. | Reserved serialization padding. |
+| Post-string bank | Twelve zeroed 40-byte records follow the 12 valid SQ2 slots. | The bank is absent; text state immediately follows the 12 valid slots. | Reserved legacy capacity, not 12 additional valid slots. |
+| Standalone words | Canonical `0000` and `0f00`; no direct references in the complete code scan. | Same serialized positions and canonical values; no direct references in the complete code scan. | Reserved words preserved for save interchange. |
+| Prompt/status gap | One canonical zero byte between byte and word state. | The same one-byte boundary exists at the relocated text-state tail. | Reserved alignment byte. |
+
+Valid string actions remain limited to the twelve specified string slots, and
+the key-map action's source loop bounds define the profile capacities. Restoring
+and re-saving an existing file preserves supplied reserved bytes; a newly
+initialized state uses the canonical bytes above. No separate game-visible
+field is assigned to these ranges.
+
+## KQ4D / AGI 3.002.102
+
+The generic table comparator was run in both directions:
+
+```bash
+python3 -B tools/compare_interpreter_tables.py \
+  --left-label KQ4D-3.002.102 --left-game-dir games/KQ4D \
+  --left-exe games/KQ4D/AGI \
+  --right-label GR-3.002.149 --right-game-dir games/GR \
+  --right-exe games/GR/AGI \
+  --output build/cross-version/kq4d_gr_table_comparison.md
+
+python3 -B tools/compare_interpreter_tables.py \
+  --left-label KQ4D-3.002.102 --left-game-dir games/KQ4D \
+  --left-exe games/KQ4D/AGI \
+  --right-label SQ2-2.936 --right-game-dir games/SQ2 \
+  --right-exe build/cleanroom/SQ2_AGI.decrypted.exe \
+  --output build/cross-version/kq4d_sq2_table_comparison.md
+```
+
+All 182 KQ4D/GR action parser contracts and all 19 condition contracts match.
+The condition handler entries also normalize identically. Twelve shared action
+handlers differ between KQ4D and GR:
+
+```text
+12 6f 73 76 77 78 79 89 8a a3 a4 a9
+```
+
+Focused disassembly assigns these differences to three observable clusters:
+
+| Cluster | KQ4D 3.002.102 | GR 3.002.149 |
+| --- | --- | --- |
+| Room action `0x12` | Passes the immediate room byte directly to the room-switch helper. | Remaps `0x7e..0x80` to `0x49`. |
+| Input actions `0x6f`, `0x73`, `0x76..0x78`, `0x89`, `0x8a`, `0xa3`, `0xa4`, `0xa9` | Retains the SQ2 display-mode/input-width branches; `0xa3`/`0xa4` set/clear the width word and `0xa9` clears it. | Uses the normal EGA path, no-ops `0xa3`/`0xa4`, and has no width word to clear. |
+| Key map `0x79` | Stops after `0x27` (39) records. | Stops after `0x31` (49) records. |
+
+Direct KQ4D/SQ2 comparison finds only five shared handler-entry differences:
+`0x7c`, `0x7d`, `0x80`, `0x84`, and `0xad`. KQ4D shares GR's inventory
+temporary-state branch, block-3 save XOR, restart prompt-marker branch,
+motion-mode-4 preservation, and set-style release gate. Its six v3-only slots
+`0xb0..0xb5` have the same contracts and normalized handlers as GR, including
+the menu interaction gate and release-gate clear action.
+
+The KQ4D save writer serializes block 1 from the common start through data
+address `0x05e5`, yielding length `0x05e4`. This is exactly the 2.936 block-1
+partition plus menu-gate word `[0x05e3]` and release-gate byte `[0x05e5]`.
+The intended decoded eight-byte inventory metadata is:
+
+```text
+03 00 0f 03 00 00 3f 00
+```
+
+It defines one three-byte inventory entry, name pool `?\0`, and maximum object
+index 15, therefore 16 object records. Demo logic 0 sets replay capacity to one.
+The source-derived save dimensions are consequently block 1 `0x05e4`, block 2
+`16 * 0x2b = 0x02b0`, block 3 `5`, block 4 `2`, and a variable block 5.
+
+The selected local `OBJECT` file already contains the intended decoded bytes,
+while the interpreter source applies the repeating `Avis Durgan` XOR to the
+file buffer. A copied-fixture QEMU experiment compared the local bytes unchanged
+with an XOR-encoded copy. Both reached the same intro frame after advancing the
+Sierra loader; the demo had not yet exercised inventory metadata there. This is
+recorded as a local packaging anomaly, not as valid dual-encoding behavior.
+The clean profile follows the source reader's XOR-decoded valid-data contract.
+
+The renderer/object source pass compared 52 symbolic roles with GR 3.002.149.
+Core helpers normalize identically after relocation; the few wrapper-level
+differences are classified below the table.
+
+| Cluster | Compared roles | Result |
+| --- | ---: | --- |
+| View loading and selection | 6 | Resource load/discard, view bind, loop table, loop selection, and cel selection match. |
+| Picture lifecycle | 4 | Load, prepare, overlay prepare, and discard match. |
+| Picture scanner and commands | 15 | Decode completion, scanner, channel controls, pattern controls, both corner paths, absolute/relative lines, fill, coordinate reader, and line raster entry were compared. |
+| Logical display and raster | 6 | Buffer fill, horizontal/vertical lines, pixel write, seed fill, and full refresh were compared. |
+| Object lists and composition | 15 | Sorted-list construction, draw/refresh ordering, collision, control acceptance, dirty rectangles, placement, partitions, and list rebuild/refresh match. |
+| Motion and animation | 6 | Frame timer, frame-mode bodies, object movement, pre-mode pass, mode dispatch bodies, and rectangle-boundary bodies match. |
+
+Three display wrappers retain KQ4D's older display-mode-2 branches: picture
+decode completion, buffer fill, and full refresh. Their primary EGA paths match
+GR, and alternate display modes are outside the current conformance target.
+The two reported motion/frame differences occur inside embedded jump-table
+bytes; manual disassembly confirms that the selected branch bodies and their
+post-table state transitions are relocation matches.
+
+This closes the independent renderer/object blocker. The clean 3.002.102
+profile now supports a full-EGA valid-data gameplay claim, plus binary save
+interchange for the mapped KQ4D demo dimensions.
 
 ## SQ2 / AGI 2.936
 

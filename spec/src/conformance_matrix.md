@@ -17,10 +17,14 @@ The classifications are:
 
 An unlisted difference must not be inferred from a version-number similarity.
 
+The common core applies to profiles 2.917, 2.936, 3.002.102, and 3.002.149. The
+two-column tables compare 2.936 and 3.002.149, while separate tables select the
+2.917 and 3.002.102 variants.
+
 ## Common behavioral core
 
-These contracts apply to both 2.936 and 3.002.149 unless a profile-variant row
-below says otherwise:
+These contracts apply to 2.917, 2.936, 3.002.102, and 3.002.149 unless a
+profile-variant row below says otherwise:
 
 | Domain | Contract |
 | --- | --- |
@@ -29,9 +33,9 @@ below says otherwise:
 | Pictures | Expanded command stream, prepare/overlay/show lifecycle, visual and priority/control channels, line/fill/pattern raster rules, and terminator behavior. |
 | Views | Expanded view/loop/cel structure, row-run decoding, transparency, mirroring, baseline placement, and priority composition. |
 | Objects | Lifecycle, placement, cadence, movement, collision, priority/control acceptance, cel cycling, draw partitions, and refresh ordering. |
-| Input and text | Event records, parser normalization and matching, mapped keys, modal input, text geometry, inventory selection, and menu construction. |
+| Input and text | Event records, parser normalization and matching, mapped keys, modal input, text geometry, font-input boundary, inventory selection, and menu construction. |
 | Rooms and replay | Room-switch state changes, top-level re-entry, replay-pair language, checkpoints, and replay-without-rerecording. |
-| Sound | Resource event structure, per-channel countdown scheduling, terminators, completion flags, and stop behavior. |
+| Sound | Resource event structure, per-channel countdown scheduling, terminators, tone/divisor output, attenuation command output, completion flags, and stop behavior. |
 
 ## Profile variants
 
@@ -61,9 +65,40 @@ below says otherwise:
 | Domain | 2.936 | 3.002.149 |
 | --- | --- | --- |
 | Save envelope | 31-byte description plus five `u16le` length-prefixed blocks. | Same envelope. |
-| Block layout | All five observed game blocks are mapped in the persistence chapter. | Block lengths are known for the observed game, but field maps are incomplete. |
+| Block layout | All five observed game blocks are mapped in the persistence chapter. | All five observed Gold Rush blocks are mapped in the persistence chapter. |
 | Block transform | No transform for block 3. | Block 3 is XOR-transformed with the specified repeating `Avis Durgan` key. |
-| Binary save interchange status | Defined for mapped fields; opaque block-1 ranges must be preserved. | Partial; do not claim arbitrary binary interchange. |
+| Binary save interchange status | Defined for the mapped game/profile dimensions; reserved bytes use canonical initialization and byte preservation. | Defined for the mapped Gold Rush/profile dimensions; reserved bytes use canonical initialization and byte preservation. |
+
+### 2.917 variant selection
+
+| Domain | 2.917 behavior |
+| --- | --- |
+| Resource container | Four split family directories and five-byte direct volume records. |
+| Action range | `0x00..0xad`; `0xae` and `0xaf` are not valid actions. |
+| Condition range | `0x00..0x12`. |
+| Script key-map capacity | 39 entries. |
+| Release-event gate action `0xad` | Increment modulo 256. |
+| Input-width actions | `0xa3` and `0xa4` retain their common effects. |
+| Immediate room aliases | None. |
+| Direction-selected loops | Exactly four loops use the four-loop table; more than four do not receive automatic selection. |
+| Pictures, views, and objects | The full-EGA command, raster, composition, movement, collision, animation, update-list, and refresh contracts are common. |
+| Save envelope | Five length-prefixed blocks with no block-3 transform. |
+| Binary save interchange status | Defined for the mapped KQ1 dimensions; reserved bytes use canonical initialization and byte preservation. |
+
+### 3.002.102 variant selection
+
+| Domain | 3.002.102 behavior |
+| --- | --- |
+| Resource container | Combined v3 directory and seven-byte volume records with direct, dictionary-expanded, or picture-nibble-expanded payloads. |
+| Action range and extra slots | `0x00..0xb5`; extra slots have the 3.002.149 contracts and effects. |
+| Script key-map capacity | 39 entries. |
+| Release and menu gates | `0xad` sets the release gate to one; `0xb5` clears it; `0xb1` sets the menu interaction gate. |
+| Input-width actions | `0xa3` and `0xa4` retain their 2.936 effects; closing window state clears the override. |
+| Immediate room aliases | None. |
+| Direction-selected loops | Exactly four loops always use the table; more than four require `f20`. |
+| Pictures, views, and objects | The full-EGA command, raster, composition, movement, collision, animation, update-list, and refresh contracts are common. |
+| Save envelope and transform | Five length-prefixed blocks; block 3 uses the v3 repeating-key XOR transform. |
+| Binary save interchange status | Defined for the mapped KQ4D demo dimensions; reserved bytes use canonical initialization and byte preservation. |
 
 ## Game-data dimensions
 
@@ -90,11 +125,6 @@ resource availability, names, save dimensions, or scripted behavior.
 
 | Domain | Specified portion | Remaining limitation |
 | --- | --- | --- |
-| Ordinary text presentation | Character cells, rows, columns, attributes, windows, configured modal-message row/column/width, prompt/status behavior, and modal ordering. | Exact glyph bitmaps remain outside the current portable core. |
-| Glyph output | Text consumes an 8-by-8 font input. | This revision does not prescribe one exact platform glyph bitmap set. |
-| Four-channel sound | Event timing, tone order, attenuation output boundary, silence, and completion. | The full attenuation-envelope initialization and transition contract is incomplete. |
-| 2.936 save opaque state | Every byte has a field or opaque-range assignment. | Five block-1 ranges have no resolved valid-execution meaning; preserve them for byte interchange. |
-| 3.002.149 save state | Envelope, observed Gold Rush block lengths, restore control flow, signature behavior, byte-complete block-1 partition, 23 object records, decoded 131-entry transformed inventory block, 50 replay pairs, and block-5 resume grammar. | Opaque block-1 ranges preserve bytes but do not yet have resolved valid-execution meanings. |
 | Additional interpreter versions | They may be inventoried separately. | They have no normative profile until each observable delta is promoted. |
 
 ## Outside the current target
@@ -104,8 +134,9 @@ The following behavior is excluded from a current full-EGA conformance claim:
 - malformed resources that escape their declared payload and consume unrelated
   memory or execute unintended code;
 - non-EGA display adapters and alternate display-mode rendering;
-- exact analog waveform synthesis beyond the specified sound-event/output
-  boundary;
+- exact text-glyph bitmaps unless a claim explicitly supplies a font profile;
+- exact analog waveform synthesis beyond the specified sound-event,
+  tone/divisor, and attenuation-command output boundary;
 - original process memory organization, addresses, overlays, allocation
   strategy, and instruction-level timing; and
 - unspecified failure presentation such as out-of-memory UI unless a chapter
@@ -115,17 +146,33 @@ The following behavior is excluded from a current full-EGA conformance claim:
 
 A **2.936 full-EGA gameplay** claim requires the common core, every 2.936
 variant, selected-game dimensions, and all non-persistence state transitions.
-It may exclude the partial text-parameter and exact-amplitude gaps only when the
-claim states those exclusions.
-
 A **2.936 binary save interchange** claim additionally requires the five-block
 mapping, first-match logic-resume lookup, replay reconstruction, and
-byte-preservation of opaque ranges.
+canonical initialization or byte-preservation of reserved state as applicable.
+
+A **2.917 full-EGA gameplay** claim requires the common core plus every 2.917
+resource, opcode, input, room, and object-loop variant.
+
+A **2.917 KQ1 binary save interchange** claim additionally requires the mapped
+KQ1 dimensions, five-block mapping, first-match logic-resume lookup, replay
+reconstruction, and canonical initialization or byte-preservation of reserved
+state as applicable.
 
 A **3.002.149 full-EGA gameplay** claim requires the common core plus every
-3.002.149 resource, opcode, input, menu, room, and object-loop variant. This
-revision does not yet support a complete 3.002.149 binary save interchange
-claim.
+3.002.149 resource, opcode, input, menu, room, and object-loop variant.
+
+A **3.002.149 Gold Rush binary save interchange** claim additionally requires
+the five-block mapping, block-3 transform, first-match logic-resume lookup,
+replay reconstruction, and canonical initialization or byte-preservation of
+reserved state as applicable.
+
+A **3.002.102 full-EGA gameplay** claim requires the common core plus every
+3.002.102 resource, opcode, input, menu, room, and object-loop variant.
+
+A **3.002.102 KQ4D demo binary save interchange** claim additionally requires
+the selected demo's dimensions, five-block mapping, block-3 transform,
+first-match logic-resume lookup, replay reconstruction, and canonical
+initialization or byte-preservation of reserved state as applicable.
 
 No claim for another interpreter version follows automatically from either
 promoted profile.
