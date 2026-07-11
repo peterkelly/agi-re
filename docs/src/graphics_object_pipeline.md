@@ -254,6 +254,42 @@ The helper's observed algorithm is:
    if the shifted-out carry was set, then draw only when bit 0 is clear and
    bit 1 is set.
 
+### Cross-interpreter brush audit
+
+A structural audit of every currently selected local interpreter maps the
+picture scanner, `0xf9`/`0xfa` handlers, column-mask signature, radius-pointer
+table, and horizontal-clamp immediate without assuming SQ2 addresses. It finds
+four behavioral groups:
+
+| Profiles | Picture-command behavior |
+| --- | --- |
+| 2.089, 2.272 | The scanner ends at `0xf8`; pattern commands are unavailable. |
+| 2.411 | `0xf9` consumes and ignores one byte; `0xfa` plots ordinary single pixels from coordinate pairs. No brush tables are present. |
+| 2.439 through 2.936 | Full shaped/stippled brushes; radius 1 uses rows `e000 e000 e000`; horizontal clamp constant `0x0140`. |
+| 3.002.086 through 3.002.149 | Full shaped/stippled brushes; radius 1 uses rows `4000 e000 4000`, yielding only the two center-row logical pixels under the normal mask; horizontal clamp constant `0x013e`. |
+
+The column masks are identical in every full-brush build. Radius 0 and radii
+2 through 7 are also byte-identical; only radius 1 changes. A normalized
+comparison of the `0xfa` routines found the clamp immediate to be the only
+instruction difference between the full v2 and v3 brush cores. Mode-bit tests,
+stipple recurrence, iteration order, and common pixel writes otherwise match.
+
+The data offsets relocate as follows:
+
+| Builds | Dispatch | Masks | Radius pointers |
+| --- | ---: | ---: | ---: |
+| BC 2.439, LSL1 2.440 | `0x1552` | `0x1575` | `0x1595` |
+| MG 2.915, KQ1/SQ1.22/PQ1 2.917 | `0x15cc` | `0x15ef` | `0x160f` |
+| SQ2/KQ3 2.936 | `0x15d6` | `0x15f9` | `0x1619` |
+| KQ4 3.002.086 | `0x1646` | `0x1669` | `0x1689` |
+| KQ4D 3.002.102, MH1 3.002.107 | `0x1658` | `0x167b` | `0x169b` |
+| GR/MH2 3.002.149 | `0x140d` | `0x1430` | `0x1450` |
+
+The reusable audit is `tools/brush_table_audit.py`; it requires every game
+directory explicitly and writes generated reports under `build/`. The local
+renderer now finds these tables by their structure instead of using SQ2's
+offsets.
+
 The pattern plotter does not maintain a separate visual/control channel path.
 When a candidate pixel passes the pattern tests, helper `0x652a` writes
 `AH = x`, `AL = y` to `[0x150b]` and calls the common pixel writer `0x52f9`.
@@ -289,9 +325,11 @@ graphics buffer segment pointed to by `[0x136f]`. Helpers `0x526f` and `0x52ab`
 are optimized horizontal and vertical line drawers that use the same active
 draw byte and masks while restoring `[0x150b]` to the endpoint when done.
 QEMU fuzz case `base_019_pattern_edge_rectangle` confirms that this store is
-linear for pattern plotting: when the pattern mask computes X `160`, the byte is
-written as X `0` on the next scanline instead of being clipped. The final
-would-be wrap past the `0xa0 * 0xa8` buffer is not visible.
+linear for v2 pattern plotting: when the v2 pattern mask computes X `160`, the
+byte is written as X `0` on the next scanline instead of being clipped. The
+final would-be wrap past the `0xa0 * 0xa8` buffer is not visible. The v3
+`0x013e` horizontal clamp prevents valid brush geometry from computing X
+`160`.
 
 General line helper `0x66e1` first checks for horizontal and vertical special
 cases and jumps to those optimized helpers. For diagonal lines, the caller has

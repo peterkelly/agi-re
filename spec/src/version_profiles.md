@@ -41,7 +41,8 @@ channel selection, absence of attenuation envelopes, and shortened save block
 1.
 
 It adds the shaped and stippled `0xf9`/`0xfa` pattern behavior specified in the
-picture chapter. Restart action `0x80` proceeds without displaying confirmation
+picture chapter, using the shaped-brush v2 radius-one shape and horizontal
+limit. Restart action `0x80` proceeds without displaying confirmation
 when `f16` is set. Four-channel tone output emits the high tone byte and
 suppresses the low byte when the high byte's top three bits are all set. Its
 heap diagnostic still omits the later `rm.0, etc.` line.
@@ -69,6 +70,9 @@ chapter, and uses the four-loop table only for a view with exactly four loops.
 A view with more than four loops does not receive automatic direction-based
 loop selection in this profile.
 
+Pattern plots use the shaped-brush v2 radius-one shape and horizontal limit
+specified in the picture chapter.
+
 The selected KQ1 and PQ1 data supply separate binary-save dimensions listed in
 the persistence chapter. Those counts and lengths are game-data properties,
 not universal constants for every 2.917 game.
@@ -95,6 +99,9 @@ the logic-bytecode specification.
 The selected SQ2 and KQ3 data supply separate binary-save dimensions listed in
 the persistence chapter.
 
+Pattern plots use the shaped-brush v2 radius-one shape and horizontal limit
+specified in the picture chapter.
+
 ## AGI 3.002.086 profile
 
 The 3.002.086 profile is specified for full-EGA valid-data gameplay from the
@@ -113,6 +120,9 @@ profiles. Its automatic direction-based loop selection follows 2.936: every
 view with four or more loops uses the four-direction table without an `f20`
 gate.
 
+Pattern plots use the v3 radius-one center-row shape and horizontal limit
+specified in the picture chapter.
+
 This profile has one screen-boundary variant. A due movement proposal whose
 left X coordinate is exactly zero is clamped to zero and reports left-boundary
 code 4. Later promoted profiles accept exact zero without reporting a boundary;
@@ -127,6 +137,9 @@ files are absent are outside this valid-data profile.
 The 3.002.149 profile uses the combined and compressed v3 resource container.
 Expanded logic, picture, view, and sound payloads retain the same resource
 families as the 2.936 profile.
+
+Pattern plots use the v3 radius-one center-row shape and horizontal limit
+specified in the picture chapter.
 
 This profile accepts action slots through `0xb5`. Slots `0xb0`, `0xb2`,
 `0xb3`, and `0xb4` consume their declared operands and otherwise have no
@@ -168,6 +181,9 @@ expanded picture and view formats, picture command execution, logical raster
 rules, view/cel composition, object update lists, placement, collision,
 movement, animation, and refresh ordering follow the common behavioral core.
 Alternate display-mode branches remain outside the current target.
+
+Pattern plots use the v3 radius-one center-row shape and horizontal limit
+specified in the picture chapter.
 
 This profile uses the combined and compressed v3 resource container and accepts
 action slots through `0xb5`. Its extra slots `0xb0..0xb5` have the same operand

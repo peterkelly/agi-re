@@ -39,10 +39,11 @@ decoding from that record transform.
 
 All 146 locally readable pictures were decoded into a qualitative contact
 sheet. Pictures 150 and 151 cannot be read because the selected private copy
-does not contain `KQ4VOL.6`. The current local renderer's patterned-brush table
-offsets are SQ2-specific, so the KQ4 sheet deliberately disables patterned
-brushes. It corroborates geography and interiors but is not pixel-conformance
-evidence.
+does not contain `KQ4VOL.6`. This sheet was generated with patterned brushes
+disabled, before KQ4's relocated tables and v3 brush variant were mapped. It
+corroborates geography and interiors but is not pixel-conformance evidence.
+The later cross-interpreter audit maps KQ4's mask table at `0x1669`, pointer
+table at `0x1689`, radius-one center-row shape, and v3 horizontal clamp.
 
 ## Story and Winning State
 

@@ -26,6 +26,16 @@ DEFAULT_HORIZON = 0x24
 PICTURE_COMMAND_FIRST = 0xF0
 PICTURE_COMMAND_LAST_PRE_PATTERN = 0xF8
 PICTURE_COMMAND_LAST_PATTERN = 0xFA
+PATTERN_COLUMN_VALUES = (
+    0x8000,
+    0x2000,
+    0x0800,
+    0x0200,
+    0x0080,
+    0x0020,
+    0x0008,
+    0x0002,
+)
 DEFAULT_PRIORITY_TABLE = tuple(
     4 if y < 0x30 else min(14, 5 + (y - 0x30) // 12)
     for y in range(HEIGHT)
@@ -57,14 +67,61 @@ def agidata_bytes() -> bytes:
     return AGIDATA.read_bytes()
 
 
+def find_pattern_table_offsets(data: bytes) -> tuple[int, int] | None:
+    """Locate the mask and radius-pointer tables by their observed structure."""
+    hits = [
+        offset
+        for offset in range(max(0, len(data) - 31))
+        if all(
+            u16le(data, offset + column * 4) == value
+            for column, value in enumerate(PATTERN_COLUMN_VALUES)
+        )
+    ]
+    if not hits:
+        return None
+    if len(hits) != 1:
+        raise ValueError(f"found {len(hits)} candidate picture-pattern tables")
+    mask_offset = hits[0]
+    pointer_offset = mask_offset + 0x20
+    if pointer_offset + 16 > len(data):
+        raise ValueError("picture-pattern pointer table extends beyond AGIDATA")
+    for radius in range(8):
+        rows_offset = u16le(data, pointer_offset + radius * 2)
+        if rows_offset + (radius * 2 + 1) * 2 > len(data):
+            raise ValueError(f"picture-pattern radius {radius} rows extend beyond AGIDATA")
+    return mask_offset, pointer_offset
+
+
+@lru_cache(maxsize=1)
+def pattern_table_offsets() -> tuple[int, int] | None:
+    return find_pattern_table_offsets(agidata_bytes())
+
+
 def pattern_column_mask(column: int) -> int:
-    return u16le(agidata_bytes(), 0x15F9 + column * 4)
+    tables = pattern_table_offsets()
+    if tables is None:
+        raise ValueError("selected interpreter has no shaped picture-brush tables")
+    return u16le(agidata_bytes(), tables[0] + column * 4)
 
 
 def pattern_row_words(radius: int) -> list[int]:
+    tables = pattern_table_offsets()
+    if tables is None:
+        raise ValueError("selected interpreter has no shaped picture-brush tables")
     data = agidata_bytes()
-    pointer = u16le(data, 0x1619 + radius * 2)
+    pointer = u16le(data, tables[1] + radius * 2)
     return [u16le(data, pointer + row * 2) for row in range(radius * 2 + 1)]
+
+
+def pattern_max_doubled_x_for_radius_one(radius_one: list[int]) -> int:
+    """Classify the source-observed horizontal clamp from radius-one rows."""
+    if radius_one == [0x4000, 0xE000, 0x4000]:
+        return 0x13E
+    return 0x140
+
+
+def pattern_max_doubled_x() -> int:
+    return pattern_max_doubled_x_for_radius_one(pattern_row_words(1))
 
 
 @dataclass(frozen=True)
@@ -440,7 +497,7 @@ class PictureRenderer:
     ):
         self.payload = payload
         self.pos = 0
-        self.pattern_brushes = pattern_brushes
+        self.pattern_brushes = pattern_brushes and pattern_table_offsets() is not None
         self.cells = bytearray([DEFAULT_CELL if clear else 0 for _ in range(WIDTH * HEIGHT)])
         self.draw_state = 0
         self.visual_value = 0
@@ -741,7 +798,7 @@ class PictureRenderer:
         doubled_x = x * 2 - radius
         if doubled_x < 0:
             doubled_x = 0
-        max_doubled_x = 0x140 - radius * 2
+        max_doubled_x = pattern_max_doubled_x() - radius * 2
         if doubled_x >= max_doubled_x:
             doubled_x = max_doubled_x
         start_x = doubled_x // 2

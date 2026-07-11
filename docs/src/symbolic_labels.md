@@ -873,3 +873,25 @@ address as part of the portable behavior.
 | `table.logic.condition_dispatch` | BC data `0x08e3`; MG data `0x08f5`; MH1 data `0x0942`; MH2 data `0x0762` | Nineteen entries in each build. |
 | `code.room.switch_room_action` | MH2 image `0x19d4` | Reads the immediate room operand and calls ordinary room switch directly. |
 | `code.room.remap_reserved_room_target` | GR image `0x0062`; absent from MH2 | Gold Rush build helper mapping `0x7e..0x80` to `0x49`; not a universal 3.002.149 role. |
+
+## Cross-Version Picture Brush Associations
+
+These associations were found structurally from each interpreter's picture
+scanner and the referenced brush-table signature. They supersede use of SQ2's
+data offsets as universal constants.
+
+| Build group | `table.picture.command_dispatch` | `data.picture.pattern_bits` | `data.picture.pattern_pointer_table` | `code.picture.cmd_set_pattern_mode` | `code.picture.cmd_pattern_plot` |
+| --- | ---: | ---: | ---: | ---: | ---: |
+| BC 2.439 | `0x1552` | `0x1575` | `0x1595` | image `0x62b1` | image `0x628c` |
+| LSL1 2.440 | `0x1552` | `0x1575` | `0x1595` | image `0x62b9` | image `0x6294` |
+| MG 2.915 | `0x15cc` | `0x15ef` | `0x160f` | image `0x6449` | image `0x6424` |
+| KQ1/SQ1.22/PQ1 2.917 | `0x15cc` | `0x15ef` | `0x160f` | image `0x645d` | image `0x6438` |
+| SQ2/KQ3 2.936 | `0x15d6` | `0x15f9` | `0x1619` | image `0x6524` | image `0x64ff` |
+| KQ4 3.002.086 | `0x1646` | `0x1669` | `0x1689` | image `0x695d` | image `0x6938` |
+| KQ4D 3.002.102/MH1 3.002.107 | `0x1658` | `0x167b` | `0x169b` | image `0x6975` | image `0x6950` |
+| GR/MH2 3.002.149 | `0x140d` | `0x1430` | `0x1450` | image `0x689c` | image `0x6877` |
+
+SQ1 2.089 and XMAS 2.272 dispatch only through `0xf8`, so the pattern labels
+do not apply. KQ2 2.411 dispatches `0xf9` at image `0x61f5` and `0xfa` at
+`0x625e`, but has no shaped-brush tables: the former consumes and ignores one
+byte and the latter plots coordinate pairs as ordinary pixels.

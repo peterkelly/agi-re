@@ -142,7 +142,9 @@ Profile 2.411 uses an early point-plot variant:
   performs one ordinary pixel write for each complete pair.
 - Shape, radius, and stipple fields do not apply in this profile.
 
-The remaining promoted profiles use the pattern behavior below.
+Profiles 2.439/2.440, 2.915/2.917, 2.936, and 3.002 use the shaped and
+stippled pattern behavior below. The v2 and v3 families differ in the
+radius-one shape and horizontal edge limit, as stated under plot geometry.
 
 Command `0xf9` consumes one raw mode byte. Its fields are:
 
@@ -157,11 +159,12 @@ complete pair performs one pattern plot.
 
 ### Plot geometry
 
-For radius `r`, a plot examines `2r + 1` rows and `r + 1` columns. Its starting
-coordinates are:
+For radius `r`, a plot examines `2r + 1` rows and `r + 1` columns. Let
+`horizontal_limit` be `320` for shaped-brush v2 profiles and `318` for v3
+profiles. Its starting coordinates are:
 
 ```text
-doubled_x = clamp(2 * x - r, 0, 320 - 2 * r)
+doubled_x = clamp(2 * x - r, 0, horizontal_limit - 2 * r)
 start_x   = floor(doubled_x / 2)
 start_y   = clamp(y - r, 0, 167 - 2 * r)
 ```
@@ -176,18 +179,25 @@ The column masks for columns `0..7` are:
 8000 2000 0800 0200 0080 0020 0008 0002
 ```
 
-The row words for each radius are:
+The row words for each radius are shown below. Radius 1 is the only shape that
+differs between the observed shaped-brush v2 and v3 profiles.
 
-| Radius | Row words, top to bottom |
-| ---: | --- |
-| 0 | `8000` |
-| 1 | `e000 e000 e000` |
-| 2 | `7000 f800 f800 f800 7000` |
-| 3 | `3800 7c00 fe00 fe00 fe00 7c00 3800` |
-| 4 | `1c00 7f00 ff80 ff80 ff80 ff80 ff80 7f00 1c00` |
-| 5 | `0e00 3f80 7fc0 7fc0 ffe0 ffe0 ffe0 7fc0 7fc0 3f80 1f00` |
-| 6 | `0f80 3fe0 7ff0 7ff0 fff8 fff8 fff8 fff8 fff8 7ff0 7ff0 3fe0 0f80` |
-| 7 | `07c0 1ff0 3ff8 7ffc 7ffc fffe fffe fffe fffe fffe 7ffc 7ffc 3ff8 1ff0 07c0` |
+| Radius | Shaped-brush v2 | v3 |
+| ---: | --- | --- |
+| 0 | `8000` | Same as v2 |
+| 1 | `e000 e000 e000` | `4000 e000 4000` |
+| 2 | `7000 f800 f800 f800 7000` | Same as v2 |
+| 3 | `3800 7c00 fe00 fe00 fe00 7c00 3800` | Same as v2 |
+| 4 | `1c00 7f00 ff80 ff80 ff80 ff80 ff80 7f00 1c00` | Same as v2 |
+| 5 | `0e00 3f80 7fc0 7fc0 ffe0 ffe0 ffe0 7fc0 7fc0 3f80 1f00` | Same as v2 |
+| 6 | `0f80 3fe0 7ff0 7ff0 fff8 fff8 fff8 fff8 fff8 7ff0 7ff0 3fe0 0f80` | Same as v2 |
+| 7 | `07c0 1ff0 3ff8 7ffc 7ffc fffe fffe fffe fffe fffe 7ffc 7ffc 3ff8 1ff0 07c0` | Same as v2 |
+
+With the geometric mask enabled, the v2 radius-one rows admit both examined
+columns on all three rows, producing a 2 by 3 logical-pixel block. In v3, the
+top and bottom `4000` rows overlap neither examined column mask, so only the
+two adjacent logical pixels in the center row are candidates. Mode bit `0x10`
+bypasses these row/column tests in either family.
 
 ### Stipple sequence
 
@@ -203,13 +213,16 @@ The sequence is restarted from that plot's seed for every coordinate pair.
 
 ### Linear right-edge behavior
 
-Pattern candidates are addressed as a linear array index
-`row * 160 + column`, after adding the calculated starts. A candidate whose
-calculated X is `160` therefore writes logical X `0` of the following row when
-that linear index remains within the 160 by 168 surface. A candidate beyond the
-end of the entire surface has no visible effect. Implementations using a
-two-dimensional pixel API must reproduce this result rather than clipping each
-pattern candidate at X `159`.
+In full-brush profiles, pattern candidates are addressed as a linear array
+index `row * 160 + column`, after adding the calculated starts. In shaped-brush
+v2 profiles, a candidate whose calculated X is `160` therefore writes logical
+X `0` of the following row when that linear index remains within the 160 by 168
+surface. A candidate beyond the end of the entire surface has no visible
+effect. Implementations using a two-dimensional pixel API must reproduce this
+result rather than clipping each pattern candidate at X `159`.
+
+The v3 horizontal limit prevents valid pattern geometry from producing X
+`160`, so this wrap is not reachable from a valid v3 pattern plot.
 
 Every accepted pattern candidate uses the normal drawing-channel write rule.
 

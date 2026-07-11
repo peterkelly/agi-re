@@ -50,7 +50,9 @@ disabled. The resulting sheet corroborates Caer Dallben, the forest and river,
 the Eagle Mountains, the castle exterior and interior, its dungeon and hidden
 passages, the Fair Folk dwellings, Morva Marsh, and the witches' house. Because
 the brush-disabled renders are not pixel-conformance evidence, they are used
-only to check geography and scene identity.
+only to check geography and scene identity. A later audit maps BC's v2 mask
+and pointer tables at `0x1575` and `0x1595`; this does not retroactively turn
+the historical disabled-brush sheet into conformance evidence.
 
 ## Story and Winning State
 

@@ -46,8 +46,10 @@ All 43 present pictures decoded in a qualitative sweep with patterned brushes
 disabled. The resulting sheet covers Lost Wages streets, Lefty's, the hooker's
 room and fire escape, convenience store, disco, casino, chapel, hotel,
 honeymoon suite, upper-floor security desk, penthouse, rooftop spa, and final
-bedroom. LSL1's patterned-brush table has not been mapped, so these renders
-corroborate geography but are not pixel-conformance evidence.
+bedroom. This historical sheet was rendered with brushes disabled and remains
+qualitative evidence. The later interpreter audit maps LSL1's v2 mask and
+pointer tables at `0x1575` and `0x1595`; the renderer can now discover them
+without an SQ2-specific offset.
 
 ## Story and Winning State
 

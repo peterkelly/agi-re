@@ -222,8 +222,13 @@ better understood, or a new remaining-work item is discovered.
   - Current: `spec/src/picture_resources.md` defines the prepare/overlay/show
     lifecycle, scanner and operand boundaries, both drawing channels, all
     commands `0xf0..0xfa`, exact line rasterization, fill connectivity,
-    pattern masks and stippling, and linear right-edge writes. A structural
-    test checks every valid command and the terminator are represented.
+    pattern masks and stippling, and profile-specific right-edge writes. A
+    source-first audit now covers every local interpreter: 2.089/2.272 end at
+    `0xf8`; 2.411 has point-only `0xf9`/`0xfa`; complete v2 brushes use a
+    filled radius-one mask and `0x0140` clamp; all observed v3 builds use a
+    two-pixel radius-one center row and `0x013e` clamp. The renderer discovers
+    relocated brush tables structurally. Tests guard every valid command, the
+    terminator, table discovery, and both clamp families.
 - [x] View/cel decoding and drawing
   - Current: `spec/src/view_resources.md` defines view/loop/cel offsets,
     row-run decoding, transparent colors, mutable shared-cel mirroring,
@@ -419,8 +424,12 @@ source-mapped well enough to justify a targeted probe.
     decoding. Static comparison shows picture cache/load, prepare/overlay,
     discard, command scanner, all eleven picture command handlers
     `0xf0..0xfa`, coordinate reads, line drawing, pixel writes, seed fill, and
-    pattern plotting match as relocated skeletons. The main picture differences
-    are display-refresh paths: GR omits SQ2's display-mode-2 overlay refresh
+    pattern plotting mostly match as relocated skeletons. The brush audit
+    identifies two full-EGA differences: v3's two-pixel radius-one center row
+    replaces v2's 2-by-3 logical block, and its `0x013e` horizontal clamp
+    prevents the v2 X=160 linear wrap. Other shapes, masks, stipple evolution,
+    and plot-loop code match. Additional differences are display-refresh
+    paths: GR omits SQ2's display-mode-2 overlay refresh
     branch after buffer fill/full refresh, and `decode_no_clear` returns
     directly after command scan where SQ2 has the extra mode-2 refresh check.
   - Remaining: later QEMU checks should target display-mode-sensitive picture

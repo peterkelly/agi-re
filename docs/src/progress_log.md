@@ -27907,3 +27907,55 @@ logic and all 31 MH2 missing-volume logics remain explicit unreadable records.
 All 433 deterministic tests passed with four expected optional-input skips,
 and the evidence book contains the new
 `games/mh2_playthrough_analysis.html` chapter.
+
+### 2026-07-11 21:05
+
+Began a source-first cross-game audit of picture pattern-brush behavior. The
+pass will inspect each locally available interpreter build, group identical
+binaries, map the `0xf9` mode and `0xfa` plot handlers plus their referenced
+shape tables, and document observable differences before changing any renderer
+assumptions.
+
+### 2026-07-11 21:53
+
+Completed the source-first brush audit across all 16 selected game
+directories. The resulting evidence divides the interpreters into four
+groups: 2.089/2.272 stop at picture command `0xf8`; 2.411 consumes `0xf9` but
+uses `0xfa` as point plotting; 2.439 through 2.936 have complete v2 brushes;
+and all observed 3.002 builds have a distinct full-brush variant.
+
+Added `tools/brush_table_audit.py`, which explicitly accepts repeated
+`--game-dir` inputs, decodes loader-protected local interpreters when needed,
+finds each command scanner and dispatch table structurally, and reports brush
+handlers, table offsets, radius-one rows, and horizontal clamps. Corrected an
+initial tool interaction in which importing the global game-path parser
+consumed the first repeated argument and omitted SQ1. The corrected report at
+`build/brush-audit/report.md` contains all games and confirms that every full
+brush routine directly references its selected tables.
+
+The v2 and v3 complete brush cores have identical column masks, radius 0 and
+radii 2 through 7, mode bits, stipple recurrence, iteration order, and pixel
+write path. V2 uses radius-one rows `e000 e000 e000` and clamp `0x0140`; v3
+uses `4000 e000 4000` and clamp `0x013e`. A rendering sanity check corrected
+the provisional description “cross”: `4000` intersects neither examined
+logical-column mask, so normal v3 radius-one output is two adjacent center-row
+pixels, compared with v2's 2 by 3 block. KQ2, SQ2, KQ4, and GR produced one,
+six, two, and two logical pixels respectively for the same synthetic
+radius-one plot.
+
+Changed the local renderer to discover relocated mask and pointer tables from
+their structure instead of using SQ2 offsets. It now selects the observed v2
+or v3 horizontal limit and automatically uses point behavior when no complete
+brush table exists. Added structural scanner/table tests and clamp-family
+tests. Updated the evidence chapters, symbolic labels, versions chapter,
+runtime model, clean-room picture specification, version profiles, and
+`PROGRESS.md`. Also corrected stale game chapters while preserving that their
+older brush-disabled contact sheets remain qualitative rather than pixel
+conformance evidence.
+
+Validation resolved the expected table/clamp family independently in every
+game directory. The full deterministic suite passed 436 tests with four
+expected optional-input skips. The compatibility-suite runner passed, both
+mdBooks built successfully, and `git diff --check` reported no whitespace
+errors. No game input was modified; generated audit files remain under
+disposable `build/`.

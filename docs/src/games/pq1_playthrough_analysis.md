@@ -48,8 +48,9 @@ All 71 present pictures decoded in a qualitative sweep with patterned brushes
 disabled. The resulting sheet covers the station, patrol map, traffic and
 accident sites, Blue Room, cafe, jail, courthouse, park, Cotton Cove, Hotel
 Delphoria, poker rooms, and ending locations. PQ1's own patterned-brush table
-has not been mapped, so these renders establish geography only and are not
-pixel-conformance evidence.
+was not mapped when the sheet was generated, so these renders establish
+geography only and are not pixel-conformance evidence. The later audit maps
+its v2 mask and pointer tables at `0x15ef` and `0x160f`.
 
 ## Story and Winning State
 

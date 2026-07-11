@@ -11861,3 +11861,55 @@ sequences; neither is a whole-game terminal contract. The actual ending and
 complete winning route remain unavailable until the matching `MH2VOL.3` is
 provided. The bounded route and replay backlog are recorded in
 `games/mh2_playthrough_analysis.md`.
+
+## Cross-interpreter picture brush audit
+
+The brush audit began from each interpreter's disassembled picture command
+scanner, not from rendered output. For encrypted `AGI` files, the existing
+local loader transform produced the loaded MZ image; direct MZ interpreters
+were stripped to their load image. A structural scanner signature then yielded
+the final accepted command, dispatch-table offset, and handlers. The brush
+data was located independently through the eight observed column-mask words at
+four-byte spacing, followed by the eight radius pointers.
+
+The first audit invocation imported `agi_graphics`, whose global command-line
+path parser consumed the first repeated `--game-dir`; that incomplete report
+omitted SQ1. The audit tool was corrected to keep its pure structural scanner
+local, and the all-game run then reported all 16 selected directories.
+
+The command was:
+
+```bash
+python3 -B tools/brush_table_audit.py \
+  --game-dir games/SQ1 --game-dir games/XMAS \
+  --game-dir games/KQ2 --game-dir games/BC --game-dir games/LSL1 \
+  --game-dir games/MG --game-dir games/KQ1 --game-dir games/SQ1.22 \
+  --game-dir games/PQ1 --game-dir games/SQ2 --game-dir games/KQ3 \
+  --game-dir games/KQ4 --game-dir games/KQ4D --game-dir games/MH1 \
+  --game-dir games/GR --game-dir games/MH2 \
+  --output build/brush-audit/report.md
+```
+
+SQ1 2.089 and XMAS 2.272 accept commands only through `0xf8`. KQ2 2.411
+accepts `0xf9`/`0xfa` but contains no shaped-brush table: source inspection
+confirms that `0xf9` consumes and ignores its operand and `0xfa` calls the
+ordinary pixel writer for each coordinate pair. Every build from BC 2.439
+onward contains the complete shaped/stippled routine and directly references
+the structurally selected mask and pointer tables.
+
+The full v2 builds share radius-one rows `e000 e000 e000` and horizontal-clamp
+immediate `0x0140`. Every observed v3 build instead uses radius-one rows
+`4000 e000 4000` and immediate `0x013e`. Since the `4000` rows overlap neither
+examined logical-column mask, the normal masked output is two center-row
+pixels rather than v2's 2 by 3 block. All eight column masks and all other
+radius rows are identical. Comparing a normalized `0x104`-byte brush-routine
+window found that clamp immediate to be the only code difference across the
+full v2/v3 families. This corrects the earlier broad statement that GR's
+pattern plotter was only a relocation of SQ2's: most of the routine is, but
+these two observable brush-family differences are real.
+
+The local renderer was changed to discover brush tables structurally. It now
+uses the selected radius-one family to apply the corresponding edge clamp and
+automatically falls back to KQ2's point behavior when no complete brush table
+exists. The games input directories were read only; all decoded images and the
+generated report remained under disposable `build/brush-audit/`.

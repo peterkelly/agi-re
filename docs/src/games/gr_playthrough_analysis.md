@@ -36,9 +36,10 @@ netting, invokes the Panamanian-jungle controller, and is checked against a
 has a 95-point arrival total. The overland route uses route value 3.
 
 All 186 present picture resources decode in a qualitative brush-disabled
-sweep. The current renderer's patterned-brush tables remain SQ2-specific, so
-that sheet corroborates geography and interiors but is not pixel-conformance
-evidence.
+sweep. That sheet predates the cross-interpreter brush audit, so it
+corroborates geography and interiors but is not pixel-conformance evidence.
+The later audit maps GR's mask table at `0x1430`, pointer table at `0x1450`,
+radius-one center-row shape, and v3 horizontal clamp.
 
 ## Story and Winning State
 

@@ -33,8 +33,12 @@ from agi_graphics import (  # noqa: E402
     object_update_draw_order,
     object_update_sort_key,
     object_distance_value,
+    find_pattern_table_offsets,
     pattern_column_mask,
+    pattern_max_doubled_x,
+    pattern_max_doubled_x_for_radius_one,
     pattern_row_words,
+    pattern_table_offsets,
     picture_command_is_supported,
     picture_payload,
     picture_to_ppm,
@@ -229,6 +233,7 @@ class PictureRenderingTests(unittest.TestCase):
         )
 
     def test_pattern_tables_decode_from_agidata(self) -> None:
+        self.assertEqual(pattern_table_offsets(), (0x15F9, 0x1619))
         self.assertEqual(
             [pattern_column_mask(column) for column in range(8)],
             [0x8000, 0x2000, 0x0800, 0x0200, 0x0080, 0x0020, 0x0008, 0x0002],
@@ -236,6 +241,29 @@ class PictureRenderingTests(unittest.TestCase):
         self.assertEqual(pattern_row_words(0), [0x8000])
         self.assertEqual(pattern_row_words(2), [0x7000, 0xF800, 0xF800, 0xF800, 0x7000])
         self.assertEqual(len(pattern_row_words(7)), 15)
+        self.assertEqual(pattern_max_doubled_x(), 0x140)
+
+    def test_pattern_tables_are_found_structurally(self) -> None:
+        data = bytearray(0x200)
+        mask_offset = 0x20
+        pointer_offset = 0x40
+        values = [0x8000, 0x2000, 0x0800, 0x0200, 0x0080, 0x0020, 0x0008, 0x0002]
+        for column, value in enumerate(values):
+            data[mask_offset + column * 4 : mask_offset + column * 4 + 2] = value.to_bytes(2, "little")
+        rows_offset = 0x80
+        for radius in range(8):
+            data[pointer_offset + radius * 2 : pointer_offset + radius * 2 + 2] = rows_offset.to_bytes(2, "little")
+        self.assertEqual(find_pattern_table_offsets(bytes(data)), (mask_offset, pointer_offset))
+
+    def test_pattern_family_selects_horizontal_clamp(self) -> None:
+        self.assertEqual(
+            pattern_max_doubled_x_for_radius_one([0xE000, 0xE000, 0xE000]),
+            0x140,
+        )
+        self.assertEqual(
+            pattern_max_doubled_x_for_radius_one([0x4000, 0xE000, 0x4000]),
+            0x13E,
+        )
 
     def test_visual_operand_consumes_command_like_raw_byte(self) -> None:
         payload = bytes([0xF0, 0xF2, 0xF6, 1, 1, 1, 1, 0xFF])

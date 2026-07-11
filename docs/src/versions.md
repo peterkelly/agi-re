@@ -132,6 +132,38 @@ The selected KQ2 pictures do not use `0xf9` or `0xfa`. Five selected LSL1
 pictures use `0xfa` but never use `0xf9`, so they retain zero-radius single
 pixel plots. The source difference remains valid for other valid picture data.
 
+### Cross-version brush tables and edge rule
+
+A later all-build audit distinguishes relocated addresses from behavioral
+changes. BC 2.439 through KQ3 2.936 share one complete v2 brush family. All
+observed 3.002 builds share a second family. Their eight column masks and every
+shape except radius 1 are identical. Radius 1 changes from three filled rows
+`e000 e000 e000` in v2 to `4000 e000 4000` in v3. Because `4000` overlaps
+neither radius-one logical-column mask, normal masked output changes from a 2
+by 3 block to two adjacent pixels on the center row.
+
+The full v2 plotters clamp doubled X against `0x0140 - 2r`; all observed v3
+plotters use `0x013e - 2r`. Thus the documented v2 linear X=160 write into the
+next row is not reachable from valid v3 pattern geometry. A fixed-size
+normalized disassembly comparison found this immediate to be the only code
+difference in the complete brush routines; mode bits, stipple evolution,
+iteration order, and pixel writes otherwise match.
+
+| Builds | Dispatch | Mask table | Pointer table |
+| --- | ---: | ---: | ---: |
+| BC/LSL1 | `0x1552` | `0x1575` | `0x1595` |
+| MG/KQ1/SQ1.22/PQ1 | `0x15cc` | `0x15ef` | `0x160f` |
+| SQ2/KQ3 | `0x15d6` | `0x15f9` | `0x1619` |
+| KQ4 | `0x1646` | `0x1669` | `0x1689` |
+| KQ4D/MH1 | `0x1658` | `0x167b` | `0x169b` |
+| GR/MH2 | `0x140d` | `0x1430` | `0x1450` |
+
+SQ1 2.089 and XMAS 2.272 have no such tables because their scanners end at
+`0xf8`. KQ2 2.411 has `0xf9`/`0xfa` but no shaped-brush tables: its mode byte
+is ignored and each coordinate pair produces one ordinary pixel write. The
+generated all-build report is reproducible with
+`tools/brush_table_audit.py` and explicit `--game-dir` arguments.
+
 The early sound drivers share event parsing and countdown scheduling but have
 no later attenuation-envelope arrays. Driver start initializes stream pointers,
 countdowns, and active words only. Event output adds the global attenuation
