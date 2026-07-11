@@ -232,6 +232,10 @@ in `v25` and Escape stores `0xff`. When interaction is disabled, the same list
 is acknowledgement-only and does not produce a selection result. With no
 carried items, the UI displays its empty-inventory text.
 
+Profiles 2.089 and 2.272 have no interactive inventory variant. They always
+display the acknowledgement-only carried-item list, do not consult the
+inventory-interaction flag, and leave `v25` unchanged.
+
 ## Menu construction
 
 Menu setup creates ordered headings and ordered items under the current

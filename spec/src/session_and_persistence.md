@@ -177,10 +177,26 @@ For profile 2.272 and the selected XMAS data:
 | 4 | Twice the configured replay-pair capacity |
 | 5 | Variable |
 
-The source-backed common tail of the 2.089/2.272 block 1 is:
+The source-backed 2.089/2.272 block-1 partition is:
 
 | Offset | Size | Meaning |
 | ---: | ---: | --- |
+| `0x0000` | 7 | Game/save signature area. |
+| `0x0007` | `0x0100` | Variables `v0..v255`. |
+| `0x0107` | `0x0020` | Packed flags `f0..f255`. |
+| `0x0127` | 4 | Timer tick counter. |
+| `0x012b` | 2 | Selected display-mode value. |
+| `0x012d` | 2 | Object horizon baseline. |
+| `0x012f` | 2 | Previous navigation-event value. |
+| `0x0131` | 2 | Movement rectangle left bound. |
+| `0x0133` | 2 | Movement rectangle top bound. |
+| `0x0135` | 2 | Movement rectangle right bound. |
+| `0x0137` | 2 | Movement rectangle bottom bound. |
+| `0x0139` | 2 | Object-0 direction-coupling selector. |
+| `0x013b` | 2 | Most recently prepared picture number. |
+| `0x013d` | 2 | Direction selected by navigation input. |
+| `0x013f` | 2 | Movement rectangle enabled state. |
+| `0x0141` | 2 | Reserved startup count; preserve on round trip. |
 | `0x0143` | 2 | Configured replay-pair capacity. |
 | `0x0145` | 2 | Active replay-pair count. |
 | `0x0147` | `0x009c` | Thirty-nine four-byte raw-key/status mappings. |
@@ -199,7 +215,10 @@ The source-backed common tail of the 2.089/2.272 block 1 is:
 | `0x03d7` | 2 | Display base row. |
 | `0x03d9` | 2 | Display base row plus 21. |
 
-The earlier block-1 prefix is not yet byte-mapped for binary interchange.
+These offsets define the semantic partition and round-trip preservation
+contract. Canonical initial bytes for reserved and selected-game-dependent
+fields have not been established, so constructing a byte-identical new save
+without an existing state remains outside current binary interchange claims.
 
 For profile 2.411, the observed KQ2 state uses lengths:
 

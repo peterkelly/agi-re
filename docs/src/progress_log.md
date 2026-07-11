@@ -26473,3 +26473,102 @@ Progress updates and outcomes:
       Action/result: Added the oldest drivers' device-selector-2 attenuation
       adjustment to the model, tests, evidence, and specification before their
       profile-specific direct/whole-byte output steps.
+
+3430. Reported: "I’ll treat the deleted MG save as retired historical
+      evidence."
+
+      Action/result: Split the MG regression into a current metadata-derived
+      91-record test and an optional historical-save comparison, removing any
+      requirement that the private save remain present.
+
+3431. Reported: "The opcode-to-handler map gives us a better route through the
+      unknown prefix."
+
+      Action/result: Traced saved scalar words through display, horizon,
+      navigation, motion rectangle, direction coupling, picture preparation,
+      replay, and key-map handlers.
+
+3432. Reported: "The prefix has resolved into a complete field partition."
+
+      Action/result: Added a dedicated 2.089/2.272 block-1 layout and local
+      partition test instead of reusing later profile offsets and names.
+
+3433. Reported: "I’m promoting the completed save partition now."
+
+      Action/result: Promoted semantic offsets and round-trip preservation
+      while leaving canonical initial bytes outside current binary-synthesis
+      claims.
+
+3434. Reported: "I’m picking up at the remaining early-interpreter subsystem
+      edges."
+
+      Action/result: Selected SQ1 2.089 versus XMAS 2.272 object redraw and
+      update ordering as the next source-first comparison.
+
+3435. Reported: "The portable question is narrower than the implementation
+      difference."
+
+      Action/result: Traced both temporary object-list representations through
+      membership, key generation, tie handling, composition, and refresh.
+
+3436. Reported: "This comparison found a real visible version delta."
+
+      Action/result: Established that 2.089 draws the earlier partition in
+      object-number order while 2.272 drawing-key sorts both partitions.
+
+3437. Reported: "I’ll encode that delta in the reusable ordering model and
+      tests."
+
+      Action/result: Added the profile-selectable ordering model, regression
+      test, and portable specification rule.
+
+3438. Reported: "I’ve now confirmed that frame advancement, collision,
+      control-footprint acceptance, placement, dirty rectangles, and the
+      movement loop itself match after relocation."
+
+      Action/result: Recorded that the old movement wrappers implement the
+      2.089 redraw architecture but do not alter movement-state transitions.
+
+3439. Reported: "The opcode-table triage leaves six shared-action differences
+      that still need semantic classification before promotion."
+
+      Action/result: Read each remaining SQ1/XMAS shared handler difference
+      and separated portable state/output effects from cleanup, diagnostics,
+      and temporary storage changes.
+
+3440. Reported: "Two more early action deltas are now definite."
+
+      Action/result: Established that SQ1 actions `0x4d` and `0x4e` leave
+      autonomous-motion mode active while XMAS clears it.
+
+3441. Reported: "The target-motion handlers expose another important early
+      rule."
+
+      Action/result: Established that 2.089/2.272 defer their first target
+      direction and completion calculation, unlike 2.411 and later.
+
+3442. Reported: "The early profile boundary is sharpening nicely."
+
+      Action/result: Traced early show-picture and object-distance semantics
+      and identified retained `f15`/text-window state plus byte wrapping.
+
+3443. Reported: "The new regression checks pass."
+
+      Action/result: Confirmed the early save, object-ordering, distance, and
+      specification regressions together after correcting source addresses.
+
+3444. Reported: "Inventory was the last major full-EGA surprise."
+
+      Action/result: Established that 2.089/2.272 inventory is always
+      acknowledgement-only and that interactive `v25` selection begins later.
+
+3445. Reported: "I’ll commit the completed early-profile work now."
+
+      Action/result: Folded the established inventory result into the evidence
+      record and portable specification before verification and commit.
+
+3446. Reported: "Verification is running across the full compatibility tests
+      and both books."
+
+      Action/result: All 400 local tests passed with one optional historical
+      MG-save test skipped, both mdBooks built, and `git diff --check` passed.

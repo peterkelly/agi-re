@@ -197,6 +197,8 @@ def object_update_draw_order(
     candidates: Sequence[ObjectDrawCandidate],
     table: Sequence[int] = DEFAULT_PRIORITY_TABLE,
     after_table_value: int = 0,
+    *,
+    sort_earlier_partition: bool = True,
 ) -> list[ObjectDrawCandidate]:
     ordered: list[ObjectDrawCandidate] = []
     indexed = list(enumerate(candidates))
@@ -206,7 +208,13 @@ def object_update_draw_order(
             for index, candidate in indexed
             if object_update_root(candidate) == root
         ]
-        selected.sort(key=lambda item: (object_update_sort_key(item[1], table, after_table_value), item[0]))
+        if root != 0x1703 or sort_earlier_partition:
+            selected.sort(
+                key=lambda item: (
+                    object_update_sort_key(item[1], table, after_table_value),
+                    item[0],
+                )
+            )
         ordered.extend(candidate for _index, candidate in selected)
     return ordered
 
@@ -302,6 +310,18 @@ def target_direction(
         (7, 0, 3),
         (6, 5, 4),
     )[y_relation][x_relation]
+
+
+def object_distance_value(
+    center_x_a: int,
+    baseline_y_a: int,
+    center_x_b: int,
+    baseline_y_b: int,
+    *,
+    saturate: bool = True,
+) -> int:
+    distance = abs(center_x_a - center_x_b) + abs(baseline_y_a - baseline_y_b)
+    return min(distance, 0xFE) if saturate else distance & 0xFF
 
 
 def random_motion_update(

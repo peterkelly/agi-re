@@ -279,6 +279,13 @@ Starting target motion stores the target, saves the current step size, clears
 the completion flag, and temporarily adopts a nonzero step override. A zero
 override preserves the current step size.
 
+Profiles 2.089 and 2.272 stop after those setup changes. They retain the
+object's previous direction until the next eligible target-motion update. If
+the object already satisfies the target, restoration of its saved step,
+clearing of target-motion mode, and setting of the completion flag are likewise
+deferred until that update. Profile 2.411 and later promoted profiles perform
+one target-direction calculation as part of the start action.
+
 Each target-direction calculation uses signed delta
 `target_coordinate - current_coordinate`. For band `s`, classify a delta as
 negative when `delta <= -s`, near only when `-s < delta < s`, and positive
@@ -297,13 +304,13 @@ set the completion flag, clear the autonomous mode, and leave direction zero.
 Movement need not land on the exact target when the remaining distance is
 within one step.
 
-The start action performs a target-direction calculation immediately.
-Subsequent automatic recalculation occurs in the pre-logic phase only when the
-object's movement-cadence countdown equals `1`. Without that cadence state, a
-one-shot call leaves the initial direction active and the object can continue
-past an internal target until another event, commonly a screen boundary,
-stops it. Reissuing the start action while the completion flag is clear also
-recalculates direction each script cycle.
+Except in profiles 2.089 and 2.272, the start action performs a target-direction
+calculation immediately. Subsequent automatic recalculation occurs in the
+pre-logic phase only when the object's movement-cadence countdown equals `1`.
+Without that cadence state, a one-shot call leaves the initial direction active
+and the object can continue past an internal target until another event,
+commonly a screen boundary, stops it. Reissuing the start action while the
+completion flag is clear also recalculates direction each script cycle.
 
 ## Approach and random motion
 
@@ -356,6 +363,12 @@ All objects in the earlier partition draw before every object in the later
 partition. Within one partition, objects draw in ascending drawing-key order,
 with object number breaking ties in ascending order. Later draws may cover
 earlier equal-priority pixels under the cel composition rules.
+
+Profile 2.089 is the exception for ordering within the earlier partition. It
+draws that partition in ascending object-number order without sorting it by
+drawing key. It still sorts the later partition by drawing key and uses object
+number to break equal-key ties. Profile 2.272 and every later promoted profile
+sort both partitions by drawing key as described above.
 
 For baseline-priority objects, the drawing key is baseline Y. In the promoted
 2.936 table mode, a fixed priority of zero maps before row 0 and a positive

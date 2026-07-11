@@ -838,6 +838,17 @@ address as part of the portable behavior.
 | `code.picture.draw_line` | SQ1 image `0x5d19`; XMAS image `0x5da2` | Relocated line rasterizer. |
 | `code.picture.seed_fill` | SQ1 image `0x4ad4`; XMAS image `0x4aa6` | Relocated four-connected fill path. |
 | `code.object.frame_timer_update` | SQ1 image `0x05cc`; XMAS image `0x04c6` | Automatic direction-loop selection has no cadence-countdown gate. |
+| `code.object.rebuild_draw_update_lists` | SQ1 image `0x0524`; XMAS image `0x6151` | SQ1 draws the `0x0010`-clear partition in object-table order and then selection-sorts the set partition; XMAS builds and selection-sorts both partitions before drawing them in the same partition order. |
+| `code.object.flush_update_lists_restore` | SQ1 image `0x0515`; XMAS image `0x6117` | Restores prior rectangles for both builds using their respective array/list representations before composition. |
+| `code.object.refresh_update_lists` | SQ1 image `0x0533`; XMAS image `0x616e` | Updates dirty regions and saved positions for both partitions after drawing. |
+| `code.motion.update_objects` | SQ1 image `0x13c7`; XMAS image `0x13b7` | The movement body beginning at SQ1 `0x13d2` / XMAS `0x13bf` matches after relocation; SQ1 additionally brackets it with its older array-based restore/rebuild helpers. |
+| `opcode.action.show_picture_like` | SQ1 image `0x43e7`; XMAS image `0x43cc` | Both refresh and mark the picture shown without the later `f15` clear/text-window close prefix. |
+| `opcode.action.object_distance_to_var` | SQ1 image `0x4061`; XMAS image `0x4043` | Both store the low byte of the active-object distance without the later saturation to `0xfe`. |
+| `opcode.action.clear_object_fields_21_22` | SQ1 image `0x652e`; XMAS image `0x657d` | SQ1 clears direction only; XMAS clears direction and autonomous-motion mode. Both apply the object-0 direction-coupling side effects. |
+| `opcode.action.clear_object_field_22_and_global` | SQ1 image `0x6567`; XMAS image `0x65ba` | SQ1 leaves autonomous-motion mode untouched and changes only object-0 coupling/navigation globals; XMAS clears autonomous-motion mode for every selected object. |
+| `opcode.action.move_object_to` | SQ1 image `0x6358`; XMAS image `0x63a7` | Stores target state but does not invoke the target-direction/completion helper added by 2.411. |
+| `opcode.action.move_object_to_var` | SQ1 image `0x63ce`; XMAS image `0x641d` | Variable-target form of the same deferred first-update rule. |
+| `opcode.action.show_inventory_selection` | SQ1 image `0x2e89`; XMAS image `0x2e87` | Early acknowledgement-only carried-item display; it has no interaction-flag branch and does not write `v25`. |
 | `opcode.condition.input_word_sequence` | SQ1 image `0x0965`; XMAS image `0x087d` | SQ1 is exact-count only; XMAS recognizes the `0x270f` tail terminator. |
 | `opcode.action.parse_string` | SQ1 image `0x1817`; XMAS image `0x17f7` | Both accept six string-slot selectors. |
 | `code.sound.driver_start` | SQ1 image `0x74f5`; XMAS image `0x7514` | Early one-versus-four-channel initialization. |
@@ -845,6 +856,9 @@ address as part of the portable behavior.
 | `code.sound.driver_write_event` | SQ1 image `0x7615`; XMAS image `0x7634` | Both apply the device-2 `+3` helper; SQ1 then emits directly, while XMAS applies whole-byte adjustment and signed clamp. |
 | `code.save.save_game_state` | SQ1 image `0x2501`; XMAS image `0x24f5` | SQ1 writes four blocks; XMAS writes five. |
 | `code.save.restore_game_state` | SQ1 image `0x2335`; XMAS image `0x2315` | Reads each build's corresponding envelope. |
+| `data.save.early_block1` | SQ1/XMAS `DS:0x0002..0x03dc` | Complete 2.089/2.272 global-state partition; block-relative fields are specified in the persistence chapter. |
+| `data.motion.rectangle` | SQ1/XMAS `DS:0x0133..0x0141` | Bounds, direction-coupling, prepared-picture, coupled-direction, and enable state used by corresponding script/runtime paths. |
+| `data.replay.capacity_count` | SQ1/XMAS `DS:0x0145` / `DS:0x0147` | Configured pair capacity and active pair count; block 4 serializes capacity pairs. |
 | `code.object.initialize_metadata` | MG image `0x0fa5` | Decodes current `OBJECT`, increments header byte `0x5a`, and allocates 91 records. |
 | `code.save.save_game_state` | MG image `0x2751` | Current source-derived blocks begin `0x05e1`, `0x0f49`, `0x0005`; bundled older save differs. |
 | `table.logic.action_dispatch` | BC 2.439 data `0x061b`; MG 2.915 data `0x061d`; MH1 3.002.107 data `0x0620`; MH2 3.002.149 data `0x0440` | Counts are 170, 174, 182, and 182. |

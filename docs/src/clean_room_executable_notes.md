@@ -11318,7 +11318,20 @@ than current occupancy. The common block-1 tail is now source-partitioned:
 39 four-byte key mappings at `DS:0x0149`, four padding bytes, six live 40-byte
 strings at `DS:0x01e9`, six reserved 40-byte records, and text/input/status
 state at `DS:0x03c9..0x03dc`. These correspond to block-relative offsets
-`0x0147..0x03da`; the earlier scalar prefix remains only partially named.
+`0x0147..0x03da`.
+
+The earlier prefix is now fully partitioned from script handlers and runtime
+consumers. Relative to block start `DS:0x0002`, it contains signature,
+variables, flags, and timer through offset `0x012a`; display mode at
+`0x012b`; horizon at `0x012d`; previous navigation event at `0x012f`; motion
+rectangle bounds at `0x0131..0x0138`; object-0 direction coupling, prepared
+picture, coupled direction, and rectangle-enable words at `0x0139..0x0140`;
+a startup-only count at `0x0141`; and replay capacity/count at
+`0x0143..0x0146`. Action `0x3f` writes horizon, `0x5a`/`0x5b` configure the
+rectangle, `0x83`/`0x84` control direction coupling, picture preparation
+writes the prepared-picture word, and `0x8e` sets replay capacity. The
+startup-only count has no later script-visible consumer and remains a
+preserved selected-build value rather than portable gameplay state.
 
 For MG, `tools/compare_interpreter_tables.py` extracted the current MZ image to
 `build/cross-version/mg_2915_image.bin`; its disassembly is
@@ -11329,3 +11342,75 @@ third header byte `0x5a`, increments it at `0x1001`, and multiplies 91 by the
 The bundled `MGSG.1` instead contains `0x05df`, `0x0387`, and `0x0005` and is
 dated 5 November 1987, while `AGI` is dated 16 November 1987. The save is an
 older incompatible artifact, not evidence for current-header semantics.
+
+### Early object composition and movement comparison
+
+The early builds use different temporary structures around object drawing.
+SQ1 `0x036c` scans active records in object-table order. Records whose flag
+mask `0x0011` equals `0x0011` receive a baseline/fixed-priority key and are
+selection-sorted by the smallest key; the first table record wins a tie. SQ1
+`0x0615b` separately scans records whose same mask equals `0x0001` and draws
+them immediately in table order. Wrapper `0x0524` therefore draws the
+`0x0010`-clear partition in object-number order, then draws the set partition
+in key order.
+
+XMAS `0x02c1` takes a membership predicate and applies the same stable
+selection sort to either partition. Wrappers `0x060e9` and `0x06100` select
+the set and clear partitions respectively, and `0x06151` draws the clear
+partition followed by the set partition. The cross-partition order is the
+same as SQ1, but XMAS key-sorts the clear partition too. Overlapping valid
+objects in that partition can therefore produce different pixels when object
+number order and baseline/fixed-priority order disagree.
+
+The associated restore and dirty-refresh passes preserve those memberships.
+SQ1 uses a temporary pointer array at `0x0653` plus a separate clear-partition
+array at `0x12ab`; XMAS uses two linked-list roots. This storage choice is not
+itself portable behavior.
+
+The SQ1 movement routine at `0x13c7` calls its restore helper before scanning
+objects and its rebuild/refresh helper afterward. The movement body beginning
+at `0x13d2` matches XMAS `0x13bf` after relocation. The frame-mode updater
+SQ1 `0x48a8` / XMAS `0x487a`, collision test `0x3f8b` / `0x3f6d`, control
+acceptance `0x4e25` / `0x4df7`, dirty-rectangle updater `0x4f4a` / `0x4f23`,
+and placement helper `0x515c` / `0x51c6` likewise match after relocation.
+Thus the new portable delta is composition ordering, not movement, collision,
+or control acceptance.
+
+### Early shared-action boundary against 2.411
+
+The XMAS/KQ2 action-table triage was read at each differing entry rather than
+treated as behavior by itself. Three shared action families establish an
+early-profile boundary that SQ1 shares with XMAS because those entries match
+between 2.089 and 2.272.
+
+SQ1/XMAS show-picture handlers `0x43e7`/`0x43cc` call the full refresh and set
+the picture-shown word. KQ2 `0x4a4c` first clears `f15` and invokes the active
+text-window close helper. The older show action therefore does neither of
+those two prefix effects.
+
+SQ1/XMAS object-distance handlers `0x4061`/`0x4043` calculate absolute
+baseline-Y distance plus absolute center-X distance and store `AL` directly.
+KQ2 `0x46b9` retains the sum as a word, clamps values above `0xfe`, then stores
+the result. Inactive input objects still produce `0xff` in both families.
+
+SQ1/XMAS target-motion handlers `0x6358`/`0x63a7` and
+`0x63ce`/`0x641d` initialize mode 3, targets, saved/override step, completion
+flag, partition membership, and object-0 coupling state, then return. KQ2
+`0x6954`/`0x69d1` performs the same setup and additionally calls `0x1621`,
+which calculates direction immediately and completes immediately when the
+target lies within the strict step bands. The old builds defer that helper's
+effects until their next eligible target-motion pass.
+
+The SQ1 action `0x4d` handler at `0x652e` clears direction byte `+0x21` but not
+autonomous mode byte `+0x22`; XMAS `0x657d` clears both. SQ1 action `0x4e` at
+`0x6567` does not clear either object byte and only changes object-0 globals,
+including clearing the remembered navigation event. XMAS `0x65ba` clears mode
+byte `+0x22` for every object and applies the later object-0 coupling state.
+
+SQ1/XMAS inventory handlers `0x2e89`/`0x2e87` implement the carried-item
+display inline. They scan three-byte metadata entries in item order, select
+only location byte `0xff`, lay entries out in two columns, display the empty
+inventory text when needed, and wait for one acknowledgement event. Neither
+handler reads the later inventory-interaction flag or writes variable byte
+`v25`. KQ2 `0x30d6` instead calls the later list selector that branches on the
+interaction flag and can write the selected item or `0xff` to `v25`.

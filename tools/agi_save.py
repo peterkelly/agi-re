@@ -152,6 +152,42 @@ SQ2_BLOCK1_REGIONS = (
     SaveStateRegion(0x05DF, 0x0002, "saved_replay_count", True, "Replay rollback checkpoint count."),
 )
 
+EARLY_20XX_BLOCK1_REGIONS = (
+    SaveStateRegion(0x0000, 0x0007, "signature", True, "Seven-byte game/save signature area."),
+    SaveStateRegion(0x0007, 0x0100, "variables", True, "Variables v0 through v255."),
+    SaveStateRegion(0x0107, 0x0020, "flags", True, "Packed flags f0 through f255."),
+    SaveStateRegion(0x0127, 0x0004, "timer_ticks", True, "Little-endian 32-bit timer tick counter."),
+    SaveStateRegion(0x012B, 0x0002, "display_mode", True, "Selected display-mode word."),
+    SaveStateRegion(0x012D, 0x0002, "horizon", True, "Object horizon baseline."),
+    SaveStateRegion(0x012F, 0x0002, "last_navigation_event", True, "Previous navigation event value."),
+    SaveStateRegion(0x0131, 0x0002, "motion_rect_left", True, "Configured movement rectangle left bound."),
+    SaveStateRegion(0x0133, 0x0002, "motion_rect_top", True, "Configured movement rectangle top bound."),
+    SaveStateRegion(0x0135, 0x0002, "motion_rect_right", True, "Configured movement rectangle right bound."),
+    SaveStateRegion(0x0137, 0x0002, "motion_rect_bottom", True, "Configured movement rectangle bottom bound."),
+    SaveStateRegion(0x0139, 0x0002, "direction_coupling", True, "Object-0 direction coupling selector."),
+    SaveStateRegion(0x013B, 0x0002, "prepared_picture", True, "Most recently prepared picture number."),
+    SaveStateRegion(0x013D, 0x0002, "coupled_direction", True, "Direction selected by navigation input."),
+    SaveStateRegion(0x013F, 0x0002, "motion_rect_enabled", True, "Configured movement rectangle enable word."),
+    SaveStateRegion(0x0141, 0x0002, "reserved_startup_count", True, "Startup allocation count with no later script-visible role."),
+    SaveStateRegion(0x0143, 0x0002, "replay_capacity", True, "Resource replay capacity in pairs."),
+    SaveStateRegion(0x0145, 0x0002, "replay_count", True, "Active resource replay pair count."),
+    SaveStateRegion(0x0147, 0x009C, "key_map", True, "Thirty-nine four-byte raw-key/status mappings."),
+    SaveStateRegion(0x01E3, 0x0004, "reserved_pre_string_padding", True, "Reserved bytes before the string slots."),
+    SaveStateRegion(0x01E7, 0x00F0, "string_slots", True, "Six 40-byte script string slots."),
+    SaveStateRegion(0x02D7, 0x00F0, "reserved_string_bank", True, "Six reserved 40-byte records."),
+    SaveStateRegion(0x03C7, 0x0002, "text_foreground", True, "Derived foreground text attribute."),
+    SaveStateRegion(0x03C9, 0x0002, "text_background", True, "Derived background text attribute."),
+    SaveStateRegion(0x03CB, 0x0002, "text_attribute", True, "Packed current text/window attribute."),
+    SaveStateRegion(0x03CD, 0x0002, "input_line_enabled", True, "Input-line enabled word."),
+    SaveStateRegion(0x03CF, 0x0002, "input_row", True, "Configured input text row."),
+    SaveStateRegion(0x03D1, 0x0001, "prompt_marker", True, "Input prompt marker byte."),
+    SaveStateRegion(0x03D2, 0x0001, "reserved_text_padding", True, "Reserved byte aligning following word state."),
+    SaveStateRegion(0x03D3, 0x0002, "status_line_enabled", True, "Status-line enabled word."),
+    SaveStateRegion(0x03D5, 0x0002, "status_row", True, "Configured status text row."),
+    SaveStateRegion(0x03D7, 0x0002, "display_base_row", True, "Configured display base row."),
+    SaveStateRegion(0x03D9, 0x0002, "display_bottom_row", True, "Display base row plus 21."),
+)
+
 SQ2_BLOCK2_LENGTH = 0x0387
 SQ2_OBJECT_RECORD_SIZE = 0x2B
 SQ2_OBJECT_RECORD_COUNT = 21
@@ -338,6 +374,14 @@ def split_early_24xx_block1(data: bytes) -> dict[str, bytes]:
         data,
         EARLY_24XX_BLOCK1_REGIONS,
         EARLY_24XX_BLOCK1_LENGTH,
+    )
+
+
+def split_early_20xx_block1(data: bytes) -> dict[str, bytes]:
+    return split_state_regions(
+        data,
+        EARLY_20XX_BLOCK1_REGIONS,
+        SQ1_2089_BLOCK1_LENGTH,
     )
 
 

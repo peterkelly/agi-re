@@ -29,8 +29,8 @@ better understood, or a new remaining-work item is discovered.
   `0x6e`/`0x83`/`0x8e`/`0xaa`/`0xad` source-backed).
 - Logic condition opcodes: all 19 of 19 are QEMU-validated.
 - Main remaining risk areas: full picture/view renderer edge behavior, final
-  compatibility suite breadth, residual subsystem edges and byte-complete save
-  maps for partial 2.089/2.272 profiles, incomplete MH1/MH2 resource sets, and
+  compatibility suite breadth, residual subsystem edges and canonical initial
+  save bytes for partial 2.089/2.272 profiles, incomplete MH1/MH2 resource sets, and
   promoting accumulated evidence into the standalone behavioral specification.
 - Picture/view resource retention is now source-modeled as ordered within each
   family. Discard actions truncate the selected resource and every later
@@ -117,12 +117,22 @@ better understood, or a new remaining-work item is discovered.
   independently of movement cadence, expose six string slots, and use the
   early one-versus-four-channel sound scheduler. SQ1 has exact-count word
   matching, device-2-adjusted direct sound control bytes, 17 runtime object records, and a
-  four-block save envelope. XMAS adds the `0x270f` tail terminator, whole-byte
+  four-block save envelope. Its earlier-drawn object partition retains object
+  number order while its later partition is drawing-key sorted. XMAS adds the
+  `0x270f` tail terminator, whole-byte
   sound-control adjustment, 18 runtime object records, and a five-block save
-  envelope. XMAS's
+  envelope, and drawing-key sorts both object partitions. Their movement,
+  collision, control-acceptance, placement, frame-advance, and dirty-region
+  cores otherwise match after relocation. XMAS's
   active files are the original multi-disk distribution variant, whose disk
   number nibbles and single selected `VOL.0` are not an installed-layout
   missing-volume error.
+  Both early profiles defer the first target-motion direction/completion pass,
+  retain `f15` and active text-window state when showing a picture, and wrap
+  active-object distance to one byte instead of saturating it. SQ1 additionally
+  leaves autonomous motion active in actions `0x4d` and `0x4e`; XMAS clears it.
+  Both expose only the acknowledgement-only inventory display and never write
+  an inventory selection to `v25`.
 - Original saves add selected-game dimensions for BC, MG, and SQ1.22. BC uses
   blocks `0x05df`, `0x02db`, `0x0135`, and `0x00fe`; MG uses `0x05df`,
   `0x0387`, `0x0005`, and `0x00dc`; SQ1.22 uses `0x05e1`, `0x0306`,
@@ -245,9 +255,10 @@ better understood, or a new remaining-work item is discovered.
     byte-complete structural map: 1028-byte global block with explicit reserved
     state, 23 object records, decoded 131-entry inventory/name data, 50
     replay pairs, and the same variable logic-resume grammar.
-    The common 2.089/2.272 block-1 tail is partitioned into replay capacity and
-    count, 39 key mappings, six live and six reserved string records, and
-    text/input/status fields; the scalar prefix is still partial. Original BC
+    The common 2.089/2.272 block 1 has a complete source-backed field
+    partition covering scalar state, replay capacity/count, 39 key mappings,
+    six live and six reserved string records, and text/input/status fields.
+    Canonical initial bytes remain unmapped. Original BC
     and SQ1.22 saves add first-four-block dimensions for their
     selected game data. MG's historical save is explicitly incompatible with
     its selected interpreter/data combination and is not an interchange map.
@@ -841,7 +852,7 @@ source-mapped well enough to justify a targeted probe.
     path. `build/compatibility-suite/qemu_v3_synthetic_picture_view_001.json`
     confirms generated v3 picture-nibble picture and direct view fixtures by
     comparing blank, picture-only, and picture-plus-view captures. The current
-    full local run passes 390 tests after adding cross-version profile
+    full local run passes 400 tests after adding cross-version profile
     coverage and ordered resource-retention transitions. The top-level runner
     now accepts `--game-dir PATH`, exports that explicit selection to child
     commands, and records it in the JSON report without choosing a default
@@ -890,8 +901,9 @@ source-mapped well enough to justify a targeted probe.
 
 ## Highest-Value Remaining Work
 
-1. Byte-map the remaining 2.089/2.272 save-state fields and inspect residual
-   subsystem edges needed to promote full gameplay profiles.
+1. Inspect residual 2.089/2.272 subsystem edges needed to promote full gameplay
+   profiles. Establish canonical initial save bytes only if binary synthesis
+   for those selected games becomes a target.
 2. Obtain complete MH1/MH2 resource sets before using them for whole-game
    corpus claims. The current MH1 copy has six directly referenced unreadable
    views; MH2 has 31 unreadable logic resources.

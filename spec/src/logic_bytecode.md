@@ -470,7 +470,8 @@ The 3.002.149 profile accepts 49 entries.
 Inventory selection includes only items whose location is `0xff`. Its display
 uses a two-column list when needed. When the profile's inventory-interaction
 flag disables selection, the list is acknowledgement-only and does not produce
-a chosen-item result.
+a chosen-item result. Profiles 2.089 and 2.272 always use that
+acknowledgement-only form, regardless of the flag.
 
 ## Action opcodes: persistence and session control
 

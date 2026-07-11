@@ -32,6 +32,7 @@ from agi_graphics import (  # noqa: E402
     _mirror_view_row_runs,
     object_update_draw_order,
     object_update_sort_key,
+    object_distance_value,
     pattern_column_mask,
     pattern_row_words,
     picture_command_is_supported,
@@ -70,6 +71,13 @@ def changed_control_pixels(rendered) -> set[tuple[int, int]]:
 
 
 class ObjectMotionModelTests(unittest.TestCase):
+    def test_early_object_distance_wraps_instead_of_saturating(self) -> None:
+        self.assertEqual(object_distance_value(0, 0, 160, 167), 0xFE)
+        self.assertEqual(
+            object_distance_value(0, 0, 160, 167, saturate=False),
+            71,
+        )
+
     def test_early_automatic_loop_selection_is_not_cadence_gated(self) -> None:
         self.assertEqual(
             automatic_direction_loop(
@@ -695,6 +703,25 @@ class ViewRenderingTests(unittest.TestCase):
         self.assertEqual(
             [candidate.object_no for candidate in object_update_draw_order(candidates)],
             [3, 4, 2, 1, 0],
+        )
+
+    def test_2089_earlier_partition_retains_object_number_order(self) -> None:
+        candidates = [
+            ObjectDrawCandidate(0, 100, 0x0051),
+            ObjectDrawCandidate(1, 80, 0x0051),
+            ObjectDrawCandidate(2, 90, 0x0041),
+            ObjectDrawCandidate(3, 70, 0x0041),
+            ObjectDrawCandidate(4, 70, 0x0041),
+        ]
+        self.assertEqual(
+            [
+                candidate.object_no
+                for candidate in object_update_draw_order(
+                    candidates,
+                    sort_earlier_partition=False,
+                )
+            ],
+            [2, 3, 4, 1, 0],
         )
 
     def test_object_update_sort_key_uses_fixed_priority_mapping(self) -> None:

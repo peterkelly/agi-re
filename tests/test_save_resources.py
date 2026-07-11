@@ -25,6 +25,7 @@ from agi_save import (  # noqa: E402
     GR_V3_REPLAY_PAIR_COUNT,
     EARLY_24XX_BLOCK1_LENGTH,
     EARLY_24XX_BLOCK1_REGIONS,
+    EARLY_20XX_BLOCK1_REGIONS,
     KQ2_2411_BLOCK2_LENGTH,
     KQ2_2411_BLOCK3_LENGTH,
     KQ2_2411_BLOCK4_LENGTH,
@@ -140,6 +141,7 @@ from agi_save import (  # noqa: E402
     split_pq1_2917_block3,
     split_pq1_2917_block4,
     split_early_24xx_block1,
+    split_early_20xx_block1,
     validate_state_regions,
     xor_with_repeating_key,
 )
@@ -167,6 +169,17 @@ def sq2_save_paths() -> list[Path]:
 
 
 class SaveResourceTests(unittest.TestCase):
+    def test_early_20xx_block1_has_a_complete_source_backed_partition(self) -> None:
+        validate_state_regions(EARLY_20XX_BLOCK1_REGIONS, SQ1_2089_BLOCK1_LENGTH)
+        data = bytes(SQ1_2089_BLOCK1_LENGTH)
+        regions = split_early_20xx_block1(data)
+
+        self.assertEqual(len(regions["variables"]), 0x100)
+        self.assertEqual(len(regions["key_map"]), 39 * 4)
+        self.assertEqual(len(regions["string_slots"]), 6 * 40)
+        self.assertEqual(len(regions["reserved_string_bank"]), 6 * 40)
+        self.assertEqual(len(regions["prompt_marker"]), 1)
+
     @unittest.skipUnless(SQ1.exists(), "local SQ1 game directory is not present")
     def test_sq1_2089_object_metadata_is_stored_plain(self) -> None:
         metadata = parse_object_metadata_file((SQ1 / "OBJECT").read_bytes())
@@ -199,16 +212,22 @@ class SaveResourceTests(unittest.TestCase):
         self.assertEqual(inventory.items[0].name, "Cartridge")
 
     @unittest.skipUnless(MG.exists(), "local MG game directory is not present")
-    def test_mg_current_metadata_and_historical_save_are_not_one_layout(self) -> None:
+    def test_mg_current_metadata_derives_91_object_records(self) -> None:
         metadata = decode_object_metadata_file(
             (MG / "OBJECT").read_bytes(), key=SQ2_OBJECT_FILE_XOR_KEY
         )
-        historical = load_save(MG / "MGSG.1")
 
         self.assertEqual(metadata.object_record_count, 91)
         self.assertEqual(metadata.item_table_size, 3)
         self.assertEqual(len(metadata.runtime_block), 5)
         self.assertEqual(91 * SQ2_OBJECT_RECORD_SIZE, 0x0F49)
+
+    @unittest.skipUnless(
+        (MG / "MGSG.1").exists(), "local historical MG save is not present"
+    )
+    def test_mg_historical_save_is_not_the_current_layout(self) -> None:
+        historical = load_save(MG / "MGSG.1")
+
         self.assertEqual(historical.blocks[1].length, 21 * SQ2_OBJECT_RECORD_SIZE)
         self.assertNotEqual(historical.blocks[1].length, 91 * SQ2_OBJECT_RECORD_SIZE)
 

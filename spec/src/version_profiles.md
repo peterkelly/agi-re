@@ -210,11 +210,34 @@ If the object is currently drawn, they remove its old rendered state, then
 copy the new coordinates into its previous-position snapshot. This differs in
 ordering from 2.272.
 
+The earlier-drawn object partition is composed in ascending object-number
+order, regardless of baseline or fixed-priority drawing key. The later-drawn
+partition is composed in ascending drawing-key order with object number as the
+tie breaker. This is the ordering exception defined in the object chapter;
+2.272 sorts both partitions.
+
 Pictures support commands only through seed fill `0xf8`. Automatic
 direction-loop selection is evaluated on every eligible post-logic pass and
 uses the four-direction table only for exactly four loops. The profile exposes
 six string slots. Its word-sequence condition requires an exact operand/parser
 count and does not give `0x270f` tail-terminator meaning.
+
+Showing a prepared picture presents it and marks it shown, but does not clear
+`f15` or close an active text window. Object-distance action `0x45` stores the
+low byte of the center-X-plus-baseline-Y distance; values above `255` wrap
+instead of saturating at `254`. Target-motion actions `0x51` and `0x52` defer
+their first direction calculation and already-satisfied completion until the
+next eligible target-motion update.
+
+Action `0x4d` clears direction but leaves autonomous-motion mode unchanged.
+For object 0 it also clears `v6` and selects object-to-`v6` coupling. Action
+`0x4e` leaves both direction and autonomous-motion mode unchanged. For object
+0 it clears `v6`, selects `v6`-to-object coupling, and clears the remembered
+navigation event used by the old movement pass.
+
+The inventory display action always shows an acknowledgement-only carried-item
+list. It does not inspect the inventory-interaction flag and does not modify
+`v25`.
 
 Sound event scheduling and channel participation follow the early profile in
 the sound chapter. Four-channel events emit both tone bytes and use the 2.089
@@ -245,11 +268,21 @@ selection is evaluated independently of cadence and uses the four-direction
 table only for exactly four loops. The profile exposes six string slots and
 already recognizes `0x270f` as the word-sequence tail terminator.
 
-Early sound scheduling uses one channel only for device selector zero and
-otherwise advances all four. Four-channel events emit both tone bytes and use
-the device-2 plus whole-byte adjustment rule in the sound chapter. The selected XMAS data
-uses 18 runtime object records and the five-block 2.272 save envelope. Other
-domains are not yet broad enough for a full 2.272 gameplay-conformance claim.
+Showing a prepared picture, object-distance overflow, and initial target-motion
+calculation follow the same early rules as profile 2.089. Action `0x4d` has the
+later behavior of clearing both direction and autonomous-motion mode. Action
+`0x4e` clears autonomous-motion mode while retaining direction.
+
+Inventory display is acknowledgement-only and leaves `v25` unchanged, as in
+profile 2.089. The interactive inventory selector is not available.
+
+Both object partitions are composed in ascending drawing-key order, with
+object number breaking ties. Early sound scheduling uses one channel only for
+device selector zero and otherwise advances all four. Four-channel events emit
+both tone bytes and use the device-2 plus whole-byte adjustment rule in the
+sound chapter. The selected XMAS data uses 18 runtime object records and the
+five-block 2.272 save envelope. Other domains are not yet broad enough for a
+full 2.272 gameplay-conformance claim.
 
 ## Other observed versions
 
