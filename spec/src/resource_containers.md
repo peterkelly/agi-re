@@ -63,19 +63,20 @@ payload.
 
 ### Inventory metadata file
 
-The profile's inventory metadata file is XOR-decoded byte for byte with the
-repeating ASCII key:
-
-```text
-Avis Durgan
-```
-
-The decoded bytes have this form:
+The inventory metadata file has the following expanded form:
 
 ```text
 item_table_size:u16le
 maximum_drawable_object_index:u8
 runtime_inventory_data[]
+```
+
+Profiles 2.089 and 2.272 store these expanded bytes directly. The later
+observed version-2 profiles XOR-decode the file byte for byte with the
+repeating ASCII key:
+
+```text
+Avis Durgan
 ```
 
 `runtime_inventory_data` begins with `item_table_size / 3` item entries. The

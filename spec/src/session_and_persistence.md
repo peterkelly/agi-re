@@ -177,6 +177,17 @@ For profile 2.440, the observed LSL1 state uses lengths:
 | 4 | 288 (`0x0120`) |
 | 5 | Variable. |
 
+The observed BC data selects the mapped-equivalent 2.439/2.440 behavioral
+rules with these separate dimensions:
+
+| Block | Length |
+| ---: | ---: |
+| 1 | 1503 (`0x05df`) |
+| 2 | 731 (`0x02db`) |
+| 3 | 309 (`0x0135`) |
+| 4 | 254 (`0x00fe`) |
+| 5 | Variable. |
+
 For the observed profile 2.936 game data, block lengths are:
 
 | Block | Length |
@@ -206,6 +217,14 @@ For profile 2.917, the observed PQ1 state uses lengths:
 | 3 | 366 (`0x016e`) |
 | 4 | 500 (`0x01f4`) |
 | 5 | Variable. |
+
+The observed MG data selects the mapped-equivalent 2.915/2.917 behavioral
+rules with lengths `0x05df`, `0x0387`, `0x0005`, `0x00dc`, and a variable
+fifth block. The shorter first block is a selected-build persistence variant,
+not a change to the shared gameplay core.
+
+The observed SQ1.22 data uses profile 2.917 with lengths `0x05e1`, `0x0306`,
+`0x0148`, `0x0064`, and a variable fifth block.
 
 For profile 2.936, the observed KQ3 state uses lengths:
 

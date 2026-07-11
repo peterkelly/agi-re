@@ -85,12 +85,15 @@ def make_agidata() -> bytes:
     return bytes(data)
 
 
-def make_game(root: Path) -> Path:
+def make_game(root: Path, *, include_bad_logic: bool = False) -> Path:
     game = root / "AUDIT"
     game.mkdir()
     code = bytes([0x62, 0x02, 0x63, 0x22, 0x05, 0x00])
     logic_payload = len(code).to_bytes(2, "little") + code + b"\x00"
-    (game / "LOGDIR").write_bytes(dir_entry(0, 0) + b"\xff\xff\xff")
+    logdir = bytearray(dir_entry(0, 0) + b"\xff\xff\xff")
+    if include_bad_logic:
+        logdir.extend(dir_entry(0, 0x80))
+    (game / "LOGDIR").write_bytes(bytes(logdir))
     (game / "PICDIR").write_bytes(b"\xff\xff\xff")
     (game / "VIEWDIR").write_bytes(b"\xff\xff\xff")
     snddir = bytearray(b"\xff\xff\xff" * 35)
@@ -117,6 +120,18 @@ class ResourceReferenceAuditTests(unittest.TestCase):
         self.assertEqual(report["resources"]["sound"]["readable"], [2])
         self.assertEqual(report["referenced_unreadable"]["sound"], [34])
         self.assertEqual(report["unreferenced_unreadable"]["sound"], [])
+        self.assertEqual(report["skipped_source_logics"], [])
+
+    def test_audit_skips_unreadable_source_logic_and_reports_it(self) -> None:
+        with tempfile.TemporaryDirectory() as temp_dir:
+            game = make_game(Path(temp_dir), include_bad_logic=True)
+            report = audit_game(game)
+
+        self.assertEqual(report["references"]["sound"], [2, 34])
+        self.assertEqual(
+            [entry["number"] for entry in report["skipped_source_logics"]],
+            [2],
+        )
 
 
 if __name__ == "__main__":

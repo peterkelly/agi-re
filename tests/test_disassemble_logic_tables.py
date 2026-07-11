@@ -36,6 +36,18 @@ class DispatchTableDetectionTests(unittest.TestCase):
     def test_lsl1_2440_shorter_v2_action_table_is_detected(self) -> None:
         self.assert_layout("LSL1", "v2_split", (0x061B, 0xAA, 0x08E3, 0x13))
 
+    def test_sq1_2089_uses_early_v2_table_trailer(self) -> None:
+        self.assert_layout("SQ1", "v2_split", (0x03E7, 0x9B, 0x0679, 0x13))
+
+    def test_xmas_2272_v2_tables_are_detected(self) -> None:
+        self.assert_layout("XMAS", "v2_split", (0x0417, 0xA1, 0x06BB, 0x13))
+
+    def test_bc_2439_v2_tables_are_detected(self) -> None:
+        self.assert_layout("BC", "v2_split", (0x061B, 0xAA, 0x08E3, 0x13))
+
+    def test_mg_2915_v2_tables_are_detected(self) -> None:
+        self.assert_layout("MG", "v2_split", (0x061D, 0xAE, 0x08F5, 0x13))
+
     def test_gr_v3_tables_are_detected(self) -> None:
         self.assert_layout("GR", "v3_combined", (0x0440, 0xB6, 0x0762, 0x13))
 
@@ -44,6 +56,12 @@ class DispatchTableDetectionTests(unittest.TestCase):
 
     def test_kq4_3002086_shorter_v3_action_table_is_detected(self) -> None:
         self.assert_layout("KQ4", "v3_combined", (0x061D, 0xB2, 0x092F, 0x13))
+
+    def test_mh1_3002107_v3_tables_are_detected(self) -> None:
+        self.assert_layout("MH1", "v3_combined", (0x0620, 0xB6, 0x0942, 0x13))
+
+    def test_mh2_3002149_v3_tables_are_detected(self) -> None:
+        self.assert_layout("MH2", "v3_combined", (0x0440, 0xB6, 0x0762, 0x13))
 
     def test_early_configured_message_actions_consume_four_bytes(self) -> None:
         early_entry = TableEntry(handler=0x1C01, argc=3, meta=0)

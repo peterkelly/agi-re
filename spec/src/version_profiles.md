@@ -49,6 +49,12 @@ heap diagnostic still omits the later `rm.0, etc.` line.
 The selected LSL1 data supplies the binary-save dimensions listed in the
 persistence chapter.
 
+The observed 2.439 build has the same action and condition contracts as 2.440.
+Every uniquely mapped full-EGA renderer, object, motion, restart, save,
+picture-pattern, and sound routine has the same behavior after relocation.
+It therefore selects the 2.440 behavioral rules for those domains. Its
+selected game data supplies different save dimensions.
+
 ## AGI 2.917 profile
 
 The 2.917 profile is specified for full-EGA valid-data gameplay. It uses the
@@ -66,6 +72,12 @@ loop selection in this profile.
 The selected KQ1 and PQ1 data supply separate binary-save dimensions listed in
 the persistence chapter. Those counts and lengths are game-data properties,
 not universal constants for every 2.917 game.
+
+The observed 2.915 build has the same action and condition contracts and the
+same uniquely mapped full-EGA subsystem behavior as 2.917. The observed second
+2.917 build differs from the selected KQ1 interpreter only in its embedded
+game signature. Both therefore select this profile, with separate game-data
+dimensions.
 
 ## AGI 2.936 profile
 
@@ -128,9 +140,11 @@ effect. The additional observable actions are:
 For this profile, shared action `0xad` sets the key-release event gate instead
 of incrementing it. The script key-map holds 49 entries rather than 39.
 
-Immediate room-switch action `0x12` maps destination values `0x7e`, `0x7f`,
-and `0x80` to room `0x49` before performing the ordinary room change. Other
-destination values are unchanged.
+Immediate room-switch action `0x12` normally passes its destination to the
+ordinary room-change operation unchanged. The observed Gold Rush build adds a
+game-specific alias: destination values `0x7e`, `0x7f`, and `0x80` select room
+`0x49`. The observed MH2 build has the same 3.002.149 core but does not apply
+these aliases. A conformance claim must identify which build variant it uses.
 
 The object-and-inventory portion of a saved game uses a profile-specific XOR
 transform. The save envelope and transform bytes are specified in the
@@ -175,9 +189,47 @@ The selected KQ4D demo data supplies the save dimensions listed in the
 persistence chapter. Those dimensions are game data, not universal constants
 for every 3.002.102 game.
 
+The observed 3.002.107 build has the same action and condition contracts as
+3.002.102. Every currently mapped full-EGA core routine has the same behavior
+after relocation. Unmapped startup and alternate paths remain outside that
+equivalence statement.
+
+## AGI 2.089 partial profile
+
+The observed 2.089 build uses the split direct-resource container, but stores
+its inventory metadata file in expanded plain form instead of applying the
+later repeating-key transform. It accepts actions `0x00..0x9a` and conditions
+`0x00..0x12`.
+
+Action `0x86` consumes no operand. It stops active sound, performs process
+shutdown cleanup, and terminates without asking for confirmation. Actions
+`0x9b` and later are unavailable.
+
+Position actions `0x25` and `0x26` first change the object's current position.
+If the object is currently drawn, they remove its old rendered state, then
+copy the new coordinates into its previous-position snapshot. This differs in
+ordering from 2.272. Other domains are not yet broad enough for a full 2.089
+gameplay-conformance claim.
+
+## AGI 2.272 partial profile
+
+The observed 2.272 build uses the split direct-resource container and stores
+inventory metadata in expanded plain form. It accepts actions `0x00..0xa0`
+and conditions `0x00..0x12`.
+
+Action `0x86` consumes one selector byte. Selector `1` terminates immediately;
+other values display a confirmation request and terminate only when accepted.
+Action `0x9b` consumes two bytes without changing state. Actions `0x9c` through
+`0xa0` consume the same operands as the later menu actions but otherwise do
+nothing; this profile parses menu-construction bytecode without constructing a
+menu.
+
+Position actions `0x25` and `0x26` write both current and previous-position
+coordinates directly and do not first remove an already drawn object. Other
+domains are not yet broad enough for a full 2.272 gameplay-conformance claim.
+
 ## Other observed versions
 
 Other versions have been identified, but they do not yet have normative
-profiles in this book. Similarity to a profile above must not be assumed
-until observable differences have been checked and promoted into the
-specification.
+profiles in this book. Similarity to a profile above must not be assumed until
+observable differences have been checked and promoted into the specification.

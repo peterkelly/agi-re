@@ -99,6 +99,19 @@ better understood, or a new remaining-work item is discovered.
   `tools/match_interpreter_roles.py` now automates first-pass normalized role
   relocation for future builds while leaving ambiguous and unmatched entries
   for source inspection.
+- Seven additional local inputs are inventoried. BC 2.439 matches the mapped
+  LSL1 2.440 full-EGA core; MG 2.915 matches the mapped KQ1 2.917 core; and
+  SQ1.22's 2.917 loaded image differs from KQ1 only in three signature bytes.
+  MH1 3.002.107 matches the currently mapped KQ4D 3.002.102 core. MH2 provides
+  a same-version 3.002.149 control for Gold Rush: the two loaded images differ
+  by only 29 classified bytes, proving that room aliases `0x7e..0x80 -> 0x49`
+  are Gold Rush-specific rather than universal to 3.002.149.
+- SQ1 2.089 and XMAS 2.272 now have partial source-backed profiles. SQ1 accepts
+  actions only through `0x9a`; its `0x86` is a zero-operand unconditional exit.
+  XMAS accepts through `0xa0`; its `0x86` has the later selector, while menu
+  actions `0x9c..0xa0` are operand-consuming no-ops. Their `OBJECT` files are
+  plain expanded metadata rather than repeating-key XOR data. A source pass
+  also records their drawn-object position-update ordering difference.
 - Generated original-engine fixture builders now treat `games/` as immutable:
   they copy the selected game input to a generated destination, make copied
   files writable, and reject fixture destinations under `games/`. The v2
@@ -109,10 +122,10 @@ better understood, or a new remaining-work item is discovered.
   picture-only fixture and a generated picture-plus-view fixture distinctly.
 - A read-only multi-game census tool now inventories explicit local game
   directories without modifying `games/`. The current private-input snapshot
-  covers KQ1, KQ2, KQ3, KQ4, KQ4D, LSL1, PQ1, SQ2, and GR, identifying v2 split
-  and v3 combined layouts, version strings, resource counts, transform mixes,
-  and record-header errors that require later source inspection before they are
-  modeled. `tools/disassemble_logic.py` now detects per-build action/condition
+  covers sixteen local games/builds, identifying v2 split and v3 combined
+  layouts, version strings, resource counts, transform mixes, and record-header
+  errors that require later source inspection before they are modeled.
+  `tools/disassemble_logic.py` now detects per-build action/condition
   table bases from the observed argc/meta signatures, including KQ4D v3 bases
   `0x0620`/`0x0942`. `tools/resource_reference_audit.py` now checks immediate
   script-visible resource references against unreadable directory entries; the
@@ -130,9 +143,14 @@ better understood, or a new remaining-work item is discovered.
   - Current: `spec/src/version_profiles.md` defines the primary 2.936 profile
     and promoted full-EGA 2.411, 2.440, 2.917, 3.002.086, 3.002.102, and
     3.002.149 profiles. KQ2, LSL1, KQ1, full KQ4, KQ4D, and Gold Rush supply
-    mapped profile-specific binary-save dimensions.
-  - Remaining: add further versions only after observable differences are
-    mapped.
+    mapped profile-specific binary-save dimensions. Mapped-equivalent evidence
+    now covers 2.439, 2.915, 3.002.107, and a second 3.002.149 build. Partial
+    2.089 and 2.272 profiles record only the source-proven domains audited so
+    far.
+  - Remaining: broaden 2.089/2.272 renderer, object, input, persistence, and
+    sound source maps. MH1 is confirmed incomplete because readable scripts
+    directly reference six unreadable views. MH2 has no such reference in its
+    readable scripts, but 31 skipped logic resources prevent a complete audit.
 - [x] Resource containers
   - Current: `spec/src/resource_containers.md` specifies split v2 and combined
     v3 directories, packed entries, volume records, direct payloads,
@@ -785,7 +803,7 @@ source-mapped well enough to justify a targeted probe.
     path. `build/compatibility-suite/qemu_v3_synthetic_picture_view_001.json`
     confirms generated v3 picture-nibble picture and direct view fixtures by
     comparing blank, picture-only, and picture-plus-view captures. The current
-    current full local run passes 381 tests after adding cross-version profile
+    current full local run passes 390 tests after adding cross-version profile
     coverage and ordered resource-retention transitions. The top-level runner
     now accepts `--game-dir PATH`, exports that explicit selection to child
     commands, and records it in the JSON report without choosing a default
@@ -809,9 +827,9 @@ source-mapped well enough to justify a targeted probe.
     original GR interpreter. `tools/resource_reference_audit.py` adds a
     script-visible reference check for deciding whether unreadable
     directory-looking entries are valid behavior candidates.
-  - Remaining: continue the GR v3 comparison into loader error paths and
-    behavioral fixtures for the static deltas, then repeat the workflow for
-    additional local games/interpreter versions.
+  - Remaining: complete broad source maps for SQ1 2.089 and XMAS 2.272; resolve
+    MG's mismatch between its decoded metadata header and original-save object
+    count; obtain complete MH1/MH2 resource sets before whole-game corpus work.
 - [~] Final human-readable behavioral specification
   - Evidence: a separate clean-room mdBook now lives under `spec/`, with an
     explicit externally observable behavior boundary and conformance model.
@@ -832,18 +850,23 @@ source-mapped well enough to justify a targeted probe.
 
 ## Highest-Value Remaining Work
 
-1. Apply the completed profile matrix to future local interpreter inputs using
-   the census, table comparator, normalized role matcher, and game-data save
-   mapping workflow; add variants only for source-proven observable deltas.
-2. Continue v3 behavioral probes from source-mapped deltas only when the
+1. Complete source-first subsystem comparisons for SQ1 2.089 and XMAS 2.272,
+   prioritizing picture patterns, sound scheduling/output, direction-loop
+   selection, input capacities, and save block construction.
+2. Resolve the MG 2.915 object-metadata/save-record-count discrepancy from its
+   disassembled startup and save paths before adding an interchange contract.
+3. Obtain complete MH1/MH2 resource sets before using them for whole-game
+   corpus claims. The current MH1 copy has six directly referenced unreadable
+   views; MH2 has 31 unreadable logic resources.
+4. Continue v3 behavioral probes from source-mapped deltas only when the
    portable specification still has an observable ambiguity. Use synthetic v3
    resources when a focused confirmation requires them.
-3. Continue source-first renderer work only when disassembly or a valid local
+5. Continue source-first renderer work only when disassembly or a valid local
    resource exposes a concrete edge not already modeled. Use QEMU as
    confirmation/regression evidence.
-4. Keep expanding `tools/compatibility_suite.py` when a new behavior is promoted
+6. Keep expanding `tools/compatibility_suite.py` when a new behavior is promoted
    to reusable evidence. Re-run the smoke or broad QEMU layer whenever the
    manifest changes.
-5. Treat non-EGA paths, analog waveform synthesis, menu arrow injection, invalid
+7. Treat non-EGA paths, analog waveform synthesis, menu arrow injection, invalid
    path UI, and out-of-memory UI as optional/conditional work unless the final
    compatibility target expands beyond current full-EGA valid-data behavior.

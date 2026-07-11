@@ -26294,3 +26294,89 @@ Progress updates and outcomes:
       Action/result: Preserved the final report at
       `build/compatibility-suite/local_ordered_resource_discard_final.json` and
       moved to the immutable-input/diff audit without an unnecessary QEMU run.
+
+3402. Reported: "I’m picking up at the genuinely old interpreter pair now:
+      SQ1 2.089 and XMAS 2.272."
+
+      Action/result: Resumed the expanded-game comparison after permissions
+      were corrected; inventoried the seven new game directories and their
+      executable/container forms.
+
+3403. Reported: "The XMAS directory is internally coherent, but it preserves
+      three installation methods."
+
+      Action/result: Matched active XMAS files to the original variants and
+      classified apparent missing-volume census errors as multi-disk packaging
+      rather than malformed resources.
+
+3404. Reported: "The oldest action-table difference is now source-confirmed."
+
+      Action/result: Disassembled SQ1/XMAS action `0x86`; established the
+      zero-operand unconditional 2.089 exit and the one-operand 2.272
+      immediate/confirmed selector.
+
+3405. Reported: "The apparent XMAS menu support is another important version
+      boundary."
+
+      Action/result: Mapped `0x9c..0xa0` to operand-advance stubs with no menu
+      state and confirmed `0x9b` as a two-byte no-op.
+
+3406. Reported: "The new save files add useful game-data coverage, but they
+      also caught an assumption in our helper."
+
+      Action/result: Parsed BC, MG, and SQ1.22 original saves; identified MG's
+      metadata/save object-count discrepancy instead of forcing later metadata
+      semantics onto it.
+
+3407. Reported: "The old `OBJECT` question is resolved for SQ1 and XMAS: those
+      files are plain, not XOR-transformed."
+
+      Action/result: Parsed the raw headers and inventory tables, added a
+      transform-neutral parser, and added regression tests for both old files.
+
+3408. Reported: "I have enough evidence for a first durable pass."
+
+      Action/result: Updated the evidence/version ledgers and clean spec,
+      qualified old metadata transforms, added partial 2.089/2.272 profiles,
+      and corrected the 3.002.149 room-alias generalization using MH2.
+
+3409. Reported: "The documentation pass now distinguishes three kinds of
+      result cleanly: exact same-build behavior, mapped subsystem equivalence,
+      and partial profiles."
+
+      Action/result: Updated symbolic labels and the high-level dashboard with
+      the new build associations, confirmed equivalences, and specific next
+      source-first investigations.
+
+3410. Reported: "Verification is clean now: all 389 local tests pass and both
+      mdBooks build."
+
+      Action/result: Corrected the single new XMAS expected-name assertion,
+      reran the complete suite successfully, built both books, and confirmed
+      that private game files and generated artifacts are absent from the diff.
+
+3411. Reported: "One remaining question is cheap enough to answer now: whether
+      MH1/MH2 scripts visibly reference any of the unreadable directory
+      entries."
+
+      Action/result: Ran the existing reference audit; it exposed an abort-on-
+      unreadable-logic limitation before producing a result.
+
+3412. Reported: "The audit itself exposed a harness assumption."
+
+      Action/result: Made the audit record and skip unreadable source logics,
+      added a regression test, and retained the explicit limitation on
+      conclusions drawn from skipped scripts.
+
+3413. Reported: "The revised audit gives a useful answer."
+
+      Action/result: Classified MH1 as incomplete due to six directly
+      referenced unreadable views; classified MH2 as inconclusive because 31
+      unreadable logics remain despite no direct bad references in readable
+      scripts.
+
+3414. Reported: "The final expanded-game pass is verified."
+
+      Action/result: All 390 local tests pass, both mdBooks build, and
+      `git diff --check` reports no whitespace errors; no QEMU confirmation was
+      needed because the promoted deltas are explicit disassembly observations.

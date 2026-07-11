@@ -57,7 +57,7 @@ and 3.002.149 unless a profile-variant row below says otherwise:
 | Release-event gate action `0xad` | Increment modulo 256. | Set to one. |
 | Menu interaction gate | No separate gate. | Action `0xb1` selects whether a pending request may enter modal interaction. |
 | Input-width actions `0xa3`/`0xa4` | Enable and clear the fixed width override. | No effect. |
-| Immediate room aliases | None. | `0x7e`, `0x7f`, and `0x80` map to `0x49`. |
+| Immediate room aliases | None. | None in the base MH2 build; the Gold Rush build maps `0x7e`, `0x7f`, and `0x80` to `0x49`. |
 | Direction-selected loops | Four-or-more-loop table applies without `f20`. | Exactly four loops always use the table; more than four require `f20`. |
 
 ### Persistence variants
@@ -155,7 +155,7 @@ These values are not universal interpreter constants:
 | Resource bytes | Logic behavior, pictures, cels, sounds, messages, and dictionary words come from the selected game. |
 | Combined-container prefix | The selected game supplies the v3 directory and volume filename prefix. |
 | Inventory item count and names | The decoded inventory metadata header and item/name region define them. |
-| Drawable-object count | `maximum_drawable_object_index + 1` from inventory metadata defines the record count. |
+| Drawable-object count | The selected profile and game data define the runtime object-table capacity. In the fully mapped profiles this is `maximum_drawable_object_index + 1` from inventory metadata; that derivation must not be assumed for an unmapped profile. |
 | Save blocks 2 and 3 lengths | Object count and decoded inventory metadata length determine them. |
 | Replay storage length | The configured replay-pair capacity determines block 4 length. |
 | Logic-resume block length | The cache population at save time determines block 5 length. |
@@ -170,6 +170,7 @@ resource availability, names, save dimensions, or scripted behavior.
 
 | Domain | Specified portion | Remaining limitation |
 | --- | --- | --- |
+| Profiles 2.089 and 2.272 | Resource encoding and selected opcode/state differences are specified. | Renderer, object, input, persistence, and sound domains still need broad source mapping before a full gameplay claim. |
 | Additional interpreter versions | They may be inventoried separately. | They have no normative profile until each observable delta is promoted. |
 
 ## Outside the current target
@@ -233,7 +234,9 @@ first-match logic-resume lookup, replay reconstruction, and canonical
 initialization or byte-preservation of reserved state as applicable.
 
 A **3.002.149 full-EGA gameplay** claim requires the common core plus every
-3.002.149 resource, opcode, input, menu, room, and object-loop variant.
+3.002.149 resource, opcode, input, menu, room, and object-loop variant, and
+must state whether it selects the base room behavior or the Gold Rush alias
+variant.
 
 A **3.002.149 Gold Rush binary save interchange** claim additionally requires
 the five-block mapping, block-3 transform, first-match logic-resume lookup,

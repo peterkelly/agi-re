@@ -158,19 +158,25 @@ def logic_payload(logic_no: int) -> bytes:
 def dispatch_table_layout_for(agidata: bytes, layout_version: str) -> tuple[int, int, int, int]:
     action_base = find_table_by_meta_signature(agidata, ACTION_META_SIGNATURE, "action")
     cond_base = find_table_by_meta_signature(agidata, CONDITION_META_SIGNATURE, "condition")
-    trailer_size = 0x4A if layout_version == "v3_combined" else 0x20
-    action_bytes = cond_base - action_base - trailer_size
-    if action_bytes < 0 or action_bytes % 4:
-        raise ValueError(
-            f"{layout_version} action/condition tables do not have the "
-            f"observed {trailer_size:#x}-byte trailer"
-        )
-    action_count = action_bytes // 4
+    trailer_sizes = (0x4A,) if layout_version == "v3_combined" else (0x20, 0x26)
     maximum_count = 0xB6 if layout_version == "v3_combined" else 0xB0
-    if not 0x80 <= action_count <= maximum_count:
+    candidates: list[tuple[int, int]] = []
+    for trailer_size in trailer_sizes:
+        action_bytes = cond_base - action_base - trailer_size
+        if action_bytes < 0 or action_bytes % 4:
+            continue
+        action_count = action_bytes // 4
+        if 0x80 <= action_count <= maximum_count:
+            candidates.append((action_count, trailer_size))
+    if len(candidates) != 1:
+        rendered = ", ".join(
+            f"count={count:#x}/trailer={trailer:#x}"
+            for count, trailer in candidates
+        ) or "none"
         raise ValueError(
-            f"implausible {layout_version} action table count: {action_count:#x}"
+            f"{layout_version} action/condition table geometry is not unique: {rendered}"
         )
+    action_count, _trailer_size = candidates[0]
     return action_base, action_count, cond_base, 0x13
 
 

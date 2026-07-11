@@ -125,15 +125,27 @@ def _is_variable_operand(meta: int, index: int) -> bool:
     return bool(meta & (0x80 >> index))
 
 
-def collect_immediate_references(game_dir: Path) -> dict[str, list[int]]:
+def collect_immediate_references(
+    game_dir: Path,
+) -> tuple[dict[str, list[int]], list[dict[str, Any]]]:
     action_table, cond_table = dispatch_tables(game_dir)
     references: dict[str, set[int]] = {kind: set() for kind in KIND_ORDER}
+    unreadable_logics: list[dict[str, Any]] = []
     logic_entries = read_directory_entries(game_dir, "logic")
 
     for logic_no, entry in enumerate(logic_entries):
         if entry is None:
             continue
-        payload = read_resource_payload(game_dir, "logic", logic_no)
+        try:
+            payload = read_resource_payload(game_dir, "logic", logic_no)
+        except Exception as exc:
+            unreadable_logics.append(
+                {
+                    "number": logic_no,
+                    "error": f"{type(exc).__name__}: {exc}",
+                }
+            )
+            continue
         code = payload[2 : 2 + u16le(payload, 0)]
         ip = 0
         while ip < len(code):
@@ -169,7 +181,10 @@ def collect_immediate_references(game_dir: Path) -> dict[str, list[int]]:
                     if arg_index < len(args) and not _is_variable_operand(entry.meta, arg_index):
                         references[kind].add(args[arg_index])
 
-    return {kind: sorted(values) for kind, values in references.items()}
+    return (
+        {kind: sorted(values) for kind, values in references.items()},
+        unreadable_logics,
+    )
 
 
 def resource_readability(game_dir: Path, kind: str) -> dict[str, Any]:
@@ -195,12 +210,13 @@ def resource_readability(game_dir: Path, kind: str) -> dict[str, Any]:
 
 def audit_game(game_dir: Path) -> dict[str, Any]:
     game_dir = Path(game_dir)
-    references = collect_immediate_references(game_dir)
+    references, skipped_source_logics = collect_immediate_references(game_dir)
     resources = {kind: resource_readability(game_dir, kind) for kind in KIND_ORDER}
     result: dict[str, Any] = {
         "name": game_dir.name,
         "path": str(game_dir),
         "references": references,
+        "skipped_source_logics": skipped_source_logics,
         "resources": resources,
     }
     for kind in KIND_ORDER:

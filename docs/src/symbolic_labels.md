@@ -818,3 +818,21 @@ signature literal. KQ3/2.936 likewise uses every existing SQ2/2.936 address;
 its loaded image differs from SQ2 at only two signature bytes. These exact
 same-address matches are stronger than relocation matches and require no new
 role labels.
+
+## Additional Build Associations
+
+These associations preserve the new-build addresses without treating an
+address as part of the portable behavior.
+
+| Label | Build association | Notes/evidence |
+| --- | --- | --- |
+| `table.logic.action_dispatch` | SQ1 2.089 data `0x03e7`; XMAS 2.272 data `0x0417` | Geometry yields 155 and 161 action entries respectively. |
+| `table.logic.condition_dispatch` | SQ1 2.089 data `0x0679`; XMAS 2.272 data `0x06bb` | Nineteen condition entries in both builds. |
+| `code.system.confirm_exit_action` | SQ1/XMAS image `0x01e8` | SQ1 has no operand and exits unconditionally; XMAS consumes the later selector and confirmation branch. |
+| `opcode.action.set_object_pos` | SQ1 image `0x7141`; XMAS image `0x7196` | SQ1 erases drawn old state before snapshot update; XMAS writes current/snapshot coordinates directly. |
+| `opcode.action.set_object_pos_var` | SQ1 image `0x7199`; XMAS image `0x71d3` | Variable-coordinate form of the same ordering difference. |
+| `code.menu.operand_advance_stubs` | XMAS image `0x8400..0x8404` | Actions `0x9c..0xa0` consume declared operands and otherwise return without menu state. |
+| `table.logic.action_dispatch` | BC 2.439 data `0x061b`; MG 2.915 data `0x061d`; MH1 3.002.107 data `0x0620`; MH2 3.002.149 data `0x0440` | Counts are 170, 174, 182, and 182. |
+| `table.logic.condition_dispatch` | BC data `0x08e3`; MG data `0x08f5`; MH1 data `0x0942`; MH2 data `0x0762` | Nineteen entries in each build. |
+| `code.room.switch_room_action` | MH2 image `0x19d4` | Reads the immediate room operand and calls ordinary room switch directly. |
+| `code.room.remap_reserved_room_target` | GR image `0x0062`; absent from MH2 | Gold Rush build helper mapping `0x7e..0x80` to `0x49`; not a universal 3.002.149 role. |

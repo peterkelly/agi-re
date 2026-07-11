@@ -94,9 +94,11 @@ from agi_save import (  # noqa: E402
     gr_v3_object_inventory_save_xor,
     decode_sq2_object_file,
     load_save,
+    parse_object_metadata_file,
     parse_save,
     save_path_validation_plan,
     serialize_save,
+    split_inventory_block,
     split_sq2_block1,
     split_sq2_block2,
     split_sq2_block3,
@@ -144,6 +146,8 @@ KQ2 = ROOT / "games" / "KQ2"
 LSL1 = ROOT / "games" / "LSL1"
 PQ1 = ROOT / "games" / "PQ1"
 KQ3 = ROOT / "games" / "KQ3"
+SQ1 = ROOT / "games" / "SQ1"
+XMAS = ROOT / "games" / "XMAS"
 GR_SAVE = ROOT / "build" / "gr-v3-behavior" / "GRSG_001.1"
 
 
@@ -155,6 +159,31 @@ def sq2_save_paths() -> list[Path]:
 
 
 class SaveResourceTests(unittest.TestCase):
+    @unittest.skipUnless(SQ1.exists(), "local SQ1 game directory is not present")
+    def test_sq1_2089_object_metadata_is_stored_plain(self) -> None:
+        metadata = parse_object_metadata_file((SQ1 / "OBJECT").read_bytes())
+        inventory = split_inventory_block(
+            metadata.runtime_block,
+            item_table_size=metadata.item_table_size,
+        )
+
+        self.assertEqual(metadata.object_record_count, 18)
+        self.assertEqual(len(inventory.items), 26)
+        self.assertEqual(inventory.items[0].name, "Cartridge")
+        self.assertEqual(inventory.items[1].name, "Life Detector")
+
+    @unittest.skipUnless(XMAS.exists(), "local XMAS game directory is not present")
+    def test_xmas_2272_object_metadata_is_stored_plain(self) -> None:
+        metadata = parse_object_metadata_file((XMAS / "OBJECT").read_bytes())
+        inventory = split_inventory_block(
+            metadata.runtime_block,
+            item_table_size=metadata.item_table_size,
+        )
+
+        self.assertEqual(metadata.object_record_count, 18)
+        self.assertEqual(len(inventory.items), 1)
+        self.assertEqual(inventory.items[0].name, "Cartridge")
+
     @unittest.skipUnless(PQ1.exists(), "local PQ1 game directory is not present")
     def test_pq1_2917_save_dimensions_match_object_metadata_and_saves(self) -> None:
         metadata = decode_pq1_2917_object_file((PQ1 / "OBJECT").read_bytes())

@@ -485,7 +485,7 @@ a chosen-item result.
 | `0x83` | none | Select object-0-to-`v6` direction coupling. |
 | `0x84` | none | Select `v6`-to-object-0 direction coupling and stop object 0 autonomous motion. |
 | `0x85` | object variable | Display object number, X, baseline Y, width, height, priority, and step size as a modal diagnostic. |
-| `0x86` | immediate-exit selector | If the operand is `1`, terminate immediately. Otherwise request confirmation and terminate only when accepted. |
+| `0x86` | profile-dependent | In 2.089, consume no operand and terminate immediately. In later promoted profiles, consume a selector: `1` terminates immediately; other values request confirmation and terminate only when accepted. |
 | `0x87` | none | Display heap/resource diagnostic values modally. These values are diagnostic and do not define a required internal allocator layout. |
 | `0x88` | none | Stop sound, display the fixed pause message, wait for acknowledgement, and resume. |
 | `0x89` | none | Redraw the enabled input line from the accepted input buffer. |
@@ -507,6 +507,7 @@ Profiles 2.411 and 2.440 display three heap/resource diagnostic lines for
 action `0x87`: heap size; current and maximum use; and maximum script use.
 Later profiles also display an `rm.0, etc.` diagnostic line. These values do
 not define a required allocation strategy.
+
 | `0x93` | object, X, Y | Set current position, mark it newly positioned, and run placement without replacing the previous-position snapshot directly. |
 | `0x94` | object, X variable, Y variable | Variable-selected form of `0x93`. |
 
@@ -542,6 +543,10 @@ message selector is followed by row, column, and width.
 | `0x9f` | item ID | Enable every menu item with the matching ID. |
 | `0xa0` | item ID | Disable every menu item with the matching ID. |
 | `0xa1` | none | If `f14` is set, request modal menu interaction on the input cycle. |
+
+Profile 2.272 accepts the menu action encodings `0x9c..0xa0`, consumes the
+operands listed above, and performs no menu operation. Profile 2.089 does not
+accept those action slots.
 
 Selecting an enabled item enqueues a mapped status event carrying its item ID.
 Escape exits without selection. Disabled items cannot produce selection events.

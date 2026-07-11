@@ -604,8 +604,9 @@ def xor_with_repeating_key(data: bytes, key: bytes) -> bytes:
     return bytes(value ^ key[index % len(key)] for index, value in enumerate(data))
 
 
-def decode_object_metadata_file(data: bytes, *, key: bytes) -> ObjectMetadata:
-    decoded = xor_with_repeating_key(data, key)
+def parse_object_metadata_file(decoded: bytes) -> ObjectMetadata:
+    """Parse an already expanded, already decoded OBJECT metadata file."""
+
     if len(decoded) < 3:
         raise ValueError("object metadata file is too short")
     item_table_size = u16le(decoded, 0)
@@ -613,6 +614,10 @@ def decode_object_metadata_file(data: bytes, *, key: bytes) -> ObjectMetadata:
     runtime_block = decoded[3:]
     split_inventory_block(runtime_block, item_table_size=item_table_size)
     return ObjectMetadata(item_table_size, maximum_object_index, runtime_block)
+
+
+def decode_object_metadata_file(data: bytes, *, key: bytes) -> ObjectMetadata:
+    return parse_object_metadata_file(xor_with_repeating_key(data, key))
 
 
 def decode_sq2_object_file(data: bytes) -> tuple[int, int, bytes]:

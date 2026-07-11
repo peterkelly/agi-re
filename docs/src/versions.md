@@ -9,15 +9,22 @@ not external AGI documentation.
 
 | Local input | Version evidence | Executable form | Resource container | Fixture status |
 | --- | --- | --- | --- | --- |
+| `games/SQ1` | `AGIDATA.OVL` string `Version 2.089` | `SQ.EXE` is an MZ executable | Split direct v2 resources | Initial source comparison complete; partial profile records early opcode and plain-OBJECT differences |
+| `games/XMAS` | `AGIDATA.OVL` string `Version 2.272` | `AGI.EXE` is an MZ executable | Split direct v2 resources in a multi-disk distribution layout | Initial source comparison complete; partial profile records menu stubs, exit selector, and plain-OBJECT behavior |
+| `games/BC` | `AGIDATA.OVL` string `Version 2.439` | `AGI` is decoded with the selected game's `SIERRA.COM` key | Split direct v2 resources | Mapped full-EGA core matches 2.440 after relocation; selected save dimensions observed |
 | `games/KQ2` | `AGIDATA.OVL` string `Version 2.411` | `AGI` is decoded with the selected game's `SIERRA.COM` key before disassembly | Split direct v2 resources | Full-EGA resource, logic, input, persistence, renderer, object, and sound profile is promoted; KQ2 save dimensions are mapped |
 | `games/LSL1` | `AGIDATA.OVL` string `Version 2.440` | `LL.COM` is already a complete MZ interpreter despite its extension | Split direct v2 resources | Full-EGA profile is promoted; LSL1 save dimensions are mapped |
+| `games/MG` | `AGIDATA.OVL` string `Version 2.915` | `AGI` is an MZ executable | Split direct v2 resources | Mapped full-EGA core matches 2.917 after relocation; selected save dimensions observed |
 | `games/KQ1` | `AGIDATA.OVL` string `Version 2.917` | `AGI` is decrypted with the selected game's `SIERRA.COM` key before disassembly | Split `LOGDIR`, `PICDIR`, `VIEWDIR`, `SNDDIR`; direct `VOL.N` records | Full-EGA resource, logic, input, persistence, renderer, and object profile is promoted; KQ1 save dimensions are mapped |
+| `games/SQ1.22` | `AGIDATA.OVL` string `Version 2.917` | `AGI` is decoded with the selected game's `SIERRA.COM` key | Split direct v2 resources | Loaded interpreter differs from KQ1 at only three signature bytes; selected save dimensions observed |
 | `games/PQ1` | `AGIDATA.OVL` string `Version 2.917` | `AGI` is already an MZ executable | Split direct v2 resources | Same-version executable cross-check; PQ1 save dimensions are mapped |
 | `games/SQ2` | `AGIDATA.OVL` string `Version 2.936` | `AGI` is decrypted from the loader-managed local bytes before disassembly | Split `LOGDIR`, `PICDIR`, `VIEWDIR`, `SNDDIR`; `VOL.N` files; 5-byte record headers; direct resource payloads | Current generated QEMU fixtures target this v2 split layout |
 | `games/KQ3` | `AGIDATA.OVL` string `Version 2.936` | `AGI` is decoded with the selected game's `SIERRA.COM` key before disassembly | Split direct v2 resources | Same-version executable cross-check; KQ3 save dimensions are mapped |
 | `games/KQ4` | `AGIDATA.OVL` string `Version 3.002.086` | `AGI` is an MZ executable | Combined `KQ4DIR`; prefixed `KQ4VOL.N` files; v3 transforms | Full-game full-EGA resource, logic, input, persistence, renderer, and object profile is promoted |
 | `games/KQ4D` | `AGIDATA.OVL` string `Version 3.002.102` | `AGI` is an MZ executable | Combined `DMDIR`; prefixed `DMVOL.N` files; v3 transforms | Full-EGA resource, logic, input, persistence, renderer, and object profile is promoted |
+| `games/MH1` | `AGIDATA.OVL` string `Version 3.002.107` | `AGI` is an MZ executable | Combined `MHDIR`; prefixed `MHVOL.N` files; v3 transforms | Dispatch contracts and currently mapped full-EGA core match 3.002.102 after relocation |
 | `games/GR` | `AGIDATA.OVL` string `Version 3.002.149` | `AGI` is already an MZ executable | Combined `GRDIR`; prefixed `GRVOL.N` files; 7-byte record headers; dictionary and picture-nibble transforms | Decoding/parsing is implemented locally; generated fixtures can patch copied v3 directories/volumes with direct logic/view records and picture-nibble picture records under `build/` |
+| `games/MH2` | `AGIDATA.OVL` string `Version 3.002.149` | `AGI` is an MZ executable | Combined `MH2DIR`; prefixed `MH2VOL.N` files; v3 transforms | Same-version control proves the Gold Rush room aliases are build-specific |
 
 ## Local census snapshot
 
@@ -35,15 +42,22 @@ The local snapshot found these version/layout groups:
 
 | Local input | Version string | Layout | Notes |
 | --- | --- | --- | --- |
+| `games/SQ1` | `Version 2.089` | v2 split | Direct records; 155 actions `0x00..0x9a`. |
+| `games/XMAS` | `Version 2.272` | v2 split | Original multi-disk package records three disk numbers while selecting a single `VOL.0`; generic installed-layout record errors are packaging artifacts. |
+| `games/BC` | `Version 2.439` | v2 split | Direct records. |
 | `games/KQ2` | `Version 2.411` | v2 split | Direct `VOL.N` records. |
 | `games/LSL1` | `Version 2.440` | v2 split | Direct `VOL.N` records. |
+| `games/MG` | `Version 2.915` | v2 split | Direct records. |
 | `games/KQ1` | `Version 2.917` | v2 split | Direct records for most resources; four sound entries currently fail the generic v2 header check and need source inspection before modeling. |
+| `games/SQ1.22` | `Version 2.917` | v2 split | Direct records; same loaded interpreter core as KQ1. |
 | `games/PQ1` | `Version 2.917` | v2 split | Direct `VOL.N` records. |
 | `games/KQ3` | `Version 2.936` | v2 split | Direct `VOL.N` records. |
 | `games/SQ2` | `Version 2.936` | v2 split | Two known out-of-range end entries remain record errors in the generic census. |
 | `games/KQ4` | `Version 3.002.086` | v3 combined | Full game; combined `KQ4DIR`/`KQ4VOL.N`. The selected copy lacks volumes 6 and 7, leaving pictures `150..151` and views `198..199` unreadable. |
 | `games/KQ4D` | `Version 3.002.102` | v3 combined | Combined `DMDIR`/`DMVOL.N`; dispatch tables are at AGIDATA offsets `0x0620`/`0x0942`. Decoded scripts currently reference only sound resources `70..79`, which are clean records; later suspect sound-section entries need source inspection before modeling. |
+| `games/MH1` | `Version 3.002.107` | v3 combined | Combined `MHDIR`/`MHVOL.N`; readable scripts directly reference six unreadable views, so the selected copy is incomplete for full valid-data analysis. |
 | `games/GR` | `Version 3.002.149` | v3 combined | Combined `GRDIR`/`GRVOL.N`; all present records expand with the current v3 reader. |
+| `games/MH2` | `Version 3.002.149` | v3 combined | Combined `MH2DIR`/`MH2VOL.N`; readable scripts do not directly reference unreadable resources, but 31 unreadable logic records prevent a complete reachability claim. |
 
 This is an inventory for planning. The portable spec should only gain a
 version-specific rule when disassembly or a valid-resource dynamic check shows
@@ -645,6 +659,117 @@ identical parser contracts for all shared actions and conditions, 17 changed
 shared action entry snippets, six GR-only action slots, unchanged ordinary view
 and picture command skeletons after resource expansion, and a small set of GR
 object/display-path deltas to test later.
+
+## Additional local builds: 2.089 through 3.002.149
+
+The expanded census added seven independent interpreter inputs. The generated
+snapshot is `build/cross-version/game_census_expanded.md`. Table comparison
+reports under `build/cross-version/` use geometry-derived action counts; early
+v2 builds required recognizing the observed `0x26`-byte trailer in addition to
+the later `0x20`-byte trailer.
+
+### SQ1 2.089 and XMAS 2.272
+
+SQ1 accepts 155 actions `0x00..0x9a`; XMAS accepts 161 actions
+`0x00..0xa0`. Both retain 19 conditions. Direct disassembly establishes these
+early action differences:
+
+| Behavior | SQ1 2.089 | XMAS 2.272 |
+| --- | --- | --- |
+| Action `0x86` | No operands; stops sound, performs shutdown cleanup, and terminates. | One selector byte; `1` exits directly, while other values ask for confirmation. |
+| Action `0x9b` | Unavailable. | Consumes two bytes and has no other effect. |
+| Actions `0x9c..0xa0` | Unavailable. | Dispatch to operand-advance stubs at image `0x8400..0x8404`; no menu state is constructed. |
+| Position actions `0x25`/`0x26` | Write current coordinates, remove old rendered state if drawn, then update the previous-position snapshot. | Write current and previous coordinates together without first removing rendered state. |
+
+The XMAS string-equality predicate's shorter entry merely delegates to a
+normalization helper; its helper still removes ignored characters, normalizes
+case, and compares normalized strings. It is not an observable predicate
+difference.
+
+Both games store `OBJECT` metadata directly rather than through the later
+repeating-key XOR. SQ1's plain header is `4e 00 11`, defining 26 inventory
+entries and 18 drawable-object records. XMAS uses `03 00 11`, defining one
+inventory entry and 18 drawable-object records. Local parser tests preserve
+both observations.
+
+XMAS also retains three installation methods. `ORIGINAL.BAT` selects
+`VOL.ORG`, `LOGDIR.ORG`, and `PICDIR.ORG`; `LOGMETH.BAT` and `VOLMETH.BAT`
+select modified alternatives. The active local files match the original set.
+Its directory volume nibbles represent three distribution disks while the
+selected payload is named `VOL.0`, so an installed-layout census incorrectly
+reports missing `VOL.1`/`VOL.2`. This is packaging evidence, not malformed
+resource semantics.
+
+### BC 2.439, MG 2.915, and SQ1.22 2.917
+
+BC's loader-transformed executable was decoded with its own `SIERRA.COM`.
+Its 170 action and 19 condition table records match LSL1 2.440 exactly. Of 38
+principal symbolic roles, 33 uniquely relocate, two list wrappers are
+ambiguous, and three short embedded entries are not uniquely searchable.
+Manual source inspection confirms that the shaped/stippled pattern code and
+timer-driven sound path are relocated byte matches. The mapped full-EGA core
+therefore follows the 2.440 behavior.
+
+MG 2.915 has the same 174 action and 19 condition contracts as KQ1 2.917.
+Twenty-nine of 32 principal roles uniquely relocate and match; two wrappers are
+ambiguous and the embedded frame jump table requires manual mapping. The
+mapped full-EGA core follows 2.917.
+
+SQ1.22's loaded interpreter image and KQ1's are the same length and differ at
+only three bytes in the embedded game-signature region. All 34 mapped roles
+match at the same addresses. It is a second 2.917 build, not a new behavioral
+profile.
+
+Original saves supply these selected-game dimensions:
+
+| Selected game | Profile | Block 1 | Block 2 | Block 3 | Block 4 | Block 5 |
+| --- | --- | ---: | ---: | ---: | ---: | --- |
+| BC | 2.439/2.440 rules | `0x05df` | 17 records, `0x02db` | 26 items, `0x0135` | 127 pairs, `0x00fe` | Variable |
+| MG | 2.915/2.917 rules | `0x05df` | 21 records, `0x0387` | one item, `0x0005` | 110 pairs, `0x00dc` | Variable |
+| SQ1.22 | 2.917 | `0x05e1` | 18 records, `0x0306` | 25 items, `0x0148` | 50 pairs, `0x0064` | Variable |
+
+MG's decoded `OBJECT` header byte would imply 91 drawable records, while its
+original save and save-writer globals select 21 records. The portable meaning
+of that header byte is therefore not universal across these builds; the MG
+case remains an explicit metadata/save-dimension investigation.
+
+### MH1 3.002.107 and MH2 3.002.149
+
+MH1 has 182 actions and 19 conditions. Its contracts and every currently
+mapped full-EGA core handler match KQ4D 3.002.102 after relocation. The whole
+loaded images are not identical and MH1 is 64 bytes longer, so startup,
+diagnostic, and alternate paths not represented by the role map are not yet
+claimed equivalent.
+
+MH2 and Gold Rush are both labeled 3.002.149 and their loaded images have the
+same length. Only 29 bytes differ. Those bytes classify completely as:
+
+- a Gold Rush-only helper that maps immediate room operands `0x7e..0x80` to
+  `0x49`, plus the `0x12` call site that uses it;
+- three startup allocation-size words (`0x0a00` in Gold Rush and `0x0b80` in
+  MH2); and
+- the embedded expected game signature (`GR` versus `MH2`).
+
+MH2 action `0x12` reads its operand and calls the ordinary room-switch path
+directly. This same-version control corrects the earlier generalization: the
+room aliases are a Gold Rush build feature, not universal 3.002.149 behavior.
+The startup allocation-size difference is retained as diagnostic/capacity
+evidence until a portable observable consequence is established.
+
+Both selected v3 copies contain present directory entries that the current
+census cannot read. The tolerant reference audit records unreadable source
+logics instead of aborting:
+
+| Selected game | Skipped source logics | Direct references from readable scripts to unreadable resources |
+| --- | ---: | --- |
+| MH1 | `136` | Views `7`, `74`, `75`, `76`, `77`, and `85` |
+| MH2 | 31 logics | None observed |
+
+MH1 is therefore incomplete for ordinary valid-data gameplay analysis. MH2's
+readable subset is internally clean for immediate references, but skipped
+logic resources mean absence of a reference is not a full reachability proof.
+The generated report is
+`build/cross-version/mh_resource_reference_audit.json`.
 
 ## Fixture Compatibility Notes
 

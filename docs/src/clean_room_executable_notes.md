@@ -11182,3 +11182,96 @@ The corpus reports are disposable generated files under
 `build/cross-version/*_logic_disassembly.txt`. SQ2 was limited to logic numbers
 below 140 because its two known out-of-range trailing directory entries are not
 valid resource records.
+
+## 2026-07-11: expanded local interpreter census
+
+The private input set added BC, MG, MH1, MH2, SQ1, SQ1.22, and XMAS. The
+expanded read-only census was written to
+`build/cross-version/game_census_expanded.md`. No file under `games/` was
+modified.
+
+BC and SQ1.22 use the already observed loader-managed executable transform.
+They were decoded with each selected game's own loader key into generated MZ
+files under `build/cross-version/`. The other five executables are direct MZ
+images.
+
+Dispatch-table discovery initially failed for SQ1 and XMAS. Their action and
+condition signatures are separated by an early `0x26`-byte trailer rather
+than the later v2 `0x20` bytes. The detector now evaluates both observed v2
+geometries and requires a unique plausible result. Source dispatch bounds and
+table geometry establish:
+
+| Build | Action table/count | Condition table/count |
+| --- | --- | --- |
+| SQ1 2.089 | `0x03e7`, 155 (`0x00..0x9a`) | `0x0679`, 19 |
+| XMAS 2.272 | `0x0417`, 161 (`0x00..0xa0`) | `0x06bb`, 19 |
+| BC 2.439 | `0x061b`, 170 | `0x08e3`, 19 |
+| MG 2.915 | `0x061d`, 174 | `0x08f5`, 19 |
+| MH1 3.002.107 | `0x0620`, 182 | `0x0942`, 19 |
+| MH2 3.002.149 | `0x0440`, 182 | `0x0762`, 19 |
+
+Generated table comparisons show exact action/condition contracts and
+normalized handlers for BC versus LSL1, MG versus KQ1, and MH1 versus KQ4D.
+Role matching plus manual disassembly confirms BC's shaped/stippled pattern and
+early sound paths as relocated LSL1 matches, and MG's mapped full-EGA core as a
+KQ1 match. MH1's mapped full-EGA core matches KQ4D, though its whole image has
+unmapped startup/data differences.
+
+SQ1.22 and KQ1 loaded images have equal lengths and differ at only image bytes
+`0x5aa4`, `0x5aa6`, and `0x5aa7`, all in the embedded expected-signature
+region. Every mapped role is an exact same-address match.
+
+MH2 and Gold Rush loaded images have equal lengths and only 29 differing
+bytes. They classify as the action-`0x12` call site plus Gold Rush helper
+`0x0062`, three startup allocation-size words (`0x0b80` versus `0x0a00`), and
+the `MH2`/`GR` signature literal. MH2 `0x19d4` reads its operand and calls
+ordinary room switch directly. This proves the Gold Rush `0x7e..0x80 -> 0x49`
+mapping is a build-specific rule, not generic 3.002.149 behavior.
+
+For SQ1/XMAS, direct source slices established two portable version changes.
+SQ1 action `0x86` at image `0x01e8` has no operand and always performs sound
+stop, shutdown cleanup, and DOS termination. XMAS uses the same entry address
+but consumes one byte, exits immediately for `1`, and otherwise shows a
+confirmation before exit. XMAS menu slots `0x9c..0xa0` point into the tiny
+stubs at `0x8400..0x8404`, which advance the bytecode pointer and return with no
+menu state. SQ1 lacks those slots.
+
+SQ1 position actions `0x25`/`0x26` at `0x7141`/`0x7199` write current
+coordinates, erase old drawn state when needed, and then update saved
+coordinates. XMAS `0x7196`/`0x71d3` writes current and saved coordinates
+together without that erase call. The XMAS string-equality entry delegates to
+`0x0d8b`; that helper still normalizes both strings before comparison, so the
+shorter entry is not a behavioral difference.
+
+SQ1 and XMAS `OBJECT` files begin with valid plain headers `4e 00 11` and
+`03 00 11`. They define 26/one inventory entries and 18 drawable records. XOR
+decoding them was the earlier analysis mistake. A transform-neutral parser and
+tests now preserve the plain form. BC, MG, and the later inputs retain the
+repeating-key encoded form.
+
+Original saves establish BC block lengths `1503,731,309,254,variable`, MG
+`1503,903,5,220,variable`, and SQ1.22
+`1505,774,328,100,variable`. MG's decoded metadata header byte suggests 91
+drawable records, conflicting with the original save's 21 records. That case
+is left open for a startup/save source trace rather than generalized from the
+later metadata interpretation.
+
+XMAS's active files match its `.ORG` variants. `ORIGINAL.BAT`, `LOGMETH.BAT`,
+and `VOLMETH.BAT` show three selectable distribution methods. The original
+directory retains three disk-number nibbles while the selected payload is
+named `VOL.0`; generic installed-layout missing-volume errors are therefore a
+packaging artifact.
+
+The initial MH1/MH2 resource-reference audit aborted on the first unreadable
+logic, which made it unsuitable for incomplete distributions. The audit now
+records unreadable source logics and continues through every readable script;
+a focused synthetic test verifies that references found before/after a bad
+logic remain reported.
+
+The tolerant report
+`build/cross-version/mh_resource_reference_audit.json` finds MH1 logic 136
+unreadable and direct references from readable scripts to unreadable views 7,
+74, 75, 76, 77, and 85. MH1 is therefore incomplete for valid gameplay
+analysis. MH2 has 31 unreadable logics; no readable script directly references
+an unreadable resource, but skipped scripts prevent a complete reachability
+claim.
