@@ -596,6 +596,9 @@ game's earlier 3.002.086 build separately from the KQ4D demo.
 | Label | KQ4 address | Notes/evidence |
 | --- | --- | --- |
 | `code.logic.action_dispatch` | image `0x02c4` | Accepts action bytes through `0xb1`; later bytes are invalid action opcodes in this build. |
+| `code.logic.load_record` | image `0x13d9` | Loads a logic resource and conditionally applies the repeating-key XOR to its message region when `data.resource.direct_record_flag_0f5e` is nonzero. |
+| `code.resource.read_record` | image `0x311b` | Reads a v3 record. The direct branch sets `data.resource.direct_record_flag_0f5e`; dictionary expansion clears it. |
+| `data.resource.direct_record_flag_0f5e` | data `[0x0f5e]` | Nonzero after a direct resource read and zero after dictionary expansion. Logic setup uses it to distinguish encoded direct-record messages from plain expanded messages. |
 | `table.logic.action_dispatch` | `AGIDATA.OVL:0x061d` | 178 four-byte records for actions `0x00..0xb1`; the count follows from the fixed v3 trailer before the condition table. |
 | `table.logic.condition_dispatch` | `AGIDATA.OVL:0x092f` | Nineteen common condition records. |
 | `opcode.action.increment_key_release_event_gate` | action `0xad`, image `0x6468` | Increments byte `[0x15a0]`, unlike KQ4D's set-to-one variant. |

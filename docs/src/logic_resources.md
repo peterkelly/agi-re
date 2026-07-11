@@ -131,13 +131,23 @@ end = message_pointer(0)
 So the message table itself remains unencrypted, while the message text region
 is decrypted in place after loading.
 
-Version note: Gold Rush / AGI v3 still uses encrypted logic-message text in the
-loaded resources observed so far. Local logic 101 has action `0x8f(#3)`;
-message 3 is stored encrypted in the resource bytes and decrypts to `GR\0`,
-matching the interpreter's embedded verifier string. Generated fixtures should
-therefore keep `tools/qemu_fixture.py`'s encrypted-message default unless a
-targeted negative/control case intentionally needs plain text with
-`logic_resource(..., encrypt_messages=False)`.
+Version note: v3 message storage depends on the volume-record transform. Direct
+logic records retain the repeating-key message encoding and the loader applies
+the XOR pass after reading them. Dictionary-expanded logic records contain
+plain text after expansion and skip that pass. KQ4 image `0x311b` sets word
+`[0x0f5e]` on the direct-read branch at `0x331b`, clears it after dictionary
+expansion at `0x3348`, and logic setup `0x13d9` tests it at `0x1458` before
+calling the XOR helper over the message range.
+
+The local full KQ4 set has 174 dictionary-expanded logic records and three
+direct records (97, 100, and 131). Expanded logic 0 begins with readable message
+text, while direct logic 97 decrypts to `Like a heavy blanket, darkness enfolds
+you.` Gold Rush exhibits the same distinction: most original dictionary-
+expanded messages are plain after expansion, while direct logic 101 message 3
+is encoded and decrypts to `GR\0`. Generated direct v3 fixtures should
+therefore keep `tools/qemu_fixture.py`'s encrypted-message default. A fixture
+that is itself dictionary-compressed would store the corresponding expanded
+message region as plain text before compression.
 
 ## Local samples
 

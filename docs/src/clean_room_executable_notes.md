@@ -11666,3 +11666,198 @@ text. Exact glyph shapes remain a declared platform-font input in the clean
 specification. The firmware implementation details and QEMU workaround remain
 in the evidence book and harness documentation rather than becoming portable
 engine requirements.
+
+## 2026-07-11: KQ4 route and v3 message storage
+
+The full KQ4 playthrough index initially failed because
+`decode_logic_messages()` applied the repeating-key XOR to every resource.
+Scanning all present records showed that failures clustered across dictionary-
+expanded logic, whose expanded message regions were already readable, while
+KQ4's three direct logic records retained encoded text.
+
+Direct KQ4 source inspection established the selection rule:
+
+- `code.resource.read_record` at image `0x311b` reads expanded and stored
+  lengths from the v3 header.
+- When the lengths match, the direct-read branch at `0x3304..0x3324` sets word
+  `[0x0f5e]` to one.
+- When lengths differ, dictionary expansion at `0x3326..0x334e` clears that
+  word.
+- `code.logic.load_record` at `0x13d9` constructs the logic record. At
+  `0x1458..0x148c` it tests `[0x0f5e]` and calls the repeating-key helper over
+  the message text only when the word is nonzero.
+
+The disassembler and playthrough index now derive message decoding from the
+volume record transform. All 177 present KQ4 logics decode, yielding 5,148
+parser predicates, 469 room transitions, 86 score-changing sites, and declared
+maximum score 230.
+
+The game-resource pass reconstructs a complete static 230-point route. Its
+notable score constraint is the frog chain: taking the crown directly from the
+held frog awards two points and lets the frog return; the catch parser remains
+available, so recatching and kissing it enters the separate three-plus-two
+point transformation sequence. Three successive Lolotte errands each award
+seven points, and the first two board crossings each award two. With alternate
+room copies collapsed, the resulting ledger totals 230.
+
+`agi_graphics.py` now obtains picture and view payloads through the generic
+version-aware resource reader rather than opening v2 split directory names.
+The SQ2 graphics baseline still passes all 91 focused tests. A KQ4 qualitative
+sweep decoded all 146 locally readable pictures with patterned brushes
+disabled because brush-table offsets remain interpreter-build-specific.
+Pictures 150--151 remain unreadable because the selected private copy lacks
+`KQ4VOL.6`.
+
+## 2026-07-11: PQ1 static winning-route reconstruction
+
+The immutable local `games/PQ1` evidence set was indexed without modifying its
+files. Its 118 present logic resources all decode. The resulting index contains
+3,147 parser predicates, 108 explicit room transitions, 114 positive score
+operations, and 25 inventory slots. Logic 101 assigns maximum score 245;
+logics 79, 103, and 104 establish the successful Bains capture, trial, and
+terminal parade sequence.
+
+The decoded messages and transitions establish a complete story dependency
+chain: patrol briefing and equipment, Helen Hots citation, homicide scene,
+Blue Room and cafe encounters, DUI and Hoffman arrests, transfer to Narcotics,
+no-bail warrant, park drug bust, Cotton Cove identification, Hoffman/Taselli/
+Bains research, Hotel Delphoria cover, back-room poker, Room 404 transmitter,
+Bains capture, conviction, and parade.
+
+A syntax-only sum of positive score operations is 270. Direct branch analysis
+has proved 13 points of mutually exclusive or lower-valued alternatives across
+the traffic-stop proposition, gun-locker parser branches, phone-number parser
+branches, drug-source questioning, duplicate newspaper availability, and the
+late Room 404 fallback. The remaining 257 is an upper bound: another 12 points
+must be excluded by cross-phase reachability to reconcile the declared 245.
+This gap is documented rather than silently assigned to route actions.
+
+Two bundled save files were parsed read-only. Both preserve score 156 of 245
+near the hotel operation and agree on the selected game's save dimensions and
+inventory names. They are consistency evidence, not route sources. A
+brush-disabled sweep decoded all 71 present pictures and qualitatively
+corroborated the station, patrol, investigation, jail, courthouse, hotel,
+poker, and ending geography.
+
+## 2026-07-11: LSL1 static maximum-score route
+
+The immutable local `games/LSL1` evidence set was indexed without modifying
+its files. All 46 present logic resources decode, yielding 2,274 parser
+predicates, 16 explicit room switches, 49 positive score operations, and 21
+inventory slots. Logic 51 assigns maximum score 222. The positive score
+operations also sum to 222, with no negative score operation.
+
+Direct control-flow and message analysis places every score site in one route.
+The route passes through Lefty's restroom, hallway, television/pimp bypass,
+protected upstairs encounter, and fire escape; the convenience-store,
+telephone, wine, and pocket-knife chain; casino funding, disco pass, Fawn's
+gifts, and the chapel; Fawn's wine trap and rope escape; the return for the
+window pills; Faith and the penthouse control; Eve's apple; the inflatable-doll
+side sequence; and logic 45's final 25-point terminal encounter.
+
+The independently grouped score equation is `3 + 55 + 29 + 53 + 82 = 222`:
+three general awards, 55 around Lefty's, 29 from the store/telephone chain, 53
+from casino/disco/chapel, and 82 from the hotel/penthouse chain. A qualitative
+brush-disabled sweep decoded all 43 present pictures and corroborated the
+compact geography. Random adult-verification questions, casino outcomes,
+movement, and real-time sunrise remain original-interpreter replay work.
+
+## BC maximum-score route reconstruction
+
+The immutable local `games/BC` input was indexed with
+`tools/logic_playthrough_index.py`. All 85 present logic resources decoded.
+Logic 107 assigns maximum score 230; the 40 positive award sites have a raw sum
+of 463. Inspection of their enclosing conditions and state writes established
+the shared alternatives described in
+`games/bc_playthrough_analysis.md`. Selecting one member of each group reduces
+the total exactly to 230. Logic 71 compares the final score with maximum minus
+15 and displays its strongest congratulations at or above that threshold; the
+selected terminal reward supplies the last 15 points.
+
+The selected static route uses the Gwystyl Hen Wen rescue, wagon castle entry,
+one dungeon escape clue, one Eilonwy introduction, the hidden-passage and
+Dyrnwyn chains, the sword-for-cauldron bargain, the mirror resolution, and the
+returned-sword ending. A qualitative picture sweep rendered all 69 present
+pictures with patterned brushes disabled. No original-interpreter playthrough
+has yet established movement and timing reachability for the complete route.
+
+## MG complete-route reconstruction
+
+The immutable local `games/MG` input was indexed and disassembled without
+modification. All 73 present logic resources decode. The selected build is
+*Mixed-Up Mother Goose* under interpreter 2.915, with 49 pictures, 100 views,
+53 sounds, and 159 indexed room switches.
+
+Logic 0 assigns 18 as the maximum, initializes the score variable to zero,
+randomly distributes twenty custom props among eligible rooms, and implements
+a one-prop carried state outside the ordinary inventory table. A successful
+recipient interaction calls one of eighteen rhyme-animation logics. Their
+common completion signal is converted by logic 0 into exactly one score/count
+increment after the animation and sound complete. At count 18, logic 0 enters
+logic 102, which runs the cast celebration and displays the final
+congratulations before disabling normal game-control menu entries.
+
+The twenty props serve eighteen goals. Seventeen rhymes consume one prop each;
+Old King Cole requires pipe, bowl, and fiddlers in that order and increments
+the counter only after the fiddlers. The complete recipient/prop map, regular
+35-room outdoor grid, nine attached rooms, terminal contract, and replay plan
+are recorded in `games/mg_playthrough_analysis.md`. A qualitative
+brush-disabled sweep decoded all 49 present pictures. Exact randomized
+placement and movement remain original-interpreter replay work.
+
+## MH1 partial terminal-route reconstruction
+
+The immutable local `games/MH1` input identifies *Manhunter: New York* 1.22
+under interpreter 3.002.107. Its v3 combined directory advertises 66 present
+logics, but logic 136 selects `MHVOL.3:0x1d323`, beyond that file's available
+length of `0xfe00`. The playthrough indexer's error path was corrected to use
+the structured directory-entry fields, so it now records that unreadable logic
+and continues. Sixty-five logics decode, yielding 11 parser predicates, 138
+room switches, 93 inventory mutations, and no score or maximum-score writes.
+
+The readable logic establishes a four-phase assignment value: Bellevue
+Hospital, the missing Grand Central maintenance robot, the dead Orb at
+Greenwood Cemetery, and illegal Alliance-computer access. Logic 131 changes
+phase 1 to 2 after its Data Card report sequence. Returning home with the common
+completion flag advances phase 2 to 3 and phase 3 to 4. The late game collects
+Modules A through D, records four installed-module states in logic 154, enters
+the Alliance and ship controls, and records four distinct bomb-drop states in
+logic 151. Only all four states together switch to logic 162, whose conclusion
+displays `To be continued...`. No numeric score participates in this contract.
+
+Resource completeness prevents a full route claim. The missing logic's room
+owns the Crowbar in `OBJECT`; readable scripts directly reference unavailable
+views 7, 74, 75, 76, 77, and 85; and only 196 of 237 present picture entries
+decoded from the available volumes. The proven phase skeleton, inventory
+evidence, ending condition, retry/death observations, and exact remaining work
+are recorded in `games/mh1_playthrough_analysis.md`.
+
+## MH2 partial route and missing-volume boundary
+
+The immutable local `games/MH2` input identifies *Manhunter: San Francisco*
+3.02 under interpreter 3.002.149. Its combined directory advertises 96 present
+logics, but 31 select absent file `MH2VOL.3`. The playthrough indexer was
+extended to catch missing-file errors through the same explicit unreadable-
+resource path used for malformed and out-of-range records. It now retains each
+missing logic's number, advertised volume, offset, and error while continuing
+to index the other 65.
+
+The readable set contains six parser predicates, 135 room switches, 32
+inventory mutations, and no score or maximum-score writes. Logic 0 directly
+dispatches to many missing rooms, including 131-133 and numerous late rooms
+from 164 through 194. Logic 172 also switches to missing room 175. The gap is
+therefore on ordinary room flow rather than a group of proved-unused records.
+The same absent volume leaves 71 of 248 present pictures, 67 of 181 present
+views, and 73 of 195 present sounds unreadable.
+
+Readable story evidence establishes the New York-to-San Francisco pursuit,
+acquisition of the ID Card and MAD, and two assignments selected by the phase
+value: a burning boat at Pier 5 and a human on the Ghirardelli Square sign. It
+also maps the available travel network, 32 inventory entries, Three Aces prize
+choices, hybrid Rat/Dog/Human experiment disclosures, and the planned release
+near Fisherman's Wharf. The words `The End` in logic 146 belong to an in-world
+Orb presentation, while several `YOU WON` messages belong to local arcade
+sequences; neither is a whole-game terminal contract. The actual ending and
+complete winning route remain unavailable until the matching `MH2VOL.3` is
+provided. The bounded route and replay backlog are recorded in
+`games/mh2_playthrough_analysis.md`.

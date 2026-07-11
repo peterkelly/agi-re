@@ -324,10 +324,19 @@ field is assigned to these ranges.
 
 The newly selected `games/KQ4` input is the full game, not the KQ4D demo. Its
 embedded version is `3.002.086`, earlier than KQ4D's `3.002.102`. The combined
-directory prefix is `KQ4`, and the census finds 177 present logic resources,
-148 readable pictures, 243 readable views, and 96 readable sounds. Most present
-records use the v3 dictionary transform; three logic records and one sound
-record are direct.
+directory prefix is `KQ4`, and the census finds 177 readable logic resources,
+148 present/146 readable pictures, 243 present/241 readable views, and 96
+readable sounds. Pictures 150--151 and views 198--199 refer to absent local
+volumes. Most present records use the v3 dictionary transform; three logic
+records and one sound record are direct.
+
+Logic-message encoding follows the record transform. KQ4's 174 dictionary-
+expanded logic records expose plain message bytes after expansion. Direct
+logic records 97, 100, and 131 retain repeating-key encoding. The executable's
+resource reader sets `[0x0f5e]` only for a direct read and clears it after
+dictionary expansion; logic setup conditionally decrypts the message region
+when that word is nonzero. This differs from treating all v3 messages as
+uniformly plain or uniformly encrypted.
 
 The first generic comparison falsely assigned KQ4 the later 182-action v3
 table and interpreted trailer bytes as opcodes. The v3 table geometry has a

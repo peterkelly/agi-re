@@ -15,7 +15,8 @@ from functools import lru_cache
 from pathlib import Path
 from typing import Callable, Iterable, Sequence
 
-from disassemble_logic import AGIDATA, SQ2, read_dir_entries, read_volume_payload, u16le
+from agi_resources import read_directory_entries, read_resource_payload
+from disassemble_logic import AGIDATA, SQ2, u16le
 
 
 WIDTH = 0xA0
@@ -401,21 +402,23 @@ def approach_motion_update(
 
 
 def resource_payload(dir_name: str, resource_no: int) -> bytes:
-    entries = read_dir_entries(SQ2 / dir_name)
+    kind = {"PICDIR": "picture", "VIEWDIR": "view"}[dir_name]
+    entries = read_directory_entries(SQ2, kind)
     entry = entries[resource_no]
     if entry is None:
         raise ValueError(f"{dir_name} resource {resource_no} is absent")
-    return read_volume_payload(*entry)
+    return read_resource_payload(SQ2, kind, resource_no)
 
 
 def iter_valid_resources(dir_name: str) -> Iterable[tuple[int, bytes]]:
-    entries = read_dir_entries(SQ2 / dir_name)
+    kind = {"PICDIR": "picture", "VIEWDIR": "view"}[dir_name]
+    entries = read_directory_entries(SQ2, kind)
     for resource_no, entry in enumerate(entries):
         if entry is None:
             continue
         try:
-            payload = read_volume_payload(*entry)
-        except ValueError:
+            payload = read_resource_payload(SQ2, kind, resource_no)
+        except (OSError, ValueError):
             continue
         yield resource_no, payload
 

@@ -18,6 +18,7 @@ from agi_resources import (
     detect_layout,
     read_directory_entries,
     read_resource_payload,
+    read_volume_record,
 )
 from project_paths import game_dir
 
@@ -25,6 +26,7 @@ from project_paths import game_dir
 ROOT = Path(__file__).resolve().parents[1]
 SQ2 = game_dir()
 AGIDATA = SQ2 / "AGIDATA.OVL"
+MESSAGE_XOR_KEY = b"Avis Durgan"
 
 
 @dataclass(frozen=True)
@@ -153,6 +155,63 @@ def logic_payload(logic_no: int) -> bytes:
     if layout.version != "v2_split":
         return read_resource_payload(SQ2, "logic", logic_no)
     return read_volume_payload(*entry)
+
+
+def decode_logic_messages(
+    payload: bytes,
+    *,
+    encrypted: bool = True,
+) -> tuple[str | None, ...]:
+    """Decode the one-based message table from a logic-resource payload."""
+    if len(payload) < 5:
+        raise ValueError("logic payload is too short for a message table")
+    code_length = u16le(payload, 0)
+    count_offset = 2 + code_length
+    if count_offset >= len(payload):
+        raise ValueError("logic code length extends beyond the payload")
+    message_count = payload[count_offset]
+    table_base = count_offset + 1
+    table_end = table_base + (message_count + 1) * 2
+    if table_end > len(payload):
+        raise ValueError("logic message offset table extends beyond the payload")
+
+    decrypted = bytearray(payload)
+    if encrypted:
+        for index in range(table_end, len(decrypted)):
+            decrypted[index] ^= MESSAGE_XOR_KEY[(index - table_end) % len(MESSAGE_XOR_KEY)]
+
+    messages: list[str | None] = [None]
+    for message_number in range(1, message_count + 1):
+        relative = u16le(payload, table_base + message_number * 2)
+        if relative == 0:
+            messages.append(None)
+            continue
+        start = table_base + relative
+        if start < table_end or start >= len(payload):
+            raise ValueError(
+                f"logic message {message_number} offset {relative:#x} is outside text data"
+            )
+        end = decrypted.find(0, start)
+        if end < 0:
+            raise ValueError(f"logic message {message_number} is not null-terminated")
+        messages.append(bytes(decrypted[start:end]).decode("latin-1"))
+    return tuple(messages)
+
+
+def decode_logic_resource_messages(
+    logic_no: int,
+    payload: bytes | None = None,
+) -> tuple[str | None, ...]:
+    """Decode messages using the selected resource record's storage form."""
+    layout = detect_layout(SQ2)
+    if layout.version == "v2_split":
+        encrypted = True
+        selected_payload = logic_payload(logic_no) if payload is None else payload
+    else:
+        record = read_volume_record(SQ2, "logic", logic_no)
+        encrypted = record.transform == "direct"
+        selected_payload = record.payload if payload is None else payload
+    return decode_logic_messages(selected_payload, encrypted=encrypted)
 
 
 def dispatch_table_layout_for(agidata: bytes, layout_version: str) -> tuple[int, int, int, int]:
@@ -475,7 +534,13 @@ def parse_conditions(
     return lines, ip, ip
 
 
-def disassemble_logic(logic_no: int, action_table: list[TableEntry], cond_table: list[TableEntry]) -> str:
+def disassemble_logic(
+    logic_no: int,
+    action_table: list[TableEntry],
+    cond_table: list[TableEntry],
+    *,
+    include_messages: bool = False,
+) -> str:
     payload = logic_payload(logic_no)
     code_len = u16le(payload, 0)
     code = payload[2 : 2 + code_len]
@@ -525,6 +590,13 @@ def disassemble_logic(logic_no: int, action_table: list[TableEntry], cond_table:
             f"{at:04x}: action {opcode:02x} {name}({operand_text(args, operand_meta)})"
             f" ; h={entry.handler:04x} meta={entry.meta:02x}"
         )
+    if include_messages:
+        lines.append("messages")
+        for message_number, message in enumerate(
+            decode_logic_resource_messages(logic_no, payload)[1:], start=1
+        ):
+            rendered = "<absent>" if message is None else repr(message)
+            lines.append(f"  {message_number:03d}: {rendered}")
     return "\n".join(lines)
 
 
@@ -533,6 +605,7 @@ def main() -> None:
     parser.add_argument("logic", nargs="*", type=int, help="logic numbers to disassemble")
     parser.add_argument("--limit", type=int, default=None, help="disassemble present logic numbers below this limit")
     parser.add_argument("--stats", action="store_true", help="print linear opcode counts instead of disassembly")
+    parser.add_argument("--messages", action="store_true", help="append decoded logic messages")
     args = parser.parse_args()
 
     agidata = AGIDATA.read_bytes()
@@ -626,7 +699,7 @@ def main() -> None:
     for idx, logic_no in enumerate(logic_numbers):
         if idx:
             print()
-        print(disassemble_logic(logic_no, action_table, cond_table))
+        print(disassemble_logic(logic_no, action_table, cond_table, include_messages=args.messages))
 
 
 if __name__ == "__main__":

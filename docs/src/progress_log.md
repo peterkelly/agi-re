@@ -27067,3 +27067,843 @@ Progress updates and outcomes:
       Action/result: Passed 431 tests with four expected optional-fixture skips,
       built both mdBooks, checked opcode evidence and whitespace, and retained
       the populated boot-tested 1 GiB image as disposable build output.
+
+3536. Reported: "I’ll regenerate the 1 GiB FreeDOS image."
+
+      Action/result: Rebuilt the deleted FreeDOS image and patched VGA BIOS
+      from tracked inputs using the committed large-image setup path.
+
+3537. Reported: "The FreeDOS download is still in progress."
+
+      Action/result: Allowed the atomic temporary-cache transfer to complete;
+      no partial ZIP or disk image was exposed as a completed artifact.
+
+3538. Reported: "The image is rebuilt and populated."
+
+      Action/result: Copied all 16 top-level private game directories, matched
+      every recursive host/DOS file count, confirmed the exact 1 GiB raw size,
+      and measured 1,009,057,792 bytes free on the resulting FAT volume.
+
+3539. Reported: "I’m resuming from the resource census and the opening-route
+      reconstruction."
+
+      Action/result: Resumed the SQ1.22 game-specific playthrough detour from
+      canonical resources and divided the remaining analysis into Kerona,
+      Ulence Flats, and Deltaur phases.
+
+3540. Reported: "The indexer has already exposed a useful fact: the game
+      declares 202 as the maximum, while all positive award sites sum to 221."
+
+      Action/result: Enumerated all score mutations, confirmed logic 104's
+      maximum-score assignment, and identified mutually exclusive awards,
+      reversible awards, and penalties that prevent a naive positive-site sum
+      from describing a playable route.
+
+3541. Reported: "The Kerona route is resolving into two distinct puzzle
+      chains."
+
+      Action/result: Source-traced the survival-kit expansion, Orat water
+      solution, spider-droid boulder sequence, rock/geyser point reversal,
+      acid traversal, reflective-glass barrier, Orat proof handoff, cartridge
+      reader, and skimmer departure.
+
+3542. Reported: "The city phase shows the intended economy rather than a
+      direct corridor."
+
+      Action/result: Reconstructed the skimmer sale, three-beer sector-HH
+      clue, random slot-machine funding dependency, correct flight-droid and
+      cruiser purchases, mutually exclusive ship-price branches, droid load,
+      and sector entry.
+
+3543. Reported: "I have enough structure to start preserving the result."
+
+      Action/result: Added a dedicated SQ1.22 playthrough-analysis chapter,
+      indexed it in the evidence mdBook, promoted the workstream to
+      `PROGRESS.md`, and changed the analysis index to extract maximum-score
+      assignments directly from logic actions.
+
+3544. Reported: "The score discrepancy is now narrower and more informative."
+
+      Action/result: Proved that the two ship awards and two vent-entry awards
+      are mutually exclusive, retained the required rock-taking deduction,
+      and isolated the remaining over-202 ambiguity to reachable Deltaur and
+      optional-interaction branches rather than forcing an unsupported ledger.
+
+3545. Reported: "I’m rendering the remaining room pictures as a navigation
+      cross-check."
+
+      Action/result: Rendered the present pictures from 34 through 65 into a
+      disposable contact sheet, visually confirming Ulence exteriors, the
+      Deltaur approach and corridor families, the Star Generator chamber,
+      launch bay, ending scene, and numeric self-destruct keypad. Missing
+      picture numbers 40, 44, and 63 were absent canonical entries rather than
+      renderer failures.
+
+3546. Reported: "A shared one-time flag resolves the largest ambiguity."
+
+      Action/result: Proved the five-point boulder and ten-point cave outcomes
+      are alternative Orat/spider resolutions, identified penalty-free rock
+      acquisition in room 25, corrected the required first Keronian audience,
+      and derived the designed score equation
+      `221 - 4 - 2 - 10 - 3 = 202`. Isolated a possible 205/202 overscore if
+      both guard-defeat awards can coexist.
+
+3547. Reported: "I’m doing a full local verification pass now."
+
+      Action/result: The focused SQ1.22 message-decoder/index checks passed.
+      A first whole-suite run selected SQ1.22 globally and demonstrated that
+      legacy corpus/hash tests are intentionally SQ2-specific; rerunning with
+      the intended SQ2 fixture passed all 432 tests with four optional-fixture
+      skips, both mdBooks, opcode-evidence validation, and whitespace checks.
+
+3548. Recorded: Final static route refinements.
+
+      Action/result: Added phase score checkpoints 61, 110, 153, and 202, and
+      included the three separately scored disguised-guard interactions: talk,
+      kiss, and answering yes to the King's Quest II ownership question.
+
+3549. Reported: "I’ll apply the same resource-only method to SQ2."
+
+      Action/result: Selected `games/SQ2` explicitly and began reconstructing
+      its route from local logic, message, vocabulary, object, picture, and view
+      resources without consulting external game material.
+
+3550. Reported: "SQ2 immediately exposed a corpus edge."
+
+      Action/result: Found that logic-directory entry 141 names
+      `VOL.0:0x1ffff`, where no valid resource header exists. Changed the
+      playthrough indexer to preserve the unreadable-entry evidence and
+      continue indexing all readable resources.
+
+3551. Reported: "The SQ2 profile is now indexed."
+
+      Action/result: Indexed 118 readable logics, 2,472 parser conditions, 182
+      room transitions, 70 score mutations, and 40 inventory slots. Confirmed
+      logic 104 assigns the maximum score of 250.
+
+3552. Reported: "The score structure is already beginning to close."
+
+      Action/result: Grouped the score sites by story phase and traced their
+      parser, inventory, room, and flag guards to distinguish cumulative
+      awards from duplicate parser branches and alternative puzzle solutions.
+
+3553. Reported: "The score ledger now closes exactly."
+
+      Action/result: Proved that the 283 positive score sites reduce to the
+      declared 250 after excluding 33 points from alternate airlock, spore,
+      rope, gem, stone, and platform-guard branches. No negative score action
+      is required by the designed route.
+
+3554. Reported: "The full static story path is now coherent."
+
+      Action/result: Reconstructed the route through XOS 4, Labion, Vohaul's
+      asteroid, clone-launch cancellation with code `SHSR`, escape-pod launch,
+      and terminal suspended animation in logic 93, with phase checkpoints 10,
+      166, and 250.
+
+3555. Reported: "I’ve completed the first static SQ2 route reconstruction and
+      am tightening the score ledger now."
+
+      Action/result: Reviewed the preserved chapter against the extracted
+      event groups and found two transcription errors confined to its compact
+      numeric ledger, not the route or phase totals.
+
+3556. Reported: "The chapter’s narrative route is sound, but the compact
+      numeric ledger has two transcription mistakes."
+
+      Action/result: Corrected the Labion and asteroid award lists. An apparent
+      duplicated inventory loop was then checked against the source directly.
+
+3557. Reported: "One correction to my last update."
+
+      Action/result: Confirmed the apparent duplicated inventory loop came from
+      overlapping terminal excerpts, not the source file. The indexer already
+      emits each of SQ2's 40 inventory slots exactly once.
+
+3558. Reported: "I’m updating three things together."
+
+      Action/result: Promoted the SQ2 250-point candidate and remaining replay
+      work into `PROGRESS.md`, and aligned the highest-value work queue with
+      both SQ1.22 and SQ2 playthrough validation.
+
+3559. Reported: "The corrected ledger now sums mechanically."
+
+      Action/result: Verified `10 + 156 + 84 = 250` independently, then
+      enumerated the 75 present picture-directory entries for a visual route
+      cross-check.
+
+3560. Reported: "The visual sweep rendered all 74 valid SQ2 pictures."
+
+      Action/result: Rendered 74 pictures without error and found that picture
+      147 points to an invalid resource header at `VOL.0:0x2ffff`. Preserved it
+      as unreadable directory evidence parallel to logic 141 rather than
+      treating bytes outside a valid record as picture semantics.
+
+3561. Reported: "The contact sheet corroborates the route’s geography."
+
+      Action/result: Visually checked the Labion forest, swamp, cave, shuttle,
+      asteroid, Vohaul machinery, ruptured tube, pod-bank, and escape-pod
+      families. Recorded that pictures 140 through 146 are title/interface
+      imagery and marked the picture-rendering validation step complete.
+
+3562. Reported: "The regenerated index reproduces every claimed count
+      exactly."
+
+      Action/result: Rebuilt the SQ2 JSON index and independently confirmed 118
+      readable logics, 2,472 parser conditions, 182 transitions, 70 score
+      events, 40 inventory slots, one unreadable logic entry, and logic 104's
+      250-point maximum assignment.
+
+3563. Reported: "I’m at the verification pass now."
+
+      Action/result: Ran the focused message/table tests, all 432 local tests
+      with four expected optional-fixture skips, both mdBook builds, the SQ2
+      opcode-evidence check, and the whitespace check successfully.
+
+3564. Reported: "Everything passes."
+
+      Action/result: Completed the final review while preserving the boundary
+      between the resource-proven static route and the exact movement,
+      hazard-timing, and parser-input stream still requiring original-engine
+      replay.
+
+3565. Reported: "I’ll apply the same clean-room, resource-only reconstruction
+      to `games/KQ1`."
+
+      Action/result: Began a KQ1 maximum-score route reconstruction from local
+      logic, message, vocabulary, object, picture, and view resources, with
+      generated artifacts confined to `build/` and no changes to private game
+      inputs.
+
+3566. Reported: "KQ1 indexes cleanly."
+
+      Action/result: Indexed 90 readable logic resources, 1,478 parser
+      conditions, 277 room transitions, 180 score mutations, and 27 inventory
+      slots. Confirmed logic 0 declares a 158-point maximum; all positive score
+      sites sum to 269 before duplicate, reversible, and alternative branches
+      are resolved.
+
+3567. Reported: "The 158-point structure is resolving into three treasure
+      chains."
+
+      Action/result: Reconstructed the mirror chain through the well and
+      dragon, the shield chain through the witch, rat, and leprechauns, and the
+      chest chain through the gnome, beanstalk, and giant. Static score branches
+      consistently assign more points to nonviolent water, food, music, and
+      sleep solutions than to destructive or treasure-surrender alternatives.
+
+3568. Reported: "The score ledger now closes at 158."
+
+      Action/result: Distinguished `show carrot` from `give/feed carrot` in the
+      parser branches. Showing it awards five points while retaining the
+      two-point carrot; giving it first subtracts those two points. Combined
+      with net water, bowl, cheese, and mushroom exchanges, the selected static
+      route now totals exactly the declared maximum.
+
+3569. Reported: "The route topology is now coherent."
+
+      Action/result: Traced the condor's jump/contact animation through room 80
+      to room 48, the fall into rooms 73 through 78, and the rat/leprechaun
+      complex. Separated that shield route from the independently planted
+      beanstalk route to the giant's cloud region, and identified the
+      high-score mushroom exit from room 78 to room 36.
+
+3570. Reported: "All 82 present KQ1 pictures render successfully."
+
+      Action/result: Rendered the complete present picture set and visually
+      corroborated the surface map, well and dragon caves, condor landing,
+      underground complex, beanstalk/cloud region, giant territory, castle
+      return, and ending imagery. Pictures 83 and 84 are title/transition
+      assets rather than traversable rooms.
+
+3571. Reported: "I now have enough corroborated structure to preserve the
+      complete static candidate."
+
+      Action/result: Added a dedicated KQ1 playthrough-analysis chapter,
+      indexed it in the evidence mdBook, promoted the 158-point candidate and
+      remaining replay work into `PROGRESS.md`, and expanded the highest-value
+      queue to cover all three game-level candidate playthroughs.
+
+3572. Reported: "The preserved ledger checks mechanically."
+
+      Action/result: Independently summed phase totals
+      `4 + 79 + 23 + 23 + 25 + 4 = 158` and applied alphabet mirroring to the
+      local parser token `ifnkovhgroghprm`, yielding `rumplestiltskin` without
+      relying on an external solution source.
+
+3573. Reported: "I’m running the same verification gate used for SQ1.22 and
+      SQ2 now."
+
+      Action/result: Ran 15 focused KQ1 decoder/table tests, all 432 SQ2-based
+      regression tests with four expected optional-fixture skips, both mdBook
+      builds, the opcode-evidence check, and the whitespace check successfully.
+
+3574. Reported: "Verification is clean."
+
+      Action/result: Completed the final diff review while retaining a clear
+      distinction between the resource-proven 158-point route and the exact
+      movement, command, random-event, and timing stream still requiring an
+      original-interpreter QEMU replay.
+
+3575. Reported: "I’ll apply the same resource-only method to `games/KQ2`."
+
+      Action/result: Began a KQ2 maximum-score route reconstruction from local
+      logic, message, vocabulary, object, picture, and view resources, keeping
+      private game inputs immutable and generated analysis under `build/`.
+
+3576. Reported: "KQ2 indexes cleanly as a larger game."
+
+      Action/result: Indexed 133 readable logics, 1,406 parser conditions, 290
+      room transitions, 82 score mutations, and 35 named inventory objects in
+      slots 50 through 84. Confirmed logic 180 assigns the 185-point maximum;
+      positive score sites sum to 222 before alternate and consumed-item
+      branches are resolved.
+
+3577. Reported: "The route is organizing around three key quests and a final
+      rescue world."
+
+      Action/result: Identified high-value branches using flowers for the
+      mermaid, returning Neptune's trident, transforming the snake with the
+      bridle, recovering the covered nightingale for the lamp, using disguise
+      or the cross at the poisoned lake, helping Grandma with soup, feeding the
+      lion ham, and rescuing the golden fish. Lower-valued violent and treasure-
+      payment branches remain separate negative conformance cases.
+
+3578. Reported: "I’ve got the three-key structure and the major alternate-
+      solution branches."
+
+      Action/result: Began closing the exact 185-point ledger by tracing the
+      variable Dracula bonus, Neptune's trident sequence, duplicate candle
+      sites, and the five final-world fish awards rather than assuming every
+      positive score site can coexist.
+
+3579. Reported: "The score equation exposed an important branch detail."
+
+      Action/result: Proved that returning Neptune's trident for four points
+      and waving it personally for two points are alternatives: either action
+      opens the clam and sets the same one-time state. Continued tracing the
+      shared three-point variable through logic 67 to determine which bonus
+      applications belong to the winning Dracula sequence.
+
+3580. Reported: "The 185-point equation now closes exactly."
+
+      Action/result: Proved that the ruby ring and black cloak share one
+      three-point disguise-completion award, and identified the variable
+      bonuses as three points for resolving Dracula plus five on first reaching
+      Valanice. With mutually exclusive branches removed, the declared route
+      totals exactly 185.
+
+3581. Reported: "The visual sweep rendered all 108 present KQ2 pictures."
+
+      Action/result: Rendered every present picture without a record error and
+      built a disposable contact sheet. The images corroborate the Kolyma map,
+      underwater kingdom, mountain and castle quests, iridescent final world,
+      and quartz-tower ending geography.
+
+3582. Reported: "One static edge case is important enough not to bury."
+
+      Action/result: Found that logic 48 clears its side markers after each
+      one-point bridge traversal and checks for collapse only when the traversal
+      counter is already greater than six. Recorded 191 as an original-engine
+      overscore hypothesis alongside the exact declared-max 185 route.
+
+3583. Recorded: Preserved the KQ2 static playthrough reconstruction.
+
+      Action/result: Added the dependency-ordered three-key route, exact score
+      ledger, terminal wedding state, lower-scoring alternatives, deaths and
+      dead ends, picture evidence, bridge hypothesis, and replay requirements
+      to a dedicated evidence chapter and the project progress tracker.
+
+3584. Reported: "The documentation and tracker updates are in place."
+
+      Action/result: Regenerated the KQ2 index; all 15 focused message/table
+      tests passed. The full SQ2-anchored suite passed all 432 tests with four
+      expected optional-fixture skips, both mdBooks built, opcode evidence
+      remained synchronized, and whitespace validation passed.
+
+3585. Reported: "I’ll apply the same clean-room, resource-only workflow to
+      `games/KQ3`."
+
+      Action/result: Began a KQ3 maximum-score winning-route reconstruction
+      from local logic, message, vocabulary, object, picture, and view
+      resources. Kept the private game input immutable and reserved QEMU for
+      later validation of ambiguities and an exact replay.
+
+3586. Reported: "KQ3 is larger and much more parser-heavy than the earlier
+      King's Quest games."
+
+      Action/result: Indexed 125 readable logics, 2,994 parser conditions, 277
+      room transitions, 67 score mutations, and 55 inventory slots with no
+      decode failures. Confirmed logic 101 declares a 210-point maximum and
+      began separating raw ingredients, transformed spell products, and the
+      wizard-supervision timing state.
+
+3587. Reported: "The score ledger has a clean shape."
+
+      Action/result: Summed 215 positive score-site points and proved that the
+      two four-point logic-14 branches and two one-point dog-fur branches are
+      same-result alternatives. Excluding those duplicate five points yields
+      the declared 210. Confirmed all seven successful spell preparations are
+      independent, one-time ten-point events.
+
+3588. Reported: "The full route now resolves into four coherent acts."
+
+      Action/result: Reconstructed the wizard-house stealth/timed-chore phase,
+      Llewdor ingredient and seven-spell phase, poisoned-porridge liberation,
+      and pirate/mountain/Daventry finale. Identified logic 74's family reunion
+      as the terminal completion sequence after the four-point castle entry.
+
+3589. Reported: "All 97 present KQ3 pictures render successfully."
+
+      Action/result: Built a disposable contact sheet and visually confirmed
+      Manannan's house/laboratory, Llewdor, bandit tree, pirate ship, landing
+      beach, snowy mountain labyrinth, ruined Daventry, dragon cloud land, and
+      restored castle. Found no malformed picture-directory entry.
+
+3590. Reported: "I have enough evidence to preserve the KQ3 result."
+
+      Action/result: Added a dedicated evidence chapter covering the timed-safe
+      house strategy, all scored acquisitions, seven exact spell recipes,
+      poisoned-porridge liberation, pirate/mountain/dragon route, 210-point
+      ledger, terminal assertions, deaths, dead ends, and replay requirements.
+      Added KQ3 to the project tracker and evidence-book summary without
+      promoting game-specific material into the portable specification.
+
+3591. Reported: "The route and ledger are now documented."
+
+      Action/result: Regenerated the KQ3 index and passed all 15 focused
+      message/table tests. The full SQ2-anchored suite passed all 432 tests with
+      four expected optional-fixture skips; both mdBooks built, opcode evidence
+      remained synchronized, and whitespace validation passed.
+
+3592. Reported: "I’ll do the full `games/KQ4` next with the same evidence
+      standard."
+
+      Action/result: Began a KQ4 maximum-score winning-route reconstruction
+      from its local interpreter profile and canonical resources. Kept the
+      private game directory immutable and directed generated indexes and
+      renders to `build/playthrough/kq4`.
+
+3593. Reported: "KQ4 is the full 3.002.086 v3 build, not the later demo."
+
+      Action/result: Confirmed the combined `KQ4DIR`/prefixed-volume profile.
+      The first index pass exposed a message-table decoding failure at message
+      148; began distinguishing a malformed/missing-volume record from an
+      incorrect v3 decoding assumption before altering the reusable indexer.
+
+3594. Reported: "I’m narrowing the failure before touching the decoder."
+
+      Action/result: Scanned every present KQ4 logic record. The failures
+      affected many dictionary-expanded records rather than one damaged
+      resource. Raw expanded message regions contained readable text while
+      unconditional XOR produced the missing terminators.
+
+3595. Reported: "The raw KQ4 records resolve the ambiguity."
+
+      Action/result: Compared KQ4 and GR direct/dictionary-expanded records.
+      KQ4 has 174 expanded and three direct logic records; the direct records'
+      message text requires the repeating key while expanded records are
+      already plain. GR exhibits the same storage-dependent distinction.
+
+3596. Reported: "The executable confirms the exact rule."
+
+      Action/result: Read KQ4 image `0x30f7..0x3365` and logic setup
+      `0x13d9..0x1498`. A direct read sets word `[0x0f5e]` to one, dictionary
+      expansion clears it, and logic setup calls the repeating-key XOR helper
+      only when that word is nonzero. Updated the disassembler/indexer to
+      select message decoding from the record transform and added a plain-text
+      decoder test.
+
+3597. Reported: "The corrected pass is clean: all 177 present KQ4 logics
+      decode."
+
+      Action/result: Generated the complete KQ4 logic/message index: 5,148
+      parser predicates, 469 room transitions, 86 score-changing sites, no
+      unreadable logic, and declared maximum score 230. Began clustering
+      score events and ordering story dependencies.
+
+3598. Reported: "The score ledger now reconciles exactly."
+
+      Action/result: Distinguished alternate room copies from sequential
+      awards. Lolotte's three completed errands each award seven points, while
+      the board's first two successful crevice crossings each award two. The
+      resulting intended ledger totals exactly 230.
+
+3599. Reported: "The first picture sweep exposed another reusable-tool
+      assumption rather than a KQ4 defect."
+
+      Action/result: Found `agi_graphics.py` still opened v2 split directory
+      names directly. Routed picture/view lookup through the established
+      version-aware resource reader so v3 combined directories and expanded
+      records can be rendered without special-case copies.
+
+3600. Reported: "The v3 payload routing works, but the render attempt found a
+      second, narrower limitation."
+
+      Action/result: Confirmed the patterned-brush tables still use SQ2 image
+      offsets. The SQ2 graphics baseline passed all 91 focused tests. Rendered
+      a clearly qualified brush-disabled KQ4 contact sheet with all 146 locally
+      readable pictures; pictures 150--151 remain unavailable with missing
+      `KQ4VOL.6`.
+
+3601. Reported: "The dependency graph is now coherent enough to preserve."
+
+      Action/result: Reconstructed the maximum route through trading, ocean,
+      haunted manor, crypt, swamp, three Lolotte errands, castle escape, and
+      ending. Identified the crown-then-recatch frog sequence as necessary to
+      retain both its direct two-point award and separate five-point kiss
+      sequence.
+
+3602. Reported: "I’m writing the evidence chapter with that non-obvious
+      branch."
+
+      Action/result: Added the full KQ4 playthrough chapter, 230-point grouped
+      ledger, global timing/resource constraints, death/dead-end inventory,
+      and deterministic replay requirements. Added KQ4 to the evidence-book
+      summary and high-level tracker without promoting game-specific material
+      into the portable specification.
+
+3603. Reported: "Verification is clean."
+
+      Action/result: Confirmed expanded logic 0 decodes its King's Quest IV
+      version message and direct logic 97 decodes `Like a heavy blanket,
+      darkness enfolds you.` Regenerated the 177-logic index. The full suite
+      passed 433 tests with four expected optional-fixture skips; both mdBooks,
+      opcode-evidence synchronization, and whitespace validation passed.
+
+3604. Reported: "I’ll apply the same resource-only maximum-score
+      reconstruction to `games/GR`."
+
+      Action/result: Began a clean-room Gold Rush analysis from the local game
+      resources only. Selected the v3 combined-resource reader and generated a
+      disposable logic/message index under `build/playthrough/gr/` without
+      modifying the immutable game directory.
+
+3605. Reported: "The first pass is unusually rich: all 182 present logics
+      decode. There are two apparent score ceilings."
+
+      Action/result: Decoded all 182 readable logic resources with no failures
+      and indexed 6,227 parser predicates, 431 room transitions, and 150 score
+      mutations. Found the normal startup maximum of 250 and a route-specific
+      later assignment of 255.
+
+3606. Reported: "The `255` ceiling is deliberate. The game explicitly raises
+      it on the Cape Horn branch."
+
+      Action/result: Traced the cheap-ticket purchase branch in logic 3 to a
+      nine-point award and an explicit maximum-score change to 255. Correlated
+      this with the arrival checkpoint that reports 100 points for Cape Horn
+      and 95 for the other routes, establishing Cape Horn as the required
+      route for the highest terminal score.
+
+3607. Reported: "The Cape Horn score structure now reconciles cleanly."
+
+      Action/result: Reconstructed the 40 voyage points as five three-point
+      fishing-tool components, seven points for the Bible interaction, eight
+      for catching the fish, five for completing the rescue promptly, two for
+      the storm repair, and three for safely eating an early piece of ham.
+      Identified duplicate room/state award sites and the later diseased-ham
+      death branch so they are not double-counted.
+
+3608. Reported: "The direct assignments resolve the numeric mapping but
+      expose a useful correction."
+
+      Action/result: Traced route variable values through their downstream
+      narration instead of relying on the purchased item's apparent purpose.
+      Corrected the provisional route label: route value 2 is Panama, requires
+      mosquito netting, invokes the Panamanian-jungle logic, and carries the
+      255-point maximum; route value 1 is Cape Horn and requires oranges.
+      Consequently the previously grouped 40-point ship ledger belongs to the
+      Cape voyage and cannot be used as the maximum-route Panama ledger.
+
+3609. Reported: "The Panama phase now closes exactly."
+
+      Action/result: Reconciled the Panama crossing as four points for
+      cooperating with the armed group, four for the ant/vine escape, seven
+      for the resting traveler's Bible, five for the highest traversal branch,
+      ten for the ancient gold disk, and ten for the stream crossing. These 40
+      points carry the route from the Brooklyn 60 checkpoint to the explicit
+      California-arrival 100 checkpoint.
+
+3610. Reported: "The full score arithmetic now reconciles."
+
+      Action/result: Identified the apparent four-point Brooklyn excess as the
+      ferry sequence used by the overland route, not the Panama ship departure.
+      Traced logic 110's gold progression to a shared 70-award cap and separated
+      Psalm 23's five points from the arrival checkpoint. The resulting route
+      totals 60 Brooklyn, 40 Panama, 5 Psalm, 80 California one-time, and 70
+      gold-progression points, or 255.
+
+3611. Reported: "All 186 present GR pictures decode in the brush-disabled
+      qualitative mode."
+
+      Action/result: Added an explicit `--no-pattern-brushes` option to the
+      reusable picture CLI and generated a disposable contact sheet. It
+      corroborates Brooklyn, ship and jungle travel, Sacramento, Sutter's
+      Fort, hotel, mule, cabin, and mine geography without claiming pixel
+      fidelity from still-unmapped v3 patterned-brush tables.
+
+3612. Reported: "I’m writing the evidence chapter now."
+
+      Action/result: Added the Gold Rush playthrough chapter with the static
+      Panama route, 255-point grouped ledger, timing and inventory constraints,
+      death/dead-end families, and original-interpreter replay requirements.
+      Linked it into the evidence book and added GR to the high-level progress
+      tracker and replay backlog.
+
+3613. Reported: "The hotel coin consistency check supports the route."
+
+      Action/result: Confirmed logic 12 materializes the hotel-room coin from
+      its persistent Brooklyn discovery flag rather than requiring its current
+      inventory location, leaving the one-point recovery available after the
+      Panama robbery sequence. Rebuilt the GR index, exercised the new renderer
+      flag, built both mdBooks, checked opcode evidence and whitespace, and ran
+      433 tests with four expected optional-fixture skips. An initial test run
+      omitted the deliberately required `AGI_GAME_DIR`; rerunning against the
+      SQ2 regression baseline passed cleanly.
+
+3614. Reported: "I’ll apply the same clean-room route reconstruction to
+      `games/PQ1`."
+
+      Action/result: Began a resource-only Police Quest analysis from the
+      immutable local evidence directory. Preserved the existing uncommitted
+      playthrough work and unrelated `run.sh`, and selected a full resource,
+      score, parser, transition, message, and picture census as the first pass.
+### 2026-07-11 16:15
+
+Resumed the PQ1 maximum-score reconstruction at the unresolved score-ledger
+gap. The resource census found 118 readable logic resources, 71 pictures, 220
+views, a declared maximum score of 245, and 114 positive score operations whose
+raw sum is 270. Shared one-time guards account for 12 points of alternative or
+duplicate awards, leaving 13 further points to classify by following the
+disassembled controller and room-state conditions rather than assuming every
+syntactic score operation is reachable in one playthrough.
+
+Two bundled local save files were inspected read-only as independent
+consistency evidence. Both represent a score-156 checkpoint, but neither is
+being used to derive the route; the route remains based on decoded logic,
+messages, inventory transitions, and room transitions.
+
+Direct inspection of logic 44 and logic 45 confirmed that their briefing,
+message, newspaper, and informant awards contribute 19 distinct obtainable
+points after accounting for the shared newspaper-availability guard. The next
+step is to identify the remaining cross-phase and mutually exclusive score
+branches in source order, then construct and independently sum the route
+ledger.
+
+### 2026-07-11 16:55
+
+Completed the first PQ1 static winning-route reconstruction. Direct logic and
+message analysis establishes the playable dependency chain from briefing and
+patrol procedure through the DUI/Hoffman arrests, Narcotics transfer, warrant,
+park bust, Cotton Cove body identification, Hotel Delphoria cover, poker,
+Room 404 transmitter, Bains capture, trial, and terminal parade. The route and
+failure constraints are recorded in `games/pq1_playthrough_analysis.md`.
+
+Rendered all 71 present PQ1 pictures with patterned brushes disabled and built
+a qualitative contact sheet under disposable `build/playthrough/pq1/` output.
+The sweep corroborates route geography but is explicitly not pixel-conformance
+evidence because the PQ1-specific brush table has not been mapped.
+
+Corrected the score analysis after following nested conditions directly. Six
+proved alternative groups remove 13 points from the raw 270-point syntax sum,
+leaving a 257-point static upper bound. The remaining 12-point reachability gap
+against the declared maximum of 245 is preserved as open work; no unproved
+score closure is claimed. Updated the evidence book summary, executable notes,
+and `PROGRESS.md` accordingly.
+
+Verification passed 433 deterministic tests with four expected optional-input
+skips. Both mdBooks built successfully, the generated opcode-evidence chapter
+was current, and `git diff --check` reported no whitespace errors. No file
+under `games/PQ1` was modified.
+
+### 2026-07-11 17:10
+
+Began a clean-room maximum-score winning-route reconstruction for the immutable
+local `games/LSL1` evidence set. The planned pass starts with complete logic,
+parser, transition, score, inventory, and terminal-state indexing; follows the
+decoded control flow and messages to establish puzzle dependencies; and uses
+brush-disabled picture rendering only as qualitative geographical evidence.
+
+### 2026-07-11 17:45
+
+Completed the LSL1 static maximum-score reconstruction. All 46 present logic
+resources decode, and their 49 positive score sites sum exactly to logic 51's
+declared maximum of 222; no negative score operation exists. Direct dependency
+analysis places every award in one route from Lefty's through the store,
+telephone, casino, disco, chapel, hotel, Faith, Eve, and logic 45's terminal
+penthouse sequence.
+
+Rendered all 43 present pictures with patterned brushes disabled and built a
+qualitative contact sheet under disposable `build/playthrough/lsl1/` output.
+Added `games/lsl1_playthrough_analysis.md` with the route, exact score ledger, money
+and inventory constraints, death/dead-end map, and replay requirements. Updated
+the evidence-book summary, executable notes, and `PROGRESS.md`. No file under
+`games/LSL1` was modified.
+
+Verification passed 433 deterministic tests with four expected optional-input
+skips. Both mdBooks built successfully, the compatibility runner's generated
+opcode-evidence check passed, and `git diff --check` reported no whitespace
+errors.
+
+### 2026-07-11 18:00
+
+Began reorganizing the newly added game-specific playthrough-analysis chapters
+under `docs/src/games/`. The move will preserve every chapter in the mdBook
+navigation and update all evidence-book, progress-dashboard, and historical-log
+path references to the new location.
+
+Moved all nine playthrough-analysis chapters into `docs/src/games/`. Added a
+dedicated `Game Playthrough Analyses` section to the mdBook summary, retained
+all nine chapters in navigation, and added an `Interpreter Evidence` heading
+before the remaining engine-focused chapters. Updated `PROGRESS.md` and all
+historical-log filename references to use the nested paths.
+
+Verification found no stale top-level playthrough path, built both mdBooks,
+generated all nested HTML pages, and passed 433 deterministic tests with four
+expected optional-input skips. `git diff --check` reported no whitespace
+errors.
+
+The final Git audit found that the broad `games/` ignore pattern also hid
+`docs/src/games/`. Anchored the rule as `/games/`, preserving the private
+root-level game-input exclusion while making the nested documentation chapters
+trackable.
+
+### 2026-07-11 18:15
+
+Began separating whole-game playthrough progress from interpreter and portable-
+specification progress in `PROGRESS.md`. The nine game-specific route entries
+will move together under a dedicated section without changing their evidence,
+status, or remaining replay work.
+
+Moved the nine route-analysis entries from `Current Snapshot` into a dedicated
+`Game-Specific Playthroughs` section immediately before behavioral-
+specification coverage. Interpreter, version, save, fixture, and corpus status
+now remain together in the general snapshot, while each game's score closure,
+evidence chapter, uncertainty, and replay backlog remain grouped separately.
+
+Rebuilt both mdBooks successfully after the dashboard reorganization.
+`git diff --check` reported no whitespace errors, and the section audit confirms
+the intended order: `Current Snapshot`, `Game-Specific Playthroughs`,
+`Behavioral Specification Coverage`, and the later remaining-work dashboard.
+
+### 2026-07-11 18:30
+
+Began a clean-room maximum-score winning-route reconstruction for the immutable
+local `games/BC` evidence set. The pass will index all logic, parser, score,
+inventory, transition, and terminal-state evidence; derive the route from local
+resources; and place the resulting game-specific chapter under
+`docs/src/games/`.
+
+### 2026-07-11 18:52
+
+Completed the static BC resource census and score-branch reconciliation. All
+85 present logics decode, logic 107 declares a 230-point maximum, and the 40
+award sites reduce from a raw 463 to exactly 230 after grouping mutually
+exclusive rescue, route, encounter, resolution, and reward branches. Rendered
+all 69 present pictures qualitatively and drafted the maximum-score route,
+score ledger, failure map, and replay checklist in the game-specific evidence
+chapter.
+
+Verified the BC chapter and dashboard changes with `git diff --check`, both
+mdBook builds, and the full compatibility-suite runner. The suite passed all
+433 deterministic tests with four expected optional-input skips, rebuilt both
+books, and completed the opcode-evidence checks. The rendered evidence book
+contains the new `games/bc_playthrough_analysis.html` chapter.
+
+### 2026-07-11 19:05
+
+Began a clean-room maximum-score winning-route reconstruction for the immutable
+local `games/MG` evidence set. The pass will census and decode all present
+resources, classify scoring and terminal alternatives from local logic, render
+pictures for qualitative geography, and add a game-specific evidence chapter
+without modifying the private game input.
+
+Completed the static MG reconstruction. All 73 present logics decode and show
+that the apparent 18-point maximum is an eighteen-rhyme completion counter.
+Mapped the 35-room outdoor grid, nine attached rooms, twenty randomized props,
+all eighteen recipients, the one-prop carrying protocol, Old King Cole's
+three-stage exception, and logic 102's terminal celebration. Rendered all 49
+present pictures qualitatively and added the route strategy, completion ledger,
+recovery model, and deterministic replay backlog to the game-specific chapter.
+
+Verified the MG chapter and tracker updates with `git diff --check`, both
+mdBook builds, and the full compatibility-suite runner. All 433 deterministic
+tests passed with four expected optional-input skips; both books rebuilt and
+the rendered evidence book includes `games/mg_playthrough_analysis.html`.
+
+### 2026-07-11 19:35
+
+Began a clean-room whole-game reconstruction for the immutable local
+`games/MH1` evidence set. The pass will prioritize readable disassembled logic,
+catalogue any unavailable resource evidence, identify the winning and maximum-
+score states, render readable pictures, and add a game-specific evidence
+chapter without modifying the private input.
+
+The MH1 resource census identified a version 3 combined-directory input with
+66 present logics. The first indexing pass exposed a generic error in the
+intended unreadable-resource path: it treated a structured directory entry as
+an old tuple. Corrected the indexer to report the entry's volume and offset
+through named fields, then regenerated the index successfully.
+
+Sixty-five MH1 logics decode. Logic 136 is unavailable because its directory
+entry selects `MHVOL.3:0x1d323`, beyond the local file length of `0xfe00`.
+The readable scripts contain no score mutations or maximum-score assignment;
+instead they establish four ordered assignments, four late module-installation
+states, and four distinct ship bomb-drop states. All four bomb states are
+required before the switch to logic 162 and its `To be continued...` ending.
+
+Rendered 196 of 237 present picture entries for qualitative story and location
+evidence. The remaining 41 require unavailable volume bytes, and the readable
+scripts also directly reference six unreadable views. Added a bounded MH1
+chapter documenting the proven phase skeleton, inventory, Alliance computer,
+terminal condition, failure/retry evidence, candidate route, and explicit
+complete-input blocker. Updated the evidence notes, mdBook summary, and
+game-specific dashboard without modifying `games/MH1`.
+
+Verified the MH1 work with a fresh tolerant index run, `git diff --check`, both
+mdBook builds, and the full compatibility-suite runner. The regenerated index
+reports exactly 65 readable logics, 138 room switches, 93 inventory mutations,
+zero score events, and one explicit unreadable record for logic 136 at volume 3
+offset `0x1d323`. All 433 deterministic tests passed with four expected
+optional-input skips, and the evidence book contains the new
+`games/mh1_playthrough_analysis.html` chapter.
+
+### 2026-07-11 20:10
+
+Began a clean-room whole-game reconstruction for the immutable local
+`games/MH2` evidence set. The pass will identify the observable completion
+model, index all readable logic and inventory transitions, render available
+graphics for qualitative context, and preserve the already known missing-logic
+boundary rather than inferring unsupported route steps.
+
+The MH2 census found a v3 combined-directory game with 96 present logics, 248
+pictures, 181 views, and 195 sounds. Indexing initially stopped when a logic
+selected absent `MH2VOL.3`. Extended the generic unreadable-resource path to
+include missing volume files, then regenerated the index with 65 readable and
+31 explicitly unavailable logics.
+
+The readable logic contains six parser predicates, 135 room switches, 32
+inventory mutations, and no score or maximum assignment. It establishes the
+New York-to-San Francisco pursuit, acquisition of MAD and the ID Card, two Orb
+assignments, the travel network, a 32-item inventory, local arcade/retry
+contracts, and the hybrid-experiment plot. Logic 0 directly dispatches into
+many of the missing rooms, so the absent volume prevents a complete route and
+identification of the real terminal state. In particular, readable `The End`
+and `YOU WON` messages belong to in-world presentations and local challenges,
+not the whole-game ending.
+
+Rendered all 177 pictures available from the present volumes. Seventy-one
+present pictures, 67 views, and 73 sounds remain unavailable with volume 3.
+Added a bounded MH2 chapter containing the resource boundary, assignment and
+story model, inventory table, partial candidate route, failure classes, and
+the exact work needed after a matching `MH2VOL.3` is supplied. Updated the
+evidence notes, mdBook summary, and game-specific dashboard without modifying
+`games/MH2`.
+
+Verified the MH2 work with fresh MH1 and MH2 index runs, `git diff --check`,
+both mdBook builds, and the full compatibility-suite runner. MH1's out-of-range
+logic and all 31 MH2 missing-volume logics remain explicit unreadable records.
+All 433 deterministic tests passed with four expected optional-input skips,
+and the evidence book contains the new
+`games/mh2_playthrough_analysis.html` chapter.

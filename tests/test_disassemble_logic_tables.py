@@ -11,7 +11,12 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT / "tools"))
 
-from disassemble_logic import TableEntry, action_operand_count, dispatch_table_layout_for  # noqa: E402
+from disassemble_logic import (  # noqa: E402
+    TableEntry,
+    action_operand_count,
+    decode_logic_messages,
+    dispatch_table_layout_for,
+)
 
 
 class DispatchTableDetectionTests(unittest.TestCase):
@@ -68,6 +73,29 @@ class DispatchTableDetectionTests(unittest.TestCase):
         self.assertEqual(action_operand_count(0x97, early_entry), 4)
         self.assertEqual(action_operand_count(0x98, early_entry), 4)
         self.assertEqual(action_operand_count(0x96, early_entry), 3)
+
+    def test_logic_message_decoder_handles_encrypted_text_and_absent_entry(self) -> None:
+        code = b"\x00"
+        key = b"Avis Durgan"
+        plain = b"hello\x00world\x00"
+        encrypted = bytes(
+            value ^ key[index % len(key)] for index, value in enumerate(plain)
+        )
+        table = b"\x12\x00\x08\x00\x00\x00\x0e\x00"
+        payload = b"\x01\x00" + code + b"\x03" + table + encrypted
+        self.assertEqual(
+            decode_logic_messages(payload), (None, "hello", None, "world")
+        )
+
+    def test_logic_message_decoder_can_read_plain_expanded_text(self) -> None:
+        code = b"\x00"
+        plain = b"hello\x00world\x00"
+        table = b"\x12\x00\x08\x00\x00\x00\x0e\x00"
+        payload = b"\x01\x00" + code + b"\x03" + table + plain
+        self.assertEqual(
+            decode_logic_messages(payload, encrypted=False),
+            (None, "hello", None, "world"),
+        )
 
 
 if __name__ == "__main__":
