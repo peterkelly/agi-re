@@ -18,7 +18,9 @@ from conformance_results import (  # noqa: E402
     compare_bundles,
     export_reports,
     frame_observation,
+    load_artifact,
     validate_bundle,
+    values_observation,
 )
 
 
@@ -109,6 +111,100 @@ class ConformanceResultTests(unittest.TestCase):
             )
 
         self.assertEqual(bundle["cases"][0]["status"], "error")
+
+    def test_export_and_compare_portable_values_without_frame(self) -> None:
+        with tempfile.TemporaryDirectory() as temp_dir:
+            root = Path(temp_dir)
+            report = root / "source.json"
+            report.write_text(
+                json.dumps(
+                    {
+                        "results": [
+                            {
+                                "case_id": "sound-and-state",
+                                "status": "match",
+                                "values": {
+                                    "variables": {"v3": 7},
+                                    "flags": {"f9": True},
+                                    "sound_commands": [
+                                        {"tick": 0, "channel": 0, "kind": "tone", "divisor": 1193},
+                                        {"tick": 3, "channel": 0, "kind": "silence"},
+                                    ],
+                                },
+                            }
+                        ]
+                    }
+                ),
+                encoding="ascii",
+            )
+            reference = root / "reference.json"
+            export_reports([report], reference, root / "frames", "suite", "2.936", "original")
+            bundle = json.loads(reference.read_text(encoding="ascii"))
+
+            self.assertEqual(bundle["cases"][0]["status"], "ok")
+            self.assertNotIn("frame", bundle["cases"][0])
+            comparison = compare_bundles(reference, reference)
+
+        self.assertEqual(comparison["summary"], {"total": 1, "matches": 1, "failures": 0})
+        self.assertEqual(comparison["results"][0]["observations"]["values"], {"status": "match"})
+
+    def test_value_difference_reports_semantic_path(self) -> None:
+        with tempfile.TemporaryDirectory() as temp_dir:
+            root = Path(temp_dir)
+            base = {
+                "format": "agi-clean-room-conformance-results",
+                "format_version": 1,
+                "cases": [
+                    {
+                        "id": "restore",
+                        "status": "ok",
+                        "values": values_observation(
+                            {"restored": True, "variables": {"v0": 42}, "events": [1, 2]}
+                        ),
+                    }
+                ],
+            }
+            candidate = json.loads(json.dumps(base))
+            candidate["cases"][0]["values"]["variables"]["v0"] = 43
+            (root / "reference.json").write_text(json.dumps(base), encoding="ascii")
+            (root / "candidate.json").write_text(json.dumps(candidate), encoding="ascii")
+            comparison = compare_bundles(root / "reference.json", root / "candidate.json")
+
+        result = comparison["results"][0]
+        self.assertEqual(result["status"], "mismatch")
+        self.assertEqual(
+            result["observations"]["values"]["differences"],
+            [{"path": "/variables/v0", "status": "different", "expected": 42, "actual": 43}],
+        )
+
+    def test_values_reject_floating_point_and_success_without_observation(self) -> None:
+        with self.assertRaisesRegex(ValueError, "null, Boolean, integer"):
+            values_observation({"elapsed": 1.5})
+        bundle = {
+            "format": "agi-clean-room-conformance-results",
+            "format_version": 1,
+            "cases": [{"id": "empty", "status": "ok"}],
+        }
+        with self.assertRaisesRegex(ValueError, "lacks an observation"):
+            validate_bundle(bundle, Path("empty.json"))
+
+    def test_validation_rejects_malformed_known_observation_and_frame_artifact(self) -> None:
+        malformed = {
+            "format": "agi-clean-room-conformance-results",
+            "format_version": 1,
+            "cases": [{"id": "bad", "status": "ok", "frame": "not-an-object"}],
+        }
+        with self.assertRaisesRegex(ValueError, "frame observation must be an object"):
+            validate_bundle(malformed, Path("malformed.json"))
+
+        with tempfile.TemporaryDirectory() as temp_dir:
+            root = Path(temp_dir)
+            pixels = bytes([16]) * (160 * 168)
+            artifact = root / "bad.ega"
+            artifact.write_bytes(pixels)
+            case = {"id": "bad", "frame": frame_observation(pixels, artifact.name)}
+            with self.assertRaisesRegex(ValueError, "noncanonical frame artifact"):
+                load_artifact(root / "bundle.json", case)
 
     def test_compare_reports_pixel_difference_and_missing_case(self) -> None:
         with tempfile.TemporaryDirectory() as temp_dir:

@@ -315,6 +315,24 @@ implementation should model the main runtime objects as small state machines.
 These states are implementation-facing summaries of the observed transitions;
 they are not claims about the exact original memory layout.
 
+Top-level cycle:
+
+| Phase | Source-backed work | Portable lifetime/order consequence |
+| --- | --- | --- |
+| Pacing | `code.engine.wait_for_cycle_counter` waits for `[0x1784] >= v10`, then clears `[0x1784]`. | Timer/sound IRQ work is asynchronous; the synchronous cycle starts only after its pacing threshold. |
+| Input reset | `code.input.clear_status_bytes` clears 50 mapped-status bytes; flag helper calls clear `f2` and `f4`. | Old status events and parsed-input readiness cannot leak into the next ordinary cycle. |
+| Input production/dispatch | `code.input.update_timed_events` may enqueue due events, then `code.input.process_cycle_events` clears `v19`/`v9`, services a requested menu, and consumes pending events. | New mapped statuses and direction input are established before object direction mirroring and logic 0. |
+| Pre-logic object work | `code.engine.main_cycle` applies the object-0/global direction mirror, then calls `code.motion.pre_mode_and_boundary_update`. | Autonomous direction and configured-boundary effects can be observed by logic in the same cycle. |
+| Logic | The cycle snapshots `v3` and `f9`, establishes `code.control.save_abort_context`, and calls logic 0. A zero result clears `v9`, `v4`, `v5`, and `f2`, then calls logic 0 again from the saved control context. | Room/restart-style immediate re-entry does not repeat pacing, input, direction mirroring, or pre-motion. |
+| Post-logic cleanup | Object 0 direction is restored from the global byte. A `v3`/`f9` change redraws enabled status text. The cycle clears `v4`, `v5`, `f5`, `f6`, and `f12`. | Boundary/new-room/restart markers survive throughout logic execution and expire before the next post-update/cycle. |
+| Object update | `code.object.frame_timer_update` runs only when text-mode byte `[0x1757]` is zero. | Alternate text mode suppresses direction selection, animation, movement, object draw, and dirty refresh as one stage. |
+
+The timer interrupt path is not inserted into this table as a synchronous
+phase. It advances the elapsed-time and pacing counters independently; the
+sound hook advances active sound before periodically chaining to the ordinary
+timer path. A host scheduler may represent these as queued tick events while
+preserving their state transitions relative to cycle boundaries.
+
 Resource lifecycle:
 
 | State | Entered by | Exited by | Observable contract |

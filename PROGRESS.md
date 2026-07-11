@@ -28,10 +28,11 @@ better understood, or a new remaining-work item is discovered.
   (`170` QEMU-validated, `0x00` structural, and
   `0x6e`/`0x83`/`0x8e`/`0xaa`/`0xad` source-backed).
 - Logic condition opcodes: all 19 of 19 are QEMU-validated.
-- Main remaining risk areas: full picture/view renderer edge behavior, final
-  compatibility suite breadth, optional canonical initial save bytes for
-  pristine 2.089/2.272 save synthesis, incomplete MH1/MH2 resource sets, and
-  promoting accumulated evidence into the standalone behavioral specification.
+- Main remaining risk areas: concrete picture/view edges exposed by future
+  valid resources, compatibility-bundle breadth across additional versions,
+  optional canonical initial save bytes for pristine 2.089/2.272 save
+  synthesis, and incomplete MH1/MH2 resource sets. All currently promoted
+  subsystems have standalone behavioral-specification chapters.
 - Picture/view resource retention is now source-modeled as ordered within each
   family. Discard actions truncate the selected resource and every later
   same-family retention; restore replay kinds 6 and 7 reproduce that ordering.
@@ -190,12 +191,15 @@ better understood, or a new remaining-work item is discovered.
     dictionary expansion, picture-nibble expansion, and inventory metadata for
     valid data. Profiles 2.089/2.272 store expanded `OBJECT` metadata directly;
     later observed v2 profiles apply the repeating-key XOR transform.
-- [~] Core runtime state and cycle ordering
+- [x] Core runtime state and cycle ordering
   - Current: `spec/src/runtime_state.md` defines portable variable, flag,
     string, parsed-word, logic activation, resource, object, inventory, logical
     graphics, and top-level cycle concepts.
-  - Remaining: refine subsystem-owned fields as their normative chapters are
-    promoted.
+    The cycle contract now separates asynchronous timer/sound ticks from the
+    synchronous cycle and specifies pacing, transient input/status reset,
+    timed and queued input, direction mirroring, pre-motion, immediate logic-0
+    re-entry, status redraw, cycle-marker cleanup, and the text-mode-gated
+    post-logic object update in exact observable order.
 - [x] Sound resources and playback
   - Current: `spec/src/sound.md` defines payload parsing, sound opcodes,
     countdown scheduling, completion flags, channel participation, PC-speaker
@@ -880,16 +884,18 @@ source-mapped well enough to justify a targeted probe.
     path. `build/compatibility-suite/qemu_v3_synthetic_picture_view_001.json`
     confirms generated v3 picture-nibble picture and direct view fixtures by
     comparing blank, picture-only, and picture-plus-view captures. The current
-    full local run passes 414 tests after adding cross-version profile,
+    full local run passes 419 tests after adding cross-version profile,
     directory-boundary, portable-result, and ordered resource-retention
     coverage. The top-level runner
     now accepts `--game-dir PATH`, exports that explicit selection to child
     commands, and records it in the JSON report without choosing a default
     game.
-  - Remaining: extend the portable result format with nonvisual observations
-    when deterministic state, input, sound, or persistence cases require them;
-    scale sweeps and bundles to additional interpreter versions as their
-    source-mapped probes are promoted.
+    Portable bundles now also carry canonical JSON `values` observations for
+    deterministic state, input, ordered sound-command, and persistence results.
+    The comparator reports semantic difference paths without exposing DOS
+    memory or requiring a particular implementation layout.
+  - Remaining: scale sweeps and bundles to additional interpreter versions as
+    their source-mapped probes are promoted.
 - [~] Cross-version comparison workflow
   - Evidence: symbolic labels are being curated for SQ2, and
     `docs/src/cross_version_workflow.md` now defines the local evidence package,

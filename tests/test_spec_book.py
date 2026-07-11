@@ -63,6 +63,27 @@ class SpecBookTests(unittest.TestCase):
             with self.subTest(profile="3.002.149", opcode=opcode):
                 self.assertIn(f"`0x{opcode:02x}`", logic)
 
+    def test_runtime_cycle_contract_separates_ticks_and_orders_state_lifetimes(self) -> None:
+        runtime = (SPEC_SRC / "runtime_state.md").read_text(encoding="ascii")
+        cycle = runtime[runtime.index("## Top-level cycle order") :]
+        normalized_cycle = " ".join(cycle.split())
+        required = (
+            "Timer and sound ticks are asynchronous inputs",
+            "Clear all transient mapped-event status values",
+            "Apply the configured object-0/global-direction mirror",
+            "Perform the pre-logic autonomous-motion",
+            "execute logic 0",
+            "without repeating pacing, input, direction mirroring",
+            "Clear object event bytes `v4` and `v5`",
+            "skip that entire post-logic object-update stage",
+        )
+        for phrase in required:
+            with self.subTest(phrase=phrase):
+                self.assertIn(phrase, normalized_cycle)
+
+        positions = [normalized_cycle.index(phrase) for phrase in required[1:5]]
+        self.assertEqual(positions, sorted(positions))
+
     def test_conformance_matrix_classifies_claim_boundaries(self) -> None:
         matrix = (SPEC_SRC / "conformance_matrix.md").read_text(encoding="ascii")
         required = (

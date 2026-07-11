@@ -28,6 +28,11 @@ Case identifiers are unique within a bundle. A comparison requires every
 reference case. A missing case, an unexpected additional case, an error, or a
 different deterministic observation is a failed comparison.
 
+A successful case contains at least one observation. The reference case
+defines which observation fields are required. A candidate may emit additional
+observation fields, but it must exactly satisfy every observation required by
+the reference.
+
 ## Canonical visual frame
 
 The `frame` observation represents the visible game area after the case's
@@ -52,11 +57,50 @@ artifacts, a comparator may additionally report the number and bounding box of
 differing logical pixels. Producers must verify that an artifact's digest
 matches its declared `sha256` before comparing it.
 
+## Portable values
+
+The `values` observation is a JSON object containing named semantic results.
+It is used when pixels are not the complete result, including script-visible
+state, input outcomes, ordered sound commands, and save/restore transitions.
+Its member names and shapes are defined by the individual test case.
+
+Values may contain only JSON null, Boolean, integer, string, array, and object
+values. Floating-point numbers are not allowed. Object keys are strings and
+their serialized order is insignificant. Array order is significant. Integer
+comparison is mathematical and does not prescribe a host integer width.
+
+A comparison recursively requires identical member names, value types, scalar
+values, and array order. Difference paths use JSON Pointer escaping. For
+example, a mismatch in variable `v3` under a `variables` member is reported at
+`/variables/v3`.
+
+Names describe externally observable concepts rather than interpreter storage.
+For example, a case may emit:
+
+```json
+{
+  "values": {
+    "variables": {"v3": 7},
+    "flags": {"f9": true},
+    "sound_commands": [
+      {"tick": 0, "channel": 0, "kind": "tone", "divisor": 1193},
+      {"tick": 3, "channel": 0, "kind": "silence"}
+    ]
+  }
+}
+```
+
+A persistence case should report the semantic state and continuation outcome
+that survive a save/restore operation. It should not expose an implementation's
+memory addresses or internal object representation. Raw save bytes are an
+appropriate additional result only for a profile whose binary save interchange
+format is part of that case's conformance claim.
+
 ## Nondeterministic cases
 
-Only cases with one required deterministic observation belong in a strict
-digest-based suite. Behavior that permits multiple outcomes requires a case
-specific acceptance rule or a controlled input such as a supplied random
+Only cases whose required observations are deterministic belong in a strict
+comparison suite. Behavior that permits multiple outcomes requires a
+case-specific acceptance rule or a controlled input such as a supplied random
 choice. An exploratory observation must not be converted into a deterministic
 failure merely by recording one reference run.
 
@@ -67,5 +111,6 @@ tests a deterministic transition such as clearing random motion before the
 next movement update, may be included.
 
 An implementation in any language conforms to the interchange convention when
-it emits the fields and canonical frame bytes defined above. No particular
-adapter, executable, or test framework is required.
+it emits the required fields, canonical frame bytes, and/or portable values
+defined by the selected cases. No particular adapter, executable, or test
+framework is required.

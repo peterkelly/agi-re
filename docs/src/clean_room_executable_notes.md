@@ -11485,3 +11485,57 @@ Conclusion: KQ1 entries 34 through 37 are stale or out-of-package locations,
 not an alternate sound format. KQ4D bytes beyond sound entry 255 are
 unaddressable file tail, while its reachable high anomalies are malformed or
 cross-family entries outside the valid-data contract.
+
+## 2026-07-11: top-level cycle ordering closure
+
+Goal: replace the provisional runtime-cycle summary with an instruction-backed
+ordering contract while keeping interrupt delivery details outside the portable
+specification.
+
+The decrypted SQ2 2.936 executable was regenerated from the immutable local
+game input and its main loop was disassembled with:
+
+```text
+python3 -B tools/decrypt_agi.py --game-dir games/SQ2 \
+  --output build/cleanroom/SQ2_AGI.decrypted.exe
+ndisasm -b 16 -o 0x0100 -e 0x0300 \
+  build/cleanroom/SQ2_AGI.decrypted.exe
+```
+
+Direct instruction order at image `0x0150` establishes the following call and
+state sequence:
+
+- `0x015b` calls `code.cycle.wait_for_pacing` at image `0x7f78`;
+- `0x015e` calls `code.input.clear_status_bytes` at image `0x4c23`, which
+  clears 50 bytes beginning at data `0x1218`, then the loop clears flags 2 and
+  4;
+- `0x0175` calls `code.input.update_timed_events` at image `0x61f2`, followed
+  by `code.input.process_cycle_events` at image `0x357c`; that helper clears
+  data bytes `0x001c` (`v19`) and `0x0012` (`v9`) before processing events;
+- the loop mirrors the object-0/global direction state, then calls the
+  pre-logic object pass at image `0x0644`;
+- after snapshotting `v3` and flag 9, `0x01b4` calls
+  `code.control.save_abort_context` at image `0x7ee0`, and `0x01bd` invokes
+  logic 0;
+- a zero logic return clears `v9`, `v5`, `v4`, and flag 2, refreshes the saved
+  `v3` value, and re-enters logic 0 without branching through the pacing,
+  input, direction-mirror, or pre-motion calls;
+- normal return restores object 0's direction and conditionally redraws the
+  status line when the saved `v3` or flag-9 values differ;
+- the loop clears `v5`, `v4`, and flags 5, 6, and 12; and
+- alternate text mode at data `0x1757` suppresses the final object/frame
+  update call at image `0x0563`; otherwise that call runs before the loop
+  returns to pacing.
+
+The separately examined timing path increments the pacing and elapsed-time
+counters independently of this call chain. Existing sound evidence likewise
+places sound progression in timer-driven work. The behavioral contract
+therefore models timer and sound ticks as asynchronous inputs observed at cycle
+boundaries, not as a fictitious ordered call inside the synchronous loop. It
+does not require an independent implementation to reproduce DOS interrupt
+delivery between individual bytecode instructions.
+
+Conclusion: the 2.936 top-level cycle now has a complete portable phase order,
+including exact transient-state lifetimes, immediate logic-0 re-entry, and the
+alternate-text-mode update gate. Instruction addresses and helper boundaries
+remain evidence-only and are not part of the clean-room specification.

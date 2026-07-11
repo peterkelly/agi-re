@@ -35,6 +35,10 @@ Address columns use these meanings:
 | --- | --- | --- |
 | `code.engine.main_cycle` | image `0x0150` | Top-level interpreter cycle. Calls input/system helpers, mirrors object-0 direction/global direction state (`[0x0139] == 0` copies object0 `+0x21` to `[0x000f]`, nonzero copies `[0x000f]` to object0), runs pre-motion mode updates, invokes logic 0 through `code.logic.call_logic`, restores object0 `+0x21` from `[0x000f]`, then runs `code.object.frame_timer_update` unless text-attribute mode byte `[0x1757]` is nonzero. |
 | `code.engine.wait_for_cycle_counter` | image `0x7f78` | Top-level cycle throttle called near the start of `code.engine.main_cycle`; reads byte `DS:0x0013` (`v10`), spins until word `[0x1784]` is at least that value, then clears `[0x1784]`. |
+| `code.input.clear_status_bytes` | image `0x4c23` | Clears 50 bytes at `data.input.mapped_status_bytes` before each synchronous input phase. |
+| `code.input.update_timed_events` | image `0x61f2` | Updates enabled timed input sources against the tick counter and enqueues changed movement/status events before ordinary cycle input dispatch. |
+| `code.input.process_cycle_events` | image `0x357c` | Clears `v19` and `v9`, services requested modal menu interaction, drains pending events, and updates raw-key, direction, and mapped-status state for the cycle. |
+| `code.control.save_abort_context` | image `0x7ee0` | Saves the current control context used by room/restart-style nonlocal returns so logic 0 can be re-entered without repeating pre-logic cycle phases. |
 | `code.logic.interpret_main` | image `0x293c` | Main logic bytecode loop. Reads opcodes from current logic bytecode and dispatches actions/conditions. |
 | `code.logic.action_dispatch` | image `0x02c4` | Action dispatcher. Uses `table.logic.action_dispatch`. |
 | `code.logic.condition_dispatch` | image `0x07e3` | Condition dispatcher. Uses `table.logic.condition_dispatch`. |
@@ -346,6 +350,7 @@ Address columns use these meanings:
 | `data.vars.current_room` | data `0x0009` | Byte variable 0. `code.room.switch_state` writes the destination room here; SQ2 logic 0 later dispatches room logic with `call_logic_var(v0)` at logic bytecode offset `0x053e`. |
 | `data.vars.previous_room` | data `0x000a` | Byte variable 1. `code.room.switch_state` copies the prior current-room byte here before overwriting `data.vars.current_room`. Many room-entry blocks branch on this value. |
 | `data.vars.entry_boundary` | data `0x000b` | Byte variable 2. `code.room.switch_state` uses values `1..4` to place object 0 at a room edge, then clears the byte. |
+| `data.input.mapped_status_bytes` | data `0x1218..0x1249` | Fifty transient status bytes tested by condition `0x0c`; cleared before each cycle's timed/input event processing. |
 | `data.vars.free_memory_pages_0011` | data `0x0011` | Byte variable 8. `code.heap.update_free_memory_var` stores the high byte of available heap bytes here after successful allocations and dynamic-state resets. |
 | `data.motion.global_direction_000f` | data `0x000f` | Global direction byte mirrored with object0 byte `+0x21` by `code.engine.main_cycle`; also written by first-object motion helpers. |
 | `data.motion.direction_mirror_selector_0139` | data `0x0139` | Word selector for the pre-logic object0/global direction mirror. Action `0x83` clears it; action `0x84`, room switch, and selected first-object stop/reset helpers set it. |

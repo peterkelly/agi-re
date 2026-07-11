@@ -33,6 +33,18 @@ work is applying the completed workflow to newly supplied interpreter builds,
 followed by any concrete renderer edge behavior that still affects the portable
 full-EGA target.
 
+The top-level 2.936 cycle is now instruction-backed and promoted as a portable
+phase order. Timer and sound ticks are asynchronous inputs; synchronous work
+orders pacing, transient input reset, input processing, direction mirroring,
+pre-motion, logic-0 execution and immediate re-entry, status refresh, transient
+cleanup, and the alternate-text-mode-gated object update.
+
+Portable conformance bundles are no longer visual-only. In addition to the
+canonical 160 by 168 EGA frame, a case may carry semantic JSON `values` for
+state, input, ordered sound commands, and persistence outcomes. The comparator
+validates portable JSON types and reports typed differences by semantic path,
+without requiring DOS memory layouts or another implementation's object model.
+
 KQ2/2.411 and LSL1/2.440 are now separate promoted profiles. Both end at action
 `0xa9`, use exact-four-loop selection, lack later sound attenuation envelopes,
 and serialize a `0x05df` first save block. KQ2 has point-only pattern commands,
@@ -72,6 +84,11 @@ probes, raw command-looking operands, and relative-line underflow. The latest
 broad report is `build/compatibility-suite/qemu_broad_002.json`, which includes
 the smoke layer plus the eight-picture timed carousel and the 19-case
 view/object stress carousel. Every selected command returned zero.
+
+The user intentionally deleted `build/`. Those report paths are historical
+generated-artifact locations rather than preserved project inputs. The source
+tools and private `games/` inputs regenerate required fixtures and reports; no
+specification evidence depends on retaining generated disk images or captures.
 
 The latest resource-lifecycle source pass corrected an overly map-like clean
 model. Picture and view retention is ordered within each family. Discarding a
@@ -239,8 +256,9 @@ clearing.
 
 ## Immediate Next Work
 
-1. Apply the cross-version workflow to future local inputs and inspect every
-   unmatched role before deciding whether a new profile variant is needed.
+1. Obtain complete MH1/MH2 resource sets before making whole-game claims for
+   those inputs. Apply the cross-version workflow to future complete inputs and
+   inspect every unmatched role before defining a new profile variant.
 2. Continue v3 and other cross-version probes from source-mapped deltas only
    when the portable specification still has an observable ambiguity.
 3. Keep source-first renderer work going only when disassembly reveals a
@@ -259,8 +277,10 @@ clearing.
 
 The remaining open rows in `PROGRESS.md` are mostly conditional:
 
-- Cross-version work is no longer blocked on inputs. It should be prioritized
-  by the value of an observed version difference to the behavioral spec.
+- Most mapped cross-version work is no longer blocked. Whole-game MH1/MH2
+  claims remain blocked by their incomplete local resource sets; other work
+  should be prioritized by the value of an observed version difference to the
+  behavioral spec.
 - Non-EGA display/input paths are outside the current full-EGA compatibility
   target unless another local interpreter version requires them.
 - Menu arrow navigation and a few UI paths would benefit from direct event

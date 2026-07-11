@@ -141,15 +141,41 @@ logical image and input coordinate behavior are preserved.
 
 ## Top-level cycle order
 
-One engine cycle has this observable order:
+Timer and sound ticks are asynchronous inputs to the cycle rather than an
+ordered substep inside it. Timer ticks advance the elapsed-time state and the
+cycle-pacing counter. While sound is active, sound ticks advance the playback
+state specified in the sound chapter. A deterministic conformance test must
+therefore supply the same tick and input-event sequence relative to cycle
+boundaries; an implementation does not have to reproduce interrupt delivery
+between individual bytecode instructions.
 
-1. Process pending input, sound ticks, display maintenance, and cycle pacing.
-2. Perform the pre-logic autonomous motion and configured-boundary pass for
+At each synchronous cycle boundary, the engine performs this observable order:
+
+1. Wait until the pacing counter reaches `v10`, then clear that counter for the
+   next accumulation period.
+2. Clear all transient mapped-event status values and clear `f2` and `f4`.
+3. Update due timed input sources, then process pending input and any requested
+   modal menu interaction. This input phase clears the previous raw-key byte
+   `v19` and parser count/error byte `v9` before consuming events. Mapped status
+   events produced here remain visible to logic for the rest of the cycle.
+4. Apply the configured object-0/global-direction mirror.
+5. Perform the pre-logic autonomous-motion and configured-boundary pass for
    eligible objects.
-3. Execute logic 0, including any nested logic calls made by that bytecode.
-4. When object updating is enabled for the cycle, perform direction-based loop
-   selection, animation timers, object movement, drawing, and dirty-region
-   refresh.
+6. Remember the status-line values `v3` and `f9`, then execute logic 0,
+   including nested logic calls made by that bytecode.
+7. If logic execution requests immediate re-entry, clear `v9`, `v4`, `v5`, and
+   `f2`, update the remembered `v3` value, and invoke logic 0 again without
+   repeating pacing, input, direction mirroring, or pre-logic motion. Repeat
+   this rule until logic 0 completes normally.
+8. Restore object 0's direction from the global direction byte. If `v3` or
+   `f9` changed during logic execution and the status line is enabled, redraw
+   the status line.
+9. Clear object event bytes `v4` and `v5` and cycle flags `f5`, `f6`, and
+   `f12`. These values remain available to logic until this point.
+10. If alternate text mode is inactive, perform direction-based loop
+    selection, animation timers, object movement, drawing, and dirty-region
+    refresh. If alternate text mode is active, skip that entire post-logic
+    object-update stage for this cycle.
 
 `v10` is the cycle-speed value. The pacing stage waits until at least that many
 timer increments have accumulated and then begins a new accumulation period.

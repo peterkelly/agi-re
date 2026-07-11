@@ -26788,3 +26788,74 @@ Progress updates and outcomes:
 
       Action/result: Passed 414 tests with one optional historical-save skip,
       built both mdBooks, checked opcode evidence, and passed `git diff --check`.
+
+3489. Reported: "I’m auditing the partial core runtime contract."
+
+      Action/result: Compared `spec/src/runtime_state.md` against promoted
+      input, object, sound, room, and persistence subsystem contracts.
+
+3490. Reported: "The first cycle stage is too vague."
+
+      Action/result: Identified that timer/sound IRQ work was incorrectly
+      grouped with synchronous pacing and input processing.
+
+3491. Reported: "I’m reading the main-cycle instructions directly."
+
+      Action/result: Regenerated the decrypted SQ2 executable and disassembled
+      image `0x0150`, plus the six helpers called around the logic boundary.
+
+3492. Reported: "The cycle ordering and state lifetimes are now exact."
+
+      Action/result: Separated asynchronous ticks; mapped transient status,
+      input, direction, pre-motion, logic re-entry, cleanup, and post-update
+      phases; promoted core runtime coverage to complete.
+
+3493. Reported: "The first guard exposed a Markdown-wrapping assumption."
+
+      Action/result: Scoped the structural check to the cycle section and
+      normalized whitespace so it tests the behavioral contract rather than
+      source line breaks.
+
+3494. Reported: "The instruction-level cycle trail is now preserved."
+
+      Action/result: Recorded the reproducible disassembly command, direct
+      call order, transient-state clears, re-entry branch, text-mode gate, and
+      asynchronous-tick inference in the evidence book.
+
+3495. Reported: "The next locally actionable gap is portable nonvisual results."
+
+      Action/result: Chose the compatibility bundle's frame-only implementation
+      gap after classifying incomplete MH inputs and alternate display/IRQ work
+      as blocked or conditional under the current target.
+
+3496. Reported: "The bundle now carries semantic values without engine layout."
+
+      Action/result: Added canonical JSON observations for deterministic state,
+      input, ordered sound commands, and persistence outcomes, with recursive
+      typed comparison and JSON Pointer difference paths.
+
+3497. Reported: "The complete local verification gate passes."
+
+      Action/result: Passed 418 tests before the final artifact-validation
+      guard, with three optional generated-GR-save
+      skips and the intentionally absent historical-MG-save skip; checked
+      opcode evidence, built both mdBooks, and passed `git diff --check`.
+
+3498. Reported: "The result-format review tightened canonical validation."
+
+      Action/result: Rejected malformed known observations and statuses,
+      required lowercase hexadecimal frame digests, and verified artifact
+      length and EGA-index range in addition to content hashes.
+
+3499. Reported: "The tightened format passes the complete gate."
+
+      Action/result: Passed 419 tests with the same four expected optional
+      skips, checked opcode evidence, built both mdBooks, and passed
+      `git diff --check` after the final validation guard.
+
+3500. Reported: "The handoff summary had fallen behind the dashboard."
+
+      Action/result: Recorded the completed cycle and nonvisual-result work,
+      marked deleted `build/` paths as historical generated locations, and
+      restored the incomplete MH1/MH2 resource-set blocker to the next-work
+      summary.

@@ -8,6 +8,7 @@ from collections import Counter
 import hashlib
 import json
 import os
+import re
 from pathlib import Path
 
 from ppm_tools import read_ppm
@@ -24,6 +25,7 @@ EGA_PALETTE = (
     (0x55, 0x55, 0x55), (0x55, 0x55, 0xFF), (0x55, 0xFF, 0x55), (0x55, 0xFF, 0xFF),
     (0xFF, 0x55, 0x55), (0xFF, 0x55, 0xFF), (0xFF, 0xFF, 0x55), (0xFF, 0xFF, 0xFF),
 )
+OBSERVATION_FIELDS = ("frame", "values")
 
 
 def nearest_ega_index(rgb: tuple[int, int, int]) -> int:
@@ -66,6 +68,30 @@ def frame_observation(frame: bytes, artifact: str | None = None) -> dict[str, ob
     if artifact is not None:
         observation["artifact"] = artifact
     return observation
+
+
+def validate_portable_value(value: object, path: str = "values") -> None:
+    if value is None or type(value) in (bool, int, str):
+        return
+    if isinstance(value, list):
+        for index, item in enumerate(value):
+            validate_portable_value(item, f"{path}/{index}")
+        return
+    if isinstance(value, dict):
+        for key, item in value.items():
+            if not isinstance(key, str):
+                raise ValueError(f"{path}: object keys must be strings")
+            escaped = key.replace("~", "~0").replace("/", "~1")
+            validate_portable_value(item, f"{path}/{escaped}")
+        return
+    raise ValueError(f"{path}: values must use null, Boolean, integer, string, array, or object")
+
+
+def values_observation(values: dict[str, object]) -> dict[str, object]:
+    if not isinstance(values, dict):
+        raise ValueError("values observation must be an object")
+    validate_portable_value(values)
+    return values
 
 
 def artifact_filename(case_id: str) -> str:
@@ -114,7 +140,6 @@ def export_reports(
 
             exported: dict[str, object] = {
                 "id": case_id,
-                "status": "ok" if completed else "error",
                 "source_report": os.path.relpath(report_path, output.parent),
             }
             capture_value = source_case.get("capture")
@@ -126,8 +151,15 @@ def export_reports(
                     frame,
                     os.path.relpath(artifact_path, output.parent),
                 )
-            else:
-                exported["error"] = source_case.get("error") or "capture artifact unavailable"
+            values = source_case.get("values")
+            if values is not None:
+                exported["values"] = values_observation(values)
+            has_observation = any(field in exported for field in OBSERVATION_FIELDS)
+            exported["status"] = "ok" if completed and has_observation else "error"
+            if not has_observation:
+                exported["error"] = source_case.get("error") or "portable observation unavailable"
+            elif not completed:
+                exported["error"] = source_case.get("error") or "source case did not complete"
             cases.append(exported)
 
     result = {
@@ -155,8 +187,13 @@ def validate_bundle(bundle: dict[str, object], path: Path) -> None:
             raise ValueError(f"{path}: duplicate case id {case['id']}")
         seen.add(case["id"])
         frame = case.get("frame")
-        if case.get("status") == "ok" and not isinstance(frame, dict):
-            raise ValueError(f"{path}: successful case {case['id']} lacks a frame")
+        values = case.get("values")
+        if case.get("status") not in ("ok", "error"):
+            raise ValueError(f"{path}: case {case['id']} has an invalid status")
+        if case.get("status") == "ok" and not any(field in case for field in OBSERVATION_FIELDS):
+            raise ValueError(f"{path}: successful case {case['id']} lacks an observation")
+        if frame is not None and not isinstance(frame, dict):
+            raise ValueError(f"{path}: case {case['id']} frame observation must be an object")
         if isinstance(frame, dict):
             if (
                 frame.get("width") != FRAME_WIDTH
@@ -165,8 +202,12 @@ def validate_bundle(bundle: dict[str, object], path: Path) -> None:
             ):
                 raise ValueError(f"{path}: case {case['id']} has a noncanonical frame description")
             digest = frame.get("sha256")
-            if not isinstance(digest, str) or len(digest) != 64:
+            if not isinstance(digest, str) or re.fullmatch(r"[0-9a-f]{64}", digest) is None:
                 raise ValueError(f"{path}: case {case['id']} has an invalid frame digest")
+        if values is not None:
+            if not isinstance(values, dict):
+                raise ValueError(f"{path}: case {case['id']} values observation must be an object")
+            validate_portable_value(values, f"case/{case['id']}/values")
 
 
 def load_artifact(bundle_path: Path, case: dict[str, object]) -> bytes | None:
@@ -180,6 +221,8 @@ def load_artifact(bundle_path: Path, case: dict[str, object]) -> bytes | None:
     expected = frame.get("sha256")
     if hashlib.sha256(data).hexdigest() != expected:
         raise ValueError(f"{bundle_path}: artifact digest mismatch for {case.get('id')}")
+    if len(data) != FRAME_WIDTH * FRAME_HEIGHT or any(pixel > 15 for pixel in data):
+        raise ValueError(f"{bundle_path}: noncanonical frame artifact for {case.get('id')}")
     return data
 
 
@@ -203,6 +246,36 @@ def frame_difference(left: bytes, right: bytes) -> dict[str, object]:
     }
 
 
+def value_differences(left: object, right: object, path: str = "") -> list[dict[str, object]]:
+    if type(left) is not type(right):
+        return [{"path": path or "/", "status": "different", "expected": left, "actual": right}]
+    if isinstance(left, dict):
+        differences: list[dict[str, object]] = []
+        for key in sorted(set(left) | set(right)):
+            child_path = f"{path}/{key.replace('~', '~0').replace('/', '~1')}"
+            if key not in right:
+                differences.append({"path": child_path, "status": "missing", "expected": left[key]})
+            elif key not in left:
+                differences.append({"path": child_path, "status": "unexpected", "actual": right[key]})
+            else:
+                differences.extend(value_differences(left[key], right[key], child_path))
+        return differences
+    if isinstance(left, list):
+        differences = []
+        for index in range(max(len(left), len(right))):
+            child_path = f"{path}/{index}"
+            if index >= len(right):
+                differences.append({"path": child_path, "status": "missing", "expected": left[index]})
+            elif index >= len(left):
+                differences.append({"path": child_path, "status": "unexpected", "actual": right[index]})
+            else:
+                differences.extend(value_differences(left[index], right[index], child_path))
+        return differences
+    if left != right:
+        return [{"path": path or "/", "status": "different", "expected": left, "actual": right}]
+    return []
+
+
 def compare_bundles(reference_path: Path, candidate_path: Path) -> dict[str, object]:
     reference = json.loads(reference_path.read_text(encoding="ascii"))
     candidate = json.loads(candidate_path.read_text(encoding="ascii"))
@@ -221,18 +294,54 @@ def compare_bundles(reference_path: Path, candidate_path: Path) -> dict[str, obj
         if left.get("status") != "ok" or right.get("status") != "ok":
             results.append({"id": case_id, "status": "error", "error": "case did not complete successfully"})
             continue
+        observation_results: dict[str, object] = {}
+        matched = True
         left_frame = left.get("frame")
-        right_frame = right.get("frame")
-        if not isinstance(left_frame, dict) or not isinstance(right_frame, dict):
-            results.append({"id": case_id, "status": "error", "error": "frame observation unavailable"})
-            continue
-        if left_frame.get("sha256") == right_frame.get("sha256"):
-            results.append({"id": case_id, "status": "match", "mismatches": 0})
-            continue
-        left_data = load_artifact(reference_path, left)
-        right_data = load_artifact(candidate_path, right)
-        difference = None if left_data is None or right_data is None else frame_difference(left_data, right_data)
-        results.append({"id": case_id, "status": "mismatch", "difference": difference})
+        if isinstance(left_frame, dict):
+            right_frame = right.get("frame")
+            if not isinstance(right_frame, dict):
+                matched = False
+                observation_results["frame"] = {"status": "missing"}
+            elif left_frame.get("sha256") == right_frame.get("sha256"):
+                observation_results["frame"] = {"status": "match", "mismatches": 0}
+            else:
+                matched = False
+                left_data = load_artifact(reference_path, left)
+                right_data = load_artifact(candidate_path, right)
+                difference = (
+                    None if left_data is None or right_data is None else frame_difference(left_data, right_data)
+                )
+                observation_results["frame"] = {"status": "mismatch", "difference": difference}
+
+        left_values = left.get("values")
+        if isinstance(left_values, dict):
+            right_values = right.get("values")
+            if not isinstance(right_values, dict):
+                matched = False
+                observation_results["values"] = {"status": "missing"}
+            else:
+                differences = value_differences(left_values, right_values)
+                if differences:
+                    matched = False
+                    observation_results["values"] = {
+                        "status": "mismatch",
+                        "differences": differences,
+                    }
+                else:
+                    observation_results["values"] = {"status": "match"}
+
+        result: dict[str, object] = {
+            "id": case_id,
+            "status": "match" if matched else "mismatch",
+            "observations": observation_results,
+        }
+        frame_result = observation_results.get("frame")
+        if isinstance(frame_result, dict):
+            if frame_result.get("status") == "match":
+                result["mismatches"] = 0
+            elif frame_result.get("status") == "mismatch":
+                result["difference"] = frame_result.get("difference")
+        results.append(result)
 
     for case_id in sorted(set(candidate_cases) - set(reference_cases)):
         results.append({"id": case_id, "status": "unexpected"})

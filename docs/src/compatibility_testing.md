@@ -117,6 +117,16 @@ companion comparator accepts bundles from any producer, identifies missing or
 unexpected cases, compares digests, and reports a pixel mismatch count and
 bounding box when both sides provide artifacts.
 
+The same bundle format supports a `values` observation for deterministic
+nonvisual results. Source reports may attach a JSON object under `values`; the
+exporter preserves it without translating it through DOS memory. The comparator
+recursively compares objects and ordered arrays and reports JSON Pointer paths
+for missing, unexpected, or different values. Floating-point values are
+rejected so producers in different languages do not inherit host rounding or
+JSON-number ambiguities. This permits cases to record semantic variables,
+flags, parsed-input outcomes, ordered sound commands, and restored state while
+remaining independent of interpreter addresses and internal structures.
+
 Export the current deterministic original-engine visual corpus with:
 
 ```bash
