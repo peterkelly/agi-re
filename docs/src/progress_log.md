@@ -26380,3 +26380,11 @@ Progress updates and outcomes:
       Action/result: All 390 local tests pass, both mdBooks build, and
       `git diff --check` reports no whitespace errors; no QEMU confirmation was
       needed because the promoted deltas are explicit disassembly observations.
+
+3415. Reported: "The audit found several dashboard omissions, not new
+      behavioral discoveries."
+
+      Action/result: Expanded `PROGRESS.md` with the early plain/XOR metadata
+      boundary, XMAS distribution packaging, BC/MG/SQ1.22 save dimensions,
+      partial-profile opcode ranges, MH1/MH2 completeness results, additional
+      symbolic-map coverage, and the now-repeated cross-version workflow.

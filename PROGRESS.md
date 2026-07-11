@@ -29,8 +29,9 @@ better understood, or a new remaining-work item is discovered.
   `0x6e`/`0x83`/`0x8e`/`0xaa`/`0xad` source-backed).
 - Logic condition opcodes: all 19 of 19 are QEMU-validated.
 - Main remaining risk areas: full picture/view renderer edge behavior, final
-  compatibility suite breadth, additional cross-version profiles, and
-  promoting the accumulated evidence into the standalone behavioral
+  compatibility suite breadth, broad subsystem maps for partial 2.089/2.272
+  profiles, the MG object/save discrepancy, incomplete MH1/MH2 resource sets,
+  and promoting accumulated evidence into the standalone behavioral
   specification.
 - Picture/view resource retention is now source-modeled as ordered within each
   family. Discard actions truncate the selected resource and every later
@@ -44,8 +45,9 @@ better understood, or a new remaining-work item is discovered.
   SQ2 now has a repeatable helper and report; GR's extra action slots
   `0xb0..0xb5` are source-backed from disassembly, while only shared condition
   entries `0x00..0x12` are structured table records in the observed
-  `AGIDATA.OVL`. Dynamic v3 delta probes now QEMU-validate GR action `0x12`
-  remapping immediate room targets `0x7e..0x80` to `0x49`, the expanded key-map
+  `AGIDATA.OVL`. Dynamic v3 delta probes now QEMU-validate the Gold Rush
+  build's action `0x12` remapping immediate room targets `0x7e..0x80` to
+  `0x49`, the expanded key-map
   slot count, the GR frame-selection gate, blank-prefix and signature-prefixed
   GR save extractions whose third block round-trips through the observed v3 XOR
   transform, a signature-prefixed GR restore round trip that returns through
@@ -111,7 +113,16 @@ better understood, or a new remaining-work item is discovered.
   XMAS accepts through `0xa0`; its `0x86` has the later selector, while menu
   actions `0x9c..0xa0` are operand-consuming no-ops. Their `OBJECT` files are
   plain expanded metadata rather than repeating-key XOR data. A source pass
-  also records their drawn-object position-update ordering difference.
+  also records their drawn-object position-update ordering difference. XMAS's
+  active files are the original multi-disk distribution variant, whose disk
+  number nibbles and single selected `VOL.0` are not an installed-layout
+  missing-volume error.
+- Original saves add selected-game dimensions for BC, MG, and SQ1.22. BC uses
+  blocks `0x05df`, `0x02db`, `0x0135`, and `0x00fe`; MG uses `0x05df`,
+  `0x0387`, `0x0005`, and `0x00dc`; SQ1.22 uses `0x05e1`, `0x0306`,
+  `0x0148`, and `0x0064`. All retain the variable fifth-block grammar. BC and
+  SQ1.22 dimensions agree with decoded metadata; MG's 21 saved object records
+  conflict with the current interpretation of its metadata header.
 - Generated original-engine fixture builders now treat `games/` as immutable:
   they copy the selected game input to a generated destination, make copied
   files writable, and reject fixture destinations under `games/`. The v2
@@ -132,6 +143,9 @@ better understood, or a new remaining-work item is discovered.
   current focused audits find no immediate reference to unreadable KQ1/KQ4D
   sound entries or KQ4's missing-volume picture/view entries. KQ4 picture
   selection is variable-based, so that last result is not a reachability proof.
+  The tolerant audit now continues past unreadable source logics: MH1 readable
+  scripts directly reference six unreadable views, while MH2's readable subset
+  has no direct bad reference but omits 31 unreadable logics.
 
 ## Behavioral Specification Coverage
 
@@ -154,7 +168,9 @@ better understood, or a new remaining-work item is discovered.
 - [x] Resource containers
   - Current: `spec/src/resource_containers.md` specifies split v2 and combined
     v3 directories, packed entries, volume records, direct payloads,
-    dictionary expansion, and picture-nibble expansion for valid data.
+    dictionary expansion, picture-nibble expansion, and inventory metadata for
+    valid data. Profiles 2.089/2.272 store expanded `OBJECT` metadata directly;
+    later observed v2 profiles apply the repeating-key XOR transform.
 - [~] Core runtime state and cycle ordering
   - Current: `spec/src/runtime_state.md` defines portable variable, flag,
     string, parsed-word, logic activation, resource, object, inventory, logical
@@ -173,7 +189,10 @@ better understood, or a new remaining-work item is discovered.
     message XOR decoding, main-stream control flow, AND/OR/NOT condition
     grammar, all 19 condition opcodes, all 176 action opcodes `0x00..0xaf`,
     and v3 extension slots `0xb0..0xb5`. A structural test checks every accepted
-    profile opcode is represented.
+    profile opcode is represented. The partial 2.089 profile stops at `0x9a`
+    and has a zero-operand unconditional `0x86`; 2.272 stops at `0xa0`, uses
+    the later `0x86` selector, and treats `0x9c..0xa0` as operand-consuming
+    menu no-ops.
   - Remaining refinements belong to subsystem chapters, especially configured
     text-window parameters and the complete save-file contract.
 - [x] Picture command decoding and logical rendering
@@ -217,6 +236,9 @@ better understood, or a new remaining-work item is discovered.
     byte-complete structural map: 1028-byte global block with explicit reserved
     state, 23 object records, decoded 131-entry inventory/name data, 50
     replay pairs, and the same variable logic-resume grammar.
+    Original BC, MG, and SQ1.22 saves add first-four-block dimensions for their
+    selected game data, but do not yet add byte-complete state maps or an MG
+    interchange claim.
     Cross-version layout and complete-code reference analysis classify the
     former block-1 gaps as inactive key-map records, a reserved string bank,
     fixed reserved words, and alignment bytes. The spec defines canonical
@@ -596,8 +618,9 @@ source-mapped well enough to justify a targeted probe.
     / AGI v3 address associations for resource loading, decompression, and
     dispatch tables. `tools/game_census.py` provides the first repeatable
     inventory step for additional local interpreters before label mapping.
-    Dispatch-table base detection now maps KQ4D v3 action/condition tables at
-    `AGIDATA.OVL:0x0620` and `0x0942`.
+    Dispatch-table base detection now maps KQ4D/MH1 v3 tables and recognizes
+    both observed v2 table trailers. New address associations cover SQ1,
+    XMAS, BC, MG, MH1, and MH2, including the Gold Rush-only room-remap helper.
   - Remaining: continue assigning role-based labels for cross-version work,
     especially where later interpreters add features or move routines.
 - [~] Startup, command-line flags, adapter selection, and display modes
@@ -623,9 +646,12 @@ source-mapped well enough to justify a targeted probe.
     allocator addresses. Linear disassembly of all current local scripts finds
     picture/view discard in every promoted profile and confirms shipped scripts
     normally unwind retained resources in reverse load order.
+    The new census distinguishes XMAS multi-disk packaging from installed v2
+    volume naming, and the tolerant reference audit classifies MH1 as incomplete
+    while leaving MH2 inconclusive because source logics are missing.
   - Remaining: loader error-path behavior only where needed by compatibility
-    tests; apply the v3 parser to additional games/interpreters as local inputs
-    are selected.
+    tests; complete MH1/MH2 inputs are required before whole-game resource
+    claims.
 - [x] Logic resource format, messages, dispatch, and control flow
   - Evidence: logic resource docs, interpreter source pass, QEMU opcode probes.
   - Remaining: keep opcode tracker aligned with new findings.
@@ -803,7 +829,7 @@ source-mapped well enough to justify a targeted probe.
     path. `build/compatibility-suite/qemu_v3_synthetic_picture_view_001.json`
     confirms generated v3 picture-nibble picture and direct view fixtures by
     comparing blank, picture-only, and picture-plus-view captures. The current
-    current full local run passes 390 tests after adding cross-version profile
+    full local run passes 390 tests after adding cross-version profile
     coverage and ordered resource-retention transitions. The top-level runner
     now accepts `--game-dir PATH`, exports that explicit selection to child
     commands, and records it in the JSON report without choosing a default
@@ -819,8 +845,11 @@ source-mapped well enough to justify a targeted probe.
     rules for future interpreter/game versions. The first application to
     Gold Rush / AGI v3 has mapped the changed resource container, v3
     dispatch/resource routines, shared/extra opcode-table differences, and the
-    first object/view/picture runtime deltas. `docs/src/versions.md` now keeps
-    the concise per-version difference ledger. `tools/qemu_fixture.py` can now
+    first object/view/picture runtime deltas. The same workflow now covers seven
+    additional inputs: exact same-build comparison, normalized relocated-role
+    matching, partial-profile extraction, selected-save dimensions, and
+    incomplete-resource classification. `docs/src/versions.md` keeps the
+    concise per-version difference ledger. `tools/qemu_fixture.py` can now
     write copied v3 fixtures with direct logic/view records and picture-nibble
     picture records for generated Gold Rush-style copies under `build/`; a
     QEMU compatibility probe confirms those generated records run under the
