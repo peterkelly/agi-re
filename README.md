@@ -38,8 +38,9 @@ control.
 - QEMU (`qemu-system-i386` and `qemu-img`)
 - mtools (`mcopy`, `mmd`, `mdir`)
 - mdBook for documentation checks
-- Optional reverse-engineering tools used by the notes: `nasm`, `ndisasm`,
-  `rizin`, and `radare2`
+- NASM, used to build the QEMU VGA BIOS compatibility patch
+- Optional reverse-engineering tools used by the notes: `ndisasm`, `rizin`,
+  and `radare2`
 
 Build both books with:
 
@@ -84,9 +85,11 @@ python3 -B tools/setup_freedos_image.py --force --copy-game --game-dir games/SQ2
 
 The script downloads `FD14-LiteUSB.zip`, checks its SHA-256, extracts the raw
 disk image to `build/freedos/freedos.img`, detects the FAT partition offset for
-mtools, and patches the root boot scripts so QEMU should land at a DOS prompt.
-Use `--url` and `--sha256` to test a newer FreeDOS release when the official
-stable download changes.
+mtools, patches the root boot scripts so QEMU should land at a DOS prompt, and
+builds the VGA BIOS compatibility ROM described below. Use `--url` and
+`--sha256` to test a newer FreeDOS release when the official stable download
+changes. Use `--skip-vgabios` only when intentionally testing QEMU's bundled
+VGA firmware.
 
 ## Working with the image
 
@@ -128,6 +131,8 @@ Launch the generated image with QEMU:
 ```bash
 qemu-system-i386 -m 16 -boot c \
   -drive file=build/freedos/freedos.img,format=raw,if=ide,index=0,media=disk \
+  -vga none \
+  -device VGA,romfile="$(pwd)/build/vgabios/vgabios-0.7a-int43.bin" \
   -display vnc=127.0.0.1:5 -monitor stdio
 ```
 
@@ -159,6 +164,54 @@ Convert a QEMU screenshot for viewing with ImageMagick:
 ```bash
 magick build/freedos/screen.ppm build/freedos/screen.png
 ```
+
+## QEMU VGA BIOS compatibility
+
+QEMU's supplied VGA BIOS does not honor a temporary change to the BIOS
+`INT 43h` font vector when its graphics-mode character service draws a glyph.
+Some locally observed DOS interpreters depend on that standard BIOS interface
+to draw inverse text. The result under an unmodified QEMU installation is a
+dialog filled with repetitions of one glyph even though the game and the
+8-by-8 font data are intact.
+
+Build the local compatibility VGA BIOS with:
+
+```bash
+python3 -B tools/setup_vgabios.py --force
+```
+
+The script verifies the pristine LGPL VGABIOS 0.7a option ROM staged at
+`third_party/vgabios/vgabios-0.7a.bin`, assembles the planar EGA glyph-fetch
+patch, validates the exact binary patch locations, updates the option-ROM
+checksum, and verifies the deterministic output digest. The generated ROM is
+written under disposable `build/` output and is never committed.
+
+The tracked binary is the unmodified official upstream release. Its license,
+source-release URL, binary/source checksums, and provenance are recorded in
+`third_party/vgabios/README.md`. The complete upstream source remains available
+from the linked official Savannah archive.
+
+Launch QEMU with the patched option ROM by disabling the default VGA device
+and supplying an explicit standard VGA device. Use an absolute ROM path:
+
+```bash
+qemu-system-i386 -m 16 -boot c \
+  -drive file=build/freedos/freedos.img,format=raw,if=ide,index=0,media=disk \
+  -vga none \
+  -device VGA,romfile="$(pwd)/build/vgabios/vgabios-0.7a-int43.bin" \
+  -display vnc=127.0.0.1:5 -monitor stdio
+```
+
+This is an emulator-firmware compatibility workaround. It does not modify a
+game directory, game executable, or the FreeDOS image, and `FIXAGI.COM` is not
+needed with it. A utility that merely copies font bytes to `F000:FA6E` cannot
+fix this case because the failure is in the VGA BIOS glyph-fetch path rather
+than in the contents of that system-BIOS address.
+
+The automated QEMU harnesses use this ROM automatically whenever it exists at
+the generated default path. Set `AGI_VGABIOS=/path/to/another.bin` to compare a
+different option ROM, or set `AGI_VGABIOS=default` to deliberately use QEMU's
+bundled VGA BIOS.
 
 ## Validation
 

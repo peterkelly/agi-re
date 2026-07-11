@@ -11539,3 +11539,130 @@ Conclusion: the 2.936 top-level cycle now has a complete portable phase order,
 including exact transient-state lifetimes, immediate logic-0 re-entry, and the
 alternate-text-mode update gate. Instruction addresses and helper boundaries
 remain evidence-only and are not part of the clean-room specification.
+
+## 2026-07-11: QEMU inverse-text corruption and VGA BIOS patch
+
+Goal: determine why SQ2 2.936 produces repeated glyphs in black-on-white text
+under QEMU, distinguish game behavior from emulator behavior, and produce a
+reproducible workaround that does not modify the immutable game input.
+
+### Font-address helper audit
+
+The initial `FIXAGI.COM` experiment asked `INT 10h/AX=1130h, BH=03h` for the
+active 8-by-8 font, enabled the i440FX `F0000h` shadow for writes, and copied
+1024 bytes to `F000:FA6E`. Static inspection found that its original copy loop
+changed `DS` before loading the saved source offset. The subsequent
+`mov si,[srcoff]` therefore read from the VGA ROM segment rather than from the
+COM program. Memory dumps confirmed that this version replaced a correct font
+with unrelated bytes.
+
+After moving the saved-offset load before the `DS` change and adding a
+byte-for-byte verification pass, the helper copied the intended font. The
+source and destination font SHA-256 was:
+
+```text
+4cd5079f275e2544bd396e9acd38895f88cba007be4b7069e9e2628166801413
+```
+
+The installed QEMU system BIOS already contains that same 1024-byte table at
+the ROM location corresponding to physical `F000:FA6E`. Leaving the i440FX
+PAM0 region read-only (`10h`), write-only (`20h`), or read/write (`30h`) did
+not change the corrupted dialog. The font remained intact while SQ2 ran.
+Changing from QEMU standard VGA to QEMU Cirrus VGA also reproduced the same
+failure. These observations reject missing font bytes, shadow write
+protection, and the selected emulated VGA card as causes.
+
+### Interpreter instruction path
+
+Disassembly of the decrypted SQ2 executable identified the graphics glyph
+preparation helper at image `0x2c55`. For ordinary characters it reads eight
+bytes from `F000:FA6E + character * 8` into a scratch glyph at data offset
+`0x0ea6`. The inverse path complements the four copied words and returns
+character byte `80h`.
+
+The caller around image `0x2aa5` saves interrupt vector `43h`, temporarily
+sets that vector so character `80h` resolves to the scratch glyph, invokes BIOS
+`INT 10h/AH=09h`, and restores the vector. This means the interpreter does not
+directly write inverse glyph pixels in this path; it asks the video BIOS to
+draw from a temporary font vector.
+
+A QEMU GDB-stub/rizin trace stopped on the first inverse dialog character,
+`S`. The source glyph at physical `0xffd06` was:
+
+```text
+78 cc e0 70 1c cc 78 00
+```
+
+The copy at the runtime scratch address was identical, and the inversion
+produced:
+
+```text
+87 33 1f 8f e3 33 87 ff
+```
+
+Immediately before `INT 10h`, vector `43h` contained `103b:0aa6`, the BIOS
+character height was 8, and therefore character `80h` selected exactly the
+scratch glyph at `103b:0ea6`. Registers included `AX=ff80`, `BX=000f`, and
+`CX=0001`. A hardware read watchpoint on the scratch glyph did not trigger
+during the BIOS call. The firmware did not dereference the vector SQ2 had
+correctly installed.
+
+### Firmware confirmation and correction
+
+The official LGPL VGABIOS 0.7a binary was tested as an alternate QEMU option
+ROM. It reproduced the repeated glyph. Inspection of its corresponding source
+showed why: its planar, CGA, and linear graphics character renderers select
+private compiled-in `vgafont8`, `vgafont14`, or `vgafont16` arrays rather than
+the current interrupt-vector font.
+
+`tools/setup_vgabios.py` now reads the tracked pristine 0.7a standard VGA ROM
+from `third_party/vgabios/`, checks SHA-256
+`cd9fdd6a789dcd22b8a6b3b152788d43238de49cce674cff57bdeb94580246c6`,
+and applies an exact binary patch assembled from
+`tools/vgabios_int43_patch.asm`. The patch redirects the planar EGA glyph-byte
+fetch through the current vector `43h`, occupies 44 bytes of verified unused
+ROM padding at `0xa1a4`, and updates the option-ROM checksum. It deliberately
+leaves the firmware's pixel mask, attribute, plane, and destination logic
+unchanged.
+
+The repository copy is byte-identical to the official upstream binary. Its
+LGPL 2.1 license and provenance record include official binary and complete
+source archive URLs, the binary digest above, and source-archive SHA-256
+`9d24c33d4bfb7831e2069cf3644936a53ef3de21d467872b54ce2ea30881b865`.
+The generated patched ROM has deterministic SHA-256
+`cfbbc5e3f97cb40cbc315b68e1e52d4488e6e27a47b339452a6a4ebf00f01247`
+and remains ignored disposable output.
+
+The corrected ROM was run with:
+
+```text
+qemu-system-i386 -m 16 -boot c \
+  -drive file=build/freedos/freedos.img,format=raw,if=ide,index=0,media=disk \
+  -vga none \
+  -device VGA,romfile=/absolute/path/build/vgabios/vgabios-0.7a-int43.bin \
+  -display vnc=127.0.0.1:6 -monitor stdio
+```
+
+SQ2 was advanced through its introduction, station scene, and default-name
+screen without running `FIXAGI.COM`. The first playable-room dialog rendered
+the expected distinct black glyphs on white, including the complete text
+beginning `Orbital Station 4 is one of many`. This validates the diagnosis and
+establishes the patched VGA BIOS as the preferred QEMU screenshot environment.
+
+Local verification after integrating the generated ROM into shared harness
+launches passed 425 tests with four expected optional-fixture skips. The full
+compatibility runner, both mdBooks, opcode-evidence checks, deterministic ROM
+rebuild comparison, and whitespace validation also passed.
+
+After promoting the pristine ROM to a tracked third-party input and integrating
+the builder into normal FreeDOS setup, a separate temporary FreeDOS image was
+created successfully without altering the populated manual-test image. Final
+verification passed 427 tests with the same four expected skips, rebuilt both
+books, and passed the complete compatibility and opcode-evidence gates.
+
+Behavioral conclusion: the original interpreter consumes an external 8-by-8
+font profile and can temporarily substitute glyph data for inverse graphics
+text. Exact glyph shapes remain a declared platform-font input in the clean
+specification. The firmware implementation details and QEMU workaround remain
+in the evidence book and harness documentation rather than becoming portable
+engine requirements.

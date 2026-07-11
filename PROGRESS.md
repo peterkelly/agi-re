@@ -247,6 +247,12 @@ better understood, or a new remaining-work item is discovered.
     navigation. Exact glyph bitmaps are a declared font-profile input outside
     the current portable core, not an unresolved interpreter behavior.
   - Remaining: bitmap-identical text claims must supply a font profile.
+  - Harness note: QEMU's bundled VGA BIOS ignores temporary `INT 43h` font
+    vector changes used by the observed 2.936 interpreter for inverse EGA
+    text. `tools/setup_vgabios.py` now generates a patched LGPL VGABIOS 0.7a
+    option ROM for faithful screenshots without modifying game inputs. The
+    pristine upstream ROM, license, and provenance are tracked under
+    `third_party/vgabios/`; the patched derivative remains ignored output.
 - [x] Room changes, restart, save/restore, and replay
   - Current: `spec/src/session_and_persistence.md` defines room-switch ordering,
     entry boundaries, replay pair kinds/packets/checkpoints, selector behavior,

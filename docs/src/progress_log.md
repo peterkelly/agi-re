@@ -26859,3 +26859,166 @@ Progress updates and outcomes:
       marked deleted `build/` paths as historical generated locations, and
       restored the incomplete MH1/MH2 resource-set blocker to the next-work
       summary.
+
+3501. Reported: "The trace has narrowed this down nicely."
+
+      Action/result: Confirmed that SQ2 prepared and inverted the correct glyph
+      and redirected vector `43h`, while the VGA BIOS call never read the
+      redirected scratch bytes.
+
+3502. Reported: "I’m moving to the targeted workaround now."
+
+      Action/result: Selected an alternate VGA option ROM as the narrow test;
+      the system BIOS and immutable game input remained unchanged.
+
+3503. Reported: "The legacy ROMs are downloaded and checksum-pinned."
+
+      Action/result: Downloaded official LGPL VGABIOS 0.7a standard and Cirrus
+      binaries into disposable `build/` output and recorded their SHA-256
+      values.
+
+3504. Reported: "I’m testing the standard VGA variant first."
+
+      Action/result: Booted FreeDOS with the stock 0.7a standard VGA option ROM,
+      advanced SQ2 to its first inverse dialog, and captured the same repeated
+      glyph corruption.
+
+3505. Reported: "Merely swapping SeaVGABIOS for an older binary is not enough."
+
+      Action/result: Rejected VGA BIOS age alone as the cause and focused the
+      requirement on honoring the current `INT 43h` vector at glyph-draw time.
+
+3506. Reported: "I’m inspecting the firmware’s `AH=09h` path now."
+
+      Action/result: Downloaded the matching VGABIOS source and found that its
+      planar, CGA, and linear graphics character paths use private font arrays.
+
+3507. Reported: "There is enough unused space inside the ROM."
+
+      Action/result: Located verified option-ROM padding and designed a small
+      planar EGA fetch routine that reads font offset/segment from vector `43h`
+      while retaining the existing pixel renderer.
+
+3508. Reported: "I’m adding a reproducible patch builder."
+
+      Action/result: Added a pinned validator/patcher and NASM source with
+      source checksum, exact call-site, empty-area, size, and final ROM checksum
+      guards.
+
+3509. Reported: "The patched VGA BIOS works."
+
+      Action/result: Booted QEMU with the generated ROM and advanced SQ2 to the
+      first playable-room dialog; all inverse text rendered as distinct,
+      readable black-on-white glyphs without `FIXAGI.COM`.
+
+3510. Reported: "The root cause is confirmed as VGA BIOS behavior."
+
+      Action/result: Classified QEMU's bypass of the live font vector as the
+      compatibility fault; no game executable, resource, DOS image, or system
+      BIOS patch is required.
+
+3511. Reported: "I’m turning this into a durable project setup now."
+
+      Action/result: Added patcher tests, README/manual QEMU instructions,
+      compatibility guidance, and the complete static/dynamic evidence trail.
+
+3512. Reported: "I’ll put the experimental `FIXAGI` helper back into a
+      non-dangerous state."
+
+      Action/result: Restored PAM0 to readable/write-protected mode after the
+      corrected font-copy verification and documented that this utility cannot
+      repair a VGA BIOS that ignores vector `43h`.
+
+3513. Reported: "The durable change is scoped to the analysis environment."
+
+      Action/result: Kept the downloaded and patched ROM under disposable
+      `build/`, with only its deterministic generator, patch source, tests, and
+      documentation entering the repository.
+
+3514. Reported: "The focused tests and both mdBooks pass."
+
+      Action/result: Passed the three patcher guards, rebuilt a byte-identical
+      corrected ROM with SHA-256 `cfbbc5e3...f01247`, built both books, and
+      passed the whitespace check.
+
+3515. Reported: "The automated QEMU harnesses currently launch the bundled VGA
+      BIOS."
+
+      Action/result: Audited all direct QEMU command construction sites and
+      identified a common launch-argument helper as the smallest durable
+      integration point.
+
+3516. Reported: "I’m adding one launch-argument helper."
+
+      Action/result: Made harnesses automatically select the generated
+      corrected ROM when present, with explicit environment controls for an
+      alternate ROM or the QEMU default.
+
+3517. Reported: "The harness integration passes 45 focused tests."
+
+      Action/result: Passed snapshot, picture/view carousel, fuzz, save/restore,
+      patcher, and environment-selection tests after the shared launch change.
+
+3518. Reported: "I’m running the full local compatibility gate now."
+
+      Action/result: Passed all 425 local tests with four expected optional
+      fixture skips, the full compatibility runner, both mdBooks, opcode
+      evidence checks, deterministic ROM comparison, and whitespace checks.
+
+3519. Reported: "I’ll make the unmodified VGABIOS a tracked third-party
+      input."
+
+      Action/result: Established the artifact policy: track the pristine ROM,
+      license, provenance, patch source, and builder while keeping the patched
+      derivative exclusively under ignored `build/`.
+
+3520. Reported: "I’ve confirmed the redistributable input is the official LGPL
+      VGABIOS 0.7a standard ROM."
+
+      Action/result: Copied the exact 41,472-byte upstream binary and LGPL 2.1
+      text under `third_party/vgabios/` and reverified SHA-256
+      `cd9fdd6a...246c6`.
+
+3521. Reported: "The build flow will no longer depend on a network download."
+
+      Action/result: Changed the builder to consume and validate the tracked
+      pristine ROM, require a 44-byte assembled patch, verify source and output
+      digests, and atomically emit only the generated ROM under `build/`.
+
+3522. Reported: "The normal FreeDOS setup will invoke that step."
+
+      Action/result: Integrated VGA BIOS build/verification into
+      `setup_freedos_image.py`, with `--skip-vgabios` reserved for intentional
+      bundled-firmware control environments.
+
+3523. Reported: "The artifact boundary is now explicit."
+
+      Action/result: Added upstream binary/source URLs and checksums, the LGPL
+      text, generated-output policy, and deterministic patched digest to the
+      repository and operational documentation.
+
+3524. Reported: "I’m adding a dedicated evidence-book chapter next."
+
+      Action/result: Added a self-contained chapter covering symptoms, rejected
+      hypotheses, decisive trace, patch map, artifacts, reproduction,
+      validation, troubleshooting, and license/source availability.
+
+3525. Reported: "I’m doing the final end-to-end verification now."
+
+      Action/result: Built a separate temporary FreeDOS image through the
+      integrated setup path without touching the populated manual image, then
+      passed all 427 tests with four expected skips, the complete compatibility
+      runner, both mdBooks, opcode evidence, and whitespace validation.
+
+3526. Reported: "I’m staging the complete reproducible solution now."
+
+      Action/result: Staged the pristine upstream BIOS, license/provenance,
+      patch source and builder, FreeDOS/harness integration, tests, dashboard,
+      and operational/evidence documentation while excluding generated output
+      and unrelated local files.
+
+3527. Reported: "The upstream license text contains formatting artifacts."
+
+      Action/result: Removed one whitespace-only line and the extra final blank
+      line from the license copy so the staged repository passes its whitespace
+      gate without changing the license wording.

@@ -38,6 +38,7 @@ from qemu_snapshot import (
     monitor_command,
     monitor_type,
     mtools_image,
+    qemu_vga_args,
 )
 
 
@@ -301,6 +302,7 @@ def run_save_qemu_case(
         "c",
         "-drive",
         f"file={disk_image},format=qcow2,if=ide,index=0,media=disk",
+        *qemu_vga_args(),
         "-display",
         f"vnc={vnc_display}",
         "-monitor",
@@ -371,6 +373,7 @@ def run_restore_qemu_case(
         "c",
         "-drive",
         f"file={disk_image},format=qcow2,if=ide,index=0,media=disk",
+        *qemu_vga_args(),
         "-display",
         f"vnc={vnc_display}",
         "-monitor",

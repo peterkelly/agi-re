@@ -1721,3 +1721,57 @@ downsampling to the local 160 by 168 logical picture buffer. This transform has
 now been validated for both the picture-45 fixture and a fixture with one
 overlaid view cel. It has also been validated for a bit-`0x80` view cel whose
 row data is rewritten before drawing.
+
+## QEMU graphics-text firmware compatibility
+
+The QEMU-supplied VGA BIOS is not a faithful oracle for one graphics-text
+interface used by the observed 2.936 interpreter. The interpreter temporarily
+redirects BIOS interrupt vector `43h` to an inverted glyph buffer, asks BIOS
+video service `INT 10h/AH=09h` to draw character `80h`, and then restores the
+vector. QEMU's VGA BIOS renders its own compiled-in character `80h` instead of
+reading the current vector. Dialogs consequently show one repeated symbol even
+though picture, view, palette, positioning, and the original glyph bytes are
+correct.
+
+Generate the verified compatibility ROM with:
+
+```bash
+python3 -B tools/setup_vgabios.py --force
+```
+
+Launch QEMU with:
+
+```bash
+qemu-system-i386 -m 16 -boot c \
+  -drive file=build/freedos/freedos.img,format=raw,if=ide,index=0,media=disk \
+  -vga none \
+  -device VGA,romfile="$(pwd)/build/vgabios/vgabios-0.7a-int43.bin" \
+  -display vnc=127.0.0.1:5 -monitor stdio
+```
+
+The setup tool reads the tracked pristine official LGPL VGABIOS 0.7a binary
+from `third_party/vgabios/`, checks its complete SHA-256, assembles a 44-byte
+planar-glyph fetch routine, verifies the exact binary patch site and unused
+destination area, redirects that site, recomputes the option-ROM checksum, and
+checks the complete deterministic output digest. The resulting ROM remains
+generated output under `build/` and must not be committed. It changes only the
+graphics-mode glyph source from a private firmware array to the active
+`INT 43h` vector; all existing VGA pixel-writing code remains in place.
+
+The pristine binary is committed with its upstream LGPL 2.1 text and a
+provenance file giving the official binary and complete-source release URLs,
+plus SHA-256 values for both. `tools/setup_freedos_image.py` invokes the VGA
+BIOS builder during normal image setup; `--skip-vgabios` opts out for a
+deliberate bundled-firmware control run.
+
+The original and corrected `FIXAGI.COM` experiments are not substitutes for
+this ROM. Copying an 8-by-8 font to `F000:FA6E` addresses a different possible
+failure: missing bytes at the address read directly by the interpreter. In
+this QEMU configuration those bytes already match the font returned by BIOS,
+and the interpreter successfully copies and inverts them. The failure occurs
+later, when the VGA BIOS ignores the redirected vector.
+
+Shared QEMU harness launch code selects the generated patched ROM automatically
+when it exists. `AGI_VGABIOS=/path/to/rom.bin` selects another option ROM, and
+`AGI_VGABIOS=default` deliberately disables the compatibility override for a
+control run.

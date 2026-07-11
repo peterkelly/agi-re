@@ -24,6 +24,7 @@ from qemu_snapshot import (
     SnapshotFixtureCase,
     build_snapshot_boot_disk,
     mtools_image,
+    qemu_vga_args,
     run_snapshot_qemu_cases,
 )
 
@@ -381,6 +382,7 @@ def run_qemu_fixture(fixture: Path, dos_dir: str, capture: Path, boot_wait: floa
         "c",
         "-drive",
         f"file={DEFAULT_DOS_IMAGE},format=raw,if=ide,index=0,media=disk",
+        *qemu_vga_args(),
         "-display",
         "vnc=127.0.0.1:5",
         "-monitor",

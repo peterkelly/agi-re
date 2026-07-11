@@ -14,6 +14,7 @@
 - [Sound and Audio](./sound_and_audio.md)
 - [Graphics and Object Pipeline](./graphics_object_pipeline.md)
 - [Compatibility Testing](./compatibility_testing.md)
+- [QEMU VGA BIOS Compatibility](./qemu_vgabios.md)
 - [Logic Resources](./logic_resources.md)
 - [Logic Bytecode](./logic_bytecode.md)
 - [Logic Opcode Evidence Matrix](./logic_opcode_evidence.md)

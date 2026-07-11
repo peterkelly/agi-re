@@ -120,6 +120,16 @@ produce that replacement engine.
 ## Dynamic analysis with QEMU
 
 - QEMU may be used for dynamic checks of the DOS executable and interpreter behavior.
+- Build the INT-43h-compatible VGA option ROM with
+  `python3 -B tools/setup_vgabios.py --force`. The normal FreeDOS setup invokes
+  this automatically unless `--skip-vgabios` is passed. The tool validates the
+  tracked pristine ROM under `third_party/vgabios/`, assembles the patch, and
+  writes only the derived ROM under ignored `build/`; never commit the patched
+  ROM. QEMU's bundled VGA BIOS ignores temporary font-vector changes used by
+  observed inverse EGA text paths. The shared harnesses automatically use the
+  generated ROM when present; set `AGI_VGABIOS=default` for a control run with
+  QEMU's bundled firmware or set `AGI_VGABIOS=/path/to/rom.bin` to test another
+  option ROM.
 - Build the local FreeDOS image with
   `python3 -B tools/setup_freedos_image.py --force`. To copy a private game
   for manual runs, add `--copy-game --game-dir games/SQ2 --dos-game-dir SQ2`
@@ -131,6 +141,8 @@ produce that replacement engine.
 ```bash
 qemu-system-i386 -m 16 -boot c \
   -drive file=build/freedos/freedos.img,format=raw,if=ide,index=0,media=disk \
+  -vga none \
+  -device VGA,romfile="$(pwd)/build/vgabios/vgabios-0.7a-int43.bin" \
   -display vnc=127.0.0.1:5 -monitor stdio
 ```
 
@@ -143,6 +155,8 @@ qemu-system-i386 -m 16 -boot c \
 qemu-system-i386 -m 16 -boot c \
   -drive file=build/freedos/freedos.img,format=raw,if=ide,index=0,media=disk \
   -drive file=fat:rw:build/qemu-share,format=raw,if=ide,index=1,media=disk \
+  -vga none \
+  -device VGA,romfile="$(pwd)/build/vgabios/vgabios-0.7a-int43.bin" \
   -display vnc=127.0.0.1:5 -monitor stdio
 ```
 

@@ -15,6 +15,7 @@ from pathlib import Path
 
 from project_paths import DEFAULT_FREEDOS_IMAGE, game_dir
 from qemu_snapshot import mtools_image
+from setup_vgabios import build_patched_vgabios
 
 
 FREEDOS_LITEUSB_URL = (
@@ -137,6 +138,11 @@ def main() -> int:
     parser.add_argument("--game-dir", type=Path)
     parser.add_argument("--dos-game-dir", default="GAME")
     parser.add_argument("--no-prompt-patch", action="store_true")
+    parser.add_argument(
+        "--skip-vgabios",
+        action="store_true",
+        help="do not build/verify the QEMU INT-43h-compatible VGA option ROM",
+    )
     parser.add_argument("--print-mtools-image", action="store_true")
     args = parser.parse_args()
 
@@ -146,6 +152,10 @@ def main() -> int:
 
     require_tool("mcopy")
     require_tool("mmd")
+
+    if not args.skip_vgabios:
+        vgabios, built = build_patched_vgabios(force=args.force)
+        print(f"VGA BIOS: {vgabios} ({'rebuilt' if built else 'verified'})")
 
     zip_path = args.cache_dir / Path(urllib.parse.urlparse(args.url).path).name
     if not zip_path.exists():

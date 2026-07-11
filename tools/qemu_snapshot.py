@@ -3,6 +3,7 @@
 
 from __future__ import annotations
 
+import os
 import shutil
 import subprocess
 import time
@@ -10,6 +11,7 @@ from dataclasses import dataclass
 from pathlib import Path
 
 from project_paths import dos_image
+from setup_vgabios import DEFAULT_OUTPUT as DEFAULT_VGABIOS
 
 DEFAULT_DOS_IMAGE = dos_image()
 DOS_IMAGE_OFFSET = "auto"
@@ -26,6 +28,19 @@ class SnapshotFixtureCase:
     post_launch_key_delay: float = 0.03
     post_launch_after_text_wait: float = 0.0
     post_launch_key_names: list[str] | None = None
+
+
+def qemu_vga_args() -> list[str]:
+    """Return QEMU arguments for the generated INT 43h-compatible VGA BIOS."""
+    configured = os.environ.get("AGI_VGABIOS")
+    if configured is not None and configured.lower() == "default":
+        return []
+    rom = Path(configured).expanduser() if configured else DEFAULT_VGABIOS
+    if not rom.exists():
+        if configured:
+            raise FileNotFoundError(f"configured AGI_VGABIOS does not exist: {rom}")
+        return []
+    return ["-vga", "none", "-device", f"VGA,romfile={rom.resolve()}"]
 
 
 def fixture_input_files(fixture: Path) -> list[Path]:
@@ -159,6 +174,7 @@ def run_snapshot_qemu_cases(
         "c",
         "-drive",
         f"file={disk_image},format=qcow2,if=ide,index=0,media=disk",
+        *qemu_vga_args(),
         "-display",
         f"vnc={vnc_display}",
         "-monitor",

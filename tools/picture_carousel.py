@@ -20,6 +20,7 @@ from qemu_snapshot import (
     monitor_command,
     monitor_send_key_names,
     monitor_type,
+    qemu_vga_args,
 )
 
 
@@ -96,6 +97,7 @@ def run_picture_carousel_qemu(
         "c",
         "-drive",
         f"file={disk_image},format=qcow2,if=ide,index=0,media=disk",
+        *qemu_vga_args(),
         "-display",
         f"vnc={vnc_display}",
         "-monitor",
@@ -158,6 +160,7 @@ def run_picture_carousel_qemu_poll(
         "c",
         "-drive",
         f"file={disk_image},format=qcow2,if=ide,index=0,media=disk",
+        *qemu_vga_args(),
         "-display",
         f"vnc={vnc_display}",
         "-monitor",

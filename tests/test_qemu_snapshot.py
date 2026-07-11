@@ -6,6 +6,7 @@ from __future__ import annotations
 import sys
 import tempfile
 import unittest
+from unittest import mock
 from pathlib import Path
 
 
@@ -18,6 +19,7 @@ from qemu_snapshot import (  # noqa: E402
     dos_key_name,
     fixture_input_files,
     mtools_image,
+    qemu_vga_args,
     snapshot_chunk_path,
 )
 
@@ -71,6 +73,25 @@ class QemuSnapshotTests(unittest.TestCase):
         self.assertEqual(dos_key_name(" "), "spc")
         self.assertEqual(dos_key_name(":"), "shift-semicolon")
         self.assertEqual(dos_key_name("."), "dot")
+
+    def test_qemu_vga_args_use_generated_rom_when_present(self) -> None:
+        with tempfile.TemporaryDirectory() as temp_dir:
+            rom = Path(temp_dir) / "vgabios.bin"
+            rom.write_bytes(b"rom")
+            with mock.patch.dict("os.environ", {"AGI_VGABIOS": str(rom)}):
+                self.assertEqual(
+                    qemu_vga_args(),
+                    ["-vga", "none", "-device", f"VGA,romfile={rom.resolve()}"],
+                )
+
+    def test_qemu_vga_args_can_request_qemu_default(self) -> None:
+        with mock.patch.dict("os.environ", {"AGI_VGABIOS": "default"}):
+            self.assertEqual(qemu_vga_args(), [])
+
+    def test_qemu_vga_args_reject_missing_explicit_rom(self) -> None:
+        with mock.patch.dict("os.environ", {"AGI_VGABIOS": "/missing/vgabios.bin"}):
+            with self.assertRaises(FileNotFoundError):
+                qemu_vga_args()
 
 
 if __name__ == "__main__":
