@@ -272,12 +272,12 @@ effects.
 | `0x18` | variable | Load the picture whose number is stored in the variable. |
 | `0x19` | variable | Clear/reset the logical picture surfaces, then decode the already loaded picture selected by the variable. The result is not required to become visible until a show action. |
 | `0x1a` | none | Present the prepared logical visual surface, clear `f15`, and mark the picture as shown. |
-| `0x1b` | variable | Discard the loaded picture selected by the variable. |
+| `0x1b` | variable | Discard the loaded picture selected by the variable and every picture retained after it. |
 | `0x1c` | variable | Decode the already loaded picture selected by the variable over the existing logical surfaces without the prepare-time clear. Visibility still requires a show action. |
 | `0x1d` | none | Temporarily display priority/control values, wait for an input event, then restore the normal visual display. |
 | `0x1e` | view resource | Load the selected view resource. |
 | `0x1f` | variable | Load the view whose number is stored in the variable. |
-| `0x20` | view resource | Discard the selected loaded view resource. |
+| `0x20` | view resource | Discard the selected loaded view and every view retained after it. |
 
 Loading, preparing, overlaying, and showing a picture are distinct operations.
 An engine must not make an overlay visible merely because its logical surfaces
@@ -521,7 +521,7 @@ The save-file envelope, replay sequence, and restore/restart transitions are in
 | `0x96` | trace logic, row offset, height | Configure trace formatting and window placement; clamp height to at least 2. |
 | `0x97` | message, row, column, width | Temporarily configure the modal message window, display the immediate message, then reset the temporary configuration. Row and column override the default centered placement; width controls message formatting and defaults to 30 when zero. |
 | `0x98` | message variable, row, column, width | Variable-selected message form of `0x97`. |
-| `0x99` | view variable | Discard the loaded variable-selected view. |
+| `0x99` | view variable | Discard the loaded variable-selected view and every view retained after it. |
 | `0x9a` | top row, left column, bottom row, right column, attribute | Clear the inclusive text-cell rectangle with the selected attribute. Text cells are four logical pixels wide and eight logical pixels high in the EGA target. |
 | `0x9b` | two ignored bytes | Consume both bytes and otherwise do nothing. |
 

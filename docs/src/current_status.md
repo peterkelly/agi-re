@@ -73,6 +73,20 @@ broad report is `build/compatibility-suite/qemu_broad_002.json`, which includes
 the smoke layer plus the eight-picture timed carousel and the 19-case
 view/object stress carousel. Every selected command returned zero.
 
+The latest resource-lifecycle source pass corrected an overly map-like clean
+model. Picture and view retention is ordered within each family. Discarding a
+selected retained resource clears that record and every later same-family
+record; replay event kinds 6 and 7 reproduce the same truncation. Source shows
+the family-link mutation and shared heap rewind directly, so no QEMU probe was
+needed. The clean spec excludes continued use of a discarded payload and a
+portable transition model now has focused regression coverage.
+
+All current local logic resources were also scanned for discard usage. Every
+profile uses picture or view discard, and KQ2 logic 67 provides a particularly
+clear LIFO example: views `53,59,51,52,57,60` are later discarded as
+`60,57,52,51,59,53`. This supports the valid-script discipline independently
+of the executable source that proves the broader truncation effect.
+
 Recent source-first renderer work corrected picture relative-line endpoint
 semantics: handler `0x665e` computes relative deltas in 8-bit coordinate
 registers, then clamps only above `x=0x9f` or `y=0xa7`. A negative underflow

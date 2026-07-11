@@ -13,13 +13,17 @@ sys.path.insert(0, str(ROOT / "tools"))
 
 from agi_resources import (  # noqa: E402
     KIND_ORDER,
+    RetainedResourceFamily,
+    ResourceNotRetained,
     decode_lzw_like,
     decode_picture_nibbles,
+    discard_resource,
     detect_layout,
     encode_picture_nibbles,
     iter_present_entries,
     read_directory_entries,
     read_volume_record,
+    retain_resource,
     ResourceFormatError,
 )
 
@@ -38,6 +42,26 @@ def pack_codes(codes: list[int], width: int = 9) -> bytes:
 
 
 class ResourceContainerTests(unittest.TestCase):
+    def test_repeated_load_preserves_retention_order(self) -> None:
+        state = RetainedResourceFamily((4, 9))
+
+        self.assertIs(retain_resource(state, 4), state)
+        self.assertEqual(retain_resource(state, 12).numbers, (4, 9, 12))
+
+    def test_discard_truncates_selected_and_later_resources(self) -> None:
+        state = RetainedResourceFamily((4, 9, 12, 15))
+
+        self.assertEqual(discard_resource(state, 9).numbers, (4,))
+        self.assertEqual(discard_resource(state, 15).numbers, (4, 9, 12))
+
+    def test_discard_requires_a_retained_resource(self) -> None:
+        with self.assertRaisesRegex(ResourceNotRetained, "resource 7"):
+            discard_resource(RetainedResourceFamily((4, 9)), 7)
+
+    def test_resource_numbers_are_bytes(self) -> None:
+        with self.assertRaisesRegex(ValueError, "one byte"):
+            retain_resource(RetainedResourceFamily(), 256)
+
     def test_lzw_like_reset_literal_end_stream(self) -> None:
         self.assertEqual(decode_lzw_like(pack_codes([0x100, ord("A"), 0x101]), 1), b"A")
 

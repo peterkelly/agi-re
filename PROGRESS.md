@@ -32,6 +32,12 @@ better understood, or a new remaining-work item is discovered.
   compatibility suite breadth, additional cross-version profiles, and
   promoting the accumulated evidence into the standalone behavioral
   specification.
+- Picture/view resource retention is now source-modeled as ordered within each
+  family. Discard actions truncate the selected resource and every later
+  same-family retention; restore replay kinds 6 and 7 reproduce that ordering.
+  A portable transition model and local regression tests guard the rule. A
+  nine-game script audit finds real use in every profile and an exact LIFO
+  six-view unwind in KQ2 logic 67.
 - Cross-version comparison has begun with Gold Rush (`games/GR`) / AGI v3:
   resource directory and volume compression differences are source-backed,
   locally decoded, and documented. Static opcode/subsystem comparison against
@@ -592,6 +598,13 @@ source-mapped well enough to justify a targeted probe.
     distinguishes unreadable directory entries from entries immediately
     referenced by decoded scripts. The valid split/combined container and
     expansion contract is now promoted into `spec/src/resource_containers.md`.
+    Picture/view discard source proves that retained resources are ordered:
+    clearing the preceding cache link truncates the selected record and all
+    later same-family records, and restore replay uses the same operation.
+    `tools/agi_resources.py` models this portable transition independently of
+    allocator addresses. Linear disassembly of all current local scripts finds
+    picture/view discard in every promoted profile and confirms shipped scripts
+    normally unwind retained resources in reverse load order.
   - Remaining: loader error-path behavior only where needed by compatibility
     tests; apply the v3 parser to additional games/interpreters as local inputs
     are selected.
@@ -772,9 +785,11 @@ source-mapped well enough to justify a targeted probe.
     path. `build/compatibility-suite/qemu_v3_synthetic_picture_view_001.json`
     confirms generated v3 picture-nibble picture and direct view fixtures by
     comparing blank, picture-only, and picture-plus-view captures. The current
-    full local unit run passed 341 tests after adding the complete profile
-    2.936 save-block maps, metadata relations, logic-resume grammar, and
-    conformance-matrix checks.
+    current full local run passes 381 tests after adding cross-version profile
+    coverage and ordered resource-retention transitions. The top-level runner
+    now accepts `--game-dir PATH`, exports that explicit selection to child
+    commands, and records it in the JSON report without choosing a default
+    game.
   - Remaining: assemble a final broad suite that can validate a clean-room
     implementation against original-engine outputs; scale timed polling
     carousel sweeps to additional resource batches and future interpreter

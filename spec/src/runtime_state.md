@@ -83,8 +83,16 @@ number. The portable lifecycle is:
 | Discarded | The resource is no longer loaded; a later use requires another load. |
 
 Loading an already loaded resource does not create a second game-visible
-identity. Discarding or resetting a family invalidates later use until the
-resource is loaded again.
+identity or change its retention order. Successful first loads within each
+picture or view family establish an order. Discarding one of those resources
+also discards every resource loaded later in the same family. For example, if
+views 4, 9, and 12 were first loaded in that order, discarding view 9 leaves
+only view 4 retained. Views 9 and 12 must be loaded again before later use.
+
+A valid discard names a retained resource that is not still selected by a live
+object or in-progress picture operation. Behavior that continues to use a
+discarded payload is outside the valid lifecycle contract. A family reset
+invalidates every retained resource in that family.
 
 Room changes clear transient resource and object state, load the destination
 logic, update the current-room variables, and establish new-room state. The

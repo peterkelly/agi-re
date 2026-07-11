@@ -166,7 +166,7 @@ Run local checks from the repository root with an explicit game directory:
 
 ```bash
 AGI_GAME_DIR=games/SQ2 python3 -B -m unittest discover -s tests
-AGI_GAME_DIR=games/SQ2 python3 -B tools/compatibility_suite.py --dry-run
+python3 -B tools/compatibility_suite.py --game-dir games/SQ2 --dry-run
 mdbook build docs
 mdbook build spec
 ```

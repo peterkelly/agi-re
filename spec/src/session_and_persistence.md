@@ -79,6 +79,11 @@ the sequence in order, and then re-enables recording before object view
 bindings and normal display/input state are refreshed. Replayed operations
 therefore do not append duplicates.
 
+Replay kinds 6 and 7 use the ordinary ordered-discard rule. They remove the
+named picture or view and every resource retained later in that same family.
+Subsequent replay pairs may load those resources again, establishing a new
+retention order before object bindings are restored.
+
 Temporary view preview actions disable recording around their internal
 load/display/discard work, so they never become persistent replay events.
 

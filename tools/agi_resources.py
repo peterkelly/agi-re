@@ -58,6 +58,43 @@ class VolumeRecord:
     payload: bytes
 
 
+@dataclass(frozen=True)
+class RetainedResourceFamily:
+    """Portable retained-resource order for one resource family."""
+
+    numbers: tuple[int, ...] = ()
+
+
+class ResourceNotRetained(ValueError):
+    """Raised when valid lifecycle modeling discards an unloaded resource."""
+
+
+def retain_resource(
+    state: RetainedResourceFamily,
+    number: int,
+) -> RetainedResourceFamily:
+    """Retain a first load while preserving the order of existing resources."""
+
+    if not 0 <= number <= 0xFF:
+        raise ValueError("resource number must fit in one byte")
+    if number in state.numbers:
+        return state
+    return RetainedResourceFamily(state.numbers + (number,))
+
+
+def discard_resource(
+    state: RetainedResourceFamily,
+    number: int,
+) -> RetainedResourceFamily:
+    """Discard the selected resource and its later same-family successors."""
+
+    try:
+        index = state.numbers.index(number)
+    except ValueError as exc:
+        raise ResourceNotRetained(f"resource {number} is not retained") from exc
+    return RetainedResourceFamily(state.numbers[:index])
+
+
 def u16le(data: bytes, offset: int) -> int:
     return data[offset] | (data[offset + 1] << 8)
 

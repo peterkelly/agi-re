@@ -690,12 +690,12 @@ Resource and interpreter-control actions observed so far:
 | `0x18` | `load_picture_var` | `0x4a16` | Reads a picture-like resource number from `var[arg0]` and calls loader helper `0x4a3b`. When the resource is not already cached, the helper records event pair `(2, resource)`, uses directory accessor `0x43d9` and the generic volume reader `0x2e32`, then stores the loaded payload pointer in a linked cache entry rooted at `0x120e`. |
 | `0x19` | `prepare_picture_var` | `0x4aaa` | Reads a picture-like resource number from `var[arg0]`, requires an existing cached entry through `0x4acf`, records event pair `(4, resource)`, stores the resource payload pointer at global `0x1377`, and calls helpers `0x6a54`, `0x6445`, and `0x6a8e`. |
 | `0x1a` | `show_picture_like` | `0x4b82` | Clears flag 15 through wrapper `0x74d0`, calls helper `0x1f2b` with argument 0, calls `0x5546`, and sets global word `[0x1216] = 1`. This appears to be a picture/display finalization action. |
-| `0x1b` | `discard_picture_var` | `0x4baa` | Reads a picture-like resource number from `var[arg0]` and calls helper `0x4bce`, which records event pair `(6, resource)`, unlinks or releases the matching cached entry, and calls helpers `0x143c`, `0x6a8e`, and `0x14a0`. |
+| `0x1b` | `discard_picture_var` | `0x4baa` | Reads a picture-like resource number from `var[arg0]` and calls helper `0x4bce`, which records event pair `(6, resource)`, clears the link preceding the matching cache record so the match and every later picture record become unreachable, rewinds the shared heap through `0x143c`, and calls update/free-state helpers `0x6a8e` and `0x14a0`. |
 | `0x1c` | `overlay_picture_var` | `0x4b17` | Reads a picture-like resource number from `var[arg0]`, requires an existing cached entry through helper `0x4b3b`, records event pair `(8, resource)`, stores that resource's payload pointer at global `[0x1377]`, calls helpers `0x6a54`, `0x6440`, `0x6a8e`, and `0x6aab`, and clears word `[0x1216]`. Unlike `0x19` (`prepare_picture_var`), this path enters the picture decoder at `0x6440` rather than `0x6445`, so it skips the extra buffer-fill setup performed by `0x6445`. |
 | `0x1d` | `show_priority_screen` | `0x731b` | Sets word `[0x1755] = 1`, calls full-screen refresh helper `0x5546`, waits for an event through `0x4618`, calls `0x5546` again, then clears `[0x1755]`. Helper `0x5546` swaps the high and low nibbles of every byte in the logical graphics buffer while `[0x1755] & 1` is set before copying the full screen to the display. The only observed local input phrase reaching this action is `show pri`, where WORDS.TOK word id `0x0028` maps to "show" and word id `0x003f` maps to "pri". |
 | `0x1e` | `load_view` | `0x39b1` | Loads or refreshes a view-like resource through helper `0x39f7` using immediate `arg0`. When no cached view entry exists, the helper records event pair `(1, resource)` before allocating and reading the resource. |
 | `0x1f` | `load_view_var` | `0x39d0` | Same as `0x1e`, but resource number is `var[arg0]`. |
-| `0x20` | `discard_view` | `0x3ecd` | Reads immediate view-like resource number `arg0` and calls helper `0x3f0d`. That helper requires a matching cached view record through `0x3979`, records pair `(7, resource)` through `0x70b1`, clears word `*([0x1000])`, flushes update lists with `0x6a54`, rewinds/frees the resource record with `0x143c`, rebuilds update lists with `0x6a8e`, and calls `0x14a0`. |
+| `0x20` | `discard_view` | `0x3ecd` | Reads immediate view-like resource number `arg0` and calls helper `0x3f0d`. That helper requires a matching cached view record through `0x3979`, records pair `(7, resource)` through `0x70b1`, clears the preceding link through `*([0x1000])` so the match and every later view record become unreachable, flushes update lists with `0x6a54`, rewinds to the selected record with `0x143c`, rebuilds update lists with `0x6a8e`, and calls `0x14a0`. |
 | `0x62` | `load_sound` | `0x510a` | Loads a sound-like resource through helper `0x5126` using immediate `arg0`. When no cached sound entry exists, the helper records event pair `(3, resource)`, uses sound directory accessor `0x440d`, and builds four internal pointers from the loaded payload. |
 | `0x63` | `start_sound_with_flag` | `0x51d3` | Stops any active sound-like state through `0x5234`, reads immediate sound number `arg0` and immediate flag number `arg1`, stores `arg1` in word `[0x126a]`, clears flag `arg1`, locates or loads sound `arg0` through helper `0x50d8`, and starts it through helper `0x7f96`. If the sound cannot be loaded, it reports error code 9 with the sound number. |
 | `0x64` | `stop_sound_or_clear_sound_state` | `0x5225` | Calls helper `0x5234`, which clears a pending sound-like state at `[0x1258]`, sets flag `[0x126a]`, and calls `0x080af` when that state was active. |
@@ -810,8 +810,8 @@ Known event kinds:
 | `3` | `load_sound` when a sound cache entry is created | Load the sound resource through `code.sound.load_resource`. |
 | `4` | `prepare_picture_var` | Prepare/decode the already-loaded picture through `code.picture.prepare`. |
 | `5` | `setup_transient_object` / `setup_transient_object_var` | Read the next three pairs into staged bytes `0x0eae..0x0eb3`, then call `code.object.setup_transient_display_object`. |
-| `6` | `discard_picture_var` | Discard the picture resource through `code.picture.discard`. |
-| `7` | `discard_view` / `discard_view_var` | Discard the view resource through `0x3f0d`. |
+| `6` | `discard_picture_var` | Discard the picture and truncate later picture cache records through `code.picture.discard`. |
+| `7` | `discard_view` / `discard_view_var` | Discard the view and truncate later view cache records through `0x3f0d`. |
 | `8` | `overlay_picture_var` | Overlay/decode the already-loaded picture through `code.picture.overlay_prepare`. |
 
 Kind `5` is a four-pair packet rather than a single resource event. Helper
@@ -832,6 +832,11 @@ before it rebinds object views. After that it restores object flags saved
 around the cache reset, refreshes the display, and redraws text/input state.
 This source finding explains the earlier QEMU observation that recording was
 enabled again by the following script action.
+
+Because kinds 6 and 7 enter the ordinary discard helpers, replay reproduces
+the same ordered family truncation. A later kind 1 or 2 pair can retain a
+resource again after that truncation; restore therefore rebuilds retention
+order from the active pair sequence rather than from an unordered final set.
 
 The temporary view-resource display actions `0x81` and `0xa2` also call
 `code.event.disable_recording` before their internal load/display/discard

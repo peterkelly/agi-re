@@ -26158,3 +26158,139 @@ Progress updates and outcomes:
       Action/result: Wrote
       `build/compatibility-suite/cross_version_profiles_local.json`; confirmed
       no tracked or untracked change under `games/` was produced by this work.
+
+3382. Reported: "I’ll pick up from the newly committed cross-version profiles,
+      read the current completion dashboard and evidence trail, then take the
+      highest-value unresolved items through disassembly, portable
+      specification, and tests."
+
+      Action/result: Confirmed all current local interpreter inputs already
+      belong to seven promoted profiles and narrowed the remaining work to
+      source-visible behavioral edges and suite breadth.
+
+3383. Reported: "The dashboard is now mature: every known opcode and major
+      subsystem has a portable contract, so the useful next move is not
+      another broad sweep."
+
+      Action/result: Audited partial/remaining markers and selected source-first
+      renderer/resource lifecycle work rather than speculative QEMU probing.
+
+3384. Reported: "There are no unanalyzed interpreter directories in the
+      current local set; all nine inputs map to seven promoted profiles."
+
+      Action/result: Rechecked the local game census and graphics/symbolic-map
+      coverage.
+
+3385. Reported: "One genuinely open source-backed area remains in the
+      executable evidence: resource cache descriptors still contain
+      under-described fields."
+
+      Action/result: Determined that the overlay descriptor field is unused by
+      the runtime loader and does not justify a portable behavior rule.
+
+3386. Reported: "The descriptor gap is linker/startup bookkeeping rather than
+      a game-visible cache rule."
+
+      Action/result: Reconfirmed that v3 combined-directory fallback and exact
+      absent-entry behavior were already present in both evidence and spec.
+
+3387. Reported: "I’m running the normalized role audit across every promoted
+      profile, not just the two examples used to develop the matcher."
+
+      Action/result: Generated SQ2-reference reports for KQ1, PQ1, KQ2, LSL1,
+      KQ4, KQ4D, and GR. Every unmatched role maps to an existing documented
+      profile delta or matcher-candidate limitation; no new variant emerged.
+
+3388. Reported: "I’m moving to a valid-script lifecycle edge that the current
+      spec states too loosely: what happens to already-bound objects or active
+      playback when a resource is discarded from its cache."
+
+      Action/result: Disassembled picture/view lookup, discard, and heap rewind
+      routines and established ordered cache truncation.
+
+3389. Reported: "The discard routines reveal a substantive rule missing from
+      the portable lifecycle: discard is stack-shaped, not an arbitrary map
+      deletion."
+
+      Action/result: Confirmed selected-and-later same-family resources become
+      unreachable; identified stale selected-payload use as outside the stable
+      valid lifecycle contract.
+
+3390. Reported: "I’ve confirmed the exact list operation in both picture and
+      view paths and across the promoted builds."
+
+      Action/result: Added the ordered-retention source model, focused tests,
+      evidence notes, and clean behavioral contract.
+
+3391. Reported: "The focused model and spec checks pass. One documentation
+      asymmetry showed up: the symbolic map had cross-version associations for
+      view discard but no primary SQ2 role row."
+
+      Action/result: Added the missing primary symbolic role and structural
+      spec checks for ordered picture/view discard.
+
+3392. Reported: "The implementation/model tests pass; the only failure is a
+      structural assertion that treated a Markdown line break as semantic
+      text."
+
+      Action/result: Made the clean-spec assertion whitespace-tolerant before
+      broader verification; no behavioral model change was needed.
+
+3393. Reported: "Replay executes the same discard handlers, so kind 6 and 7
+      inherit ordered truncation; this matters for save/restore
+      reproducibility and is now explicit rather than implicit."
+
+      Action/result: Connected ordered resource retention to restore replay,
+      updated the dashboard/handoff, and prepared full local verification.
+
+3394. Reported: "The lifecycle work itself is clean, but I invoked the
+      aggregate runner’s `--name` as a report label; in this tool it selects a
+      registered command."
+
+      Action/result: Corrected the invocation and reran with `--report` only.
+
+3395. Reported: "The rerun exposed a real harness usability gap rather than a
+      behavior failure: the default local suite launches tests that require an
+      explicit game directory, but the runner has no `--game-dir` option."
+
+      Action/result: Added explicit `--game-dir` propagation and report
+      metadata without introducing a default game; updated tests and commands.
+
+3396. Reported: "The runner fix passes its focused tests and the aggregate
+      suite is now executing with `games/SQ2` explicitly selected."
+
+      Action/result: The local layer passed 381 tests, both mdBooks, and opcode
+      evidence checks; the JSON report records the selected game directory.
+
+3397. Reported: "The disassembler does accept `--game-dir`; the earlier failure
+      was specifically bare `--help`, because the shared option is consumed
+      before the script’s parser."
+
+      Action/result: Left the established shared-option architecture intact and
+      ran all corpus commands with explicit game paths.
+
+3398. Reported: "Discard is not merely synthetic: every profile family uses
+      it, with full KQ4 alone containing 201 picture/view discard actions."
+
+      Action/result: Generated all-game logic disassemblies and inspected
+      discard contexts; no selected game uses variable-view action `0x99`.
+
+3399. Reported: "The corpus clarifies why Sierra’s allocator discipline works:
+      KQ2 logic 67 loads views `53,59,51,52,57,60` and later discards
+      `60,57,52,51,59,53`, exactly in reverse order."
+
+      Action/result: Recorded per-profile usage and the concrete LIFO sequence
+      as game-data support for the source-derived ordered-retention rule.
+
+3400. Reported: "The repository audit is clean apart from the intended edits
+      and pre-existing untracked `run.sh`/cache directories."
+
+      Action/result: Updated suite selection/report documentation and the
+      current 381-test dashboard count before final aggregate verification.
+
+3401. Reported: "The final aggregate run is clean: 381 tests pass, both books
+      build, and opcode evidence is current."
+
+      Action/result: Preserved the final report at
+      `build/compatibility-suite/local_ordered_resource_discard_final.json` and
+      moved to the immutable-input/diff audit without an unnecessary QEMU run.

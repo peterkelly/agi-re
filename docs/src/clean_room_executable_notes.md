@@ -11118,3 +11118,67 @@ unmatched set corresponds to known source variants or indirect picture-command
 entries, demonstrating that the report is useful triage rather than a false
 claim of equivalence. Four focused matcher tests cover role parsing, candidate
 collection, relocation normalization, and report classification.
+
+## 2026-07-11: all-profile role audit and ordered resource discard
+
+Goal: continue from the completed profile matrix, audit every promoted local
+interpreter with the normalized role matcher, and inspect a concrete valid
+resource-lifecycle edge from source before changing the portable spec.
+
+Commands included:
+
+```text
+python3 -B tools/match_interpreter_roles.py ... --sq2-subsystems
+ndisasm -b 16 -e 0x40cd -o 0x3ecd build/cleanroom/SQ2_AGI.decrypted.exe
+ndisasm -b 16 -e 0x4daa -o 0x4baa build/cleanroom/SQ2_AGI.decrypted.exe
+ndisasm -b 16 -e 0x4be8 -o 0x49e8 build/cleanroom/SQ2_AGI.decrypted.exe
+ndisasm -b 16 -e 0x3b79 -o 0x3979 build/cleanroom/SQ2_AGI.decrypted.exe
+ndisasm -b 16 -e 0x163c -o 0x143c build/cleanroom/SQ2_AGI.decrypted.exe
+```
+
+Generated role reports under `build/cross-version/` cover KQ1, PQ1, KQ2,
+LSL1, KQ4, KQ4D, and GR against the SQ2 role set. The unmatched rows belong to
+already documented categories: early pattern handlers, indirect short picture
+command entries, exact-four-loop selection, motion-mode changes, v3 resource
+containers, and alternate display refresh branches. No new version profile was
+justified by this pass.
+
+The discard source pass found a portable lifecycle rule that had been stated
+too weakly. View lookup `0x3979` leaves in `[0x1000]` the address of the root or
+preceding next-link word that points at the selected record. View discard
+`0x3f0d` writes zero through that address. Picture lookup `0x49e8` and discard
+`0x4bce` perform the same operation through `[0x1214]`. Therefore discard
+truncates the family list at the selected record: the selected resource and all
+later records in that family become unreachable, rather than deleting only one
+entry.
+
+Both discard paths flush object update lists, call `code.heap.rewind_to`
+(`0x143c`) with the selected record, rebuild update lists, and refresh the
+free-memory state. Since resource allocations share the bump heap, continuing
+to use a discarded payload is not a portable valid-data behavior. The clean
+spec now defines ordered same-family retention/truncation and requires a live
+selection to be released before discard. `tools/agi_resources.py` contains a
+narrow portable transition model with regression tests; no QEMU experiment was
+needed because both the link mutation and heap rewind are direct source
+observations.
+
+A linear corpus audit then disassembled all present logic resources from KQ1,
+KQ2, KQ3, KQ4, KQ4D, LSL1, PQ1, SQ2, and GR. Discard actions are used in every
+profile: picture discard counts range from SQ2's one to KQ4's 125, and view
+discard counts range from zero in SQ2 to 76 in KQ4. None of the selected game
+scripts uses variable-view discard action `0x99`.
+
+The clearest allocator-discipline example is KQ2 logic 67. Its room-entry path
+loads views in the order `53,59,51,52,57,60`. Its cleanup branch discards them
+in the exact reverse order `60,57,52,51,59,53`.
+
+Most picture cases use `load_picture_var`, `prepare_picture_var`, then
+`discard_picture_var` immediately. View cases similarly unwind temporary
+loads or stop/deactivate/rebind the relevant object around discard. These
+shipped-script observations support the valid-use discipline while the more
+general selected-and-later truncation rule remains direct executable evidence.
+
+The corpus reports are disposable generated files under
+`build/cross-version/*_logic_disassembly.txt`. SQ2 was limited to logic numbers
+below 140 because its two known out-of-range trailing directory entries are not
+valid resource records.

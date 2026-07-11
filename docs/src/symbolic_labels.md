@@ -112,7 +112,7 @@ Address columns use these meanings:
 | `code.picture.load_resource` | image `0x4a3b` | Loads/caches a picture-like payload. |
 | `code.picture.prepare` | image `0x4acf` | Selects cached picture payload and prepares decode state. |
 | `code.picture.overlay_prepare` | image `0x4b3b` | Overlay picture path used before decoder entry `code.picture.decode_no_clear`. |
-| `code.picture.discard` | image `0x4bce` | Releases or unlinks a picture-like cache entry. |
+| `code.picture.discard` | image `0x4bce` | Finds the picture cache record, clears the preceding link slot so that record and later picture records become unreachable, then rewinds the shared heap to the selected record around update-list flush/rebuild. |
 | `code.picture.decode_with_clear` | image `0x6445` | Fills logical buffer, then falls into picture command decoding. |
 | `code.picture.decode_no_clear` | image `0x6440` | Decodes picture commands without the extra clear/fill entry work. |
 | `code.picture.command_scan` | image `0x6475` | Walks picture command bytes from `data.picture.current_payload`. |
@@ -147,6 +147,7 @@ Address columns use these meanings:
 | Label | SQ2 address | Notes/evidence |
 | --- | --- | --- |
 | `code.view.load_resource` | image `0x39f7` | Loads/caches a view-like payload. |
+| `code.view.discard` | image `0x3f0d` | Finds the selected view record, clears the preceding link slot so that record and later view records become unreachable, then rewinds the shared heap to the selected record around update-list flush/rebuild. Actions `0x20` and `0x99` enter through immediate/variable wrappers at `0x3ecd` and `0x3ee9`. |
 | `code.object.bind_view` | image `0x3ae7` | Binds a cached view payload to an object record. |
 | `code.object.select_group` | image `0x3bb7` | Selects a top-level view subresource/group. |
 | `code.object.select_group_table` | image `0x3c1b` | Computes a group table pointer from the view payload. |

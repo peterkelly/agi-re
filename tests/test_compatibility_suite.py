@@ -15,6 +15,7 @@ ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT / "tools"))
 
 from compatibility_suite import (  # noqa: E402
+    requires_game_dir,
     selected_commands,
     suite_commands,
     run_commands,
@@ -65,6 +66,11 @@ class CompatibilitySuiteTests(unittest.TestCase):
         self.assertNotIn("qemu-v3", {command.layer for command in broad})
         self.assertIn("qemu-v3", {command.layer for command in v3})
 
+    def test_game_backed_layers_require_explicit_game_dir(self) -> None:
+        self.assertTrue(requires_game_dir(selected_commands()))
+        self.assertTrue(requires_game_dir(selected_commands(include_qemu_smoke=True)))
+        self.assertFalse(requires_game_dir(selected_commands(names=["mdbook_build"])))
+
     def test_name_selection_rejects_unknown_names(self) -> None:
         with self.assertRaisesRegex(ValueError, "unknown suite command"):
             selected_commands(names=["missing"])
@@ -86,6 +92,17 @@ class CompatibilitySuiteTests(unittest.TestCase):
         self.assertEqual(results[0].returncode, 7)
         self.assertEqual(run_mock.call_count, 1)
 
+    def test_run_commands_exports_selected_game_dir(self) -> None:
+        commands = selected_commands(names=["local_unittest"])
+        with mock.patch(
+            "compatibility_suite.subprocess.run",
+            return_value=subprocess.CompletedProcess(commands[0].command, 0),
+        ) as run_mock:
+            run_commands(commands, game_dir=Path("games/KQ4"))
+
+        environment = run_mock.call_args.kwargs["env"]
+        self.assertEqual(environment["AGI_GAME_DIR"], "games/KQ4")
+
     def test_write_report_records_commands_and_results(self) -> None:
         commands = selected_commands(names=["local_unittest"])
         with mock.patch(
@@ -96,11 +113,12 @@ class CompatibilitySuiteTests(unittest.TestCase):
 
         with tempfile.TemporaryDirectory() as temp_dir:
             report = Path(temp_dir) / "report.json"
-            write_report(report, commands, results)
+            write_report(report, commands, results, game_dir=Path("games/SQ2"))
             payload = json.loads(report.read_text(encoding="ascii"))
 
         self.assertEqual(payload["commands"][0]["name"], "local_unittest")
         self.assertEqual(payload["results"][0]["returncode"], 0)
+        self.assertEqual(payload["selected_game_dir"], "games/SQ2")
 
 
 if __name__ == "__main__":

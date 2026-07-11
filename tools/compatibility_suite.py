@@ -5,6 +5,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import os
 import subprocess
 import time
 from dataclasses import asdict, dataclass
@@ -496,11 +497,28 @@ def selected_commands(
     return tuple(command for command in commands if command.layer in layers)
 
 
-def run_commands(commands: Iterable[SuiteCommand]) -> list[SuiteResult]:
+def requires_game_dir(commands: Iterable[SuiteCommand]) -> bool:
+    """Return whether the selected layer imports or runs game-backed tools."""
+
+    return any(
+        command.name == "local_unittest"
+        or command.layer in {"qemu-smoke", "qemu-broad"}
+        for command in commands
+    )
+
+
+def run_commands(
+    commands: Iterable[SuiteCommand],
+    *,
+    game_dir: Path | None = None,
+) -> list[SuiteResult]:
     results: list[SuiteResult] = []
+    environment = os.environ.copy()
+    if game_dir is not None:
+        environment["AGI_GAME_DIR"] = str(game_dir)
     for command in commands:
         start = time.monotonic()
-        completed = subprocess.run(command.command, check=False)
+        completed = subprocess.run(command.command, check=False, env=environment)
         elapsed = time.monotonic() - start
         results.append(
             SuiteResult(
@@ -516,11 +534,18 @@ def run_commands(commands: Iterable[SuiteCommand]) -> list[SuiteResult]:
     return results
 
 
-def write_report(path: Path, commands: Iterable[SuiteCommand], results: Iterable[SuiteResult]) -> None:
+def write_report(
+    path: Path,
+    commands: Iterable[SuiteCommand],
+    results: Iterable[SuiteResult],
+    *,
+    game_dir: Path | None = None,
+) -> None:
     path.parent.mkdir(parents=True, exist_ok=True)
     payload = {
         "commands": [asdict(command) for command in commands],
         "results": [asdict(result) for result in results],
+        "selected_game_dir": None if game_dir is None else str(game_dir),
     }
     path.write_text(json.dumps(payload, indent=2, sort_keys=True) + "\n", encoding="ascii")
 
@@ -533,6 +558,11 @@ def main() -> None:
     parser.add_argument("--include-qemu-broad", action="store_true", help="include broad QEMU resource sweeps")
     parser.add_argument("--include-qemu-v3", action="store_true", help="include opt-in v3 interpreter QEMU probes")
     parser.add_argument("--dry-run", action="store_true", help="print selected commands without executing them")
+    parser.add_argument(
+        "--game-dir",
+        type=Path,
+        help="explicit game directory for game-backed local and v2 QEMU tests",
+    )
     parser.add_argument("--report", type=Path, default=DEFAULT_REPORT)
     args = parser.parse_args()
 
@@ -546,8 +576,16 @@ def main() -> None:
         print(json.dumps([asdict(command) for command in commands], indent=2, sort_keys=True))
         return
 
-    results = run_commands(commands)
-    write_report(args.report, commands, results)
+    selected_game_dir = args.game_dir
+    if selected_game_dir is None and os.environ.get("AGI_GAME_DIR"):
+        selected_game_dir = Path(os.environ["AGI_GAME_DIR"])
+    if requires_game_dir(commands) and selected_game_dir is None:
+        parser.error("selected commands require --game-dir PATH or AGI_GAME_DIR")
+    if selected_game_dir is not None and not selected_game_dir.is_dir():
+        parser.error(f"game directory does not exist: {selected_game_dir}")
+
+    results = run_commands(commands, game_dir=selected_game_dir)
+    write_report(args.report, commands, results, game_dir=selected_game_dir)
     failed = [result for result in results if result.returncode != 0]
     if failed:
         raise SystemExit(failed[0].returncode)

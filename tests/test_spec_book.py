@@ -50,6 +50,15 @@ class SpecBookTests(unittest.TestCase):
         for opcode in range(0xB0):
             with self.subTest(profile="2.936", opcode=opcode):
                 self.assertIn(f"`0x{opcode:02x}`", logic)
+
+    def test_resource_lifecycle_specifies_ordered_discard(self) -> None:
+        runtime = (SPEC_SRC / "runtime_state.md").read_text(encoding="ascii")
+        logic = (SPEC_SRC / "logic_bytecode.md").read_text(encoding="ascii")
+
+        self.assertIn("every resource loaded later in the same family", runtime)
+        self.assertRegex(runtime, r"not still selected by a live\s+object")
+        self.assertIn("every picture retained after it", logic)
+        self.assertIn("every view retained after it", logic)
         for opcode in range(0xB0, 0xB6):
             with self.subTest(profile="3.002.149", opcode=opcode):
                 self.assertIn(f"`0x{opcode:02x}`", logic)

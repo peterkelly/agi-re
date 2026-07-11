@@ -47,14 +47,20 @@ version-specific v3 probes are opt-in so a quick local run does not
 unexpectedly boot the original engine:
 
 ```bash
-AGI_GAME_DIR=games/SQ2 python3 -B tools/compatibility_suite.py --report build/compatibility-suite/local_001.json
-AGI_GAME_DIR=games/SQ2 python3 -B tools/compatibility_suite.py --include-qemu-smoke --report build/compatibility-suite/qemu_smoke_002.json
-AGI_GAME_DIR=games/SQ2 python3 -B tools/compatibility_suite.py --include-qemu-broad --report build/compatibility-suite/qemu_broad_002.json
-AGI_GAME_DIR=games/SQ2 python3 -B tools/compatibility_suite.py --include-qemu-v3 --report build/compatibility-suite/qemu_v3_001.json
-AGI_GAME_DIR=games/SQ2 python3 -B tools/compatibility_suite.py --dry-run --include-qemu-smoke
-AGI_GAME_DIR=games/SQ2 python3 -B tools/compatibility_suite.py --dry-run --include-qemu-broad
-AGI_GAME_DIR=games/SQ2 python3 -B tools/compatibility_suite.py --dry-run --include-qemu-v3
+python3 -B tools/compatibility_suite.py --game-dir games/SQ2 --report build/compatibility-suite/local_001.json
+python3 -B tools/compatibility_suite.py --game-dir games/SQ2 --include-qemu-smoke --report build/compatibility-suite/qemu_smoke_002.json
+python3 -B tools/compatibility_suite.py --game-dir games/SQ2 --include-qemu-broad --report build/compatibility-suite/qemu_broad_002.json
+python3 -B tools/compatibility_suite.py --game-dir games/SQ2 --include-qemu-v3 --report build/compatibility-suite/qemu_v3_001.json
+python3 -B tools/compatibility_suite.py --game-dir games/SQ2 --dry-run --include-qemu-smoke
+python3 -B tools/compatibility_suite.py --game-dir games/SQ2 --dry-run --include-qemu-broad
+python3 -B tools/compatibility_suite.py --game-dir games/SQ2 --dry-run --include-qemu-v3
 ```
+
+`--game-dir` has no default. The runner exports the selected path as
+`AGI_GAME_DIR` only to its child commands and writes it as
+`selected_game_dir` in the JSON report, so reports from different private game
+inputs remain distinguishable. The environment variable remains accepted as
+an alternative explicit selection for existing automation.
 
 The first checked run of the default manifest passed after running 230 unit
 tests, building the mdBook, and checking generated opcode evidence.

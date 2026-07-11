@@ -385,6 +385,27 @@ sounds). Sound loader `0x5126` derives the four channel stream pointers by
 reading the first four little-endian words in the payload and adding each offset
 to the payload base.
 
+The same saved link slot gives picture/view discard its stack-shaped effect.
+View discard helper `0x3f0d` finds the selected record through `0x3979`, then
+stores zero through `[0x1000]`. Picture discard `0x4bce` does the equivalent
+through `[0x1214]`. The cleared word is the family root when the match is first,
+or the preceding record's next link otherwise. Consequently the selected
+record and every later record in that family become unreachable together; this
+is not arbitrary single-entry deletion.
+
+Both helpers flush the object update lists, pass the selected record address to
+`code.heap.rewind_to`, rebuild the lists, and refresh the free-memory state.
+Because the allocation frontier is shared by resource families, valid scripts
+must not keep using a selected payload after discarding its record. The clean
+spec expresses the stable family-visible truncation rule and excludes stale
+payload use rather than exposing allocator addresses.
+
+Selected local scripts follow the expected stack discipline. KQ2 logic 67
+loads views `53,59,51,52,57,60` and discards them as
+`60,57,52,51,59,53`. Common picture setup paths load and prepare a picture,
+then discard it before loading the room's views and sounds. This is game-data
+support for the source-derived list/rewind rule, not the basis for it.
+
 Early payload observations from these loaders:
 
 - Logic payloads begin with a little-endian offset. Loader `0x119a` treats
