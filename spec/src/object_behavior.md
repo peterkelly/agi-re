@@ -119,8 +119,11 @@ Direction values and coordinate deltas are:
 | 7 | left | -step | 0 |
 | 8 | up-left | -step | -step |
 
-When automatic loop selection is enabled and the cadence countdown is `1`,
-the direction may select a loop before cel timing.
+When automatic loop selection is enabled, the direction may select a loop
+before cel timing. Profiles 2.089 and 2.272 perform this selection on every
+eligible post-logic object pass, independently of the movement-cadence
+countdown. Profiles 2.411 and later perform it only when that countdown is
+`1`.
 
 For views with two or three loops:
 
@@ -140,8 +143,8 @@ For views with four or more loops:
 | 1 | 3 |
 | 0 | no change |
 
-Profiles 2.411, 2.440, and 2.917 use the second table only for exactly four
-loops; a view with more loops does not change automatically. Profiles 2.936
+Profiles 2.089, 2.272, 2.411, 2.440, and 2.917 use the second table only for
+exactly four loops; a view with more loops does not change automatically. Profiles 2.936
 and 3.002.086 use the table for every view with four or more loops. In profiles
 3.002.102 and 3.002.149, exactly-four-loop views always use it, while views
 with more than four loops use it only while `f20` is set.

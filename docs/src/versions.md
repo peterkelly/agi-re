@@ -680,6 +680,11 @@ early action differences:
 | Action `0x9b` | Unavailable. | Consumes two bytes and has no other effect. |
 | Actions `0x9c..0xa0` | Unavailable. | Dispatch to operand-advance stubs at image `0x8400..0x8404`; no menu state is constructed. |
 | Position actions `0x25`/`0x26` | Write current coordinates, remove old rendered state if drawn, then update the previous-position snapshot. | Write current and previous coordinates together without first removing rendered state. |
+| Picture scanner | Image `0x5baf` accepts `0xf0..0xf8`; `0xf9`/`0xfa` are not dispatched. | Image `0x5c38` has the same `0xf0..0xf8` boundary. |
+| Automatic loop selection | Image `0x05cc` selects direction loops on every eligible pass, without testing cadence countdown `object[1]`. | Image `0x04c6` has the same cadence-independent rule. |
+| String slots | Parse action at image `0x1817` accepts selectors below 6. | Parse action at image `0x17f7` accepts selectors below 6. |
+| Word-sequence predicate | Image `0x0965` requires exact parser/pattern counts; `0x270f` is an ordinary identifier. | Image `0x087d` implements the later `0x270f` tail terminator. |
+| Save envelope | Image `0x2501` writes four blocks and no logic-resume block. | Image `0x24f5` writes five blocks, including variable logic resumes. |
 
 The XMAS string-equality predicate's shorter entry merely delegates to a
 normalization helper; its helper still removes ignored characters, normalizes
@@ -688,9 +693,35 @@ difference.
 
 Both games store `OBJECT` metadata directly rather than through the later
 repeating-key XOR. SQ1's plain header is `4e 00 11`, defining 26 inventory
-entries and 18 drawable-object records. XMAS uses `03 00 11`, defining one
-inventory entry and 18 drawable-object records. Local parser tests preserve
-both observations.
+entries. Its startup path uses the third header byte directly as the runtime
+record count, so it allocates 17 records. XMAS uses `03 00 11`, defining one
+inventory entry; its startup path increments the third byte and therefore
+allocates 18 records. A format-only parser still exposes the shared header byte
+as `maximum_object_index`, but that name must not be used to infer SQ1 runtime
+capacity.
+
+The picture scanners are relocated copies of one another. SQ1 scanner
+`0x5baf` and XMAS scanner `0x5c38` subtract `0xf0` and accept only results
+through 8, proving a command vocabulary of `0xf0..0xf8`. Their command and
+raster helpers otherwise align after relocation: decode-with-clear at
+`0x5b84`/`0x5c0d`, coordinate reads at `0x5ce8`/`0x5d71`, line rasterization
+at `0x5d19`/`0x5da2`, and fill at `0x4ad4`/`0x4aa6`.
+
+Both sound drivers initialize four streams and countdowns, select one channel
+only when the hardware selector is zero, and use the same event scheduler.
+SQ1 event output `0x7615` always writes both tone bytes. For device 2, helper
+`0x7657` increases control low nibbles below 8 by 3 before output; otherwise it
+emits `CL` unchanged. XMAS event output `0x7634` uses corresponding helper
+`0x7680`, then adds the global adjustment to the entire control byte and
+applies its signed greater-than-15 clamp. Neither build has the later per-tick
+attenuation envelopes.
+
+SQ1's save writer serializes block lengths `0x03db`, `17 * 0x2b = 0x02db`,
+the selected metadata runtime length `0x0153`, and twice the configured replay
+capacity. It then closes the file. XMAS serializes `0x03db`,
+`18 * 0x2b = 0x0306`, metadata length `0x000f`, twice the configured replay
+capacity, and a variable logic-resume block. Their restore paths read the
+corresponding four- and five-block forms.
 
 XMAS also retains three installation methods. `ORIGINAL.BAT` selects
 `VOL.ORG`, `LOGDIR.ORG`, and `PICDIR.ORG`; `LOGMETH.BAT` and `VOLMETH.BAT`
@@ -720,7 +751,7 @@ only three bytes in the embedded game-signature region. All 34 mapped roles
 match at the same addresses. It is a second 2.917 build, not a new behavioral
 profile.
 
-Original saves supply these selected-game dimensions:
+Original saves supply these historical artifact dimensions:
 
 | Selected game | Profile | Block 1 | Block 2 | Block 3 | Block 4 | Block 5 |
 | --- | --- | ---: | ---: | ---: | ---: | --- |
@@ -728,10 +759,17 @@ Original saves supply these selected-game dimensions:
 | MG | 2.915/2.917 rules | `0x05df` | 21 records, `0x0387` | one item, `0x0005` | 110 pairs, `0x00dc` | Variable |
 | SQ1.22 | 2.917 | `0x05e1` | 18 records, `0x0306` | 25 items, `0x0148` | 50 pairs, `0x0064` | Variable |
 
-MG's decoded `OBJECT` header byte would imply 91 drawable records, while its
-original save and save-writer globals select 21 records. The portable meaning
-of that header byte is therefore not universal across these builds; the MG
-case remains an explicit metadata/save-dimension investigation.
+The MG discrepancy is an artifact-version mismatch, not an alternate header
+meaning in the selected interpreter. The bundled save is dated 5 November
+1987; the bundled interpreter is dated 16 November 1987. The current
+interpreter's startup at image `0x0fa5` loads and decodes `OBJECT`, increments
+the decoded third header byte `0x5a`, and multiplies 91 by the `0x2b` record
+size. Its save writer at `0x2751` therefore writes block lengths `0x05e1`,
+`0x0f49`, and `0x0005` before its dynamic replay/resume blocks. The bundled
+older save instead has `0x05df`, `0x0387` (21 records), and `0x0005`.
+Consequently that save cannot have been produced by the selected
+interpreter/metadata combination and is retained only as historical evidence,
+not as its binary interchange contract.
 
 ### MH1 3.002.107 and MH2 3.002.149
 

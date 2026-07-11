@@ -208,7 +208,20 @@ shutdown cleanup, and terminates without asking for confirmation. Actions
 Position actions `0x25` and `0x26` first change the object's current position.
 If the object is currently drawn, they remove its old rendered state, then
 copy the new coordinates into its previous-position snapshot. This differs in
-ordering from 2.272. Other domains are not yet broad enough for a full 2.089
+ordering from 2.272.
+
+Pictures support commands only through seed fill `0xf8`. Automatic
+direction-loop selection is evaluated on every eligible post-logic pass and
+uses the four-direction table only for exactly four loops. The profile exposes
+six string slots. Its word-sequence condition requires an exact operand/parser
+count and does not give `0x270f` tail-terminator meaning.
+
+Sound event scheduling and channel participation follow the early profile in
+the sound chapter. Four-channel events emit both tone bytes and use the 2.089
+control-byte rule, including its device-2 adjustment. The selected SQ1 data uses 17 runtime object records:
+this profile treats the metadata header's object value as a count, not as a
+maximum index. Saves use the four-block 2.089 envelope specified in the
+persistence chapter. Other domains are not yet broad enough for a full 2.089
 gameplay-conformance claim.
 
 ## AGI 2.272 partial profile
@@ -225,7 +238,17 @@ nothing; this profile parses menu-construction bytecode without constructing a
 menu.
 
 Position actions `0x25` and `0x26` write both current and previous-position
-coordinates directly and do not first remove an already drawn object. Other
+coordinates directly and do not first remove an already drawn object.
+
+Pictures support commands only through `0xf8`. Automatic direction-loop
+selection is evaluated independently of cadence and uses the four-direction
+table only for exactly four loops. The profile exposes six string slots and
+already recognizes `0x270f` as the word-sequence tail terminator.
+
+Early sound scheduling uses one channel only for device selector zero and
+otherwise advances all four. Four-channel events emit both tone bytes and use
+the device-2 plus whole-byte adjustment rule in the sound chapter. The selected XMAS data
+uses 18 runtime object records and the five-block 2.272 save envelope. Other
 domains are not yet broad enough for a full 2.272 gameplay-conformance claim.
 
 ## Other observed versions

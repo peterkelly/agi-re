@@ -832,6 +832,21 @@ address as part of the portable behavior.
 | `opcode.action.set_object_pos` | SQ1 image `0x7141`; XMAS image `0x7196` | SQ1 erases drawn old state before snapshot update; XMAS writes current/snapshot coordinates directly. |
 | `opcode.action.set_object_pos_var` | SQ1 image `0x7199`; XMAS image `0x71d3` | Variable-coordinate form of the same ordering difference. |
 | `code.menu.operand_advance_stubs` | XMAS image `0x8400..0x8404` | Actions `0x9c..0xa0` consume declared operands and otherwise return without menu state. |
+| `code.picture.decode_with_clear` | SQ1 image `0x5b84`; XMAS image `0x5c0d` | Early decoders clear state before entering relocated command scanners. |
+| `code.picture.command_scan` | SQ1 image `0x5baf`; XMAS image `0x5c38` | Both dispatch only picture commands `0xf0..0xf8`. |
+| `code.picture.read_coord_pair` | SQ1 image `0x5ce8`; XMAS image `0x5d71` | Relocated guarded coordinate reader. |
+| `code.picture.draw_line` | SQ1 image `0x5d19`; XMAS image `0x5da2` | Relocated line rasterizer. |
+| `code.picture.seed_fill` | SQ1 image `0x4ad4`; XMAS image `0x4aa6` | Relocated four-connected fill path. |
+| `code.object.frame_timer_update` | SQ1 image `0x05cc`; XMAS image `0x04c6` | Automatic direction-loop selection has no cadence-countdown gate. |
+| `opcode.condition.input_word_sequence` | SQ1 image `0x0965`; XMAS image `0x087d` | SQ1 is exact-count only; XMAS recognizes the `0x270f` tail terminator. |
+| `opcode.action.parse_string` | SQ1 image `0x1817`; XMAS image `0x17f7` | Both accept six string-slot selectors. |
+| `code.sound.driver_start` | SQ1 image `0x74f5`; XMAS image `0x7514` | Early one-versus-four-channel initialization. |
+| `code.sound.driver_tick` | SQ1 image `0x7557`; XMAS image `0x7576` | Relocated event/countdown scheduler without envelopes. |
+| `code.sound.driver_write_event` | SQ1 image `0x7615`; XMAS image `0x7634` | Both apply the device-2 `+3` helper; SQ1 then emits directly, while XMAS applies whole-byte adjustment and signed clamp. |
+| `code.save.save_game_state` | SQ1 image `0x2501`; XMAS image `0x24f5` | SQ1 writes four blocks; XMAS writes five. |
+| `code.save.restore_game_state` | SQ1 image `0x2335`; XMAS image `0x2315` | Reads each build's corresponding envelope. |
+| `code.object.initialize_metadata` | MG image `0x0fa5` | Decodes current `OBJECT`, increments header byte `0x5a`, and allocates 91 records. |
+| `code.save.save_game_state` | MG image `0x2751` | Current source-derived blocks begin `0x05e1`, `0x0f49`, `0x0005`; bundled older save differs. |
 | `table.logic.action_dispatch` | BC 2.439 data `0x061b`; MG 2.915 data `0x061d`; MH1 3.002.107 data `0x0620`; MH2 3.002.149 data `0x0440` | Counts are 170, 174, 182, and 182. |
 | `table.logic.condition_dispatch` | BC data `0x08e3`; MG data `0x08f5`; MH1 data `0x0942`; MH2 data `0x0762` | Nineteen entries in each build. |
 | `code.room.switch_room_action` | MH2 image `0x19d4` | Reads the immediate room operand and calls ordinary room switch directly. |

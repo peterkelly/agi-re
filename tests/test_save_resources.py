@@ -67,6 +67,9 @@ from agi_save import (  # noqa: E402
     PQ1_2917_INVENTORY_ITEM_COUNT,
     PQ1_2917_OBJECT_RECORD_COUNT,
     SAVE_HEADER_LENGTH,
+    SQ1_2089_BLOCK1_LENGTH,
+    SQ1_2089_BLOCK2_LENGTH,
+    SQ1_2089_OBJECT_RECORD_COUNT,
     SQ2_BLOCK1_LENGTH,
     SQ2_BLOCK1_REGIONS,
     SQ2_BLOCK2_LENGTH,
@@ -79,6 +82,9 @@ from agi_save import (  # noqa: E402
     SQ2_OBJECT_RECORD_FIELDS,
     SQ2_OBJECT_RECORD_SIZE,
     SQ2_REPLAY_PAIR_COUNT,
+    XMAS_2272_BLOCK1_LENGTH,
+    XMAS_2272_BLOCK2_LENGTH,
+    XMAS_2272_OBJECT_RECORD_COUNT,
     SaveBlock,
     SaveGame,
     SavePathValidationPlan,
@@ -90,6 +96,7 @@ from agi_save import (  # noqa: E402
     decode_kq3_2936_object_file,
     decode_kq4_3002086_object_file,
     decode_lsl1_2440_object_file,
+    decode_object_metadata_file,
     decode_pq1_2917_object_file,
     gr_v3_object_inventory_save_xor,
     decode_sq2_object_file,
@@ -148,6 +155,7 @@ PQ1 = ROOT / "games" / "PQ1"
 KQ3 = ROOT / "games" / "KQ3"
 SQ1 = ROOT / "games" / "SQ1"
 XMAS = ROOT / "games" / "XMAS"
+MG = ROOT / "games" / "MG"
 GR_SAVE = ROOT / "build" / "gr-v3-behavior" / "GRSG_001.1"
 
 
@@ -168,6 +176,9 @@ class SaveResourceTests(unittest.TestCase):
         )
 
         self.assertEqual(metadata.object_record_count, 18)
+        self.assertEqual(SQ1_2089_OBJECT_RECORD_COUNT, metadata.maximum_object_index)
+        self.assertEqual(SQ1_2089_BLOCK1_LENGTH, 0x03DB)
+        self.assertEqual(SQ1_2089_BLOCK2_LENGTH, 17 * SQ2_OBJECT_RECORD_SIZE)
         self.assertEqual(len(inventory.items), 26)
         self.assertEqual(inventory.items[0].name, "Cartridge")
         self.assertEqual(inventory.items[1].name, "Life Detector")
@@ -181,8 +192,25 @@ class SaveResourceTests(unittest.TestCase):
         )
 
         self.assertEqual(metadata.object_record_count, 18)
+        self.assertEqual(XMAS_2272_OBJECT_RECORD_COUNT, metadata.object_record_count)
+        self.assertEqual(XMAS_2272_BLOCK1_LENGTH, 0x03DB)
+        self.assertEqual(XMAS_2272_BLOCK2_LENGTH, 18 * SQ2_OBJECT_RECORD_SIZE)
         self.assertEqual(len(inventory.items), 1)
         self.assertEqual(inventory.items[0].name, "Cartridge")
+
+    @unittest.skipUnless(MG.exists(), "local MG game directory is not present")
+    def test_mg_current_metadata_and_historical_save_are_not_one_layout(self) -> None:
+        metadata = decode_object_metadata_file(
+            (MG / "OBJECT").read_bytes(), key=SQ2_OBJECT_FILE_XOR_KEY
+        )
+        historical = load_save(MG / "MGSG.1")
+
+        self.assertEqual(metadata.object_record_count, 91)
+        self.assertEqual(metadata.item_table_size, 3)
+        self.assertEqual(len(metadata.runtime_block), 5)
+        self.assertEqual(91 * SQ2_OBJECT_RECORD_SIZE, 0x0F49)
+        self.assertEqual(historical.blocks[1].length, 21 * SQ2_OBJECT_RECORD_SIZE)
+        self.assertNotEqual(historical.blocks[1].length, 91 * SQ2_OBJECT_RECORD_SIZE)
 
     @unittest.skipUnless(PQ1.exists(), "local PQ1 game directory is not present")
     def test_pq1_2917_save_dimensions_match_object_metadata_and_saves(self) -> None:

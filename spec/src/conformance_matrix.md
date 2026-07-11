@@ -69,6 +69,30 @@ and 3.002.149 unless a profile-variant row below says otherwise:
 | Block transform | No transform for block 3. | Block 3 is XOR-transformed with the specified repeating `Avis Durgan` key. |
 | Binary save interchange status | Defined for the mapped game/profile dimensions; reserved bytes use canonical initialization and byte preservation. | Defined for the mapped Gold Rush/profile dimensions; reserved bytes use canonical initialization and byte preservation. |
 
+### 2.089 variant selection
+
+| Domain | 2.089 behavior |
+| --- | --- |
+| Resource container | Split direct resources; inventory metadata is stored expanded. |
+| Action and condition ranges | Actions `0x00..0x9a`; conditions `0x00..0x12`. |
+| Picture commands | Dispatch `0xf0..0xf8`; no pattern-command slots. |
+| Direction-selected loops | Evaluate every eligible post-logic pass, without a cadence gate; exactly four loops use the four-loop table. |
+| String and parser profile | Six string slots; exact-count word matching without the `0x270f` tail terminator. |
+| Sound output | Selector zero uses one channel; all others use four. Emit both tone bytes; device 2 adds 3 to low attenuation values below 8, then emit the control byte. |
+| Save envelope | Four blocks; no logic-resume block. Binary interchange remains partial. |
+
+### 2.272 variant selection
+
+| Domain | 2.272 behavior |
+| --- | --- |
+| Resource container | Split direct resources; inventory metadata is stored expanded. |
+| Action and condition ranges | Actions `0x00..0xa0`; conditions `0x00..0x12`. |
+| Picture commands | Dispatch `0xf0..0xf8`; no pattern-command slots. |
+| Direction-selected loops | Same cadence-independent, exact-four behavior as 2.089. |
+| String and parser profile | Six string slots; `0x270f` has tail-terminator meaning. |
+| Sound output | Early channel selection; emit both tone bytes; apply the device-2 adjustment, then adjust and signed-clamp the entire control byte. |
+| Save envelope | Five blocks with a `0x03db` block 1. Binary interchange remains partial. |
+
 ### 2.411 variant selection
 
 | Domain | 2.411 behavior |
@@ -170,7 +194,7 @@ resource availability, names, save dimensions, or scripted behavior.
 
 | Domain | Specified portion | Remaining limitation |
 | --- | --- | --- |
-| Profiles 2.089 and 2.272 | Resource encoding and selected opcode/state differences are specified. | Renderer, object, input, persistence, and sound domains still need broad source mapping before a full gameplay claim. |
+| Profiles 2.089 and 2.272 | Resource encoding, picture command boundary, automatic loops, input capacity/matching, sound scheduling/output, save envelope, and selected opcode/state differences are specified. | Byte-complete save maps and remaining non-priority subsystem edges are still required for a full gameplay claim. |
 | Additional interpreter versions | They may be inventoried separately. | They have no normative profile until each observable delta is promoted. |
 
 ## Outside the current target

@@ -29,10 +29,9 @@ better understood, or a new remaining-work item is discovered.
   `0x6e`/`0x83`/`0x8e`/`0xaa`/`0xad` source-backed).
 - Logic condition opcodes: all 19 of 19 are QEMU-validated.
 - Main remaining risk areas: full picture/view renderer edge behavior, final
-  compatibility suite breadth, broad subsystem maps for partial 2.089/2.272
-  profiles, the MG object/save discrepancy, incomplete MH1/MH2 resource sets,
-  and promoting accumulated evidence into the standalone behavioral
-  specification.
+  compatibility suite breadth, residual subsystem edges and byte-complete save
+  maps for partial 2.089/2.272 profiles, incomplete MH1/MH2 resource sets, and
+  promoting accumulated evidence into the standalone behavioral specification.
 - Picture/view resource retention is now source-modeled as ordered within each
   family. Discard actions truncate the selected resource and every later
   same-family retention; restore replay kinds 6 and 7 reproduce that ordering.
@@ -108,12 +107,19 @@ better understood, or a new remaining-work item is discovered.
   a same-version 3.002.149 control for Gold Rush: the two loaded images differ
   by only 29 classified bytes, proving that room aliases `0x7e..0x80 -> 0x49`
   are Gold Rush-specific rather than universal to 3.002.149.
-- SQ1 2.089 and XMAS 2.272 now have partial source-backed profiles. SQ1 accepts
+- SQ1 2.089 and XMAS 2.272 now have broad source-backed profiles. SQ1 accepts
   actions only through `0x9a`; its `0x86` is a zero-operand unconditional exit.
   XMAS accepts through `0xa0`; its `0x86` has the later selector, while menu
   actions `0x9c..0xa0` are operand-consuming no-ops. Their `OBJECT` files are
   plain expanded metadata rather than repeating-key XOR data. A source pass
-  also records their drawn-object position-update ordering difference. XMAS's
+  also records their drawn-object position-update ordering difference. Both
+  stop picture command dispatch at `0xf8`, select automatic direction loops
+  independently of movement cadence, expose six string slots, and use the
+  early one-versus-four-channel sound scheduler. SQ1 has exact-count word
+  matching, device-2-adjusted direct sound control bytes, 17 runtime object records, and a
+  four-block save envelope. XMAS adds the `0x270f` tail terminator, whole-byte
+  sound-control adjustment, 18 runtime object records, and a five-block save
+  envelope. XMAS's
   active files are the original multi-disk distribution variant, whose disk
   number nibbles and single selected `VOL.0` are not an installed-layout
   missing-volume error.
@@ -121,8 +127,11 @@ better understood, or a new remaining-work item is discovered.
   blocks `0x05df`, `0x02db`, `0x0135`, and `0x00fe`; MG uses `0x05df`,
   `0x0387`, `0x0005`, and `0x00dc`; SQ1.22 uses `0x05e1`, `0x0306`,
   `0x0148`, and `0x0064`. All retain the variable fifth-block grammar. BC and
-  SQ1.22 dimensions agree with decoded metadata; MG's 21 saved object records
-  conflict with the current interpretation of its metadata header.
+  SQ1.22 dimensions agree with decoded metadata. MG's mismatch is an
+  artifact-version conflict: its save predates its interpreter and has
+  incompatible block-1 and object-block lengths. The current interpreter/data
+  derive 91 object records, so the older 21-record save is not a current
+  binary-interchange oracle.
 - Generated original-engine fixture builders now treat `games/` as immutable:
   they copy the selected game input to a generated destination, make copied
   files writable, and reject fixture destinations under `games/`. The v2
@@ -159,10 +168,10 @@ better understood, or a new remaining-work item is discovered.
     3.002.149 profiles. KQ2, LSL1, KQ1, full KQ4, KQ4D, and Gold Rush supply
     mapped profile-specific binary-save dimensions. Mapped-equivalent evidence
     now covers 2.439, 2.915, 3.002.107, and a second 3.002.149 build. Partial
-    2.089 and 2.272 profiles record only the source-proven domains audited so
-    far.
-  - Remaining: broaden 2.089/2.272 renderer, object, input, persistence, and
-    sound source maps. MH1 is confirmed incomplete because readable scripts
+    2.089 and 2.272 profiles now record source-proven picture, object-loop,
+    input, sound, and save-envelope differences.
+  - Remaining: byte-map 2.089/2.272 saves and inspect residual subsystem edges
+    as needed. MH1 is confirmed incomplete because readable scripts
     directly reference six unreadable views. MH2 has no such reference in its
     readable scripts, but 31 skipped logic resources prevent a complete audit.
 - [x] Resource containers
@@ -236,9 +245,12 @@ better understood, or a new remaining-work item is discovered.
     byte-complete structural map: 1028-byte global block with explicit reserved
     state, 23 object records, decoded 131-entry inventory/name data, 50
     replay pairs, and the same variable logic-resume grammar.
-    Original BC, MG, and SQ1.22 saves add first-four-block dimensions for their
-    selected game data, but do not yet add byte-complete state maps or an MG
-    interchange claim.
+    The common 2.089/2.272 block-1 tail is partitioned into replay capacity and
+    count, 39 key mappings, six live and six reserved string records, and
+    text/input/status fields; the scalar prefix is still partial. Original BC
+    and SQ1.22 saves add first-four-block dimensions for their
+    selected game data. MG's historical save is explicitly incompatible with
+    its selected interpreter/data combination and is not an interchange map.
     Cross-version layout and complete-code reference analysis classify the
     former block-1 gaps as inactive key-map records, a reserved string bank,
     fixed reserved words, and alignment bytes. The spec defines canonical
@@ -856,9 +868,8 @@ source-mapped well enough to justify a targeted probe.
     original GR interpreter. `tools/resource_reference_audit.py` adds a
     script-visible reference check for deciding whether unreadable
     directory-looking entries are valid behavior candidates.
-  - Remaining: complete broad source maps for SQ1 2.089 and XMAS 2.272; resolve
-    MG's mismatch between its decoded metadata header and original-save object
-    count; obtain complete MH1/MH2 resource sets before whole-game corpus work.
+  - Remaining: byte-map 2.089/2.272 save state and residual subsystem edges;
+    obtain complete MH1/MH2 resource sets before whole-game corpus work.
 - [~] Final human-readable behavioral specification
   - Evidence: a separate clean-room mdBook now lives under `spec/`, with an
     explicit externally observable behavior boundary and conformance model.
@@ -879,23 +890,20 @@ source-mapped well enough to justify a targeted probe.
 
 ## Highest-Value Remaining Work
 
-1. Complete source-first subsystem comparisons for SQ1 2.089 and XMAS 2.272,
-   prioritizing picture patterns, sound scheduling/output, direction-loop
-   selection, input capacities, and save block construction.
-2. Resolve the MG 2.915 object-metadata/save-record-count discrepancy from its
-   disassembled startup and save paths before adding an interchange contract.
-3. Obtain complete MH1/MH2 resource sets before using them for whole-game
+1. Byte-map the remaining 2.089/2.272 save-state fields and inspect residual
+   subsystem edges needed to promote full gameplay profiles.
+2. Obtain complete MH1/MH2 resource sets before using them for whole-game
    corpus claims. The current MH1 copy has six directly referenced unreadable
    views; MH2 has 31 unreadable logic resources.
-4. Continue v3 behavioral probes from source-mapped deltas only when the
+3. Continue v3 behavioral probes from source-mapped deltas only when the
    portable specification still has an observable ambiguity. Use synthetic v3
    resources when a focused confirmation requires them.
-5. Continue source-first renderer work only when disassembly or a valid local
+4. Continue source-first renderer work only when disassembly or a valid local
    resource exposes a concrete edge not already modeled. Use QEMU as
    confirmation/regression evidence.
-6. Keep expanding `tools/compatibility_suite.py` when a new behavior is promoted
+5. Keep expanding `tools/compatibility_suite.py` when a new behavior is promoted
    to reusable evidence. Re-run the smoke or broad QEMU layer whenever the
    manifest changes.
-7. Treat non-EGA paths, analog waveform synthesis, menu arrow injection, invalid
+6. Treat non-EGA paths, analog waveform synthesis, menu arrow injection, invalid
    path UI, and out-of-memory UI as optional/conditional work unless the final
    compatibility target expands beyond current full-EGA valid-data behavior.

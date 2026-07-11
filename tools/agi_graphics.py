@@ -22,6 +22,9 @@ WIDTH = 0xA0
 HEIGHT = 0xA8
 DEFAULT_CELL = 0x4F
 DEFAULT_HORIZON = 0x24
+PICTURE_COMMAND_FIRST = 0xF0
+PICTURE_COMMAND_LAST_PRE_PATTERN = 0xF8
+PICTURE_COMMAND_LAST_PATTERN = 0xFA
 DEFAULT_PRIORITY_TABLE = tuple(
     4 if y < 0x30 else min(14, 5 + (y - 0x30) // 12)
     for y in range(HEIGHT)
@@ -109,6 +112,47 @@ class ControlAcceptance:
     accepted: bool
     flag0_value: bool | None = None
     flag3_value: bool | None = None
+
+
+def picture_command_is_supported(command: int, *, pattern_commands: bool = True) -> bool:
+    """Return whether a profile dispatches the command byte."""
+
+    last = PICTURE_COMMAND_LAST_PATTERN if pattern_commands else PICTURE_COMMAND_LAST_PRE_PATTERN
+    return PICTURE_COMMAND_FIRST <= (command & 0xFF) <= last
+
+
+def automatic_direction_loop(
+    current_loop: int,
+    loop_count: int,
+    direction: int,
+    *,
+    cadence_countdown: int = 1,
+    require_countdown_one: bool = True,
+    four_or_more: bool = False,
+) -> int:
+    """Select the direction-facing loop for one post-logic object pass."""
+
+    if require_countdown_one and (cadence_countdown & 0xFF) != 1:
+        return current_loop
+
+    direction &= 0xFF
+    if loop_count in (2, 3):
+        if direction in (2, 3, 4):
+            return 0
+        if direction in (6, 7, 8):
+            return 1
+        return current_loop
+
+    if loop_count == 4 or (four_or_more and loop_count > 4):
+        if direction in (2, 3, 4):
+            return 0
+        if direction in (6, 7, 8):
+            return 1
+        if direction == 5:
+            return 2
+        if direction == 1:
+            return 3
+    return current_loop
 
 
 def priority_value_to_sort_y(

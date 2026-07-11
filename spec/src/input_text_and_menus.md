@@ -27,14 +27,15 @@ Dictionary lookup is case-insensitive for ASCII letters.
 
 ## String slots
 
-The promoted profiles expose twelve 40-byte string slots `s0..s11`. Slot
-operations use zero-terminated byte strings within that fixed capacity.
+Profiles 2.089 and 2.272 expose six 40-byte string slots `s0..s5`. Later
+promoted profiles expose twelve slots `s0..s11`. Slot operations use
+zero-terminated byte strings within that fixed capacity.
 
 - Copying a logic message or normalized parsed word copies no more than 40
   bytes into the destination slot.
 - Prompted editing clears the destination first. Its storage limit is
   `min(requested_maximum + 1, 40)` bytes including the terminator.
-- Parsing ignores slot numbers outside `0..11`.
+- Parsing ignores slot numbers outside the selected profile's slot range.
 - Numeric prompting accepts at most four decimal characters and stores the low
   eight bits of the resulting unsigned value.
 
@@ -100,6 +101,11 @@ word-sequence condition from matching the same parsed input. Failure leaves
 A terminator-only pattern can succeed after an unknown-token parse because the
 nonzero parser error position satisfies the input-presence check even when no
 dictionary identifier precedes the unknown token.
+
+Profile 2.089 does not recognize `0x270f` as a tail terminator. It first
+requires the pattern count to equal the parser count/error position, then
+compares every identifier using exact equality or the `0x0001` wildcard.
+Profile 2.272 and later use the tail-terminator behavior above.
 
 ## Event queue
 

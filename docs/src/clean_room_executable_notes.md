@@ -11244,17 +11244,16 @@ together without that erase call. The XMAS string-equality entry delegates to
 shorter entry is not a behavioral difference.
 
 SQ1 and XMAS `OBJECT` files begin with valid plain headers `4e 00 11` and
-`03 00 11`. They define 26/one inventory entries and 18 drawable records. XOR
-decoding them was the earlier analysis mistake. A transform-neutral parser and
-tests now preserve the plain form. BC, MG, and the later inputs retain the
-repeating-key encoded form.
+`03 00 11`. They define 26/one inventory entries. SQ1 uses the third byte as a
+17-record count; XMAS increments it and allocates 18 records. XOR decoding them
+was the earlier analysis mistake. A transform-neutral parser and tests preserve
+the plain form. BC, MG, and the later inputs retain the repeating-key encoded
+form.
 
 Original saves establish BC block lengths `1503,731,309,254,variable`, MG
 `1503,903,5,220,variable`, and SQ1.22
-`1505,774,328,100,variable`. MG's decoded metadata header byte suggests 91
-drawable records, conflicting with the original save's 21 records. That case
-is left open for a startup/save source trace rather than generalized from the
-later metadata interpretation.
+`1505,774,328,100,variable`. The later source trace below resolves why the MG
+save must not be associated with the currently bundled executable.
 
 XMAS's active files match its `.ORG` variants. `ORIGINAL.BAT`, `LOGMETH.BAT`,
 and `VOLMETH.BAT` show three selectable distribution methods. The original
@@ -11275,3 +11274,58 @@ unreadable and direct references from readable scripts to unreadable views 7,
 analysis. MH2 has 31 unreadable logics; no readable script directly references
 an unreadable resource, but skipped scripts prevent a complete reachability
 claim.
+
+## Early 2.089/2.272 subsystem completion and MG save resolution
+
+Full 16-bit disassemblies were generated locally as
+`build/cross-version/sq1_2089.ndisasm` and
+`build/cross-version/xmas_2272.ndisasm`. The picture scanners at SQ1 `0x5baf`
+and XMAS `0x5c38` subtract `0xf0` and reject dispatch indices above 8. They
+therefore recognize `0xf0..0xf8`; neither build has the later `0xf9`/`0xfa`
+pattern slots. Command, coordinate, line, pixel, and fill bodies match after
+relocation.
+
+Post-logic object routines SQ1 `0x05cc` and XMAS `0x04c6` test the automatic
+loop flags and loop counts but do not test movement countdown byte `+0x01`.
+Both use the two-direction table for loop counts 2 and 3, the four-direction
+table for exactly 4, and no automatic change for other counts. KQ2 `0x0530`
+adds the later countdown-equals-1 gate.
+
+The parse-string actions at SQ1 `0x1817` and XMAS `0x17f7` both compare the
+slot selector with 6. SQ1 word-sequence predicate `0x0965` first requires the
+operand count to equal the parser count/error position, then compares every
+word with exact or `0x0001` wildcard semantics. XMAS `0x087d` has the later
+remaining-count loop and explicit `0x270f` tail terminator.
+
+Sound start/tick/write entries are SQ1 `0x74f5`/`0x7557`/`0x7615` and XMAS
+`0x7514`/`0x7576`/`0x7634`. Both select only channel 0 for device zero, select
+all four channels otherwise, initialize countdowns to 1, and lack attenuation
+envelopes. Both call a device-2 helper (`0x7657`/`0x7680`) that adds 3 to a
+control low nibble below 8. SQ1 then emits both tone bytes and the resulting
+control byte. XMAS emits both tone bytes, adds the global adjustment to the
+entire resulting control byte modulo 256, then uses signed `<= 15` to retain
+the result or emits `0x0f` otherwise.
+
+SQ1 save/restore at `0x2501`/`0x2335` writes and reads four blocks. The writer
+uses lengths `0x03db`, `17 * 0x2b = 0x02db`, `0x0153`, and twice replay
+capacity word `DS:0x0145`, then closes the file. XMAS `0x24f5`/`0x2315` uses five blocks:
+`0x03db`, `18 * 0x2b = 0x0306`, `0x000f`, twice the same capacity word, and
+the variable result of its logic-resume serializer.
+
+The replay writer uses `DS:0x0147` as its active pair count, confirming that
+the adjacent `DS:0x0145` value serialized as block-4 length is capacity rather
+than current occupancy. The common block-1 tail is now source-partitioned:
+39 four-byte key mappings at `DS:0x0149`, four padding bytes, six live 40-byte
+strings at `DS:0x01e9`, six reserved 40-byte records, and text/input/status
+state at `DS:0x03c9..0x03dc`. These correspond to block-relative offsets
+`0x0147..0x03da`; the earlier scalar prefix remains only partially named.
+
+For MG, `tools/compare_interpreter_tables.py` extracted the current MZ image to
+`build/cross-version/mg_2915_image.bin`; its disassembly is
+`build/cross-version/mg_2915.ndisasm`. Startup `0x0fa5` decodes `OBJECT`, reads
+third header byte `0x5a`, increments it at `0x1001`, and multiplies 91 by the
+43-byte record size at `0x100e`. Save writer `0x2751` writes block 1 length
+`0x05e1`, the resulting block 2 length `0x0f49`, and metadata block length 5.
+The bundled `MGSG.1` instead contains `0x05df`, `0x0387`, and `0x0005` and is
+dated 5 November 1987, while `AGI` is dated 16 November 1987. The save is an
+older incompatible artifact, not evidence for current-header semantics.

@@ -26388,3 +26388,88 @@ Progress updates and outcomes:
       boundary, XMAS distribution packaging, BC/MG/SQ1.22 save dimensions,
       partial-profile opcode ranges, MH1/MH2 completeness results, additional
       symbolic-map coverage, and the now-repeated cross-version workflow.
+
+3416. Reported: "I’m starting with the two highest-value source questions."
+
+      Action/result: Began source-first SQ1 2.089/XMAS 2.272 picture, object,
+      input, sound, and save comparisons, with the MG save discrepancy queued
+      behind those profile maps.
+
+3417. Reported: "The role reports show XMAS is close enough."
+
+      Action/result: Generated full local 16-bit disassemblies and used the
+      existing relocation reports to anchor corresponding early routines.
+
+3418. Reported: "The picture scanner reveals a larger early boundary."
+
+      Action/result: Proved that both early scanners dispatch only
+      `0xf0..0xf8`; `0xf9` and `0xfa` do not exist as picture commands in
+      profiles 2.089 and 2.272.
+
+3419. Reported: "Both old builds use the same automatic-loop rule."
+
+      Action/result: Proved that both select direction loops on every eligible
+      post-logic pass, without the cadence-countdown gate introduced by 2.411.
+
+3420. Reported: "I’ve now got two concrete early-version differences to carry
+      forward."
+
+      Action/result: Extended the source comparison into parser slot bounds,
+      word matching, sound event output, and save construction before editing
+      the specification.
+
+3421. Reported: "The input path is also separating cleanly by age."
+
+      Action/result: Mapped six string slots in both builds; SQ1 uses exact
+      word-sequence counts without `0x270f`, while XMAS implements the later
+      tail terminator.
+
+3422. Reported: "The sound comparison has exposed another real version step."
+
+      Action/result: Distinguished SQ1 unchanged control-byte output, XMAS
+      whole-byte adjustment with signed clamp, and the later low-nibble-only
+      adjustment rule.
+
+3423. Reported: "The old save constructors are substantially different."
+
+      Action/result: Mapped SQ1's four-block envelope and XMAS's five-block
+      envelope, including source-derived selected-data object and metadata
+      lengths.
+
+3424. Reported: "I have enough source coverage to start promoting the
+      findings."
+
+      Action/result: Added portable executable models and focused regression
+      tests for picture command bounds, automatic loops, old word matching,
+      sound-control output, and early save dimensions.
+
+3425. Reported: "The executable models are in place."
+
+      Action/result: Ran 153 focused tests successfully and resolved MG as an
+      artifact-version mismatch: the historical save predates and contradicts
+      the selected interpreter's source-derived block lengths.
+
+3426. Reported: "The specification now has portable profile rules."
+
+      Action/result: Promoted the new behavior to the clean-room spec while
+      retaining addresses, source traces, and file-date evidence only in the
+      reverse-engineering book.
+
+3427. Reported: "Verification is clean."
+
+      Action/result: All 396 local tests passed, both mdBooks built, and
+      `git diff --check` found no whitespace errors.
+
+3428. Reported: "The old block-1 tail is now partly recoverable."
+
+      Action/result: Partitioned replay capacity/count, 39 key mappings, six
+      live strings, six reserved string records, and terminal text state.
+      Corrected block 4 to use configured replay capacity rather than active
+      occupancy; left the earlier scalar prefix explicitly partial.
+
+3429. Reported: "One correction surfaced during the final source-to-spec
+      cross-check."
+
+      Action/result: Added the oldest drivers' device-selector-2 attenuation
+      adjustment to the model, tests, evidence, and specification before their
+      profile-specific direct/whole-byte output steps.

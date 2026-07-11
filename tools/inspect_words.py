@@ -160,6 +160,7 @@ def input_word_sequence_matches(
     parsed_count_or_error_position: int | None = None,
     flag2_value: bool = True,
     flag4_value: bool = False,
+    tail_terminator_enabled: bool = True,
 ) -> InputWordSequenceResult:
     parsed_count = (
         len(parsed_word_ids)
@@ -174,7 +175,7 @@ def input_word_sequence_matches(
     for operand_index, operand_word_id in enumerate(operand_word_ids):
         remaining_operands = len(operand_word_ids) - operand_index - 1
         word_id = operand_word_id & 0xFFFF
-        if word_id == 0x270F:
+        if tail_terminator_enabled and word_id == 0x270F:
             return InputWordSequenceResult(True, True, remaining_operands)
         if remaining_parsed == 0:
             return InputWordSequenceResult(False, flag4_value, remaining_operands)

@@ -30,11 +30,28 @@ from agi_sound import (  # noqa: E402
     sound_payload,
     sound_stop_silence_output,
     sound_tone_output,
+    sq1_2089_sound_control_output,
+    xmas_2272_sound_control_output,
 )
 from disassemble_logic import SQ2, read_dir_entries, read_volume_payload  # noqa: E402
 
 
 class SoundResourceTests(unittest.TestCase):
+    def test_2089_and_2272_control_byte_output_variants(self) -> None:
+        self.assertEqual(sq1_2089_sound_control_output(0x97), 0x97)
+        self.assertEqual(
+            sq1_2089_sound_control_output(0x97, hardware_selector=2), 0x9A
+        )
+        self.assertEqual(xmas_2272_sound_control_output(0x97, global_adjust=2), 0x99)
+        self.assertEqual(
+            xmas_2272_sound_control_output(
+                0x97, global_adjust=2, hardware_selector=2
+            ),
+            0x9C,
+        )
+        self.assertEqual(xmas_2272_sound_control_output(0x10, global_adjust=0), 0x0F)
+        self.assertEqual(xmas_2272_sound_control_output(0x7F, global_adjust=1), 0x80)
+
     def test_sound_directory_has_renderable_entries(self) -> None:
         present = [sound_no for sound_no, entry in enumerate(read_dir_entries(SQ2 / "SNDDIR")) if entry is not None]
         self.assertEqual(len(present), 49)

@@ -74,8 +74,8 @@ profile advances channels 0 through 3 and completes at the latest terminator
 among them. Channels that terminate earlier remain silent while the others
 continue.
 
-In profiles 2.411 and 2.440, device selector `0` selects the single-channel
-profile and every nonzero value selects all four channels. In profiles 2.917,
+In profiles 2.089, 2.272, 2.411, and 2.440, device selector `0` selects the
+single-channel profile and every nonzero value selects all four channels. In profiles 2.917,
 2.936, 3.002.086, 3.002.102, and 3.002.149, selectors `0` and `8` select the
 single-channel profile; other values select all four channels.
 
@@ -95,10 +95,10 @@ silence sequence must follow the same divisors and tick schedule.
 
 ## Four-channel command output
 
-For the four-channel profile, a tone event emits the high byte of the tone
-word. Profile 2.411 always emits the low byte as well. Every other promoted
-profile emits the low byte unless the high byte has its top three bits set; in
-that case, only the high byte is emitted.
+For the four-channel profile, a tone event emits the high byte and low byte of
+the tone word in profiles 2.089, 2.272, and 2.411. Every other promoted profile
+emits the low byte unless the high byte has its top three bits set; in that
+case, only the high byte is emitted.
 
 Stopping or completing playback emits this silence sequence:
 
@@ -114,6 +114,22 @@ Attenuation commands combine a channel selector with a low-nibble attenuation:
 | 1 | `0xb0` |
 | 2 | `0xd0` |
 | 3 | `0xf0` |
+
+### Profile 2.089
+
+This profile has no attenuation-envelope state. For device selector `2`, a
+control byte whose low nibble is below 8 has that nibble increased by 3. It
+then emits the resulting control byte unchanged. The runtime global
+attenuation adjustment does not affect this output.
+
+### Profile 2.272
+
+This profile also has no attenuation-envelope state. It first applies the same
+device-selector-2 low-nibble increase by 3. It then adds the unsigned 8-bit
+global adjustment to the entire control byte modulo 256. It treats the result
+as signed: a result greater than signed `15` is replaced by `0x0f`; every
+other result is emitted unchanged. Consequently the global-adjustment step
+does not independently preserve the high channel-selector nibble.
 
 ### Profiles 2.411 and 2.440
 

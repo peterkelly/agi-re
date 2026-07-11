@@ -205,6 +205,40 @@ def early_sound_attenuation_output(
     return (control_byte & 0xF0) | attenuation
 
 
+def early_20xx_device2_control_adjust(control_byte: int, hardware_selector: int) -> int:
+    """Apply the 2.089/2.272 device-2 pre-output attenuation adjustment."""
+
+    output = control_byte & 0xFF
+    if hardware_selector == 2 and (output & 0x90) == 0x90 and (output & 0x0F) < 8:
+        output = (output & 0xF0) | ((output & 0x0F) + 3)
+    return output
+
+
+def sq1_2089_sound_control_output(
+    control_byte: int,
+    *,
+    hardware_selector: int = 1,
+) -> int:
+    """Return the 2.089 four-channel control byte for a consumed event."""
+
+    return early_20xx_device2_control_adjust(control_byte, hardware_selector)
+
+
+def xmas_2272_sound_control_output(
+    control_byte: int,
+    *,
+    global_adjust: int = 0,
+    hardware_selector: int = 1,
+) -> int:
+    """Return the 2.272 whole-byte adjustment and signed-clamp result."""
+
+    output = early_20xx_device2_control_adjust(control_byte, hardware_selector)
+    output = (output + (global_adjust & 0xFF)) & 0xFF
+    if signed_byte(output) > 0x0F:
+        output = 0x0F
+    return output
+
+
 def sound_attenuation_output(
     channel_index: int,
     state: SoundAttenuationState,

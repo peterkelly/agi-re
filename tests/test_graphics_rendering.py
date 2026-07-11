@@ -22,6 +22,7 @@ from agi_graphics import (  # noqa: E402
     PictureRenderer,
     RenderedFrame,
     WIDTH,
+    automatic_direction_loop,
     control_acceptance_scan,
     approach_motion_update,
     dirty_rect_union,
@@ -33,6 +34,7 @@ from agi_graphics import (  # noqa: E402
     object_update_sort_key,
     pattern_column_mask,
     pattern_row_words,
+    picture_command_is_supported,
     picture_payload,
     picture_to_ppm,
     priority_value_to_sort_y,
@@ -68,6 +70,25 @@ def changed_control_pixels(rendered) -> set[tuple[int, int]]:
 
 
 class ObjectMotionModelTests(unittest.TestCase):
+    def test_early_automatic_loop_selection_is_not_cadence_gated(self) -> None:
+        self.assertEqual(
+            automatic_direction_loop(
+                3, 4, 5, cadence_countdown=7, require_countdown_one=False
+            ),
+            2,
+        )
+        self.assertEqual(
+            automatic_direction_loop(3, 4, 5, cadence_countdown=7),
+            3,
+        )
+
+    def test_automatic_loop_tables_cover_two_and_four_loop_views(self) -> None:
+        self.assertEqual(automatic_direction_loop(1, 2, 3), 0)
+        self.assertEqual(automatic_direction_loop(0, 3, 7), 1)
+        self.assertEqual(automatic_direction_loop(0, 4, 1), 3)
+        self.assertEqual(automatic_direction_loop(2, 5, 1), 2)
+        self.assertEqual(automatic_direction_loop(2, 5, 1, four_or_more=True), 3)
+
     def test_target_axis_relation_uses_strict_band(self) -> None:
         self.assertEqual(target_axis_relation(-5, 5), 0)
         self.assertEqual(target_axis_relation(-4, 5), 1)
@@ -125,6 +146,12 @@ class ObjectMotionModelTests(unittest.TestCase):
 
 
 class PictureRenderingTests(unittest.TestCase):
+    def test_picture_command_profile_boundary(self) -> None:
+        self.assertTrue(picture_command_is_supported(0xF8, pattern_commands=False))
+        self.assertFalse(picture_command_is_supported(0xF9, pattern_commands=False))
+        self.assertTrue(picture_command_is_supported(0xFA, pattern_commands=True))
+        self.assertFalse(picture_command_is_supported(0xFF, pattern_commands=True))
+
     def test_picture_directory_has_renderable_entries(self) -> None:
         present = [picture_no for picture_no, _payload in iter_valid_resources("PICDIR")]
         self.assertEqual(len(present), 74)

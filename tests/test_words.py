@@ -108,6 +108,16 @@ class WordsTokTests(unittest.TestCase):
             InputWordSequenceResult(True, flag4_value=True, skipped_operand_words=1),
         )
 
+    def test_2089_word_sequence_treats_tail_terminator_as_an_ordinary_id(self) -> None:
+        self.assertEqual(
+            input_word_sequence_matches(
+                (0x0002, 0x0005),
+                (0x0002, 0x270F),
+                tail_terminator_enabled=False,
+            ),
+            InputWordSequenceResult(False, flag4_value=False, skipped_operand_words=0),
+        )
+
     def test_input_word_sequence_rejects_extra_nonterminator_or_short_operand(self) -> None:
         self.assertEqual(
             input_word_sequence_matches((0x0002,), (0x0002, 0x0005)),

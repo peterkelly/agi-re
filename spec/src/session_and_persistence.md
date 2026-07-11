@@ -142,20 +142,64 @@ A save file has this framing:
 
 ```text
 description_header[31]
-repeat 5 times:
+repeat profile_block_count times:
     block_length:u16le
     block_data[block_length]
 ```
 
 The displayed description is the zero-terminated prefix of the 31-byte header.
 
-The five conceptual blocks are:
+Profiles 2.272 and later use five conceptual blocks:
 
 1. global scalar, signature, string, parser, display, and session state;
 2. persistent drawable-object state;
 3. inventory and related object metadata;
 4. the configured resource replay-pair storage;
 5. variable-sized loaded-logic/cache resume state.
+
+Profile 2.089 uses only the first four blocks. It does not write or read a
+loaded-logic/cache resume block. For the selected SQ1 data, its dimensions are:
+
+| Block | Length |
+| ---: | ---: |
+| 1 | 987 (`0x03db`) |
+| 2 | 731 (`0x02db`), containing 17 object records |
+| 3 | 339 (`0x0153`) |
+| 4 | Twice the configured replay-pair capacity |
+
+For profile 2.272 and the selected XMAS data:
+
+| Block | Length |
+| ---: | ---: |
+| 1 | 987 (`0x03db`) |
+| 2 | 774 (`0x0306`), containing 18 object records |
+| 3 | 15 (`0x000f`) |
+| 4 | Twice the configured replay-pair capacity |
+| 5 | Variable |
+
+The source-backed common tail of the 2.089/2.272 block 1 is:
+
+| Offset | Size | Meaning |
+| ---: | ---: | --- |
+| `0x0143` | 2 | Configured replay-pair capacity. |
+| `0x0145` | 2 | Active replay-pair count. |
+| `0x0147` | `0x009c` | Thirty-nine four-byte raw-key/status mappings. |
+| `0x01e3` | 4 | Reserved padding before strings. |
+| `0x01e7` | `0x00f0` | Six 40-byte script string slots. |
+| `0x02d7` | `0x00f0` | Six reserved 40-byte string records. |
+| `0x03c7` | 2 | Derived foreground text attribute. |
+| `0x03c9` | 2 | Derived background text attribute. |
+| `0x03cb` | 2 | Packed current text/window attribute. |
+| `0x03cd` | 2 | Input-line enabled state. |
+| `0x03cf` | 2 | Configured input row. |
+| `0x03d1` | 1 | Prompt marker byte. |
+| `0x03d2` | 1 | Reserved alignment byte. |
+| `0x03d3` | 2 | Status-line enabled state. |
+| `0x03d5` | 2 | Configured status row. |
+| `0x03d7` | 2 | Display base row. |
+| `0x03d9` | 2 | Display base row plus 21. |
+
+The earlier block-1 prefix is not yet byte-mapped for binary interchange.
 
 For profile 2.411, the observed KQ2 state uses lengths:
 
@@ -218,10 +262,11 @@ For profile 2.917, the observed PQ1 state uses lengths:
 | 4 | 500 (`0x01f4`) |
 | 5 | Variable. |
 
-The observed MG data selects the mapped-equivalent 2.915/2.917 behavioral
-rules with lengths `0x05df`, `0x0387`, `0x0005`, `0x00dc`, and a variable
-fifth block. The shorter first block is a selected-build persistence variant,
-not a change to the shared gameplay core.
+The selected MG directory does not currently define a binary-save interchange
+contract. Its bundled interpreter and metadata derive block lengths
+`0x05e1`, `0x0f49`, and `0x0005` for the first three blocks. Its bundled save
+uses incompatible lengths `0x05df`, `0x0387`, and `0x0005`, so that save must
+not be treated as an output of the selected interpreter/data combination.
 
 The observed SQ1.22 data uses profile 2.917 with lengths `0x05e1`, `0x0306`,
 `0x0148`, `0x0064`, and a variable fifth block.
@@ -688,5 +733,5 @@ assignment.
 Valid operations do not read or modify the reserved records and padding as game
 state. A newly synthesized save uses their canonical values; restoring and
 re-saving an existing save preserves its supplied reserved bytes. Other
-interpreter/game profiles require independent save-layout maps before binary
-interchange can be claimed.
+interpreter/game profiles, including 2.089 and 2.272 beyond the envelope maps
+above, require independent byte maps before binary interchange can be claimed.
