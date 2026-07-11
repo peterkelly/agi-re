@@ -56,6 +56,10 @@ def mtools_image(raw_image: Path, offset: str | int | None = DOS_IMAGE_OFFSET) -
     return f"{raw_image}@@{offset}"
 
 
+def snapshot_chunk_path(path: Path, chunk_index: int) -> Path:
+    return path.with_name(f"{path.stem}_chunk_{chunk_index:03d}{path.suffix}")
+
+
 def remove_dos_dir(image: str, dos_dir: str) -> None:
     subprocess.run(["mdel", "-i", image, f"::/{dos_dir}/*"], check=False, capture_output=True, text=True)
     subprocess.run(["mrd", "-i", image, f"::/{dos_dir}"], check=False, capture_output=True, text=True)

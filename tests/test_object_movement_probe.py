@@ -87,6 +87,17 @@ class ObjectMovementProbeTests(unittest.TestCase):
         loaded = load_cases(None, ["move_collision_clear_skip_bit_blocks_again"])
         self.assertEqual([case.case_id for case in loaded], ["move_collision_clear_skip_bit_blocks_again"])
 
+    def test_deterministic_filter_excludes_only_random_motion_observation(self) -> None:
+        cases = {case.case_id: case for case in base_cases()}
+        self.assertFalse(cases["random_motion_visible_somewhere"].deterministic)
+        self.assertTrue(cases["clear_field_22_after_random_motion_stops_motion"].deterministic)
+        self.assertTrue(cases["action_84_after_random_motion_stops_motion"].deterministic)
+
+        loaded_ids = {case.case_id for case in load_cases(None, deterministic_only=True)}
+        self.assertNotIn("random_motion_visible_somewhere", loaded_ids)
+        self.assertIn("clear_field_22_after_random_motion_stops_motion", loaded_ids)
+        self.assertIn("action_84_after_random_motion_stops_motion", loaded_ids)
+
     def test_dos_dir_name_is_stable(self) -> None:
         self.assertEqual(qemu_batch_dos_dir("movement", 2), "MOV00002")
         self.assertEqual(qemu_batch_dos_dir("!!!", 2), "MV00002")

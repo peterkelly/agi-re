@@ -18,6 +18,7 @@ from qemu_snapshot import (  # noqa: E402
     dos_key_name,
     fixture_input_files,
     mtools_image,
+    snapshot_chunk_path,
 )
 
 
@@ -56,6 +57,12 @@ class QemuSnapshotTests(unittest.TestCase):
         self.assertEqual(case.post_launch_key_delay, 0.03)
         self.assertEqual(case.post_launch_after_text_wait, 0.0)
         self.assertIsNone(case.post_launch_key_names)
+
+    def test_snapshot_chunk_path_preserves_parent_and_suffix(self) -> None:
+        self.assertEqual(
+            snapshot_chunk_path(Path("build/snapshot/disk.qcow2"), 3),
+            Path("build/snapshot/disk_chunk_003.qcow2"),
+        )
 
     def test_dos_key_names_cover_monitor_specials(self) -> None:
         self.assertEqual(dos_key_name("\\"), "backslash")

@@ -8,7 +8,7 @@ to a command or observation recorded in the notes.
 
 ## Test layers
 
-The current plan has four layers:
+The current plan has five layers:
 
 1. Local deterministic tests run directly against the resource files selected by
    `--game-dir PATH` or `AGI_GAME_DIR=PATH`. These are fast regression tests for
@@ -23,6 +23,9 @@ The current plan has four layers:
    focused valid and invalid picture payloads, patch them into copied fixture
    directories, and compare original-engine QEMU screenshots against the local
    Python renderer.
+5. An opt-in exhaustive QEMU layer combines every present picture with every
+   current movement and object-overlay case. It is separate from the practical
+   broad sweep because it performs many more original-engine launches.
 
 Malformed data is split into two categories. Bounded malformed resources, such
 as an incomplete coordinate pair that still reaches the normal picture
@@ -42,17 +45,19 @@ AGI_GAME_DIR=games/SQ2 python3 -B -m unittest discover -s tests
 
 Run the current top-level compatibility suite manifest. By default this executes
 only deterministic local checks: the unit suite, `mdbook build docs`,
-`mdbook build spec`, and the opcode-evidence freshness check. QEMU smoke, broad resource sweeps, and
-version-specific v3 probes are opt-in so a quick local run does not
-unexpectedly boot the original engine:
+`mdbook build spec`, and the opcode-evidence freshness check. QEMU smoke,
+broad, exhaustive, and version-specific v3 probes are opt-in so a quick local
+run does not unexpectedly boot the original engine:
 
 ```bash
 python3 -B tools/compatibility_suite.py --game-dir games/SQ2 --report build/compatibility-suite/local_001.json
 python3 -B tools/compatibility_suite.py --game-dir games/SQ2 --include-qemu-smoke --report build/compatibility-suite/qemu_smoke_002.json
 python3 -B tools/compatibility_suite.py --game-dir games/SQ2 --include-qemu-broad --report build/compatibility-suite/qemu_broad_002.json
+python3 -B tools/compatibility_suite.py --game-dir games/SQ2 --include-qemu-exhaustive --report build/compatibility-suite/qemu_exhaustive_001.json
 python3 -B tools/compatibility_suite.py --game-dir games/SQ2 --include-qemu-v3 --report build/compatibility-suite/qemu_v3_001.json
 python3 -B tools/compatibility_suite.py --game-dir games/SQ2 --dry-run --include-qemu-smoke
 python3 -B tools/compatibility_suite.py --game-dir games/SQ2 --dry-run --include-qemu-broad
+python3 -B tools/compatibility_suite.py --game-dir games/SQ2 --dry-run --include-qemu-exhaustive
 python3 -B tools/compatibility_suite.py --game-dir games/SQ2 --dry-run --include-qemu-v3
 ```
 
@@ -72,11 +77,76 @@ unknown-word parser terminator QEMU probe, picture command-resume fuzz probes,
 raw-operand picture fuzz probes, and relative-line underflow fuzz probes. Every
 selected command returned zero.
 
+The smoke manifest regenerates its deterministic 1,062-case picture corpus
+before selecting named fuzz cases. This makes smoke, broad, and exhaustive runs
+independent of disposable prior `build/` contents.
+
 The current checked run of the QEMU broad manifest passed in
 `build/compatibility-suite/qemu_broad_002.json`. The broad selection includes
 the smoke layer plus the eight-picture timed carousel and the 19-case
 view/object stress carousel. Every selected command returned zero; the picture
 carousel matched all 8 cases and the view/object carousel matched all 19 cases.
+
+The exhaustive selection inherits local, smoke, and broad commands, then adds
+the chunked all-present picture carousel plus the complete current
+deterministic `object_movement_probe.py` batch and the complete current
+`object_overlay_probe.py` batch. The checked aggregate report
+`build/compatibility-suite/qemu_exhaustive_001.json` passed all 15 selected
+commands. Its local phase passed 403 tests with one optional historical-save
+case skipped and built both books. The original-engine phases matched 3 parser
+sequence cases, 1 unknown-word terminator case, 8 focused picture-fuzz cases,
+8 broad pictures, 19 view/object stress cases, all 74 present pictures, all 36
+deterministic movement cases, and all 24 overlay cases, with no mismatches or
+errors.
+
+Movement and overlay snapshots are split into ten-case chunks because copying
+every full game fixture into one disposable DOS disk exhausted its capacity.
+The `random_motion_visible_somewhere` movement case is deliberately excluded
+from the exhaustive gate: autonomous random direction can validly be zero, so
+a stationary final capture is not a deterministic failure. The case remains
+available for exploratory runs, while the two cases that immediately clear
+random motion remain deterministic and are included in the exhaustive layer.
+
+## Portable conformance results
+
+`tools/conformance_results.py` turns existing visual batch reports into a
+versioned, implementation-facing result bundle. For each successful capture it
+extracts the logical 160 by 168 game area as one row-major byte per EGA palette
+index, writes an optional `.ega` artifact, and records its SHA-256 digest. The
+companion comparator accepts bundles from any producer, identifies missing or
+unexpected cases, compares digests, and reports a pixel mismatch count and
+bounding box when both sides provide artifacts.
+
+Export the current deterministic original-engine visual corpus with:
+
+```bash
+python3 -B tools/conformance_results.py export \
+  build/logic-interpreter-probes/batches/parser_edges_suite.json \
+  build/logic-interpreter-probes/batches/parser_unknown_terminator_suite.json \
+  build/picture-fuzz/batches/command_resume_suite.json \
+  build/picture-fuzz/batches/raw_operand_suite.json \
+  build/picture-fuzz/batches/relative_underflow_suite.json \
+  build/picture-carousel/batches/picture_carousel_all_suite.json \
+  build/view-carousel/batches/view_carousel_stress_suite.json \
+  build/object-movement-probes/batches/object_movement_all_suite.json \
+  build/object-overlay-probes/batches/object_overlay_all_suite.json \
+  --output build/conformance-results/sq2_2936_reference.json \
+  --artifact-dir build/conformance-results/sq2_2936_frames \
+  --suite-id sq2-2.936-deterministic-visual-v1 \
+  --profile 2.936-full-ega --producer original-dos-2.936
+```
+
+The normative interchange fields and canonical-frame rules are in the clean
+room specification's Conformance Results chapter. Paths and report adapters in
+this evidence chapter are convenience tooling, not part of engine behavior.
+
+The first export completed in
+`build/conformance-results/sq2_2936_reference.json`. It contains 165 successful
+deterministic visual cases and 165 canonical frame artifacts. Comparing the
+bundle with itself produced 165 matches and zero failures in
+`build/conformance-results/sq2_2936_self_compare.json`. The frames have 114
+distinct digests because control and equivalence cases intentionally converge
+on the same visible result.
 
 The v3 manifest layer is separate because it depends on the private local
 `games/GR` input. It currently includes separate blank-prefix and signed GR

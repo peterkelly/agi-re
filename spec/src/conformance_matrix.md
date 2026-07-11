@@ -17,14 +17,14 @@ The classifications are:
 
 An unlisted difference must not be inferred from a version-number similarity.
 
-The common core applies to profiles 2.411, 2.440, 2.917, 2.936, 3.002.086,
-3.002.102, and 3.002.149. The two-column tables compare 2.936 and 3.002.149,
-while separate tables select the other promoted variants.
+The common core applies to profiles 2.089, 2.272, 2.411, 2.440, 2.917, 2.936,
+3.002.086, 3.002.102, and 3.002.149. The two-column tables compare 2.936 and
+3.002.149, while separate tables select the other promoted variants.
 
 ## Common behavioral core
 
-These contracts apply to 2.411, 2.440, 2.917, 2.936, 3.002.086, 3.002.102,
-and 3.002.149 unless a profile-variant row below says otherwise:
+These contracts apply to every promoted profile unless a profile-variant row
+below says otherwise:
 
 | Domain | Contract |
 | --- | --- |
@@ -75,11 +75,18 @@ and 3.002.149 unless a profile-variant row below says otherwise:
 | --- | --- |
 | Resource container | Split direct resources; inventory metadata is stored expanded. |
 | Action and condition ranges | Actions `0x00..0x9a`; conditions `0x00..0x12`. |
+| Exit and menu actions | `0x86` is an unconditional zero-operand exit; `0x9b` and later are unavailable. |
+| Position and composition | Position actions remove old drawn state before updating the saved position. The earlier partition uses object-number order; the later partition uses drawing-key order. |
 | Picture commands | Dispatch `0xf0..0xf8`; no pattern-command slots. |
+| Show picture | Present and mark shown without clearing `f15` or closing an active text window. |
 | Direction-selected loops | Evaluate every eligible post-logic pass, without a cadence gate; exactly four loops use the four-loop table. |
 | String and parser profile | Six string slots; exact-count word matching without the `0x270f` tail terminator. |
+| Object distance and target motion | Store wrapped low-byte distance; defer the first target direction/completion calculation. |
+| Movement-clear actions | `0x4d` clears direction but not autonomous mode; `0x4e` leaves both unchanged and only applies object-0 coupling/navigation effects. |
+| Inventory display | Always acknowledgement-only; never writes a selected item to `v25`. |
 | Sound output | Selector zero uses one channel; all others use four. Emit both tone bytes; device 2 adds 3 to low attenuation values below 8, then emit the control byte. |
-| Save envelope | Four blocks; no logic-resume block. Binary interchange remains partial. |
+| Save envelope | Four blocks; no logic-resume block. Block 1 has a complete semantic partition. |
+| Binary save interchange status | Existing saves can be parsed and restored state can be preserved; pristine synthesis requires canonical initial reserved bytes that are not currently specified. |
 
 ### 2.272 variant selection
 
@@ -87,11 +94,18 @@ and 3.002.149 unless a profile-variant row below says otherwise:
 | --- | --- |
 | Resource container | Split direct resources; inventory metadata is stored expanded. |
 | Action and condition ranges | Actions `0x00..0xa0`; conditions `0x00..0x12`. |
+| Exit and menu actions | `0x86` consumes its selector; `0x9b` consumes two bytes; `0x9c..0xa0` consume their operands without constructing menu state. |
+| Position and composition | Position actions update current/saved coordinates together. Both draw partitions use drawing-key order. |
 | Picture commands | Dispatch `0xf0..0xf8`; no pattern-command slots. |
+| Show picture | Same retained-`f15` and retained-window behavior as 2.089. |
 | Direction-selected loops | Same cadence-independent, exact-four behavior as 2.089. |
 | String and parser profile | Six string slots; `0x270f` has tail-terminator meaning. |
+| Object distance and target motion | Same wrapped distance and deferred first target update as 2.089. |
+| Movement-clear actions | `0x4d` clears direction and autonomous mode; `0x4e` clears autonomous mode while retaining direction. |
+| Inventory display | Always acknowledgement-only; never writes a selected item to `v25`. |
 | Sound output | Early channel selection; emit both tone bytes; apply the device-2 adjustment, then adjust and signed-clamp the entire control byte. |
-| Save envelope | Five blocks with a `0x03db` block 1. Binary interchange remains partial. |
+| Save envelope | Five blocks with a semantically partitioned `0x03db` block 1. |
+| Binary save interchange status | Existing saves can be parsed and restored state can be preserved; pristine synthesis requires canonical initial reserved bytes that are not currently specified. |
 
 ### 2.411 variant selection
 
@@ -194,7 +208,6 @@ resource availability, names, save dimensions, or scripted behavior.
 
 | Domain | Specified portion | Remaining limitation |
 | --- | --- | --- |
-| Profiles 2.089 and 2.272 | Resource encoding, picture command boundary, automatic loops, input capacity/matching, sound scheduling/output, save envelope, and selected opcode/state differences are specified. | Byte-complete save maps and remaining non-priority subsystem edges are still required for a full gameplay claim. |
 | Additional interpreter versions | They may be inventoried separately. | They have no normative profile until each observable delta is promoted. |
 
 ## Outside the current target
@@ -213,6 +226,21 @@ The following behavior is excluded from a current full-EGA conformance claim:
   explicitly promotes that path.
 
 ## Claim requirements
+
+A **2.089 full-EGA gameplay** claim requires the common core plus every 2.089
+resource, opcode-range, exit, picture, parser, object, motion, inventory,
+composition, and sound variant. A **2.089 SQ1 binary save interchange** claim
+additionally requires the selected SQ1 dimensions and a supplied rule for
+canonical initial reserved bytes or preservation of bytes from an existing
+save/state image.
+
+A **2.272 full-EGA gameplay** claim requires the common core plus every 2.272
+resource, opcode-range, exit/menu-stub, picture, parser, object, motion,
+inventory, composition, and sound variant.
+
+A **2.272 XMAS binary save interchange** claim additionally requires the
+selected XMAS dimensions and a supplied rule for canonical initial reserved
+bytes or preservation of bytes from an existing save/state image.
 
 A **2.411 full-EGA gameplay** claim requires the common core plus every 2.411
 opcode-range, restart, diagnostic, point-pattern, object-loop, and sound-output

@@ -26572,3 +26572,159 @@ Progress updates and outcomes:
 
       Action/result: All 400 local tests passed with one optional historical
       MG-save test skipped, both mdBooks built, and `git diff --check` passed.
+
+3447. Reported: "I’m resuming the early-profile completion pass from the
+      committed state."
+
+      Action/result: Selected the remaining ordinary-EGA input, presentation,
+      restart, and view-preview handler differences for source classification.
+
+3448. Reported: "The tracker still contains stale byte-map saves language."
+
+      Action/result: Confirmed the early semantic save map is complete and
+      separated optional pristine synthesis from gameplay conformance.
+
+3449. Reported: "The normal EGA input paths line up."
+
+      Action/result: Reduced input configuration, number prompts, line state,
+      refresh, and erase differences to alternate-mode or timing branches.
+
+3450. Reported: "The source coverage now supports promotion."
+
+      Action/result: Promoted 2.089 and 2.272 to full-EGA valid-data gameplay
+      profiles while retaining explicit save-synthesis limitations.
+
+3451. Reported: "A cross-check found one stale persistence paragraph."
+
+      Action/result: Corrected the early save status to complete field/reserved
+      assignment with caller-supplied pristine reserved-byte initialization,
+      and added structural promotion regressions.
+
+3452. Reported: "The focused suite caught a useful structural detail."
+
+      Action/result: Kept the 2.272 binary-interchange claim name contiguous in
+      Markdown so the conformance regression can identify it reliably.
+
+3453. Reported: "The early-profile promotion now passes its focused tests."
+
+      Action/result: Moved past incomplete MH inputs and audited current
+      partial tracker entries for the next source-backed actionable task.
+
+3454. Reported: "The next concrete gap is in the suite manifest."
+
+      Action/result: Identified all-picture, movement, and overlay evidence that
+      had passed separately but was absent from an aggregate suite layer.
+
+3455. Reported: "I’m adding a separate qemu-exhaustive layer."
+
+      Action/result: Added opt-in inherited exhaustive scheduling for all
+      current picture, movement, and overlay original-engine cases.
+
+3456. Reported: "The exhaustive dry run is correct."
+
+      Action/result: Launched the first aggregate local, smoke, broad, and
+      exhaustive original-engine compatibility run.
+
+3457. Reported: "The aggregate run has passed all 401 local tests."
+
+      Action/result: Confirmed both books and the initial parser snapshot cases
+      before continuing into the remaining QEMU layers.
+
+3458. Reported: "The first aggregate run exposed a manifest dependency bug."
+
+      Action/result: Added deterministic fuzz-corpus generation as an explicit
+      smoke prerequisite after the clean-build run lacked named fuzz cases.
+
+3459. Reported: "The corrected exhaustive run has reached the all-picture
+      stage."
+
+      Action/result: Passed 403 local tests, both mdBooks, parser/fuzz smoke,
+      all 8 broad pictures, all 19 view cases, and all 74 present pictures.
+
+3460. Reported: "The movement stage exposed a fixture-capacity limit."
+
+      Action/result: The unchunked 37-case movement disk filled while copying
+      fixture 14; no interpreter mismatch caused the stop.
+
+3461. Reported: "I’m splitting object probes into snapshot chunks."
+
+      Action/result: Added reusable chunk-specific snapshot paths and
+      ten-case movement/overlay batching without changing case semantics.
+
+3462. Reported: "The deterministic movement set reached 34 matches."
+
+      Action/result: The next autonomous-random case produced a stationary
+      capture, which is valid because the selected random direction can be
+      zero.
+
+3463. Reported: "I’m marking nondeterministic cases explicitly."
+
+      Action/result: Classified `random_motion_visible_somewhere` as
+      exploratory and excluded it from the required exhaustive gate while
+      retaining both deterministic random-motion clearing cases.
+
+3464. Reported: "The filter and manifest tests pass."
+
+      Action/result: Passed 25 focused tests and confirmed the new
+      `--deterministic-only` command-line selection.
+
+3465. Reported: "The named object sweep is clean."
+
+      Action/result: Matched all 36 deterministic movement cases and all 24
+      overlay cases in chunked original-engine runs with no errors.
+
+3466. Reported: "I’m launching the complete inherited aggregate."
+
+      Action/result: Started one report covering local checks, both books,
+      smoke/broad probes, all pictures, movement, and overlays.
+
+3467. Reported: "The aggregate’s local phase is clean."
+
+      Action/result: Passed 403 tests with one optional historical-save skip,
+      built both mdBooks, and passed opcode-evidence checks.
+
+3468. Reported: "All smoke and broad semantics match."
+
+      Action/result: Regenerated the 1,062-case fuzz corpus and matched parser,
+      picture-fuzz, 8-picture, and 19-view original-engine probes.
+
+3469. Reported: "All 74 picture resources matched inside the aggregate."
+
+      Action/result: Completed five chunked picture carousels without a disk
+      prompt, mismatch, or capture error.
+
+3470. Reported: "The complete aggregate report passed all 15 commands."
+
+      Action/result: Recorded 36/36 deterministic movement and 24/24 overlay
+      matches in `build/compatibility-suite/qemu_exhaustive_001.json`.
+
+3471. Reported: "The next actionable gap is the result adapter."
+
+      Action/result: Defined a language-neutral versioned bundle with canonical
+      160 by 168 EGA-index frame observations and SHA-256 digests.
+
+3472. Reported: "The spec guard caught an evidence-side tool path."
+
+      Action/result: Kept normative interchange semantics in `spec/` and moved
+      repository adapter commands exclusively to the evidence book.
+
+3473. Reported: "The first export exposed a private-input dependency."
+
+      Action/result: Removed game-resource imports from the adapter by making
+      EGA capture normalization self-contained.
+
+3474. Reported: "The first portable reference bundle is complete."
+
+      Action/result: Exported 165 successful deterministic visual cases with
+      165 frame artifacts and self-compared all 165 with zero failures.
+
+3475. Reported: "The result adapter is hardened for independent producers."
+
+      Action/result: Added duplicate-ID, canonical-frame, artifact-digest, and
+      producer-error validation; all focused adapter tests pass.
+
+3476. Reported: "Final verification is clean."
+
+      Action/result: Passed 408 local tests with one optional historical-save
+      skip, built both mdBooks, checked opcode evidence, and passed the diff
+      whitespace check.

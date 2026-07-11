@@ -38,11 +38,23 @@ class CompatibilitySuiteTests(unittest.TestCase):
         self.assertEqual(by_name["logic_opcode_evidence_check"].layer, "local")
         self.assertEqual(by_name["parser_edges_qemu"].layer, "qemu-smoke")
         self.assertEqual(by_name["parser_unknown_terminator_qemu"].layer, "qemu-smoke")
+        self.assertEqual(by_name["picture_fuzz_generate"].layer, "qemu-smoke")
+        names = [command.name for command in commands]
+        self.assertLess(
+            names.index("picture_fuzz_generate"),
+            names.index("picture_fuzz_command_resume_qemu"),
+        )
         self.assertEqual(by_name["picture_fuzz_command_resume_qemu"].layer, "qemu-smoke")
         self.assertEqual(by_name["picture_fuzz_raw_operand_qemu"].layer, "qemu-smoke")
         self.assertEqual(by_name["picture_fuzz_relative_underflow_qemu"].layer, "qemu-smoke")
         self.assertEqual(by_name["picture_carousel_broad_qemu"].layer, "qemu-broad")
         self.assertEqual(by_name["view_carousel_stress_qemu"].layer, "qemu-broad")
+        self.assertEqual(by_name["picture_carousel_all_qemu"].layer, "qemu-exhaustive")
+        self.assertEqual(by_name["object_movement_all_qemu"].layer, "qemu-exhaustive")
+        self.assertIn("--deterministic-only", by_name["object_movement_all_qemu"].command)
+        self.assertIn("--chunk-size", by_name["object_movement_all_qemu"].command)
+        self.assertEqual(by_name["object_overlay_all_qemu"].layer, "qemu-exhaustive")
+        self.assertIn("--chunk-size", by_name["object_overlay_all_qemu"].command)
         self.assertEqual(by_name["gr_save_xor_extract_qemu"].layer, "qemu-v3")
         self.assertEqual(by_name["gr_signed_save_xor_extract_qemu"].layer, "qemu-v3")
         self.assertEqual(by_name["gr_signed_restore_roundtrip_qemu"].layer, "qemu-v3")
@@ -57,6 +69,7 @@ class CompatibilitySuiteTests(unittest.TestCase):
     def test_qemu_selection_levels_are_explicit(self) -> None:
         smoke = selected_commands(include_qemu_smoke=True)
         broad = selected_commands(include_qemu_broad=True)
+        exhaustive = selected_commands(include_qemu_exhaustive=True)
         v3 = selected_commands(include_qemu_v3=True)
 
         self.assertIn("qemu-smoke", {command.layer for command in smoke})
@@ -64,11 +77,16 @@ class CompatibilitySuiteTests(unittest.TestCase):
         self.assertNotIn("qemu-v3", {command.layer for command in smoke})
         self.assertIn("qemu-broad", {command.layer for command in broad})
         self.assertNotIn("qemu-v3", {command.layer for command in broad})
+        self.assertEqual(
+            {"local", "qemu-smoke", "qemu-broad", "qemu-exhaustive"},
+            {command.layer for command in exhaustive},
+        )
         self.assertIn("qemu-v3", {command.layer for command in v3})
 
     def test_game_backed_layers_require_explicit_game_dir(self) -> None:
         self.assertTrue(requires_game_dir(selected_commands()))
         self.assertTrue(requires_game_dir(selected_commands(include_qemu_smoke=True)))
+        self.assertTrue(requires_game_dir(selected_commands(include_qemu_exhaustive=True)))
         self.assertFalse(requires_game_dir(selected_commands(names=["mdbook_build"])))
 
     def test_name_selection_rejects_unknown_names(self) -> None:

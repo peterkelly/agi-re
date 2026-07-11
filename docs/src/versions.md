@@ -9,8 +9,8 @@ not external AGI documentation.
 
 | Local input | Version evidence | Executable form | Resource container | Fixture status |
 | --- | --- | --- | --- | --- |
-| `games/SQ1` | `AGIDATA.OVL` string `Version 2.089` | `SQ.EXE` is an MZ executable | Split direct v2 resources | Initial source comparison complete; partial profile records early opcode and plain-OBJECT differences |
-| `games/XMAS` | `AGIDATA.OVL` string `Version 2.272` | `AGI.EXE` is an MZ executable | Split direct v2 resources in a multi-disk distribution layout | Initial source comparison complete; partial profile records menu stubs, exit selector, and plain-OBJECT behavior |
+| `games/SQ1` | `AGIDATA.OVL` string `Version 2.089` | `SQ.EXE` is an MZ executable | Split direct v2 resources | Full-EGA gameplay profile promoted; selected save dimensions and semantic block map recorded |
+| `games/XMAS` | `AGIDATA.OVL` string `Version 2.272` | `AGI.EXE` is an MZ executable | Split direct v2 resources in a multi-disk distribution layout | Full-EGA gameplay profile promoted; menu stubs, exit selector, and selected save layout recorded |
 | `games/BC` | `AGIDATA.OVL` string `Version 2.439` | `AGI` is decoded with the selected game's `SIERRA.COM` key | Split direct v2 resources | Mapped full-EGA core matches 2.440 after relocation; selected save dimensions observed |
 | `games/KQ2` | `AGIDATA.OVL` string `Version 2.411` | `AGI` is decoded with the selected game's `SIERRA.COM` key before disassembly | Split direct v2 resources | Full-EGA resource, logic, input, persistence, renderer, object, and sound profile is promoted; KQ2 save dimensions are mapped |
 | `games/LSL1` | `AGIDATA.OVL` string `Version 2.440` | `LL.COM` is already a complete MZ interpreter despite its extension | Split direct v2 resources | Full-EGA profile is promoted; LSL1 save dimensions are mapped |
@@ -680,10 +680,16 @@ early action differences:
 | Action `0x9b` | Unavailable. | Consumes two bytes and has no other effect. |
 | Actions `0x9c..0xa0` | Unavailable. | Dispatch to operand-advance stubs at image `0x8400..0x8404`; no menu state is constructed. |
 | Position actions `0x25`/`0x26` | Write current coordinates, remove old rendered state if drawn, then update the previous-position snapshot. | Write current and previous coordinates together without first removing rendered state. |
+| Object composition | Earlier partition uses object-number order; later partition is drawing-key sorted. | Both partitions are drawing-key sorted. |
 | Picture scanner | Image `0x5baf` accepts `0xf0..0xf8`; `0xf9`/`0xfa` are not dispatched. | Image `0x5c38` has the same `0xf0..0xf8` boundary. |
+| Show picture | Refreshes and marks shown without clearing `f15` or closing an active text window. | Same. |
 | Automatic loop selection | Image `0x05cc` selects direction loops on every eligible pass, without testing cadence countdown `object[1]`. | Image `0x04c6` has the same cadence-independent rule. |
 | String slots | Parse action at image `0x1817` accepts selectors below 6. | Parse action at image `0x17f7` accepts selectors below 6. |
 | Word-sequence predicate | Image `0x0965` requires exact parser/pattern counts; `0x270f` is an ordinary identifier. | Image `0x087d` implements the later `0x270f` tail terminator. |
+| Object distance | Stores the low byte and wraps sums above `255`. | Same. |
+| Target-motion start | Defers direction/completion until the next eligible target update. | Same. |
+| Actions `0x4d`/`0x4e` | Leave autonomous mode active; `0x4d` clears direction and `0x4e` applies only object-0 globals. | Clear autonomous mode; `0x4d` also clears direction. |
+| Inventory display | Acknowledgement-only; does not write `v25`. | Same. |
 | Save envelope | Image `0x2501` writes four blocks and no logic-resume block. | Image `0x24f5` writes five blocks, including variable logic resumes. |
 
 The XMAS string-equality predicate's shorter entry merely delegates to a
@@ -730,6 +736,16 @@ Its directory volume nibbles represent three distribution disks while the
 selected payload is named `VOL.0`, so an installed-layout census incorrectly
 reports missing `VOL.1`/`VOL.2`. This is packaging evidence, not malformed
 resource semantics.
+
+The remaining differing action entries were reduced against KQ2's 2.411
+handlers. Ordinary EGA input configuration, number entry, input-line
+disable/enable/refresh/erase, restart acceptance, and successful view-preview
+output have the same portable effects. Their source differences are alternate
+display-mode branches, interrupt-timing guards, resource/file cleanup,
+temporary backing-storage organization, and joystick calibration. Together
+with the mapped resource, renderer, object, motion, sound, and save paths, this
+supports full-EGA gameplay profiles for both 2.089 and 2.272. Canonical initial
+reserved save bytes remain a separate binary-synthesis requirement.
 
 ### BC 2.439, MG 2.915, and SQ1.22 2.917
 

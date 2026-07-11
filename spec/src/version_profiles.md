@@ -194,9 +194,10 @@ The observed 3.002.107 build has the same action and condition contracts as
 after relocation. Unmapped startup and alternate paths remain outside that
 equivalence statement.
 
-## AGI 2.089 partial profile
+## AGI 2.089 profile
 
-The observed 2.089 build uses the split direct-resource container, but stores
+The 2.089 profile is specified for full-EGA valid-data gameplay. It uses the
+split direct-resource container, but stores
 its inventory metadata file in expanded plain form instead of applying the
 later repeating-key transform. It accepts actions `0x00..0x9a` and conditions
 `0x00..0x12`.
@@ -241,15 +242,15 @@ list. It does not inspect the inventory-interaction flag and does not modify
 
 Sound event scheduling and channel participation follow the early profile in
 the sound chapter. Four-channel events emit both tone bytes and use the 2.089
-control-byte rule, including its device-2 adjustment. The selected SQ1 data uses 17 runtime object records:
-this profile treats the metadata header's object value as a count, not as a
-maximum index. Saves use the four-block 2.089 envelope specified in the
-persistence chapter. Other domains are not yet broad enough for a full 2.089
-gameplay-conformance claim.
+control-byte rule, including its device-2 adjustment. The selected SQ1 data
+uses 17 runtime object records: this profile treats the metadata header's
+object value as a count, not as a maximum index. Saves use the four-block
+2.089 envelope specified in the persistence chapter.
 
-## AGI 2.272 partial profile
+## AGI 2.272 profile
 
-The observed 2.272 build uses the split direct-resource container and stores
+The 2.272 profile is specified for full-EGA valid-data gameplay. It uses the
+split direct-resource container and stores
 inventory metadata in expanded plain form. It accepts actions `0x00..0xa0`
 and conditions `0x00..0x12`.
 
@@ -281,8 +282,7 @@ object number breaking ties. Early sound scheduling uses one channel only for
 device selector zero and otherwise advances all four. Four-channel events emit
 both tone bytes and use the device-2 plus whole-byte adjustment rule in the
 sound chapter. The selected XMAS data uses 18 runtime object records and the
-five-block 2.272 save envelope. Other domains are not yet broad enough for a
-full 2.272 gameplay-conformance claim.
+five-block 2.272 save envelope.
 
 ## Other observed versions
 

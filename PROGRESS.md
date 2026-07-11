@@ -29,8 +29,8 @@ better understood, or a new remaining-work item is discovered.
   `0x6e`/`0x83`/`0x8e`/`0xaa`/`0xad` source-backed).
 - Logic condition opcodes: all 19 of 19 are QEMU-validated.
 - Main remaining risk areas: full picture/view renderer edge behavior, final
-  compatibility suite breadth, residual subsystem edges and canonical initial
-  save bytes for partial 2.089/2.272 profiles, incomplete MH1/MH2 resource sets, and
+  compatibility suite breadth, optional canonical initial save bytes for
+  pristine 2.089/2.272 save synthesis, incomplete MH1/MH2 resource sets, and
   promoting accumulated evidence into the standalone behavioral specification.
 - Picture/view resource retention is now source-modeled as ordered within each
   family. Discard actions truncate the selected resource and every later
@@ -172,16 +172,16 @@ better understood, or a new remaining-work item is discovered.
   - Current: `spec/src/scope_and_conformance.md` defines externally observable
     behavior, valid-data scope, version variants, nondeterminism, and the
     separation from the evidence book.
-- [~] Version profiles
+- [x] Version profiles
   - Current: `spec/src/version_profiles.md` defines the primary 2.936 profile
-    and promoted full-EGA 2.411, 2.440, 2.917, 3.002.086, 3.002.102, and
-    3.002.149 profiles. KQ2, LSL1, KQ1, full KQ4, KQ4D, and Gold Rush supply
-    mapped profile-specific binary-save dimensions. Mapped-equivalent evidence
-    now covers 2.439, 2.915, 3.002.107, and a second 3.002.149 build. Partial
-    2.089 and 2.272 profiles now record source-proven picture, object-loop,
-    input, sound, and save-envelope differences.
-  - Remaining: byte-map 2.089/2.272 saves and inspect residual subsystem edges
-    as needed. MH1 is confirmed incomplete because readable scripts
+    and promoted full-EGA 2.089, 2.272, 2.411, 2.440, 2.917, 3.002.086,
+    3.002.102, and 3.002.149 profiles. SQ1, XMAS, KQ2, LSL1, KQ1, full KQ4,
+    KQ4D, and Gold Rush supply mapped profile-specific save dimensions.
+    Mapped-equivalent evidence now covers 2.439, 2.915, 3.002.107, and a second
+    3.002.149 build. The early profiles record source-proven resource, opcode,
+    picture, view, object, motion, input, inventory, sound, and persistence
+    variants.
+  - Remaining inputs: MH1 is confirmed incomplete because readable scripts
     directly reference six unreadable views. MH2 has no such reference in its
     readable scripts, but 31 skipped logic resources prevent a complete audit.
 - [x] Resource containers
@@ -208,7 +208,7 @@ better understood, or a new remaining-work item is discovered.
     message XOR decoding, main-stream control flow, AND/OR/NOT condition
     grammar, all 19 condition opcodes, all 176 action opcodes `0x00..0xaf`,
     and v3 extension slots `0xb0..0xb5`. A structural test checks every accepted
-    profile opcode is represented. The partial 2.089 profile stops at `0x9a`
+    profile opcode is represented. The 2.089 profile stops at `0x9a`
     and has a zero-operand unconditional `0x86`; 2.272 stops at `0xa0`, uses
     the later `0x86` selector, and treats `0x9c..0xa0` as operand-consuming
     menu no-ops.
@@ -829,6 +829,26 @@ source-mapped well enough to justify a targeted probe.
     broad manifest passed in `build/compatibility-suite/qemu_broad_002.json`,
     including the smoke layer, the eight-picture timed carousel, and the
     19-case view/object stress carousel. The suite now also has an explicit
+    `qemu-exhaustive` layer that inherits smoke/broad and schedules all present
+    pictures plus every deterministic movement and object-overlay case. The
+    aggregate report `build/compatibility-suite/qemu_exhaustive_001.json`
+    passed all 15 commands: 403 local tests with one optional historical-save
+    skip, both books, opcode evidence, all smoke/broad probes, 74/74 present
+    pictures, 36/36 deterministic movement cases, and 24/24 overlay cases.
+    Movement and overlay fixtures use ten-case snapshot chunks after the first
+    unchunked run exhausted the DOS test disk. The autonomous random-motion
+    observation remains an explicit exploratory case because a zero random
+    direction makes a stationary capture valid; the two deterministic
+    random-motion clearing cases remain in the gate. The first aggregate
+    attempt also exposed and fixed a missing smoke-layer prerequisite:
+    deterministic picture-fuzz corpus generation is now part of the manifest.
+    `tools/conformance_results.py` now exports a versioned, language-neutral
+    visual result bundle and compares candidate bundles by canonical 160 by
+    168 EGA-index frame digest, with artifact-backed pixel mismatch details.
+    The first 2.936 reference bundle contains 165/165 successful cases in
+    `build/conformance-results/sq2_2936_reference.json`; its self-comparison
+    passed all 165 cases with zero failures.
+    The suite also has an explicit
     `qemu-v3` layer for private-input v3 probes, and the named GR save-XOR
     extraction command passed in
     `build/compatibility-suite/qemu_v3_save_001.json`. Generated fixture
@@ -857,10 +877,9 @@ source-mapped well enough to justify a targeted probe.
     now accepts `--game-dir PATH`, exports that explicit selection to child
     commands, and records it in the JSON report without choosing a default
     game.
-  - Remaining: assemble a final broad suite that can validate a clean-room
-    implementation against original-engine outputs; scale timed polling
-    carousel sweeps to additional resource batches and future interpreter
-    versions.
+  - Remaining: extend the portable result format with nonvisual observations
+    when deterministic state, input, sound, or persistence cases require them;
+    scale sweeps and bundles to future interpreter versions.
 - [~] Cross-version comparison workflow
   - Evidence: symbolic labels are being curated for SQ2, and
     `docs/src/cross_version_workflow.md` now defines the local evidence package,
@@ -879,8 +898,8 @@ source-mapped well enough to justify a targeted probe.
     original GR interpreter. `tools/resource_reference_audit.py` adds a
     script-visible reference check for deciding whether unreadable
     directory-looking entries are valid behavior candidates.
-  - Remaining: byte-map 2.089/2.272 save state and residual subsystem edges;
-    obtain complete MH1/MH2 resource sets before whole-game corpus work.
+  - Remaining: obtain complete MH1/MH2 resource sets before whole-game corpus
+    work.
 - [~] Final human-readable behavioral specification
   - Evidence: a separate clean-room mdBook now lives under `spec/`, with an
     explicit externally observable behavior boundary and conformance model.
@@ -901,21 +920,20 @@ source-mapped well enough to justify a targeted probe.
 
 ## Highest-Value Remaining Work
 
-1. Inspect residual 2.089/2.272 subsystem edges needed to promote full gameplay
-   profiles. Establish canonical initial save bytes only if binary synthesis
-   for those selected games becomes a target.
-2. Obtain complete MH1/MH2 resource sets before using them for whole-game
+1. Obtain complete MH1/MH2 resource sets before using them for whole-game
    corpus claims. The current MH1 copy has six directly referenced unreadable
    views; MH2 has 31 unreadable logic resources.
-3. Continue v3 behavioral probes from source-mapped deltas only when the
+2. Continue v3 behavioral probes from source-mapped deltas only when the
    portable specification still has an observable ambiguity. Use synthetic v3
    resources when a focused confirmation requires them.
-4. Continue source-first renderer work only when disassembly or a valid local
+3. Continue source-first renderer work only when disassembly or a valid local
    resource exposes a concrete edge not already modeled. Use QEMU as
    confirmation/regression evidence.
-5. Keep expanding `tools/compatibility_suite.py` when a new behavior is promoted
+4. Keep expanding `tools/compatibility_suite.py` when a new behavior is promoted
    to reusable evidence. Re-run the smoke or broad QEMU layer whenever the
    manifest changes.
+5. Establish canonical initial 2.089/2.272 reserved save bytes only if pristine
+   binary save synthesis for those selected games becomes a target.
 6. Treat non-EGA paths, analog waveform synthesis, menu arrow injection, invalid
    path UI, and out-of-memory UI as optional/conditional work unless the final
    compatibility target expands beyond current full-EGA valid-data behavior.

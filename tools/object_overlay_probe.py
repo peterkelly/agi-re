@@ -22,7 +22,12 @@ from compare_picture_capture import downsample_qemu_picture_nibbles
 from ppm_tools import read_ppm
 from qemu_fixture import build_synthetic_picture_view_fixture
 from qemu_fixture import build_synthetic_picture_persistent_object_fixture, rebuild_priority_table_action
-from qemu_snapshot import SnapshotFixtureCase, build_snapshot_boot_disk, run_snapshot_qemu_cases
+from qemu_snapshot import (
+    SnapshotFixtureCase,
+    build_snapshot_boot_disk,
+    run_snapshot_qemu_cases,
+    snapshot_chunk_path,
+)
 
 
 DEFAULT_FIXTURES = Path("build/object-overlay-probes/fixtures")
@@ -483,6 +488,53 @@ def run_snapshot_batch(
     return results
 
 
+def run_chunked_snapshot_batches(
+    cases: list[ObjectOverlayCase],
+    fixture_root: Path,
+    boot_wait: float,
+    draw_wait: float,
+    dos_prefix: str,
+    stop_on_failure: bool,
+    snapshot_raw: Path,
+    snapshot_qcow: Path,
+    chunk_size: int,
+) -> list[OverlayBatchResult]:
+    if chunk_size <= 0 or chunk_size >= len(cases):
+        return run_snapshot_batch(
+            cases,
+            fixture_root,
+            boot_wait,
+            draw_wait,
+            dos_prefix,
+            stop_on_failure,
+            snapshot_raw,
+            snapshot_qcow,
+        )
+
+    results: list[OverlayBatchResult] = []
+    chunks = [cases[index : index + chunk_size] for index in range(0, len(cases), chunk_size)]
+    for chunk_index, chunk in enumerate(chunks):
+        print(
+            f"running overlay chunk {chunk_index + 1}/{len(chunks)} with {len(chunk)} cases",
+            file=sys.stderr,
+            flush=True,
+        )
+        chunk_results = run_snapshot_batch(
+            chunk,
+            fixture_root,
+            boot_wait,
+            draw_wait,
+            dos_prefix,
+            stop_on_failure,
+            snapshot_chunk_path(snapshot_raw, chunk_index),
+            snapshot_chunk_path(snapshot_qcow, chunk_index),
+        )
+        results.extend(chunk_results)
+        if stop_on_failure and any(result.status != "match" for result in chunk_results):
+            break
+    return results
+
+
 def write_report(results: list[OverlayBatchResult], output: Path) -> dict[str, object]:
     output.parent.mkdir(parents=True, exist_ok=True)
     report = {
@@ -510,9 +562,10 @@ def main() -> None:
     parser.add_argument("--stop-on-failure", action="store_true")
     parser.add_argument("--snapshot-raw", type=Path, default=DEFAULT_SNAPSHOT_RAW)
     parser.add_argument("--snapshot-qcow", type=Path, default=DEFAULT_SNAPSHOT_QCOW)
+    parser.add_argument("--chunk-size", type=int, default=0)
     args = parser.parse_args()
 
-    results = run_snapshot_batch(
+    results = run_chunked_snapshot_batches(
         load_cases(args.cases, args.case_ids),
         args.fixture_root,
         args.boot_wait,
@@ -521,6 +574,7 @@ def main() -> None:
         args.stop_on_failure,
         args.snapshot_raw,
         args.snapshot_qcow,
+        args.chunk_size,
     )
     report = write_report(results, args.output)
     print(json.dumps(report["summary"], indent=2, sort_keys=True))

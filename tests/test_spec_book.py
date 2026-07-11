@@ -77,6 +77,10 @@ class SpecBookTests(unittest.TestCase):
             with self.subTest(heading=heading):
                 self.assertIn(f"## {heading}", matrix)
         self.assertIn("2.936 binary save interchange", matrix)
+        self.assertIn("2.089 full-EGA gameplay", matrix)
+        self.assertIn("2.089 SQ1 binary save interchange", matrix)
+        self.assertIn("2.272 full-EGA gameplay", matrix)
+        self.assertIn("2.272 XMAS binary save interchange", matrix)
         self.assertIn("2.411 full-EGA gameplay", matrix)
         self.assertIn("2.411 KQ2 binary save interchange", matrix)
         self.assertIn("2.440 full-EGA gameplay", matrix)
@@ -90,6 +94,13 @@ class SpecBookTests(unittest.TestCase):
         self.assertIn("3.002.102 full-EGA gameplay", matrix)
         self.assertIn("3.002.102 KQ4D demo binary save interchange", matrix)
         self.assertIn("3.002.149 full-EGA gameplay", matrix)
+
+    def test_early_profiles_are_promoted_for_full_ega_gameplay(self) -> None:
+        profiles = (SPEC_SRC / "version_profiles.md").read_text(encoding="ascii")
+        self.assertIn("## AGI 2.089 profile", profiles)
+        self.assertIn("## AGI 2.272 profile", profiles)
+        self.assertNotIn("## AGI 2.089 partial profile", profiles)
+        self.assertNotIn("## AGI 2.272 partial profile", profiles)
 
     def test_picture_catalog_mentions_every_command(self) -> None:
         picture = (SPEC_SRC / "picture_resources.md").read_text(encoding="ascii")

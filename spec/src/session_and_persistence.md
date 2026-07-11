@@ -746,11 +746,14 @@ display mode, and terminate with process exit code zero.
 
 ## Reserved-state rule
 
-Every byte position in the observed 2.411, 2.440, 2.917, 2.936, 3.002.086,
-3.002.102, and 3.002.149 save blocks has a portable field or a reserved-state
-assignment.
+Every byte position in the observed 2.089, 2.272, 2.411, 2.440, 2.917, 2.936,
+3.002.086, 3.002.102, and 3.002.149 save blocks has a portable field or a
+reserved-state assignment.
 Valid operations do not read or modify the reserved records and padding as game
-state. A newly synthesized save uses their canonical values; restoring and
-re-saving an existing save preserves its supplied reserved bytes. Other
-interpreter/game profiles, including 2.089 and 2.272 beyond the envelope maps
-above, require independent byte maps before binary interchange can be claimed.
+state. Restoring and re-saving an existing save preserves its supplied reserved
+bytes. A newly synthesized save for profiles 2.411 and later uses the canonical
+values stated by its selected profile. Profiles 2.089 and 2.272 require a
+caller-supplied initialization policy for reserved bytes because their
+canonical pristine values have not been established. Other interpreter/game
+profiles require independent byte maps before binary interchange can be
+claimed.

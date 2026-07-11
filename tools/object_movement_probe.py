@@ -44,7 +44,12 @@ from qemu_fixture import (
     start_random_motion_action,
     var_eq_imm_condition,
 )
-from qemu_snapshot import SnapshotFixtureCase, build_snapshot_boot_disk, run_snapshot_qemu_cases
+from qemu_snapshot import (
+    SnapshotFixtureCase,
+    build_snapshot_boot_disk,
+    run_snapshot_qemu_cases,
+    snapshot_chunk_path,
+)
 
 
 DEFAULT_INIT_FLAG = 199
@@ -83,6 +88,7 @@ class ObjectMovementCase:
     moving_skip_collision: bool = False
     moving_clear_skip_collision: bool = False
     moving_set_bit_0002: bool = False
+    deterministic: bool = True
     moving_clear_bit_0002: bool = False
     moving_set_bit_0100: bool = False
     moving_set_bit_0800: bool = False
@@ -851,6 +857,7 @@ def base_cases() -> list[ObjectMovementCase]:
             80,
             motion_kind="random_motion",
             comparison_kind="any_position",
+            deterministic=False,
         ),
         ObjectMovementCase(
             "clear_field_22_after_random_motion_stops_motion",
@@ -893,7 +900,11 @@ def base_cases() -> list[ObjectMovementCase]:
     ]
 
 
-def load_cases(path: Path | None, selected_ids: list[str] | None = None) -> list[ObjectMovementCase]:
+def load_cases(
+    path: Path | None,
+    selected_ids: list[str] | None = None,
+    deterministic_only: bool = False,
+) -> list[ObjectMovementCase]:
     if path is None:
         cases = base_cases()
     else:
@@ -905,6 +916,8 @@ def load_cases(path: Path | None, selected_ids: list[str] | None = None) -> list
         missing = selected - {case.case_id for case in cases}
         if missing:
             raise ValueError(f"unknown case id(s): {', '.join(sorted(missing))}")
+    if deterministic_only:
+        cases = [case for case in cases if case.deterministic]
     return cases
 
 
@@ -1070,6 +1083,53 @@ def run_snapshot_batch(
     return results
 
 
+def run_chunked_snapshot_batches(
+    cases: list[ObjectMovementCase],
+    fixture_root: Path,
+    boot_wait: float,
+    draw_wait: float,
+    dos_prefix: str,
+    stop_on_failure: bool,
+    snapshot_raw: Path,
+    snapshot_qcow: Path,
+    chunk_size: int,
+) -> list[MovementBatchResult]:
+    if chunk_size <= 0 or chunk_size >= len(cases):
+        return run_snapshot_batch(
+            cases,
+            fixture_root,
+            boot_wait,
+            draw_wait,
+            dos_prefix,
+            stop_on_failure,
+            snapshot_raw,
+            snapshot_qcow,
+        )
+
+    results: list[MovementBatchResult] = []
+    chunks = [cases[index : index + chunk_size] for index in range(0, len(cases), chunk_size)]
+    for chunk_index, chunk in enumerate(chunks):
+        print(
+            f"running movement chunk {chunk_index + 1}/{len(chunks)} with {len(chunk)} cases",
+            file=sys.stderr,
+            flush=True,
+        )
+        chunk_results = run_snapshot_batch(
+            chunk,
+            fixture_root,
+            boot_wait,
+            draw_wait,
+            dos_prefix,
+            stop_on_failure,
+            snapshot_chunk_path(snapshot_raw, chunk_index),
+            snapshot_chunk_path(snapshot_qcow, chunk_index),
+        )
+        results.extend(chunk_results)
+        if stop_on_failure and any(result.status != "match" for result in chunk_results):
+            break
+    return results
+
+
 def post_activate_actions(case: ObjectMovementCase) -> bytes:
     actions = b""
     if case.rect_left is not None:
@@ -1213,10 +1273,12 @@ def main() -> None:
     parser.add_argument("--stop-on-failure", action="store_true")
     parser.add_argument("--snapshot-raw", type=Path, default=DEFAULT_SNAPSHOT_RAW)
     parser.add_argument("--snapshot-qcow", type=Path, default=DEFAULT_SNAPSHOT_QCOW)
+    parser.add_argument("--chunk-size", type=int, default=0)
+    parser.add_argument("--deterministic-only", action="store_true")
     args = parser.parse_args()
 
-    results = run_snapshot_batch(
-        load_cases(args.cases, args.case_ids),
+    results = run_chunked_snapshot_batches(
+        load_cases(args.cases, args.case_ids, args.deterministic_only),
         args.fixture_root,
         args.boot_wait,
         args.draw_wait,
@@ -1224,6 +1286,7 @@ def main() -> None:
         args.stop_on_failure,
         args.snapshot_raw,
         args.snapshot_qcow,
+        args.chunk_size,
     )
     report = write_report(results, args.output)
     print(json.dumps(report["summary"], indent=2, sort_keys=True))

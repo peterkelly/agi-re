@@ -106,6 +106,24 @@ def suite_commands() -> tuple[SuiteCommand, ...]:
             ),
         ),
         SuiteCommand(
+            "picture_fuzz_generate",
+            "qemu-smoke",
+            "Regenerate the deterministic synthetic picture corpus.",
+            (
+                "python3",
+                "-B",
+                "tools/picture_fuzz.py",
+                "generate",
+                "--count",
+                "1024",
+                "--seed",
+                "4097",
+                "--output",
+                "build/picture-fuzz/corpus",
+                "--clean",
+            ),
+        ),
+        SuiteCommand(
             "picture_fuzz_command_resume_qemu",
             "qemu-smoke",
             "Validate command-byte scanner resume cases for line, corner, and fill.",
@@ -250,6 +268,53 @@ def suite_commands() -> tuple[SuiteCommand, ...]:
                 "0.5",
                 "--poll-timeout",
                 "20",
+            ),
+        ),
+        SuiteCommand(
+            "picture_carousel_all_qemu",
+            "qemu-exhaustive",
+            "Validate every present picture through chunked timed carousels.",
+            (
+                "python3", "-B", "tools/picture_carousel.py",
+                "--preset", "all", "--mode", "timed", "--poll",
+                "--chunk-size", "16", "--delay-cycles", "120",
+                "--speed-value", "1",
+                "--fixture-root", "build/picture-carousel/exhaustive-suite-fixtures",
+                "--dos-dir", "PICALL",
+                "--output", "build/picture-carousel/batches/picture_carousel_all_suite.json",
+                "--boot-wait", "5", "--first-wait", "3",
+                "--poll-interval", "0.5", "--poll-timeout", "20",
+            ),
+        ),
+        SuiteCommand(
+            "object_movement_all_qemu",
+            "qemu-exhaustive",
+            "Validate every current movement, collision, control, and animation case.",
+            (
+                "python3", "-B", "tools/object_movement_probe.py",
+                "--fixture-root", "build/object-movement-probes/exhaustive-suite-fixtures",
+                "--dos-prefix", "OM",
+                "--output", "build/object-movement-probes/batches/object_movement_all_suite.json",
+                "--snapshot-raw", "build/object-movement-probes/snapshot/object_movement_all_suite.raw",
+                "--snapshot-qcow", "build/object-movement-probes/snapshot/object_movement_all_suite.qcow2",
+                "--chunk-size", "10",
+                "--deterministic-only",
+                "--boot-wait", "5", "--draw-wait", "8", "--stop-on-failure",
+            ),
+        ),
+        SuiteCommand(
+            "object_overlay_all_qemu",
+            "qemu-exhaustive",
+            "Validate every current priority, clipping, transparency, and overlay case.",
+            (
+                "python3", "-B", "tools/object_overlay_probe.py",
+                "--fixture-root", "build/object-overlay-probes/exhaustive-suite-fixtures",
+                "--dos-prefix", "OO",
+                "--output", "build/object-overlay-probes/batches/object_overlay_all_suite.json",
+                "--snapshot-raw", "build/object-overlay-probes/snapshot/object_overlay_all_suite.raw",
+                "--snapshot-qcow", "build/object-overlay-probes/snapshot/object_overlay_all_suite.qcow2",
+                "--chunk-size", "10",
+                "--boot-wait", "5", "--draw-wait", "8", "--stop-on-failure",
             ),
         ),
         SuiteCommand(
@@ -477,6 +542,7 @@ def selected_commands(
     names: Iterable[str] = (),
     include_qemu_smoke: bool = False,
     include_qemu_broad: bool = False,
+    include_qemu_exhaustive: bool = False,
     include_qemu_v3: bool = False,
 ) -> tuple[SuiteCommand, ...]:
     commands = suite_commands()
@@ -492,6 +558,8 @@ def selected_commands(
         layers.add("qemu-smoke")
     if include_qemu_broad:
         layers.update({"qemu-smoke", "qemu-broad"})
+    if include_qemu_exhaustive:
+        layers.update({"qemu-smoke", "qemu-broad", "qemu-exhaustive"})
     if include_qemu_v3:
         layers.add("qemu-v3")
     return tuple(command for command in commands if command.layer in layers)
@@ -502,7 +570,7 @@ def requires_game_dir(commands: Iterable[SuiteCommand]) -> bool:
 
     return any(
         command.name == "local_unittest"
-        or command.layer in {"qemu-smoke", "qemu-broad"}
+        or command.layer in {"qemu-smoke", "qemu-broad", "qemu-exhaustive"}
         for command in commands
     )
 
@@ -556,6 +624,11 @@ def main() -> None:
     parser.add_argument("--name", action="append", default=[], help="run only a named command; may be repeated")
     parser.add_argument("--include-qemu-smoke", action="store_true", help="include short QEMU validation batches")
     parser.add_argument("--include-qemu-broad", action="store_true", help="include broad QEMU resource sweeps")
+    parser.add_argument(
+        "--include-qemu-exhaustive",
+        action="store_true",
+        help="include exhaustive QEMU picture, movement, and overlay sweeps",
+    )
     parser.add_argument("--include-qemu-v3", action="store_true", help="include opt-in v3 interpreter QEMU probes")
     parser.add_argument("--dry-run", action="store_true", help="print selected commands without executing them")
     parser.add_argument(
@@ -570,6 +643,7 @@ def main() -> None:
         names=args.name,
         include_qemu_smoke=args.include_qemu_smoke,
         include_qemu_broad=args.include_qemu_broad,
+        include_qemu_exhaustive=args.include_qemu_exhaustive,
         include_qemu_v3=args.include_qemu_v3,
     )
     if args.list or args.dry_run:

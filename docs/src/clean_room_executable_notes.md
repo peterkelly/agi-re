@@ -11414,3 +11414,29 @@ inventory text when needed, and wait for one acknowledgement event. Neither
 handler reads the later inventory-interaction flag or writes variable byte
 `v25`. KQ2 `0x30d6` instead calls the later list selector that branches on the
 interaction flag and can write the selected item or `0xff` to `v25`.
+
+### Early profile residual-edge closure
+
+The remaining XMAS/KQ2 action-entry differences were reduced to their normal
+full-EGA branches. Input configuration `0x6eb0`/`0x752e` stores the same base,
+bottom, row, and eight-pixel display offset outside KQ2's alternate mode 2.
+Number input `0x6872`/`0x6e2b` uses the same four-character editor and decimal
+low-byte result outside that mode. Input disable/enable and explicit
+refresh/erase similarly reach the same ordinary text-line and prompt state;
+the extra tests select alternate mode 2 paths.
+
+KQ2 display-mode toggle `0x758a` adds an interrupt-timing guard before the
+same mode-bit toggle and redraw sequence used by XMAS `0x6eec`. This does not
+change the specified state transition or final pixels. The restart difference
+adds open-resource/file cleanup before accepted reinitialization. Successful
+view-description preview differs in temporary backing allocation and diagnostic
+checks but uses the same selected cel, centered placement, description text,
+modal wait, and restoration. Joystick calibration remains hardware-conditional
+and outside the full-EGA gameplay target.
+
+All shared condition contracts are covered. Successful valid-data view binding,
+loop selection, and cel selection share the same transitions; SQ1 adds upper
+bound diagnostics that do not alter valid selectors. Combined with the prior
+picture/raster, composition, frame, collision, control, placement, dirty-region,
+motion, sound, save, and accepted-action analysis, no residual valid full-EGA
+domain remains unclassified for the observed 2.089 and 2.272 builds.
