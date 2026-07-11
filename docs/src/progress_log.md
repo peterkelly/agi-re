@@ -27022,3 +27022,48 @@ Progress updates and outcomes:
       Action/result: Removed one whitespace-only line and the extra final blank
       line from the license copy so the staged repository passes its whitespace
       gate without changing the license wording.
+
+3528. Reported: "I’ll rebuild the FreeDOS image from scratch."
+
+      Action/result: Confirmed the previous generated image was 32 MiB and
+      enumerated 16 top-level private game directories for the requested copy.
+
+3529. Reported: "I’m checking the available disk-formatting tools."
+
+      Action/result: Confirmed mtools supplies partition-aware FAT formatting
+      and boot-sector templating, allowing a host-side reproducible large image
+      without an interactive DOS installation.
+
+3530. Reported: "I’m going to make the builder create a fresh 1 GiB disk."
+
+      Action/result: Added active FAT16-LBA MBR construction, enlarged FAT16
+      formatting, source boot-code preservation, full FreeDOS tree transfer,
+      atomic output replacement, and configurable 64-2048 MiB sizing.
+
+3531. Reported: "The geometry tests pass."
+
+      Action/result: Added deterministic tests for the 1 GiB partition entry,
+      CHS encoding/saturation, active/type/LBA fields, and invalid source MBRs.
+
+3532. Reported: "The setup process is still downloading in the background."
+
+      Action/result: Observed the slow transfer through its temporary filename;
+      the atomic downloader prevented the partial archive from being accepted
+      as the persistent FreeDOS cache.
+
+3533. Reported: "The 1 GiB FAT16 volume is populated."
+
+      Action/result: Copied all 16 game directories, matched every recursive
+      host/DOS file count, and measured 1,009,057,792 bytes free afterward.
+
+3534. Reported: "I’m doing the final boot test."
+
+      Action/result: Booted the enlarged type-`0x0e` image with the patched VGA
+      BIOS and reached the FreeDOS `C:\>` prompt; recorded the benign legacy CHS
+      consistency warning for this LBA volume.
+
+3535. Reported: "I’m running the full local test suite and both mdBooks now."
+
+      Action/result: Passed 431 tests with four expected optional-fixture skips,
+      built both mdBooks, checked opcode evidence and whitespace, and retained
+      the populated boot-tested 1 GiB image as disposable build output.

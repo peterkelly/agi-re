@@ -84,12 +84,18 @@ python3 -B tools/setup_freedos_image.py --force --copy-game --game-dir games/SQ2
 ```
 
 The script downloads `FD14-LiteUSB.zip`, checks its SHA-256, extracts the raw
-disk image to `build/freedos/freedos.img`, detects the FAT partition offset for
-mtools, patches the root boot scripts so QEMU should land at a DOS prompt, and
-builds the VGA BIOS compatibility ROM described below. Use `--url` and
-`--sha256` to test a newer FreeDOS release when the official stable download
-changes. Use `--skip-vgabios` only when intentionally testing QEMU's bundled
-VGA firmware.
+source image, and constructs a new 1 GiB bootable raw disk at
+`build/freedos/freedos.img`. The generated disk has a 1 MiB-aligned active
+FAT16-LBA partition with 32 KiB clusters. The builder preserves the verified
+FreeDOS MBR and partition boot code, reformats the enlarged filesystem, copies
+the complete FreeDOS tree, detects the new partition offset for mtools, patches
+the root boot scripts so QEMU lands at a DOS prompt, and builds the VGA BIOS
+compatibility ROM described below.
+
+Use `--image-size-mib N` to select another FAT16 size between 64 and 2048 MiB.
+Use `--url` and `--sha256` to test a newer FreeDOS release when the official
+stable download changes. Use `--skip-vgabios` only when intentionally testing
+QEMU's bundled VGA firmware.
 
 ## Working with the image
 
@@ -119,6 +125,13 @@ Copy a whole local game directory using the setup helper:
 python3 -B tools/setup_freedos_image.py --force --copy-game --game-dir games/SQ2 --dos-game-dir SQ2
 ```
 
+Copy every top-level private game directory into an already built image:
+
+```bash
+IMAGE=$(python3 -B tools/setup_freedos_image.py --print-mtools-image)
+mcopy -s -o -i "$IMAGE" games/* ::/
+```
+
 Or copy selected files manually:
 
 ```bash
@@ -135,6 +148,12 @@ qemu-system-i386 -m 16 -boot c \
   -device VGA,romfile="$(pwd)/build/vgabios/vgabios-0.7a-int43.bin" \
   -display vnc=127.0.0.1:5 -monitor stdio
 ```
+
+FreeDOS may print an `InitDiskWARNING` about CHS values while booting this
+1 GiB image. The active partition is explicitly FAT16-LBA and extends beyond
+legacy CHS cylinder capacity; the warning is informational in this QEMU
+configuration. A successful boot reports a roughly 1023 MiB `C:` volume and
+lands at `C:\>`.
 
 The QEMU monitor accepts commands on stdin. Useful monitor commands:
 

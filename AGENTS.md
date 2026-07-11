@@ -131,9 +131,14 @@ produce that replacement engine.
   QEMU's bundled firmware or set `AGI_VGABIOS=/path/to/rom.bin` to test another
   option ROM.
 - Build the local FreeDOS image with
-  `python3 -B tools/setup_freedos_image.py --force`. To copy a private game
-  for manual runs, add `--copy-game --game-dir games/SQ2 --dos-game-dir SQ2`
-  or choose another game path/name explicitly.
+  `python3 -B tools/setup_freedos_image.py --force`. The default is a 1 GiB
+  raw disk with a 1 MiB-aligned active FAT16-LBA partition; use
+  `--image-size-mib N` for another 64-2048 MiB size. To copy a private game for
+  manual runs, add `--copy-game --game-dir games/SQ2 --dos-game-dir SQ2` or
+  choose another game path/name explicitly. To populate all current private
+  games after building, run `IMAGE=$(python3 -B
+  tools/setup_freedos_image.py --print-mtools-image)` followed by
+  `mcopy -s -o -i "$IMAGE" games/* ::/`.
 - The default QEMU image for harnesses is `build/freedos/freedos.img`; override
   it with `AGI_DOS_IMAGE=/path/to/image.img` when needed.
 - Use this command for monitor-driven runs and screenshots:
@@ -166,7 +171,10 @@ qemu-system-i386 -m 16 -boot c \
 - Build and run a one-boot real-picture snapshot batch with `python3 -B tools/picture_batch.py --snapshot --dos-prefix PB --output build/picture-batch/batches/picture_base_001.json --boot-wait 5 --draw-wait 8 --stop-on-failure`.
 - Run the broader representative real-picture snapshot preset with `python3 -B tools/picture_batch.py --preset broad --snapshot --dos-prefix PB --output build/picture-batch/batches/picture_broad_001.json --boot-wait 5 --draw-wait 8 --stop-on-failure`.
 - Run the full present-picture snapshot preset with `python3 -B tools/picture_batch.py --preset all --snapshot --fixture-root build/picture-batch/all-fixtures --dos-prefix PA --output build/picture-batch/batches/picture_all_001.json --boot-wait 5 --draw-wait 8 --stop-on-failure`.
-- `tools/picture_batch.py` uses packed picture fixtures: each fixture copies only the minimal engine/support files and places generated `LOGIC.0` plus the tested picture payload in that fixture's `VOL.3`. This keeps all-present SQ2 picture batches within the 64 MB DOS image.
+- `tools/picture_batch.py` uses packed picture fixtures: each fixture copies
+  only the minimal engine/support files and places generated `LOGIC.0` plus the
+  tested picture payload in that fixture's `VOL.3`. This remains useful for
+  compact batches even though the default FreeDOS image is now 1 GiB.
 - Run a dynamic original-engine save-write probe with `python3 -B tools/save_roundtrip_probe.py --output build/save-roundtrip/save_roundtrip_010.json --capture build/save-roundtrip/qemu_capture_010.ppm --snapshot-raw build/save-roundtrip/snapshot/save_roundtrip_010.raw --snapshot-qcow build/save-roundtrip/snapshot/save_roundtrip_010.qcow2 --post-run-raw build/save-roundtrip/snapshot/save_roundtrip_after_010.raw --save-output build/save-roundtrip/SQ2SG_010.1 --boot-wait 5 --draw-wait 8 --path-prompt-wait 2 --slot-wait 1 --description-wait 1 --confirmation-wait 1 --key-delay 0.08`. The fixture calls `0x8f verify_game_signature` with message `SQ2`, so the save-name prefix/global signature at `DS:0x0002` is initialized and the original engine writes `SQ2SG.1`.
 - Validate restore from that generated save with `python3 -B tools/save_roundtrip_probe.py --mode restore --save-input build/save-roundtrip/SQ2SG_010.1 --output build/save-roundtrip/restore_roundtrip_sq2stem_006.json --fixture build/save-roundtrip/restore-fixture-signed --dos-dir RST6 --capture build/save-roundtrip/restore_capture_sq2stem_006.ppm --snapshot-raw build/save-roundtrip/snapshot/restore_roundtrip_sq2stem_006.raw --snapshot-qcow build/save-roundtrip/snapshot/restore_roundtrip_sq2stem_006.qcow2 --boot-wait 5 --draw-wait 8 --path-prompt-wait 8 --path-keys $'\n\n' --slot-wait 2 --slot-keys $'\n\n' --confirmation-wait 1 --confirmation-keys $'\n\n' --key-delay 0.12`. The restore fixture starts with an unrestored X=90 marker but branches to an X=50 draw only after the saved flag and variables are restored, so a visual match proves restored state rather than mere continuation after `0x7e`.
 - Capture the representative restore-read failure UI with `python3 -B tools/save_roundtrip_probe.py --mode restore-read-error --output build/save-roundtrip/restore_read_error_002.json --fixture build/save-roundtrip/restore-read-error-fixture --dos-dir RERR --capture build/save-roundtrip/restore_read_error_002.ppm --snapshot-raw build/save-roundtrip/snapshot/restore_read_error_002.raw --snapshot-qcow build/save-roundtrip/snapshot/restore_read_error_002.qcow2 --boot-wait 5 --draw-wait 8 --path-prompt-wait 8 --path-keys $'\n' --slot-wait 2 --slot-keys $'\n' --confirmation-wait 1 --confirmation-keys $'\n' --key-delay 0.12`. Use exactly one Enter at the directory prompt, one at slot selection, and one at confirmation; redundant Enters advance through the fatal error dialog and leave the final capture at DOS. The synthetic save is 40 bytes: a 31-byte description, declared first-block length `0x05e1`, and the seven-byte `SQ2` signature prefix, so the selector lists it before the actual restore read fails.
@@ -175,10 +183,10 @@ qemu-system-i386 -m 16 -boot c \
 - For all-present SQ2 picture carousel evidence, use chunked timed polling: `python3 -B tools/picture_carousel.py --preset all --mode timed --poll --chunk-size 16 --delay-cycles 120 --speed-value 1 --fixture-root build/picture-carousel/timed-all-poll-chunk16-fixtures --dos-dir PICALL --output build/picture-carousel/batches/picture_carousel_all_timed_poll_chunk16_001.json --boot-wait 5 --first-wait 3 --poll-interval 0.5 --poll-timeout 20`. This matched all 74 present pictures. A single 74-picture carousel matched the first 19 pictures, then the original engine showed a disk prompt over picture 19 despite an intact generated `VOL.3`, so use chunks for large sweeps.
 - Current timed polling view/object carousel evidence: `python3 -B tools/view_carousel.py --include-stress --fixture-root build/view-carousel/stress-fixtures --dos-dir VCARSTR --output build/view-carousel/batches/view_carousel_stress_001.json --boot-wait 5 --first-wait 3 --delay-cycles 120 --speed-value 1 --poll-interval 0.5 --poll-timeout 20`. This matched all 19 current base-plus-stress view cases from one engine process. The simpler per-case snapshot oracle remains `tools/view_batch.py`.
 - The older key/status-byte carousel path remains useful as a prototype but is not broad-suite evidence: mapped function-key base smoke matched two pictures, while broader key-driven sweeps stalled or left input/UI artifacts.
-- If future multi-game/interpreter batches need more DOS space, create a
-  larger formatted bootable DOS test image or purpose-built large fixture
-  image; simply appending bytes to an existing FAT image is not enough because
-  the partition/filesystem geometry must also change.
+- If future multi-game/interpreter batches need more DOS space, rebuild with a
+  larger `--image-size-mib` value up to the 2048 MiB FAT16 limit. The builder
+  creates a new partition and filesystem; simply appending bytes to an existing
+  FAT image remains invalid.
 - Run targeted object overlay priority/clipping/persistent-object probes with `python3 -B tools/object_overlay_probe.py --dos-prefix OP --output build/object-overlay-probes/batches/name.json --boot-wait 5 --draw-wait 8`.
 - Generate original-engine fixture game directories with `python3 -B tools/qemu_fixture.py picture N --output build/qemu-fixtures/picture_NNN`.
 - Generate basic v3 direct-record logic fixtures with

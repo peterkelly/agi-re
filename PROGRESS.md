@@ -253,6 +253,9 @@ better understood, or a new remaining-work item is discovered.
     option ROM for faithful screenshots without modifying game inputs. The
     pristine upstream ROM, license, and provenance are tracked under
     `third_party/vgabios/`; the patched derivative remains ignored output.
+  - Harness note: the generated FreeDOS disk is now a 1 GiB FAT16-LBA image,
+    replacing the old small-volume constraint for multi-game and broad fixture
+    work.
 - [x] Room changes, restart, save/restore, and replay
   - Current: `spec/src/session_and_persistence.md` defines room-switch ordering,
     entry boundaries, replay pair kinds/packets/checkpoints, selector behavior,

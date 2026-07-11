@@ -6,6 +6,7 @@ from __future__ import annotations
 import argparse
 import hashlib
 import shutil
+import struct
 import subprocess
 import tempfile
 import urllib.parse
@@ -24,6 +25,13 @@ FREEDOS_LITEUSB_URL = (
 )
 FREEDOS_LITEUSB_SHA256 = "857dcd2ebf9d3d094320154db5fb5b830acba6fb98f981a95a0ca7ab3350338b"
 DEFAULT_CACHE_DIR = Path("build/downloads")
+DEFAULT_IMAGE_SIZE_MIB = 1024
+SECTOR_SIZE = 512
+PARTITION_START_LBA = 2048
+PARTITION_TYPE_FAT16_LBA = 0x0E
+DISK_HEADS = 32
+DISK_SECTORS_PER_TRACK = 63
+FAT16_SECTORS_PER_CLUSTER = 64
 
 
 def sha256_file(path: Path) -> str:
@@ -36,8 +44,14 @@ def sha256_file(path: Path) -> str:
 
 def download_file(url: str, destination: Path) -> None:
     destination.parent.mkdir(parents=True, exist_ok=True)
-    with urllib.request.urlopen(url) as response, destination.open("wb") as output:
-        shutil.copyfileobj(response, output)
+    temporary = destination.with_suffix(destination.suffix + ".download")
+    temporary.unlink(missing_ok=True)
+    try:
+        with urllib.request.urlopen(url) as response, temporary.open("wb") as output:
+            shutil.copyfileobj(response, output)
+        temporary.replace(destination)
+    finally:
+        temporary.unlink(missing_ok=True)
 
 
 def image_members(zip_path: Path) -> list[zipfile.ZipInfo]:
@@ -68,6 +82,111 @@ def extract_largest_image(zip_path: Path, output: Path, force: bool) -> str:
         shutil.copyfileobj(source, target)
     temporary.replace(output)
     return selected.filename
+
+
+def chs_address(lba: int) -> bytes:
+    """Encode an LBA as an MBR CHS triplet for the declared disk geometry."""
+    cylinder, remainder = divmod(lba, DISK_HEADS * DISK_SECTORS_PER_TRACK)
+    head, sector_index = divmod(remainder, DISK_SECTORS_PER_TRACK)
+    sector = sector_index + 1
+    if cylinder > 1023:
+        return b"\xfe\xff\xff"
+    return bytes((head, sector | ((cylinder >> 2) & 0xC0), cylinder & 0xFF))
+
+
+def partitioned_mbr(source_mbr: bytes, image_size: int) -> bytes:
+    """Return the source MBR boot code with one active full-size FAT16 partition."""
+    if len(source_mbr) != SECTOR_SIZE or source_mbr[510:512] != b"\x55\xaa":
+        raise SystemExit("FreeDOS source image has no valid MBR boot sector")
+    if image_size % SECTOR_SIZE:
+        raise SystemExit("image size must be a multiple of 512 bytes")
+    total_sectors = image_size // SECTOR_SIZE
+    partition_sectors = total_sectors - PARTITION_START_LBA
+    if partition_sectors <= 0:
+        raise SystemExit("image is too small for the configured partition offset")
+
+    result = bytearray(source_mbr)
+    result[446:510] = b"\x00" * 64
+    entry = (
+        b"\x80"
+        + chs_address(PARTITION_START_LBA)
+        + bytes((PARTITION_TYPE_FAT16_LBA,))
+        + chs_address(total_sectors - 1)
+        + struct.pack("<II", PARTITION_START_LBA, partition_sectors)
+    )
+    result[446:462] = entry
+    return bytes(result)
+
+
+def copy_volume_tree(source_image: str, destination: Path) -> None:
+    destination.mkdir(parents=True, exist_ok=True)
+    run_mtools(["mcopy", "-s", "-i", source_image, "::/*", str(destination)])
+
+
+def format_large_freedos_image(source_image: Path, output: Path, image_size: int) -> None:
+    """Create a bootable enlarged FAT16 disk and copy the source volume into it."""
+    source_offset = int(mtools_image(source_image).rsplit("@@", 1)[-1])
+    source_bytes = source_image.read_bytes()
+    source_mbr = source_bytes[:SECTOR_SIZE]
+    source_boot = source_bytes[source_offset : source_offset + SECTOR_SIZE]
+    if len(source_boot) != SECTOR_SIZE or source_boot[510:512] != b"\x55\xaa":
+        raise SystemExit("FreeDOS source partition has no valid boot sector")
+
+    output.parent.mkdir(parents=True, exist_ok=True)
+    temporary = output.with_suffix(output.suffix + ".tmp")
+    temporary.unlink(missing_ok=True)
+    with tempfile.TemporaryDirectory(prefix="freedos-volume-") as temp_dir:
+        contents = Path(temp_dir) / "contents"
+        boot_sector = Path(temp_dir) / "boot-sector.bin"
+        boot_sector.write_bytes(source_boot)
+        copy_volume_tree(mtools_image(source_image), contents)
+
+        try:
+            with temporary.open("wb") as target:
+                target.truncate(image_size)
+                target.seek(0)
+                target.write(partitioned_mbr(source_mbr, image_size))
+
+            partition_offset = PARTITION_START_LBA * SECTOR_SIZE
+            target_image = f"{temporary}@@{partition_offset}"
+            run_mtools(
+                [
+                    "mformat",
+                    "-i",
+                    target_image,
+                    "-B",
+                    str(boot_sector),
+                    "-v",
+                    "FD14-LITE",
+                    "-H",
+                    str(PARTITION_START_LBA),
+                    "-h",
+                    str(DISK_HEADS),
+                    "-n",
+                    str(DISK_SECTORS_PER_TRACK),
+                    "-c",
+                    str(FAT16_SECTORS_PER_CLUSTER),
+                    "::",
+                ]
+            )
+            members = sorted(contents.iterdir())
+            if not members:
+                raise SystemExit("FreeDOS source volume is empty")
+            run_mtools(["mcopy", "-s", "-o", "-i", target_image, *(str(path) for path in members), "::/"])
+            temporary.replace(output)
+        finally:
+            temporary.unlink(missing_ok=True)
+
+
+def build_freedos_image(zip_path: Path, output: Path, force: bool, image_size: int) -> str:
+    if output.exists() and not force:
+        raise SystemExit(f"{output} already exists; pass --force to replace it")
+    output.parent.mkdir(parents=True, exist_ok=True)
+    with tempfile.TemporaryDirectory(prefix="freedos-source-") as temp_dir:
+        source_image = Path(temp_dir) / "source.img"
+        member = extract_largest_image(zip_path, source_image, force=True)
+        format_large_freedos_image(source_image, output, image_size)
+    return member
 
 
 def require_tool(name: str) -> None:
@@ -133,6 +252,12 @@ def main() -> int:
     parser.add_argument("--sha256", default=FREEDOS_LITEUSB_SHA256)
     parser.add_argument("--cache-dir", type=Path, default=DEFAULT_CACHE_DIR)
     parser.add_argument("--output", type=Path, default=DEFAULT_FREEDOS_IMAGE)
+    parser.add_argument(
+        "--image-size-mib",
+        type=int,
+        default=DEFAULT_IMAGE_SIZE_MIB,
+        help="raw disk size in MiB (default: 1024)",
+    )
     parser.add_argument("--force", action="store_true")
     parser.add_argument("--copy-game", action="store_true")
     parser.add_argument("--game-dir", type=Path)
@@ -152,6 +277,10 @@ def main() -> int:
 
     require_tool("mcopy")
     require_tool("mmd")
+    require_tool("mformat")
+
+    if not 64 <= args.image_size_mib <= 2048:
+        raise SystemExit("--image-size-mib must be between 64 and 2048 for FAT16")
 
     if not args.skip_vgabios:
         vgabios, built = build_patched_vgabios(force=args.force)
@@ -166,7 +295,8 @@ def main() -> int:
     if actual_sha.lower() != args.sha256.lower():
         raise SystemExit(f"sha256 mismatch for {zip_path}: expected {args.sha256}, got {actual_sha}")
 
-    member = extract_largest_image(zip_path, args.output, args.force)
+    image_size = args.image_size_mib * 1024 * 1024
+    member = build_freedos_image(zip_path, args.output, args.force, image_size)
     image = mtools_image(args.output)
 
     if not args.no_prompt_patch:
@@ -178,6 +308,7 @@ def main() -> int:
     print(f"zip: {zip_path}")
     print(f"extracted: {member}")
     print(f"image: {args.output}")
+    print(f"image size: {args.image_size_mib} MiB")
     print(f"mtools image: {image}")
     if args.copy_game:
         print(f"copied game to: C:\\{args.dos_game_dir}")

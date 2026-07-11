@@ -1775,3 +1775,44 @@ Shared QEMU harness launch code selects the generated patched ROM automatically
 when it exists. `AGI_VGABIOS=/path/to/rom.bin` selects another option ROM, and
 `AGI_VGABIOS=default` deliberately disables the compatibility override for a
 control run.
+
+## One-GiB FreeDOS test image
+
+`tools/setup_freedos_image.py` now creates a fresh 1 GiB raw disk rather than
+using the 32 MiB LiteUSB source image as the final disk. The source distribution
+still supplies the verified FreeDOS file tree, MBR boot code, and FAT16
+partition boot code.
+
+The builder performs these steps:
+
+1. Download the pinned FreeDOS ZIP to a temporary cache filename and expose it
+   only after a complete transfer, preventing interrupted downloads from
+   becoming persistent invalid cache entries.
+2. Verify the complete archive SHA-256 and extract its largest raw image to a
+   temporary source path.
+3. Copy the complete source FAT tree to a temporary host directory.
+4. Create a sparse 1,073,741,824-byte raw output disk.
+5. Preserve the source MBR boot code but replace its partition table with one
+   active type-`0x0e` FAT16-LBA partition beginning at LBA 2048.
+6. Format the partition as FAT16 with 32 KiB clusters while using the source
+   FreeDOS partition boot sector as the boot-code template.
+7. Copy the complete FreeDOS tree into the enlarged volume and atomically
+   replace the requested output image.
+8. Apply the project prompt boot files and optional explicitly selected game
+   copy through the detected 1 MiB partition offset.
+
+`--image-size-mib` accepts 64 through 2048 MiB and defaults to 1024. The
+generated default partition contains 2,095,104 sectors and reports roughly
+1,032,781,824 free bytes before private games are copied.
+
+The 1 GiB image was populated with all 16 current top-level private game
+directories. Recursive host/DOS file counts matched for every directory. After
+copying the games, the FAT volume reported 1,009,057,792 free bytes. QEMU booted
+the image through the generated INT-43h-compatible VGA BIOS and reached the
+FreeDOS `C:\>` prompt.
+
+FreeDOS prints an `InitDiskWARNING` because its CHS consistency heuristic
+cannot represent the whole partition inside the legacy 1024-cylinder range.
+The MBR partition is explicitly LBA-addressed, the full FAT16 volume mounts,
+and file-count and boot checks pass. This warning is a geometry diagnostic, not
+a truncated filesystem or failed boot.
