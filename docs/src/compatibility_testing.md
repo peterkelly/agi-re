@@ -148,6 +148,33 @@ bundle with itself produced 165 matches and zero failures in
 distinct digests because control and equivalence cases intentionally converge
 on the same visible result.
 
+The exporter also accepts completed v3 behavior-probe reports. Their stable
+case IDs are `probe/label`; dry runs and reports with an explicit failed QEMU
+result are not marked successful. The first Gold Rush export combines frame
+selection, key-map capacity, menu gating, motion mode 4, restart-marker,
+room-alias, signed-restore, and synthetic picture/view probes:
+
+```bash
+python3 -B tools/conformance_results.py export \
+  build/gr-v3-behavior/frame_selection_gate_qemu_001.json \
+  build/gr-v3-behavior/key_map_capacity_qemu_pic001_002.json \
+  build/gr-v3-behavior/menu_gate_suite.json \
+  build/gr-v3-behavior/motion_mode_4_qemu_pic001_001.json \
+  build/gr-v3-behavior/restart_prompt_marker_suite.json \
+  build/gr-v3-behavior/room_remap_all_qemu_pic001_001.json \
+  build/gr-v3-behavior/signed_restore_roundtrip_suite.json \
+  build/gr-v3-behavior/synthetic_picture_view_suite.json \
+  --output build/conformance-results/gr_3002149_reference.json \
+  --artifact-dir build/conformance-results/gr_3002149_frames \
+  --suite-id gr-3.002.149-deterministic-visual-v1 \
+  --profile 3.002.149-gold-rush-full-ega \
+  --producer original-dos-3.002.149
+```
+
+That bundle contains 32 successful cases and 32 frame artifacts. Its 14
+distinct digests capture the intentional equivalence/control groups, and its
+self-comparison passed all 32 cases with zero failures.
+
 The v3 manifest layer is separate because it depends on the private local
 `games/GR` input. It currently includes separate blank-prefix and signed GR
 save-XOR extraction probes, a signed restore round-trip probe, a restart

@@ -17,6 +17,10 @@ family-specific decoder.
 
 All 16-bit integers in the container formats are little-endian.
 
+Only the first 256 entries of each directory section are addressable. Bytes
+after those entries do not define additional resources, even when they can be
+grouped into directory-like triples.
+
 ## Directory entries
 
 Both current container profiles use three-byte directory entries:
@@ -113,9 +117,9 @@ The first eight bytes of the combined directory are four section offsets:
 
 The logic section extends from its offset to the picture offset, the picture
 section to the view offset, the view section to the sound offset, and the sound
-section to end of file. Each section is an array of three-byte directory
-entries. In this profile, only the exact sequence `ff ff ff` denotes an absent
-resource.
+section to end of file. Up to the first 256 complete three-byte groups in each
+section are directory entries. In this profile, only the exact sequence
+`ff ff ff` denotes an absent resource.
 
 If the combined directory cannot be opened, this profile falls back to the
 four split directory filenames. This fallback changes directory discovery but

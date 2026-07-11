@@ -10389,8 +10389,10 @@ Observations:
   21`. None of the unreadable sound entries `34..37` are immediately
   referenced by decoded scripts.
 - KQ4D `Version 3.002.102` has clean readable sound records including
-  `70..79`, plus readable but currently unreferenced high entries `198` and
-  `435`, and many unreadable high sound-section entries.
+  `70..79`, plus a record-readable but malformed-family entry at `198` and
+  many unreadable high sound-section entries. The earlier census also exposed
+  entry `435`; later byte-domain analysis corrected that entry as
+  unaddressable rather than as a resource.
 - Decoded KQ4D logic uses immediate sound numbers `70..79` only. None of the
   unreadable high sound entries are immediately referenced by decoded scripts.
 
@@ -11440,3 +11442,46 @@ bound diagnostics that do not alter valid selectors. Combined with the prior
 picture/raster, composition, frame, collision, control, placement, dirty-region,
 motion, sound, save, and accepted-action analysis, no residual valid full-EGA
 domain remains unclassified for the observed 2.089 and 2.272 builds.
+
+## 2026-07-11: directory-tail addressability closure
+
+Goal: classify KQ1 and KQ4D sound-directory anomalies without promoting
+garbage-memory or malformed-resource behavior.
+
+Static evidence and local reads:
+
+- KQ1's 2.917 `code.resource.read_volume_payload_once` is an exact normalized
+  match for the 2.936 direct-record reader. There is no sound-specific
+  alternate volume-header path.
+- KQ1 `SNDDIR` entries 34 through 37 are raw triples `22 0e 2f`, `22 0e 8f`,
+  `22 0e ed`, and `22 12 6b`. They select `VOL.2` offsets `0x20e2f`,
+  `0x20e8f`, `0x20eed`, and `0x2126b`.
+- The selected KQ1 `VOL.2` is only `0x1630b` bytes. Every one of those offsets
+  lies beyond the file by 43,812 to 44,896 bytes, so no record header exists
+  to interpret.
+- KQ4D's combined-directory sound section begins at `DMDIR:0x02d5`. Resource
+  selectors are unsigned bytes, so only entries 0 through 255 are reachable;
+  directory-like triples later in the file cannot be selected.
+- Within that byte range, entries 70 through 79 select clean sound records.
+  Entry 198 points to `DMVOL.0:0x0778`, whose v3 metadata selects
+  picture-nibble expansion and whose expanded payload begins with picture
+  commands. Parsing it as sound fails with a truncated channel event.
+- Entries 221 and 223 through 236 point into stored payload bytes rather than
+  to `12 34` record headers. Decoded KQ4D scripts reference only sounds 70
+  through 79.
+
+Implementation and validation:
+
+- `tools/agi_resources.py` now reports an explicit directory-offset-beyond-
+  volume diagnostic before checking a header.
+- Directory parsing now exposes at most 256 entries per family, matching the
+  script-visible byte resource-number domain.
+- Focused resource, census, reference-audit, and specification tests passed 34
+  tests. The regenerated census reports four KQ1 out-of-volume sound entries
+  and 15 addressable KQ4D bad-header sound entries; no referenced unreadable
+  entry remains in either game.
+
+Conclusion: KQ1 entries 34 through 37 are stale or out-of-package locations,
+not an alternate sound format. KQ4D bytes beyond sound entry 255 are
+unaddressable file tail, while its reachable high anomalies are malformed or
+cross-family entries outside the valid-data contract.

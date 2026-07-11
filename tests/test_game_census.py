@@ -59,6 +59,20 @@ class GameCensusTests(unittest.TestCase):
         self.assertEqual(census["resources"]["logic"]["present"], 1)
         self.assertEqual(census["transform_counts"], {"direct": 4})
 
+    def test_census_identifies_directory_offset_beyond_volume(self) -> None:
+        with tempfile.TemporaryDirectory() as temp_dir:
+            game = make_split_game(Path(temp_dir))
+            (game / "SNDDIR").write_bytes(dir_entry(0, 0x1234))
+            census = census_game(game)
+
+        self.assertEqual(
+            census["resources"]["sound"]["record_errors"],
+            [
+                "sound 0: ResourceFormatError: directory offset 0x1234 "
+                "is beyond volume 0 size 0x8"
+            ],
+        )
+
     def test_census_combined_directory_game(self) -> None:
         with tempfile.TemporaryDirectory() as temp_dir:
             game = make_combined_game(Path(temp_dir))
@@ -69,6 +83,16 @@ class GameCensusTests(unittest.TestCase):
         self.assertEqual(census["section_offsets"]["logic"], "0x0008")
         self.assertEqual(census["resources"]["logic"]["present"], 1)
         self.assertEqual(census["transform_counts"], {"direct": 1})
+
+    def test_combined_directory_tail_beyond_byte_resource_range_is_ignored(self) -> None:
+        with tempfile.TemporaryDirectory() as temp_dir:
+            game = make_combined_game(Path(temp_dir))
+            with (game / "TSTDIR").open("ab") as directory:
+                directory.write(dir_entry(0, 0) * 300)
+            census = census_game(game)
+
+        self.assertEqual(census["resources"]["sound"]["entries"], 256)
+        self.assertEqual(census["resources"]["sound"]["present"], 255)
 
     def test_build_census_deduplicates_explicit_and_root_inputs(self) -> None:
         with tempfile.TemporaryDirectory() as temp_dir:

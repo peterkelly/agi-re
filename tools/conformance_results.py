@@ -68,6 +68,13 @@ def frame_observation(frame: bytes, artifact: str | None = None) -> dict[str, ob
     return observation
 
 
+def artifact_filename(case_id: str) -> str:
+    stem = "".join(character if character.isalnum() else "_" for character in case_id).strip("_")
+    stem = stem[:80] or "case"
+    suffix = hashlib.sha256(case_id.encode("utf-8")).hexdigest()[:12]
+    return f"{stem}_{suffix}.ega"
+
+
 def export_reports(
     report_paths: list[Path],
     output: Path,
@@ -83,8 +90,22 @@ def export_reports(
 
     for report_path in report_paths:
         report = json.loads(report_path.read_text(encoding="ascii"))
-        for source_case in report.get("results", []):
-            case_id = source_case.get("case_id")
+        if isinstance(report.get("results"), list):
+            source_cases = [
+                (source_case, source_case.get("case_id"), source_case.get("status") == "match")
+                for source_case in report["results"]
+            ]
+        elif isinstance(report.get("cases"), list) and isinstance(report.get("probe"), str):
+            qemu = report.get("qemu") if isinstance(report.get("qemu"), dict) else {}
+            completed = qemu.get("ran") is True and qemu.get("passed") is not False
+            source_cases = [
+                (source_case, f"{report['probe']}/{source_case.get('label')}", completed)
+                for source_case in report["cases"]
+            ]
+        else:
+            raise ValueError(f"{report_path}: unsupported source report shape")
+
+        for source_case, case_id, completed in source_cases:
             if not isinstance(case_id, str) or not case_id:
                 raise ValueError(f"{report_path}: result lacks a nonempty case_id")
             if case_id in seen:
@@ -93,13 +114,13 @@ def export_reports(
 
             exported: dict[str, object] = {
                 "id": case_id,
-                "status": "ok" if source_case.get("status") == "match" else "error",
+                "status": "ok" if completed else "error",
                 "source_report": os.path.relpath(report_path, output.parent),
             }
             capture_value = source_case.get("capture")
             if isinstance(capture_value, str) and Path(capture_value).is_file():
                 frame = canonical_frame_from_ppm(Path(capture_value))
-                artifact_path = artifact_dir / f"{case_id}.ega"
+                artifact_path = artifact_dir / artifact_filename(case_id)
                 artifact_path.write_bytes(frame)
                 exported["frame"] = frame_observation(
                     frame,

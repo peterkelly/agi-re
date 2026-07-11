@@ -14,6 +14,7 @@ sys.path.insert(0, str(ROOT / "tools"))
 
 from conformance_results import (  # noqa: E402
     EGA_PALETTE,
+    artifact_filename,
     compare_bundles,
     export_reports,
     frame_observation,
@@ -32,6 +33,13 @@ def write_scaled_ppm(path: Path, pixels: bytes) -> None:
 
 
 class ConformanceResultTests(unittest.TestCase):
+    def test_artifact_filename_is_path_safe_and_collision_resistant(self) -> None:
+        left = artifact_filename("probe/case")
+        right = artifact_filename("probe:case")
+
+        self.assertNotIn("/", left)
+        self.assertNotEqual(left, right)
+
     def test_frame_observation_rejects_noncanonical_size(self) -> None:
         with self.assertRaisesRegex(ValueError, "26880"):
             frame_observation(b"\x00")
@@ -55,6 +63,52 @@ class ConformanceResultTests(unittest.TestCase):
 
             comparison = compare_bundles(reference, reference)
             self.assertEqual(comparison["summary"], {"total": 1, "matches": 1, "failures": 0})
+
+    def test_export_accepts_completed_v3_probe_report(self) -> None:
+        with tempfile.TemporaryDirectory() as temp_dir:
+            root = Path(temp_dir)
+            capture = root / "capture.ppm"
+            write_scaled_ppm(capture, bytes([5]) * (160 * 168))
+            report = root / "probe.json"
+            report.write_text(
+                json.dumps(
+                    {
+                        "probe": "sample_probe",
+                        "cases": [{"label": "control", "capture": str(capture)}],
+                        "qemu": {"ran": True, "passed": True},
+                    }
+                ),
+                encoding="ascii",
+            )
+            output = root / "result.json"
+            bundle = export_reports(
+                [report], output, root / "frames", "suite", "3.002.149", "original"
+            )
+
+        self.assertEqual(bundle["cases"][0]["id"], "sample_probe/control")
+        self.assertEqual(bundle["cases"][0]["status"], "ok")
+
+    def test_export_marks_known_failed_v3_probe_as_error(self) -> None:
+        with tempfile.TemporaryDirectory() as temp_dir:
+            root = Path(temp_dir)
+            capture = root / "capture.ppm"
+            write_scaled_ppm(capture, bytes(160 * 168))
+            report = root / "probe.json"
+            report.write_text(
+                json.dumps(
+                    {
+                        "probe": "failed_probe",
+                        "cases": [{"label": "case", "capture": str(capture)}],
+                        "qemu": {"ran": True, "passed": False},
+                    }
+                ),
+                encoding="ascii",
+            )
+            bundle = export_reports(
+                [report], root / "result.json", root / "frames", "suite", "profile", "original"
+            )
+
+        self.assertEqual(bundle["cases"][0]["status"], "error")
 
     def test_compare_reports_pixel_difference_and_missing_case(self) -> None:
         with tempfile.TemporaryDirectory() as temp_dir:

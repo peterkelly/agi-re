@@ -26728,3 +26728,63 @@ Progress updates and outcomes:
       Action/result: Passed 408 local tests with one optional historical-save
       skip, built both mdBooks, checked opcode evidence, and passed the diff
       whitespace check.
+
+3477. Reported: "I’m auditing the next concrete resource gap."
+
+      Action/result: Selected KQ1's four suspect sound-directory entries for
+      source-first classification against the 2.917 volume reader.
+
+3478. Reported: "The KQ1 entries point beyond the selected volume."
+
+      Action/result: Decoded offsets `0x20e2f..0x2126b`, all at least 43,812
+      bytes beyond `VOL.2`; ruled out an alternate sound-record format.
+
+3479. Reported: "The census now identifies out-of-volume offsets directly."
+
+      Action/result: Added a precise parser diagnostic and focused regression;
+      18 resource/census tests passed.
+
+3480. Reported: "I’m applying the same classification to KQ4D."
+
+      Action/result: Distinguished missing KQ4 volumes from KQ4D's sound-table
+      tail and inspected the reachable target bytes.
+
+3481. Reported: "KQ4D exposed an addressability bug in the local parser."
+
+      Action/result: Established that byte resource numbers make entries above
+      255 unreachable; prior pseudo-entries 387 through 661 were tool artifacts.
+
+3482. Reported: "Sound 198 is an accidental picture alias."
+
+      Action/result: Confirmed picture-nibble metadata, picture command bytes,
+      and failure under the sound channel parser.
+
+3483. Reported: "The corrected resource audit passes."
+
+      Action/result: Passed 34 focused tests and reduced KQ4D to 15 unreferenced
+      addressable bad-header entries plus the unreferenced picture alias.
+
+3484. Reported: "I’m scaling the portable bundle beyond SQ2."
+
+      Action/result: Selected eight completed Gold Rush source-mapped visual
+      probes and mapped their `cases`/`qemu` report envelope.
+
+3485. Reported: "The v3 adapter needs path-safe artifact names."
+
+      Action/result: Separated stable `probe/label` IDs from sanitized,
+      digest-suffixed artifact filenames after focused tests caught `/` paths.
+
+3486. Reported: "The first v3 reference bundle is clean."
+
+      Action/result: Exported 32/32 Gold Rush 3.002.149 cases with 32 artifacts
+      and self-compared all cases with zero failures.
+
+3487. Reported: "Raw save digests would over-constrain independent engines."
+
+      Action/result: Kept nonvisual persistence output pending a semantic
+      canonical form instead of requiring DOS-era serialized references.
+
+3488. Reported: "The complete verification pass is clean."
+
+      Action/result: Passed 414 tests with one optional historical-save skip,
+      built both mdBooks, checked opcode evidence, and passed `git diff --check`.

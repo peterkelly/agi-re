@@ -671,7 +671,11 @@ source-mapped well enough to justify a targeted probe.
     normally unwind retained resources in reverse load order.
     The new census distinguishes XMAS multi-disk packaging from installed v2
     volume naming, and the tolerant reference audit classifies MH1 as incomplete
-    while leaving MH2 inconclusive because source logics are missing.
+    while leaving MH2 inconclusive because source logics are missing. Source
+    and resource-number analysis now caps directory sections at 256 addressable
+    entries, preventing KQ4D's trailing directory-like bytes from becoming
+    pseudo-resources. KQ1 sounds 34 through 37 are classified as offsets beyond
+    `VOL.2`, not alternate record formats.
   - Remaining: loader error-path behavior only where needed by compatibility
     tests; complete MH1/MH2 inputs are required before whole-game resource
     claims.
@@ -847,7 +851,11 @@ source-mapped well enough to justify a targeted probe.
     168 EGA-index frame digest, with artifact-backed pixel mismatch details.
     The first 2.936 reference bundle contains 165/165 successful cases in
     `build/conformance-results/sq2_2936_reference.json`; its self-comparison
-    passed all 165 cases with zero failures.
+    passed all 165 cases with zero failures. The adapter now also accepts
+    completed v3 behavior-probe reports using stable `probe/label` IDs and
+    path-safe artifact names. The first Gold Rush 3.002.149 bundle contains
+    32/32 successful cases across eight source-mapped probe families and
+    self-compares with zero failures.
     The suite also has an explicit
     `qemu-v3` layer for private-input v3 probes, and the named GR save-XOR
     extraction command passed in
@@ -872,14 +880,16 @@ source-mapped well enough to justify a targeted probe.
     path. `build/compatibility-suite/qemu_v3_synthetic_picture_view_001.json`
     confirms generated v3 picture-nibble picture and direct view fixtures by
     comparing blank, picture-only, and picture-plus-view captures. The current
-    full local run passes 400 tests after adding cross-version profile
-    coverage and ordered resource-retention transitions. The top-level runner
+    full local run passes 414 tests after adding cross-version profile,
+    directory-boundary, portable-result, and ordered resource-retention
+    coverage. The top-level runner
     now accepts `--game-dir PATH`, exports that explicit selection to child
     commands, and records it in the JSON report without choosing a default
     game.
   - Remaining: extend the portable result format with nonvisual observations
     when deterministic state, input, sound, or persistence cases require them;
-    scale sweeps and bundles to future interpreter versions.
+    scale sweeps and bundles to additional interpreter versions as their
+    source-mapped probes are promoted.
 - [~] Cross-version comparison workflow
   - Evidence: symbolic labels are being curated for SQ2, and
     `docs/src/cross_version_workflow.md` now defines the local evidence package,

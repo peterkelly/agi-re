@@ -18,6 +18,7 @@ from typing import Iterable, Literal
 ResourceKind = Literal["logic", "picture", "view", "sound"]
 
 KIND_ORDER: tuple[ResourceKind, ...] = ("logic", "picture", "view", "sound")
+MAX_RESOURCE_COUNT = 0x100
 SPLIT_DIR_NAMES: dict[ResourceKind, str] = {
     "logic": "LOGDIR",
     "picture": "PICDIR",
@@ -179,7 +180,7 @@ def read_directory_entries(game_dir: Path, kind: ResourceKind) -> list[ResourceE
         exact_absent = True
 
     entries: list[ResourceEntry | None] = []
-    for offset in range(0, len(data), 3):
+    for offset in range(0, min(len(data), MAX_RESOURCE_COUNT * 3), 3):
         chunk = data[offset : offset + 3]
         if len(chunk) < 3:
             break
@@ -353,6 +354,10 @@ def read_volume_record(game_dir: Path, kind: ResourceKind, number: int) -> Volum
         raise ResourceFormatError(f"{kind} {number} is absent")
 
     volume_data = volume_path(game_dir, layout, entry.volume).read_bytes()
+    if entry.offset >= len(volume_data):
+        raise ResourceFormatError(
+            f"directory offset {entry.offset:#x} is beyond volume {entry.volume} size {len(volume_data):#x}"
+        )
     if layout.version == "v2_split":
         header = volume_data[entry.offset : entry.offset + 5]
         if len(header) != 5 or header[0:2] != b"\x12\x34" or header[2] != entry.volume:

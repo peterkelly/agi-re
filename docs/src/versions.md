@@ -54,7 +54,7 @@ The local snapshot found these version/layout groups:
 | `games/KQ3` | `Version 2.936` | v2 split | Direct `VOL.N` records. |
 | `games/SQ2` | `Version 2.936` | v2 split | Two known out-of-range end entries remain record errors in the generic census. |
 | `games/KQ4` | `Version 3.002.086` | v3 combined | Full game; combined `KQ4DIR`/`KQ4VOL.N`. The selected copy lacks volumes 6 and 7, leaving pictures `150..151` and views `198..199` unreadable. |
-| `games/KQ4D` | `Version 3.002.102` | v3 combined | Combined `DMDIR`/`DMVOL.N`; dispatch tables are at AGIDATA offsets `0x0620`/`0x0942`. Decoded scripts currently reference only sound resources `70..79`, which are clean records; later suspect sound-section entries need source inspection before modeling. |
+| `games/KQ4D` | `Version 3.002.102` | v3 combined | Combined `DMDIR`/`DMVOL.N`; dispatch tables are at AGIDATA offsets `0x0620`/`0x0942`. Decoded scripts reference clean sounds `70..79`; addressable tail anomalies are unreferenced, and triples beyond index 255 are inaccessible. |
 | `games/MH1` | `Version 3.002.107` | v3 combined | Combined `MHDIR`/`MHVOL.N`; readable scripts directly reference six unreadable views, so the selected copy is incomplete for full valid-data analysis. |
 | `games/GR` | `Version 3.002.149` | v3 combined | Combined `GRDIR`/`GRVOL.N`; all present records expand with the current v3 reader. |
 | `games/MH2` | `Version 3.002.149` | v3 combined | Combined `MH2DIR`/`MH2VOL.N`; readable scripts do not directly reference unreadable resources, but 31 unreadable logic records prevent a complete reachability claim. |
@@ -204,9 +204,14 @@ Logic 0 calls action `0x8e(100)`, so replay block 4 remains `0x00c8` bytes.
 The resulting block dimensions are `0x05e1`, `0x0306`, `0x0148`, `0x00c8`,
 and a variable logic-resume block.
 
-Four KQ1 sound directory entries fail the generic record-header check, but the
-script-visible reference audit finds no immediate logic reference to them.
-They are not included in the promoted valid-data contract.
+KQ1 sound directory entries 34 through 37 decode normally as packed v2
+locations in `VOL.2`, but their offsets `0x20e2f`, `0x20e8f`, `0x20eed`, and
+`0x2126b` are all beyond the selected file's `0x1630b`-byte length. The
+2.917 volume reader is a normalized exact match for the 2.936 direct-record
+reader and has no alternate sound-record interpretation. These are therefore
+stale or out-of-package directory locations, not evidence of another sound
+format. The script-visible reference audit finds no immediate logic reference
+to them, so they remain outside the promoted valid-data contract.
 
 This evidence promotes a 2.917 full-EGA gameplay profile and KQ1-specific
 binary-save interchange dimensions.
@@ -280,10 +285,10 @@ Current result:
 
 | Local input | Resource family | Immediate script references | Unreadable directory entries | Referenced unreadable entries |
 | --- | --- | ---: | --- | --- |
-| `games/KQ1` | sound | 21 entries, max `21` | `34`, `35`, `36`, `37` | none |
+| `games/KQ1` | sound | 21 entries, max `21` | `34`, `35`, `36`, `37` (all point beyond `VOL.2`) | none |
 | `games/KQ4` | picture | none immediate; picture selection is variable-based | `150`, `151` (missing `KQ4VOL.6`) | none immediate |
 | `games/KQ4` | view | 241 entries, max `255` | `198`, `199` (missing `KQ4VOL.7`) | none |
-| `games/KQ4D` | sound | 10 entries, max `79` | `221`, `223..236`, `387..394`, `423..427`, `583..587`, `660..661` | none |
+| `games/KQ4D` | sound | 10 entries, max `79` | `221`, `223..236`; entry `198` aliases a picture record | none |
 
 Conclusion: these unreadable sound-directory entries remain cross-version
 planning evidence, not valid-resource behavior for the clean spec. If a future

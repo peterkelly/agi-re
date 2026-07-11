@@ -30,6 +30,7 @@ from agi_resources import (  # noqa: E402
 
 SQ2_DIR = ROOT / "games" / "SQ2"
 GR_DIR = ROOT / "games" / "GR"
+KQ4D_DIR = ROOT / "games" / "KQ4D"
 
 
 def pack_codes(codes: list[int], width: int = 9) -> bytes:
@@ -61,6 +62,14 @@ class ResourceContainerTests(unittest.TestCase):
     def test_resource_numbers_are_bytes(self) -> None:
         with self.assertRaisesRegex(ValueError, "one byte"):
             retain_resource(RetainedResourceFamily(), 256)
+
+    @unittest.skipUnless(KQ4D_DIR.exists(), "local KQ4D game directory is not present")
+    def test_kq4d_sound_directory_ignores_unaddressable_file_tail(self) -> None:
+        entries = read_directory_entries(KQ4D_DIR, "sound")
+
+        self.assertEqual(len(entries), 256)
+        self.assertIsNotNone(entries[198])
+        self.assertIsNotNone(entries[221])
 
     def test_lzw_like_reset_literal_end_stream(self) -> None:
         self.assertEqual(decode_lzw_like(pack_codes([0x100, ord("A"), 0x101]), 1), b"A")
