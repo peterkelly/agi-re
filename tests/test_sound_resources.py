@@ -18,6 +18,7 @@ from agi_sound import (  # noqa: E402
     SoundToneOutput,
     active_sound_channel_indices,
     default_attenuation_envelope,
+    early_sound_attenuation_output,
     pc_speaker_divisor,
     pc_speaker_event_enabled,
     parse_sound,
@@ -94,6 +95,22 @@ class SoundResourceTests(unittest.TestCase):
         high_suppresses_low = sound_tone_output(SoundEvent(1, 0xE037, 0x90), hardware_selector=2)
         self.assertEqual(high_suppresses_low, SoundToneOutput((0xE0,), None, None))
 
+    def test_early_tone_and_selector_variants_match_source_profiles(self) -> None:
+        event = SoundEvent(1, 0xE037, 0x90)
+        kq2 = sound_tone_output(
+            event,
+            hardware_selector=2,
+            always_write_low_byte=True,
+        )
+        self.assertEqual(kq2, SoundToneOutput((0xE0, 0x37), None, None))
+
+        selector_8 = sound_tone_output(
+            event,
+            hardware_selector=8,
+            selector_8_is_pc_speaker=False,
+        )
+        self.assertEqual(selector_8, SoundToneOutput((0xE0,), None, None))
+
     def test_stop_silence_output_matches_source_stop_core(self) -> None:
         self.assertEqual(sound_stop_silence_output(hardware_selector=0), SoundToneOutput((), None, False))
         self.assertEqual(
@@ -131,6 +148,11 @@ class SoundResourceTests(unittest.TestCase):
             hardware_selector=1,
         )
         self.assertEqual(unadjusted.port_byte, 0x93)
+
+    def test_early_attenuation_has_no_envelope_or_selector_adjustment(self) -> None:
+        self.assertEqual(early_sound_attenuation_output(0x93), 0x93)
+        self.assertEqual(early_sound_attenuation_output(0x93, global_adjust=2), 0x95)
+        self.assertEqual(early_sound_attenuation_output(0x9E, global_adjust=2), 0x9F)
 
     def test_attenuation_envelope_delta_is_from_base_value(self) -> None:
         first = sound_attenuation_output(
@@ -176,6 +198,10 @@ class SoundResourceTests(unittest.TestCase):
         self.assertEqual(active_sound_channel_indices(0), (0,))
         self.assertEqual(active_sound_channel_indices(8), (0,))
         self.assertEqual(active_sound_channel_indices(2), (0, 1, 2, 3))
+        self.assertEqual(
+            active_sound_channel_indices(8, selector_8_is_pc_speaker=False),
+            (0, 1, 2, 3),
+        )
 
     def test_sound_one_schedule_matches_source_countdown_rule(self) -> None:
         payload = sound_payload(1)

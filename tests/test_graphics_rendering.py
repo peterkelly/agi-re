@@ -222,6 +222,15 @@ class PictureRenderingTests(unittest.TestCase):
         self.assertEqual(changed_visual_pixels(rendered), {(1, 1)})
         self.assertEqual(rendered.cells[1 * WIDTH + 1] & 0x0F, 4)
 
+    def test_2411_pattern_commands_plot_single_coordinate_pixels(self) -> None:
+        payload = bytes(
+            [0xF0, 4, 0xF9, 0x27, 0xFA, 40, 40, 42, 42, 0xFF]
+        )
+
+        rendered = PictureRenderer(payload, pattern_brushes=False).render()
+
+        self.assertEqual(changed_visual_pixels(rendered), {(40, 40), (42, 42)})
+
     def test_corner_path_y_first_draws_alternating_segments(self) -> None:
         payload = bytes([0xF0, 4, 0xF4, 5, 5, 8, 12, 6, 0xFF])
         rendered = PictureRenderer(payload).render()

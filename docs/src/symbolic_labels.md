@@ -582,7 +582,66 @@ decrypted SQ2 executable, so file offsets are image offsets plus `0x200`.
 | `data.text.window_saved_upper_left_0b2c` | GR data `[0x0b2c]` | Relocated packed saved-window rectangle word passed to GR rectangle restore helper. |
 | `data.inventory.selection_event_gate_0dc1` | GR data `[0x0dc1]` | Temporary word set while GR's interactive carried-item selector waits/handles events and cleared before action `0x7c` returns. |
 
-## KQ4D / AGI 3.002.102 Address Associations
+## KQ4 full game / AGI 3.002.086 Address Associations
+
+These loaded-image offsets come from `games/KQ4/AGI`. They identify the full
+game's earlier 3.002.086 build separately from the KQ4D demo.
+
+| Label | KQ4 address | Notes/evidence |
+| --- | --- | --- |
+| `code.logic.action_dispatch` | image `0x02c4` | Accepts action bytes through `0xb1`; later bytes are invalid action opcodes in this build. |
+| `table.logic.action_dispatch` | `AGIDATA.OVL:0x061d` | 178 four-byte records for actions `0x00..0xb1`; the count follows from the fixed v3 trailer before the condition table. |
+| `table.logic.condition_dispatch` | `AGIDATA.OVL:0x092f` | Nineteen common condition records. |
+| `opcode.action.increment_key_release_event_gate` | action `0xad`, image `0x6468` | Increments byte `[0x15a0]`, unlike KQ4D's set-to-one variant. |
+| `opcode.action.reserved_noop_v3_0` | action `0xb0`, image `0x5467` | Consumes one ignored operand and otherwise has no effect. |
+| `opcode.action.set_menu_interaction_gate` | action `0xb1`, image `0x9812` | Stores its immediate byte as a word in `[0x1d9e]`. |
+| `data.input.key_release_enqueue_gate_15a0` | data `[0x15a0]` | Incremented by action `0xad`; outside KQ4's serialized block 1. |
+| `data.menu.interaction_gate_1d9e` | data `[0x1d9e]` | Written by action `0xb1`; outside KQ4's serialized block 1. |
+| `code.save.save_game_state` | image `0x2a30` | Writes the five-block envelope with first-block length `0x05e1` and XOR-transforms block 3 around the write. |
+| `code.save.restore_game_state` | image `0x27dd` | Reads the same five block roles and decodes the restored block-3 range. |
+| `code.save.object_inventory_xor_range` | image `0x07ad` | Repeats the zero-terminated key at data `0x08f9` over a caller-supplied range. |
+| `data.save.object_inventory_xor_key_08f9` | data `0x08f9` | Zero-terminated `Avis Durgan` key. |
+| `code.view.load_resource` | image `0x3d94` | Relocation match for KQ4D `0x3daa`. |
+| `code.object.bind_view` | image `0x3e84` | Relocation match for KQ4D `0x3e9a`. |
+| `code.object.select_group` | image `0x3f54` | Relocation match for KQ4D `0x3f6a`. |
+| `code.object.select_group_table` | image `0x3fb8` | Relocation match for KQ4D `0x3fce`. |
+| `code.object.select_frame` | image `0x4068` | Relocation match for KQ4D `0x407e`. |
+| `code.view.discard` | image `0x426a` | Relocation match for KQ4D `0x4280`. |
+| `code.picture.load_resource` | image `0x4e69` | Relocation match for KQ4D `0x4e7f`. |
+| `code.picture.prepare` | image `0x4efd` | Relocation match for KQ4D `0x4f13`. |
+| `code.picture.overlay_prepare` | image `0x4f69` | Relocation match for KQ4D `0x4f7f`. |
+| `code.picture.discard` | image `0x4ffc` | Relocation match for KQ4D `0x5012`. |
+| `code.picture.decode_no_clear` | image `0x6879` | Primary full-EGA path matches KQ4D after relocation. |
+| `code.picture.command_scan` | image `0x68ae` | All picture command and raster branch bodies match KQ4D after relocation. |
+| `code.display.fill_buffer_word` | image `0x566b` | Primary full-EGA path matches KQ4D after relocation. |
+| `code.display.draw_horizontal_line` | image `0x5683` | Relocation match for KQ4D `0x568b`. |
+| `code.display.draw_vertical_line` | image `0x56bf` | Relocation match for KQ4D `0x56c7`. |
+| `code.display.pixel_write` | image `0x570d` | Relocation match for KQ4D `0x5715`. |
+| `code.picture.seed_fill` | image `0x574f` | Relocation match for KQ4D `0x5757`. |
+| `code.display.full_refresh` | image `0x595a` | Primary full-EGA path matches KQ4D after relocation. |
+| `code.object.build_update_list_sorted` | image `0x0358` | Same entry as KQ4D. |
+| `code.object.insert_update_node_head` | image `0x042f` | Same entry as KQ4D. |
+| `code.object.draw_update_list_tail_to_head` | image `0x045e` | Same entry as KQ4D. |
+| `code.object.refresh_update_list_saved_pos` | image `0x0488` | Same entry as KQ4D. |
+| `code.object.frame_timer_update` | image `0x0563` | Uses the four-direction loop table for loop counts of four or more, unlike KQ4D's later greater-than-four gate. |
+| `code.object.collision_test` | image `0x4b47` | Relocation match for KQ4D `0x4b5d`. |
+| `code.object.advance_frame_by_mode` | image `0x4ce1` | Branch bodies match KQ4D; normalized mismatch is embedded jump-table data. |
+| `code.object.control_acceptance` | image `0x5ad3` | Relocation match for KQ4D `0x5ae2`. |
+| `code.object.update_dirty_rect` | image `0x5b7d` | Relocation match for KQ4D `0x5b8c`. |
+| `code.object.place` | image `0x5d55` | Relocation match for KQ4D `0x5d64`. |
+| `code.object.build_active_update_list` | image `0x6e5f` | Relocation match for KQ4D `0x6e77`. |
+| `code.object.build_inactive_partition_list` | image `0x6e76` | Relocation match for KQ4D `0x6e8e`. |
+| `code.object.flush_update_lists_restore` | image `0x6e8d` | Relocation match for KQ4D `0x6ea5`. |
+| `code.object.rebuild_draw_update_lists` | image `0x6ec7` | Relocation match for KQ4D `0x6edf`. |
+| `code.object.refresh_update_lists` | image `0x6ee4` | Relocation match for KQ4D `0x6efc`. |
+| `code.object.clear_root_membership` | image `0x6f7d` | Relocation match for KQ4D `0x6f95`. |
+| `code.object.set_root_membership` | image `0x6f9b` | Relocation match for KQ4D `0x6fb3`. |
+| `code.motion.update_objects` | image `0x1751` | Exact proposed X zero enters the clamp/report-left-edge branch; KQ4D accepts zero without a report. |
+| `code.motion.pre_mode_and_boundary_update` | image `0x0644` | Relocation match for KQ4D `0x065b`. |
+| `code.motion.dispatch_mode_step` | image `0x067a` | Accepts modes 1 through 4; branch bodies match KQ4D. |
+| `code.motion.rectangle_boundary_check` | image `0x06db` | Branch bodies match KQ4D; normalized mismatch is embedded direction-table data. |
+
+## KQ4D demo / AGI 3.002.102 Address Associations
 
 These loaded-image offsets come from `games/KQ4D/AGI`. The generic table
 comparison reports preserve build-specific addresses while relating them to the
@@ -658,6 +717,54 @@ same role labels used for SQ2 and GR.
 | `code.motion.dispatch_mode_step` | image `0x0691` | Branch bodies match GR `0x068a`; the normalized difference is embedded jump-table data. |
 | `code.motion.rectangle_boundary_check` | image `0x06f2` | Branch bodies and post-table state changes match GR `0x06eb`; the normalized difference is embedded direction-table data. |
 
+## KQ2 / 2.411 and LSL1 / 2.440 Address Associations
+
+KQ2 addresses refer to `build/cross-version/kq2_agi.decrypted.exe`; LSL1
+addresses refer to the complete MZ image in `games/LSL1/LL.COM`.
+
+| Label | KQ2 / LSL1 address | Notes/evidence |
+| --- | --- | --- |
+| `code.logic.action_dispatch` | image `0x0291` / `0x0291` | Both accept actions through `0xa9`. |
+| `table.logic.action_dispatch` | data `0x061b` / `0x061b` | 170 four-byte records for `0x00..0xa9`. |
+| `table.logic.condition_dispatch` | data `0x08e3` / `0x08e3` | Nineteen common condition records. |
+| `code.system.confirm_restart_action` | image `0x241f` / `0x2435` | KQ2 always prompts; LSL1 tests `f16` before prompting. |
+| `code.text.configured_message_action_helper` | image `0x1c43` / `0x1c59` | Reads row, column, and width after the wrapper consumes the message selector. |
+| `code.system.heap_diagnostic_action` | image `0x1474` / `0x148a` | Formats the early three-line diagnostic without the later `rm.0, etc.` line. |
+| `code.save.save_game_state` | image `0x2693` / `0x26b9` | Writes five blocks with first-block length `0x05df`. |
+| `code.save.restore_game_state` | image `0x24af` / `0x24d5` | Reads the same early block grammar. |
+| `code.resource.load_all_directories` | image `0x41cf` / `0x4201` | Normalized relocation match. |
+| `code.resource.read_volume_payload_once` | image `0x2d60` / `0x2d86` | Normalized relocation match for direct v2 records. |
+| `code.view.load_resource` | image `0x38f5` / `0x3927` | Normalized relocation match. |
+| `code.object.bind_view` | image `0x39e5` / `0x3a17` | Normalized relocation match. |
+| `code.object.select_group` | image `0x3ab5` / `0x3ae7` | Normalized relocation match. |
+| `code.object.select_frame` | image `0x3bc9` / `0x3bfb` | Normalized relocation match. |
+| `code.picture.load_resource` | image `0x4905` / `0x4937` | Normalized relocation match. |
+| `code.picture.prepare` | image `0x4999` / `0x49cb` | Normalized relocation match. |
+| `code.picture.overlay_prepare` | image `0x4a05` / `0x4a37` | Normalized relocation match. |
+| `code.picture.decode_no_clear` | image `0x61a3` / `0x61d5` | Normalized relocation match. |
+| `code.picture.command_scan` | image `0x61d8` / `0x620a` | Dispatches `0xf0..0xfa` through data tables `0x1564` / `0x1552`. |
+| `code.picture.cmd_set_pattern_mode` | image `0x61f5` / `0x62b9` | KQ2 consumes and ignores the mode; LSL1 stores it. |
+| `code.picture.cmd_pattern_plot` | image `0x625e` / `0x6294` | KQ2 plots one pixel per pair; LSL1 implements shaped/stippled patterns. |
+| `code.picture.read_coord_pair` | image `0x6320` / `0x644d` | Normalized relocation match. |
+| `code.picture.draw_line` | image `0x6351` / `0x6476` | Normalized relocation match. |
+| `code.picture.seed_fill` | image `0x513d` / `0x516f` | Normalized relocation match. |
+| `code.display.full_refresh` | image `0x5348` / `0x537a` | Normalized relocation match. |
+| `code.object.frame_timer_update` | image `0x0530` / `0x0530` | Both apply the four-direction loop table only at exactly four loops. |
+| `code.object.advance_frame_by_mode` | image `0x477d` / `0x47af` | Branch bodies match; normalized difference is embedded jump-table data. |
+| `code.object.collision_test` | image `0x45e3` / `0x4615` | Normalized relocation match. |
+| `code.object.control_acceptance` | image `0x549f` / `0x54d1` | Normalized relocation match. |
+| `code.object.place` | image `0x5721` / `0x5753` | Normalized relocation match. |
+| `code.object.build_active_update_list` | image `0x6696` / `0x67bb` | Normalized relocation match. |
+| `code.object.refresh_update_lists` | image `0x671b` / `0x6840` | Normalized relocation match. |
+| `code.motion.update_objects` | image `0x14b9` / `0x14cf` | Normalized relocation match. |
+| `code.motion.dispatch_mode_step` | image `0x0647` / `0x0647` | Both accept modes 1 through 3. |
+| `code.motion.rectangle_boundary_check` | image `0x06a6` / `0x06a6` | Same branch bodies and post-table state. |
+| `code.sound.driver_start` | image `0x7bc9` / `0x7cec` | Initializes streams, countdowns, and active words without envelope state. |
+| `code.sound.driver_tick` | image `0x7c2b` / `0x7d4e` | Shared event/countdown scheduler. |
+| `code.sound.driver_stop_core` | image `0x7cca` / `0x7ded` | Shared early silence/completion core. |
+| `code.sound.driver_write_event` | image `0x7ce9` / `0x7e0c` | KQ2 always writes the low tone byte; LSL1 conditionally suppresses it. Both emit direct event attenuation without envelopes. |
+| `code.sound.timer_irq_hook` | image `0x809a` / `0x81c3` | Calls the relocated early sound tick while playback is active. |
+
 ## KQ1 / AGI 2.917 Address Associations
 
 These loaded-image offsets come from the KQ1-key-decoded image at
@@ -701,3 +808,12 @@ and the one observable renderer/object delta.
 | `code.motion.rectangle_boundary_check` | image `0x06d9` | Normalized match for SQ2 `0x06d9`. |
 | `code.save.save_game_state` | image `0x2753` | Writes the common five-block envelope with first-block length `0x05e1`. |
 | `code.save.restore_game_state` | image `0x2512` | Reads the same five block roles and rebuilds restored references. |
+
+## Same-version PQ1 and KQ3 Associations
+
+PQ1/2.917 uses the same loaded-image addresses as KQ1/2.917 for every mapped
+role above. The loaded images differ only at three bytes in the expected-game
+signature literal. KQ3/2.936 likewise uses every existing SQ2/2.936 address;
+its loaded image differs from SQ2 at only two signature bytes. These exact
+same-address matches are stronger than relocation matches and require no new
+role labels.

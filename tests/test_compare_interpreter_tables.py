@@ -47,6 +47,17 @@ class InterpreterTableComparisonTests(unittest.TestCase):
             self.assertEqual(len(build.conditions), 0x13)
         self.assertEqual(os.environ.get("AGI_GAME_DIR"), previous_game_dir)
 
+    def test_kq4_3002086_has_shorter_v3_action_table(self) -> None:
+        game_dir = ROOT / "games" / "KQ4"
+        if not game_dir.exists():
+            self.skipTest("local KQ4 game directory is not present")
+
+        build = load_build("KQ4", game_dir, game_dir / "AGI")
+
+        self.assertEqual(build.layout, "v3_combined")
+        self.assertEqual(len(build.actions), 0xB2)
+        self.assertEqual(len(build.conditions), 0x13)
+
 
 if __name__ == "__main__":
     unittest.main()

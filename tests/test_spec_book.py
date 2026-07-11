@@ -68,8 +68,16 @@ class SpecBookTests(unittest.TestCase):
             with self.subTest(heading=heading):
                 self.assertIn(f"## {heading}", matrix)
         self.assertIn("2.936 binary save interchange", matrix)
+        self.assertIn("2.411 full-EGA gameplay", matrix)
+        self.assertIn("2.411 KQ2 binary save interchange", matrix)
+        self.assertIn("2.440 full-EGA gameplay", matrix)
+        self.assertIn("2.440 LSL1 binary save interchange", matrix)
         self.assertIn("2.917 full-EGA gameplay", matrix)
         self.assertIn("2.917 KQ1 binary save interchange", matrix)
+        self.assertIn("2.917 PQ1 binary save interchange", matrix)
+        self.assertIn("2.936 KQ3 binary save interchange", matrix)
+        self.assertIn("3.002.086 full-EGA gameplay", matrix)
+        self.assertIn("3.002.086 full KQ4 binary save interchange", matrix)
         self.assertIn("3.002.102 full-EGA gameplay", matrix)
         self.assertIn("3.002.102 KQ4D demo binary save interchange", matrix)
         self.assertIn("3.002.149 full-EGA gameplay", matrix)
@@ -160,7 +168,11 @@ class SpecBookTests(unittest.TestCase):
             "Resource replay sequence",
             "Save selector",
             "Save-file envelope",
+            "Profiles 2.411 and 2.440 observed early blocks",
             "Profile 2.917 observed KQ1 blocks",
+            "Profile 2.917 observed PQ1 blocks",
+            "Profile 2.936 observed KQ3 blocks",
+            "Profile 3.002.086 observed full KQ4 blocks",
             "Profile 3.002.102 observed KQ4D demo blocks",
             "V3 block-3 transform",
             "Restore action outcomes",

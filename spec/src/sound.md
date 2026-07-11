@@ -1,6 +1,6 @@
 # Sound Resources and Playback
 
-This chapter currently defines the sound behavior of the AGI 2.936 profile.
+This chapter defines the sound behavior shared by the promoted profiles.
 Version 3 containers may compress the payload before loading; after expansion,
 the sound payload has the format below.
 
@@ -74,9 +74,10 @@ profile advances channels 0 through 3 and completes at the latest terminator
 among them. Channels that terminate earlier remain silent while the others
 continue.
 
-The device-selection values corresponding to the single-channel profile are
-`0` and `8` in the 2.936 profile. Other observed device-selection values use
-all four channels.
+In profiles 2.411 and 2.440, device selector `0` selects the single-channel
+profile and every nonzero value selects all four channels. In profiles 2.917,
+2.936, 3.002.086, 3.002.102, and 3.002.149, selectors `0` and `8` select the
+single-channel profile; other values select all four channels.
 
 ## PC-speaker output
 
@@ -95,8 +96,9 @@ silence sequence must follow the same divisors and tick schedule.
 ## Four-channel command output
 
 For the four-channel profile, a tone event emits the high byte of the tone
-word. It also emits the low byte unless the high byte has its top three bits
-set. In that case, only the high byte is emitted.
+word. Profile 2.411 always emits the low byte as well. Every other promoted
+profile emits the low byte unless the high byte has its top three bits set; in
+that case, only the high byte is emitted.
 
 Stopping or completing playback emits this silence sequence:
 
@@ -112,6 +114,20 @@ Attenuation commands combine a channel selector with a low-nibble attenuation:
 | 1 | `0xb0` |
 | 2 | `0xd0` |
 | 3 | `0xf0` |
+
+### Profiles 2.411 and 2.440
+
+The early profiles have no attenuation-envelope state. They emit an
+attenuation command when consuming an event or channel terminator, but do not
+change attenuation on intervening countdown ticks.
+
+For a consumed event, add the runtime global attenuation adjustment to the
+control byte's low nibble and clamp the result to `0x0f`. Preserve the control
+byte's high channel-selector nibble and combine it with that result. There is no
+additional device-2 adjustment. A terminator emits attenuation `0x0f` for its
+channel.
+
+### Profiles 2.917 and later
 
 Each participating channel has three attenuation-envelope state fields:
 

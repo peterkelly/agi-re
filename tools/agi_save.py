@@ -187,6 +187,22 @@ SQ2_BLOCK3_LENGTH = 0x0148
 SQ2_INVENTORY_ITEM_COUNT = 40
 SQ2_INVENTORY_ITEM_SIZE = 3
 SQ2_INVENTORY_ITEM_TABLE_SIZE = 0x78
+EARLY_24XX_BLOCK1_LENGTH = 0x05DF
+EARLY_24XX_BLOCK1_REGIONS = SQ2_BLOCK1_REGIONS[:-1]
+KQ2_2411_OBJECT_RECORD_COUNT = 17
+KQ2_2411_BLOCK2_LENGTH = KQ2_2411_OBJECT_RECORD_COUNT * SQ2_OBJECT_RECORD_SIZE
+KQ2_2411_INVENTORY_ITEM_COUNT = 85
+KQ2_2411_INVENTORY_ITEM_TABLE_SIZE = 0x00FF
+KQ2_2411_BLOCK3_LENGTH = 0x0256
+KQ2_2411_REPLAY_PAIR_COUNT = 60
+KQ2_2411_BLOCK4_LENGTH = KQ2_2411_REPLAY_PAIR_COUNT * SQ2_REPLAY_PAIR_SIZE
+LSL1_2440_OBJECT_RECORD_COUNT = 17
+LSL1_2440_BLOCK2_LENGTH = LSL1_2440_OBJECT_RECORD_COUNT * SQ2_OBJECT_RECORD_SIZE
+LSL1_2440_INVENTORY_ITEM_COUNT = 21
+LSL1_2440_INVENTORY_ITEM_TABLE_SIZE = 0x003F
+LSL1_2440_BLOCK3_LENGTH = 0x0134
+LSL1_2440_REPLAY_PAIR_COUNT = 144
+LSL1_2440_BLOCK4_LENGTH = LSL1_2440_REPLAY_PAIR_COUNT * SQ2_REPLAY_PAIR_SIZE
 KQ1_2917_BLOCK1_LENGTH = SQ2_BLOCK1_LENGTH
 KQ1_2917_BLOCK1_REGIONS = SQ2_BLOCK1_REGIONS
 KQ1_2917_OBJECT_RECORD_COUNT = 18
@@ -196,6 +212,29 @@ KQ1_2917_INVENTORY_ITEM_TABLE_SIZE = 0x51
 KQ1_2917_BLOCK3_LENGTH = SQ2_BLOCK3_LENGTH
 KQ1_2917_REPLAY_PAIR_COUNT = 100
 KQ1_2917_BLOCK4_LENGTH = KQ1_2917_REPLAY_PAIR_COUNT * SQ2_REPLAY_PAIR_SIZE
+PQ1_2917_OBJECT_RECORD_COUNT = 20
+PQ1_2917_BLOCK2_LENGTH = PQ1_2917_OBJECT_RECORD_COUNT * SQ2_OBJECT_RECORD_SIZE
+PQ1_2917_INVENTORY_ITEM_COUNT = 25
+PQ1_2917_INVENTORY_ITEM_TABLE_SIZE = 0x4B
+PQ1_2917_BLOCK3_LENGTH = 0x016E
+PQ1_2917_REPLAY_PAIR_COUNT = 250
+PQ1_2917_BLOCK4_LENGTH = PQ1_2917_REPLAY_PAIR_COUNT * SQ2_REPLAY_PAIR_SIZE
+KQ3_2936_OBJECT_RECORD_COUNT = 17
+KQ3_2936_BLOCK2_LENGTH = KQ3_2936_OBJECT_RECORD_COUNT * SQ2_OBJECT_RECORD_SIZE
+KQ3_2936_INVENTORY_ITEM_COUNT = 55
+KQ3_2936_INVENTORY_ITEM_TABLE_SIZE = 0xA5
+KQ3_2936_BLOCK3_LENGTH = 0x0307
+KQ3_2936_REPLAY_PAIR_COUNT = 127
+KQ3_2936_BLOCK4_LENGTH = KQ3_2936_REPLAY_PAIR_COUNT * SQ2_REPLAY_PAIR_SIZE
+KQ4_3002086_BLOCK1_LENGTH = SQ2_BLOCK1_LENGTH
+KQ4_3002086_BLOCK1_REGIONS = SQ2_BLOCK1_REGIONS
+KQ4_3002086_OBJECT_RECORD_COUNT = 26
+KQ4_3002086_BLOCK2_LENGTH = KQ4_3002086_OBJECT_RECORD_COUNT * SQ2_OBJECT_RECORD_SIZE
+KQ4_3002086_INVENTORY_ITEM_COUNT = 45
+KQ4_3002086_INVENTORY_ITEM_TABLE_SIZE = 0x87
+KQ4_3002086_BLOCK3_LENGTH = 0x02C6
+KQ4_3002086_REPLAY_PAIR_COUNT = 250
+KQ4_3002086_BLOCK4_LENGTH = KQ4_3002086_REPLAY_PAIR_COUNT * SQ2_REPLAY_PAIR_SIZE
 GR_V3_BLOCK1_LENGTH = 0x0404
 GR_V3_BLOCK2_LENGTH = 0x03DD
 GR_V3_BLOCK3_LENGTH = 0x0713
@@ -288,8 +327,24 @@ def split_sq2_block1(data: bytes) -> dict[str, bytes]:
     return split_state_regions(data, SQ2_BLOCK1_REGIONS, SQ2_BLOCK1_LENGTH)
 
 
+def split_early_24xx_block1(data: bytes) -> dict[str, bytes]:
+    return split_state_regions(
+        data,
+        EARLY_24XX_BLOCK1_REGIONS,
+        EARLY_24XX_BLOCK1_LENGTH,
+    )
+
+
 def split_kq1_2917_block1(data: bytes) -> dict[str, bytes]:
     return split_state_regions(data, KQ1_2917_BLOCK1_REGIONS, KQ1_2917_BLOCK1_LENGTH)
+
+
+def split_kq4_3002086_block1(data: bytes) -> dict[str, bytes]:
+    return split_state_regions(
+        data,
+        KQ4_3002086_BLOCK1_REGIONS,
+        KQ4_3002086_BLOCK1_LENGTH,
+    )
 
 
 def split_gr_v3_block1(data: bytes) -> dict[str, bytes]:
@@ -334,6 +389,46 @@ def split_kq1_2917_block2(data: bytes) -> tuple[dict[str, bytes], ...]:
     )
 
 
+def split_kq2_2411_block2(data: bytes) -> tuple[dict[str, bytes], ...]:
+    return split_object_records(
+        data,
+        record_count=KQ2_2411_OBJECT_RECORD_COUNT,
+        block_name="KQ2 2.411 save-state block 2",
+    )
+
+
+def split_pq1_2917_block2(data: bytes) -> tuple[dict[str, bytes], ...]:
+    return split_object_records(
+        data,
+        record_count=PQ1_2917_OBJECT_RECORD_COUNT,
+        block_name="PQ1 2.917 save-state block 2",
+    )
+
+
+def split_kq3_2936_block2(data: bytes) -> tuple[dict[str, bytes], ...]:
+    return split_object_records(
+        data,
+        record_count=KQ3_2936_OBJECT_RECORD_COUNT,
+        block_name="KQ3 2.936 save-state block 2",
+    )
+
+
+def split_lsl1_2440_block2(data: bytes) -> tuple[dict[str, bytes], ...]:
+    return split_object_records(
+        data,
+        record_count=LSL1_2440_OBJECT_RECORD_COUNT,
+        block_name="LSL1 2.440 save-state block 2",
+    )
+
+
+def split_kq4_3002086_block2(data: bytes) -> tuple[dict[str, bytes], ...]:
+    return split_object_records(
+        data,
+        record_count=KQ4_3002086_OBJECT_RECORD_COUNT,
+        block_name="KQ4 3.002.086 save-state block 2",
+    )
+
+
 def split_replay_pairs(data: bytes, *, pair_count: int) -> tuple[tuple[int, int], ...]:
     expected_length = pair_count * SQ2_REPLAY_PAIR_SIZE
     if len(data) != expected_length:
@@ -352,6 +447,26 @@ def split_sq2_block4(data: bytes) -> tuple[tuple[int, int], ...]:
 
 def split_kq1_2917_block4(data: bytes) -> tuple[tuple[int, int], ...]:
     return split_replay_pairs(data, pair_count=KQ1_2917_REPLAY_PAIR_COUNT)
+
+
+def split_kq2_2411_block4(data: bytes) -> tuple[tuple[int, int], ...]:
+    return split_replay_pairs(data, pair_count=KQ2_2411_REPLAY_PAIR_COUNT)
+
+
+def split_pq1_2917_block4(data: bytes) -> tuple[tuple[int, int], ...]:
+    return split_replay_pairs(data, pair_count=PQ1_2917_REPLAY_PAIR_COUNT)
+
+
+def split_kq3_2936_block4(data: bytes) -> tuple[tuple[int, int], ...]:
+    return split_replay_pairs(data, pair_count=KQ3_2936_REPLAY_PAIR_COUNT)
+
+
+def split_lsl1_2440_block4(data: bytes) -> tuple[tuple[int, int], ...]:
+    return split_replay_pairs(data, pair_count=LSL1_2440_REPLAY_PAIR_COUNT)
+
+
+def split_kq4_3002086_block4(data: bytes) -> tuple[tuple[int, int], ...]:
+    return split_replay_pairs(data, pair_count=KQ4_3002086_REPLAY_PAIR_COUNT)
 
 
 def u16le(data: bytes, offset: int) -> int:
@@ -412,6 +527,55 @@ def split_kq1_2917_block3(data: bytes) -> SaveInventoryState:
             f"expected {KQ1_2917_BLOCK3_LENGTH:#x}"
         )
     return split_inventory_block(data, item_table_size=KQ1_2917_INVENTORY_ITEM_TABLE_SIZE)
+
+
+def split_kq2_2411_block3(data: bytes) -> SaveInventoryState:
+    if len(data) != KQ2_2411_BLOCK3_LENGTH:
+        raise ValueError(
+            f"KQ2 2.411 save-state block 3 length {len(data):#x}, "
+            f"expected {KQ2_2411_BLOCK3_LENGTH:#x}"
+        )
+    return split_inventory_block(data, item_table_size=KQ2_2411_INVENTORY_ITEM_TABLE_SIZE)
+
+
+def split_pq1_2917_block3(data: bytes) -> SaveInventoryState:
+    if len(data) != PQ1_2917_BLOCK3_LENGTH:
+        raise ValueError(
+            f"PQ1 2.917 save-state block 3 length {len(data):#x}, "
+            f"expected {PQ1_2917_BLOCK3_LENGTH:#x}"
+        )
+    return split_inventory_block(data, item_table_size=PQ1_2917_INVENTORY_ITEM_TABLE_SIZE)
+
+
+def split_kq3_2936_block3(data: bytes) -> SaveInventoryState:
+    if len(data) != KQ3_2936_BLOCK3_LENGTH:
+        raise ValueError(
+            f"KQ3 2.936 save-state block 3 length {len(data):#x}, "
+            f"expected {KQ3_2936_BLOCK3_LENGTH:#x}"
+        )
+    return split_inventory_block(data, item_table_size=KQ3_2936_INVENTORY_ITEM_TABLE_SIZE)
+
+
+def split_lsl1_2440_block3(data: bytes) -> SaveInventoryState:
+    if len(data) != LSL1_2440_BLOCK3_LENGTH:
+        raise ValueError(
+            f"LSL1 2.440 save-state block 3 length {len(data):#x}, "
+            f"expected {LSL1_2440_BLOCK3_LENGTH:#x}"
+        )
+    return split_inventory_block(data, item_table_size=LSL1_2440_INVENTORY_ITEM_TABLE_SIZE)
+
+
+def split_kq4_3002086_block3(data: bytes) -> SaveInventoryState:
+    decoded = gr_v3_object_inventory_save_xor(data)
+    if len(decoded) != KQ4_3002086_BLOCK3_LENGTH:
+        raise ValueError(
+            f"KQ4 3.002.086 save-state block 3 length {len(decoded):#x}, "
+            f"expected {KQ4_3002086_BLOCK3_LENGTH:#x}"
+        )
+    return split_inventory_block(
+        decoded,
+        item_table_size=KQ4_3002086_INVENTORY_ITEM_TABLE_SIZE,
+    )
 
 
 def split_sq2_block5(data: bytes) -> SaveLogicResumeState:
@@ -489,6 +653,117 @@ def decode_kq1_2917_object_file(data: bytes) -> ObjectMetadata:
             f"KQ1 2.917 object runtime block length "
             f"{len(metadata.runtime_block):#x}, "
             f"expected {KQ1_2917_BLOCK3_LENGTH:#x}"
+        )
+    return metadata
+
+
+def decode_kq2_2411_object_file(data: bytes) -> ObjectMetadata:
+    metadata = decode_object_metadata_file(data, key=SQ2_OBJECT_FILE_XOR_KEY)
+    if metadata.item_table_size != KQ2_2411_INVENTORY_ITEM_TABLE_SIZE:
+        raise ValueError(
+            f"KQ2 2.411 object metadata item table size "
+            f"{metadata.item_table_size:#x}, "
+            f"expected {KQ2_2411_INVENTORY_ITEM_TABLE_SIZE:#x}"
+        )
+    if metadata.object_record_count != KQ2_2411_OBJECT_RECORD_COUNT:
+        raise ValueError(
+            f"KQ2 2.411 object metadata record count "
+            f"{metadata.object_record_count}, "
+            f"expected {KQ2_2411_OBJECT_RECORD_COUNT}"
+        )
+    if len(metadata.runtime_block) != KQ2_2411_BLOCK3_LENGTH:
+        raise ValueError(
+            f"KQ2 2.411 object runtime block length "
+            f"{len(metadata.runtime_block):#x}, "
+            f"expected {KQ2_2411_BLOCK3_LENGTH:#x}"
+        )
+    return metadata
+
+
+def decode_pq1_2917_object_file(data: bytes) -> ObjectMetadata:
+    metadata = decode_object_metadata_file(data, key=SQ2_OBJECT_FILE_XOR_KEY)
+    if metadata.item_table_size != PQ1_2917_INVENTORY_ITEM_TABLE_SIZE:
+        raise ValueError(
+            f"PQ1 2.917 object metadata item table size "
+            f"{metadata.item_table_size:#x}, "
+            f"expected {PQ1_2917_INVENTORY_ITEM_TABLE_SIZE:#x}"
+        )
+    if metadata.object_record_count != PQ1_2917_OBJECT_RECORD_COUNT:
+        raise ValueError(
+            f"PQ1 2.917 object metadata record count "
+            f"{metadata.object_record_count}, expected {PQ1_2917_OBJECT_RECORD_COUNT}"
+        )
+    if len(metadata.runtime_block) != PQ1_2917_BLOCK3_LENGTH:
+        raise ValueError(
+            f"PQ1 2.917 object runtime block length "
+            f"{len(metadata.runtime_block):#x}, expected {PQ1_2917_BLOCK3_LENGTH:#x}"
+        )
+    return metadata
+
+
+def decode_kq3_2936_object_file(data: bytes) -> ObjectMetadata:
+    metadata = decode_object_metadata_file(data, key=SQ2_OBJECT_FILE_XOR_KEY)
+    if metadata.item_table_size != KQ3_2936_INVENTORY_ITEM_TABLE_SIZE:
+        raise ValueError(
+            f"KQ3 2.936 object metadata item table size "
+            f"{metadata.item_table_size:#x}, "
+            f"expected {KQ3_2936_INVENTORY_ITEM_TABLE_SIZE:#x}"
+        )
+    if metadata.object_record_count != KQ3_2936_OBJECT_RECORD_COUNT:
+        raise ValueError(
+            f"KQ3 2.936 object metadata record count "
+            f"{metadata.object_record_count}, expected {KQ3_2936_OBJECT_RECORD_COUNT}"
+        )
+    if len(metadata.runtime_block) != KQ3_2936_BLOCK3_LENGTH:
+        raise ValueError(
+            f"KQ3 2.936 object runtime block length "
+            f"{len(metadata.runtime_block):#x}, expected {KQ3_2936_BLOCK3_LENGTH:#x}"
+        )
+    return metadata
+
+
+def decode_lsl1_2440_object_file(data: bytes) -> ObjectMetadata:
+    metadata = decode_object_metadata_file(data, key=SQ2_OBJECT_FILE_XOR_KEY)
+    if metadata.item_table_size != LSL1_2440_INVENTORY_ITEM_TABLE_SIZE:
+        raise ValueError(
+            f"LSL1 2.440 object metadata item table size "
+            f"{metadata.item_table_size:#x}, "
+            f"expected {LSL1_2440_INVENTORY_ITEM_TABLE_SIZE:#x}"
+        )
+    if metadata.object_record_count != LSL1_2440_OBJECT_RECORD_COUNT:
+        raise ValueError(
+            f"LSL1 2.440 object metadata record count "
+            f"{metadata.object_record_count}, "
+            f"expected {LSL1_2440_OBJECT_RECORD_COUNT}"
+        )
+    if len(metadata.runtime_block) != LSL1_2440_BLOCK3_LENGTH:
+        raise ValueError(
+            f"LSL1 2.440 object runtime block length "
+            f"{len(metadata.runtime_block):#x}, "
+            f"expected {LSL1_2440_BLOCK3_LENGTH:#x}"
+        )
+    return metadata
+
+
+def decode_kq4_3002086_object_file(data: bytes) -> ObjectMetadata:
+    metadata = decode_object_metadata_file(data, key=SQ2_OBJECT_FILE_XOR_KEY)
+    if metadata.item_table_size != KQ4_3002086_INVENTORY_ITEM_TABLE_SIZE:
+        raise ValueError(
+            f"KQ4 3.002.086 object metadata item table size "
+            f"{metadata.item_table_size:#x}, "
+            f"expected {KQ4_3002086_INVENTORY_ITEM_TABLE_SIZE:#x}"
+        )
+    if metadata.object_record_count != KQ4_3002086_OBJECT_RECORD_COUNT:
+        raise ValueError(
+            f"KQ4 3.002.086 object metadata record count "
+            f"{metadata.object_record_count}, "
+            f"expected {KQ4_3002086_OBJECT_RECORD_COUNT}"
+        )
+    if len(metadata.runtime_block) != KQ4_3002086_BLOCK3_LENGTH:
+        raise ValueError(
+            f"KQ4 3.002.086 object runtime block length "
+            f"{len(metadata.runtime_block):#x}, "
+            f"expected {KQ4_3002086_BLOCK3_LENGTH:#x}"
         )
     return metadata
 

@@ -140,11 +140,11 @@ For views with four or more loops:
 | 1 | 3 |
 | 0 | no change |
 
-Profile 2.917 uses the second table only for exactly four loops; a view with
-more loops does not change automatically. Profile 2.936 uses the table for
-every view with four or more loops. In profiles 3.002.102 and 3.002.149,
-exactly-four-loop views always use it, while views with more than four loops
-use it only while `f20` is set.
+Profiles 2.411, 2.440, and 2.917 use the second table only for exactly four
+loops; a view with more loops does not change automatically. Profiles 2.936
+and 3.002.086 use the table for every view with four or more loops. In profiles
+3.002.102 and 3.002.149, exactly-four-loop views always use it, while views
+with more than four loops use it only while `f20` is set.
 
 ## Cel cycling
 
@@ -176,6 +176,11 @@ clamp the proposed position in this order-independent set of bounds:
 | right | `left = 160 - cel_width` | 2 |
 | bottom | `baseline_y = 167` | 3 |
 | left | `left = 0` | 4 |
+
+In profile 3.002.086, an exact proposed `left = 0` also reports boundary code
+4. Other promoted profiles report that code only when the proposal is below
+zero; exact zero remains a valid non-boundary position. In every profile, a
+negative proposal is clamped to zero and reports code 4.
 
 The clamped proposal is then tested for object collision and footprint control
 acceptance. If either rejects it, restore the prior coordinates, discard the

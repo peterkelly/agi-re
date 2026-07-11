@@ -108,6 +108,10 @@ produce that replacement engine.
 - Available DOS/reverse-engineering tools include `nasm`, `ndisasm`, `rizin`, and `radare2`.
 - Use `ndisasm`, `rizin`, `radare2`, `xxd`, `hexdump`, and local scripts for executable/resource inspection.
 - Existing local scripts in `tools/` are part of the clean-room evidence trail. Reuse and extend them when appropriate.
+- Use `python3 -B tools/match_interpreter_roles.py` for first-pass symbolic-role
+  relocation across explicit interpreter inputs. Treat unique matches as
+  hypotheses, ambiguities/unmatched roles as manual-review targets, and inspect
+  indirect dispatch tables separately.
 - When adding analysis scripts, make them deterministic and document what local files and offsets they use.
 - Scripts that inspect game resources must require `--game-dir PATH` or
   `AGI_GAME_DIR=PATH`. Do not add implicit `games/SQ2` or `SQ2/` fallbacks.

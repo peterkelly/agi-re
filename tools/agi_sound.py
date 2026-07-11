@@ -103,10 +103,14 @@ def parse_sound(payload: bytes) -> tuple[SoundChannel, SoundChannel, SoundChanne
     return tuple(parse_sound_channel(payload, index) for index in range(4))
 
 
-def active_sound_channel_indices(hardware_selector: int) -> tuple[int, ...]:
+def active_sound_channel_indices(
+    hardware_selector: int,
+    *,
+    selector_8_is_pc_speaker: bool = True,
+) -> tuple[int, ...]:
     """Return channel indices advanced by the source driver for a hardware mode."""
 
-    if hardware_selector in (0, 8):
+    if hardware_selector == 0 or (selector_8_is_pc_speaker and hardware_selector == 8):
         return (0,)
     return (0, 1, 2, 3)
 
@@ -129,24 +133,34 @@ def sound_tone_output(
     event: SoundEvent,
     *,
     hardware_selector: int = 2,
+    selector_8_is_pc_speaker: bool = True,
+    always_write_low_byte: bool = False,
 ) -> SoundToneOutput:
     """Model source helper 0x80f3 at the tone-output boundary."""
 
-    if hardware_selector in (0, 8):
+    if hardware_selector == 0 or (selector_8_is_pc_speaker and hardware_selector == 8):
         enabled = pc_speaker_event_enabled(event)
         divisor = pc_speaker_divisor(event.tone_word) if enabled else None
         return SoundToneOutput((), divisor, enabled)
 
     high = (event.tone_word >> 8) & 0xFF
     low = event.tone_word & 0xFF
-    port_bytes = (high,) if (high & 0xE0) == 0xE0 else (high, low)
+    port_bytes = (
+        (high, low)
+        if always_write_low_byte or (high & 0xE0) != 0xE0
+        else (high,)
+    )
     return SoundToneOutput(port_bytes, None, None)
 
 
-def sound_stop_silence_output(*, hardware_selector: int = 2) -> SoundToneOutput:
+def sound_stop_silence_output(
+    *,
+    hardware_selector: int = 2,
+    selector_8_is_pc_speaker: bool = True,
+) -> SoundToneOutput:
     """Return the source stop-core silence output for a hardware selector."""
 
-    if hardware_selector in (0, 8):
+    if hardware_selector == 0 or (selector_8_is_pc_speaker and hardware_selector == 8):
         return SoundToneOutput((), None, False)
     return SoundToneOutput((0x9F, 0xBF, 0xDF, 0xFF), None, None)
 
@@ -176,6 +190,19 @@ def sound_channel_output_mask(channel_index: int) -> int:
 def signed_byte(value: int) -> int:
     value &= 0xFF
     return value - 0x100 if value & 0x80 else value
+
+
+def early_sound_attenuation_output(
+    control_byte: int,
+    *,
+    global_adjust: int = 0,
+) -> int:
+    """Return the pre-envelope 2.411/2.440 attenuation command byte."""
+
+    attenuation = (control_byte & 0x0F) + (global_adjust & 0xFF)
+    if attenuation > 0x0F:
+        attenuation = 0x0F
+    return (control_byte & 0xF0) | attenuation
 
 
 def sound_attenuation_output(
@@ -256,10 +283,17 @@ def sound_completion_tick(
     *,
     hardware_selector: int = 2,
     sound_flag_9_set: bool = True,
+    selector_8_is_pc_speaker: bool = True,
 ) -> int:
     """Return the tick when the driver would stop and set the completion flag."""
 
     if not sound_flag_9_set:
         return 1
     schedules = {channel.index: schedule_sound_channel(channel) for channel in parse_sound(payload)}
-    return max(schedules[index].terminator_tick for index in active_sound_channel_indices(hardware_selector))
+    return max(
+        schedules[index].terminator_tick
+        for index in active_sound_channel_indices(
+            hardware_selector,
+            selector_8_is_pc_speaker=selector_8_is_pc_speaker,
+        )
+    )

@@ -1,10 +1,10 @@
 # Cross-Version Workflow
 
-This project currently maps the Space Quest 2 interpreter build. Later AGI
-games or releases should be treated as new local inputs, not as external
-documentation. The goal of a cross-version pass is to map the same symbolic
-labels to new addresses, record behavioral deltas, and run the compatibility
-suite against the new original engine when possible.
+This project maps several local interpreter profiles. Additional AGI games or
+releases are new local inputs, not external documentation. The goal of a
+cross-version pass is to map the same symbolic labels to new addresses, record
+behavioral deltas, and run the compatibility suite against the new original
+engine when useful.
 
 ## Evidence Package
 
@@ -61,6 +61,27 @@ look for structural anchors rather than exact byte offsets:
 | Object/view pipeline | 43-byte object record accesses, view frame pointer selection, overlay entry jumps. |
 | Save/restore | Five length-prefixed blocks, selector strings, filename-format helper, resource-event replay. |
 | Sound driver | Channel pointer table, countdown loop, port-output helpers, completion flag path. |
+
+Use the normalized role matcher for first-pass relocation triage:
+
+```bash
+python3 -B tools/match_interpreter_roles.py \
+  --reference-label SQ2-2.936 \
+  --reference-game-dir games/SQ2 \
+  --reference-exe build/cleanroom/SQ2_AGI.decrypted.exe \
+  --target-label KQ3-2.936 \
+  --target-game-dir games/KQ3 \
+  --target-exe build/cross-version/kq3_agi.decrypted.exe \
+  --sq2-subsystems \
+  --output build/cross-version/kq3_sq2_role_matches.md
+```
+
+The matcher searches direct call/jump targets, dispatch-table handlers,
+same-address candidates, and explicit `--candidate` addresses. A unique exact
+normalized match is a relocation hypothesis. Multiple matches commonly mean a
+short shared helper; no match identifies a manual-review target. Neither result
+replaces source inspection, especially for indirect dispatch entries and
+embedded jump tables.
 
 When a routine matches, add the new address to the working notes and keep the
 symbolic label unchanged. When behavior differs, record the difference as a

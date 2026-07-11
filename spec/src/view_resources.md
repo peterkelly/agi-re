@@ -143,9 +143,9 @@ on whether it was already loaded before the preview.
 
 ## Profile applicability
 
-The promoted 2.936 and 3.002.149 profiles use the same expanded view payload
-and cel behavior. Container storage may differ by profile, but container
-decoding finishes before this chapter's rules are applied.
+All promoted profiles use the same expanded view payload and cel behavior.
+Container storage may differ by profile, but container decoding finishes
+before this chapter's rules are applied.
 
 ## Valid-data boundary
 

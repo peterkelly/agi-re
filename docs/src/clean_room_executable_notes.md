@@ -10739,3 +10739,382 @@ Save source and selected-game dimensions:
 The promoted 2.917 profile is limited to valid resource records. Four KQ1
 sound directory entries fail the generic header check, and the immediate
 resource-reference audit finds no script reference to them.
+
+## 2026-07-10: full KQ4 / AGI 3.002.086 source-first profile
+
+Goal: inspect the newly supplied full KQ4 independently of the existing KQ4D
+demo, determine its actual interpreter profile, and promote only source-backed
+externally observable differences.
+
+Initial inventory and resource checks:
+
+```bash
+python3 -B tools/game_census.py \
+  --game-dir games/KQ4 --game-dir games/KQ4D
+
+python3 -B tools/resource_reference_audit.py \
+  --game-dir games/KQ4 \
+  --output build/cross-version/resource_reference_audit_kq4.json
+```
+
+The full game embeds `Version 3.002.086`; KQ4D embeds `Version 3.002.102`.
+KQ4 uses combined `KQ4DIR` and `KQ4VOL.N` files. The selected copy contains
+177 present logic entries, 148 readable pictures, 243 readable views, and 96
+readable sounds. Three logic records and one sound record are direct; the
+remaining present readable records use v3 transforms.
+
+Pictures 150 and 151 point into absent `KQ4VOL.6`; views 198 and 199 point into
+absent `KQ4VOL.7`. No decoded immediate reference selects these entries. That
+does not establish picture unreachability because KQ4 selects pictures through
+variables. The missing-volume records are excluded from the valid-data profile.
+
+The first generic table report assigned every v3 build 182 actions and treated
+KQ4 trailer bytes as opcodes `0xb2..0xb5`. Source geometry corrected this. A
+fixed `0x4a`-byte data trailer separates the v3 action and condition tables, so
+
+```text
+action_count = (condition_base - action_base - 0x4a) / 4
+```
+
+KQ4's bases `0x061d` and `0x092f` yield `0xb2` entries, actions
+`0x00..0xb1`. KQ4D and GR yield `0xb6`. Direct dispatcher disassembly at KQ4
+image `0x02c4` independently confirms maximum action `0xb1`.
+
+The corrected comparisons were generated as:
+
+```bash
+python3 -B tools/compare_interpreter_tables.py \
+  --left-label KQ4-3.002.086 --left-game-dir games/KQ4 \
+  --left-exe games/KQ4/AGI \
+  --right-label KQ4D-3.002.102 --right-game-dir games/KQ4D \
+  --right-exe games/KQ4D/AGI \
+  --output build/cross-version/kq4_full_kq4d_demo_table_comparison.md
+
+python3 -B tools/compare_interpreter_tables.py \
+  --left-label KQ4-3.002.086 --left-game-dir games/KQ4 \
+  --left-exe games/KQ4/AGI \
+  --right-label SQ2-2.936 --right-game-dir games/SQ2 \
+  --right-exe build/cleanroom/SQ2_AGI.decrypted.exe \
+  --output build/cross-version/kq4_full_sq2_table_comparison.md
+```
+
+All 178 shared KQ4/KQ4D action operand contracts and all 19 condition
+contracts match. All condition handlers normalize identically. Shared action
+differences are limited to `0xad` and `0xb0`:
+
+- KQ4 action `0xad`, image `0x6468`, increments byte `[0x15a0]`; KQ4D sets
+  its relocated gate to one.
+- KQ4 action `0xb0` consumes one ignored byte and reaches the no-op handler at
+  `0x5467`; KQ4D's slot consumes no operands.
+- KQ4 action `0xb1`, image `0x9812`, consumes one byte and stores the menu
+  interaction gate word `[0x1d9e]`.
+
+Every KQ4/SQ2 parser contract also matches over the 176 shared actions. Shared
+handler differences are `0x7c`, `0x7d`, `0x80`, and `0x84`: KQ4 already has
+the v3 inventory-selector temporary state, block-3 save XOR, restart
+prompt-marker behavior, and motion-mode-4 preservation. KQ4 retains SQ2's
+direct room destination, display/input-width branches, 39-entry key map, and
+increment-style release gate.
+
+A normalized 52-role KQ4/KQ4D source comparison covered view loading and cel
+selection, picture lifecycle, every picture command and raster helper, update
+lists, composition, collision, control acceptance, dirty rectangles,
+placement, motion, and animation. Primary full-EGA roles match after
+relocation. Embedded jump-table bytes account for normalized reports in frame
+mode and motion dispatch; the selected branch bodies match.
+
+Two genuine observable object differences remain:
+
+1. At `code.object.frame_timer_update`, image `0x0563`, KQ4 applies the
+   four-direction loop table when loop count is four or greater. KQ4D uses the
+   later exactly-four-unconditional/more-than-four-requires-`f20` rule.
+2. At `code.motion.update_objects`, image `0x1751`, KQ4 uses a strict-positive
+   branch for proposed X. Exact zero therefore enters the clamp and
+   left-boundary-report path. KQ4D uses a nonnegative branch and accepts exact
+   zero without reporting. Both clamp negative values and report code 4.
+
+KQ4's motion dispatcher at `0x067a` already accepts modes 1 through 4. Its
+remaining movement, collision, placement, picture, view, and refresh branch
+bodies match KQ4D for the full-EGA target.
+
+Save and metadata source observations:
+
+- writer image `0x2a30` and restore image `0x27dd` use the five-block grammar;
+- first block write length is `0x05e3 - 2 = 0x05e1`, matching 2.936;
+- menu gate `[0x1d9e]` and release gate `[0x15a0]` lie outside block 1;
+- XOR helper image `0x07ad` repeats key data at `0x08f9`, `Avis Durgan`;
+- decoded `OBJECT` metadata has item table size `0x87`, 45 items, maximum
+  drawable object index 25, 26 records, runtime block length `0x02c6`, and a
+  575-byte name pool; and
+- logic 0 executes action `0x8e(250)`, defining 250 replay pairs.
+
+The selected full KQ4 block lengths are therefore `0x05e1`, `0x045e`,
+`0x02c6`, `0x01f4`, and a variable common logic-resume block. Block 3 is
+XOR-transformed on disk. These are full-game data dimensions, not universal
+3.002.086 constants.
+
+Conclusion: full KQ4 3.002.086 is a separate promoted profile between the
+current 2.936 and 3.002.102 evidence points. The analysis required no dynamic
+experiment because the dispatch boundary, handler deltas, object branches,
+and save dimensions were directly resolved from local disassembly and decoded
+valid game data.
+
+Validation:
+
+```bash
+AGI_GAME_DIR=games/SQ2 python3 -B -m unittest \
+  tests.test_save_resources \
+  tests.test_disassemble_logic_tables \
+  tests.test_compare_interpreter_tables \
+  tests.test_spec_book
+
+AGI_GAME_DIR=games/SQ2 python3 -B -m unittest discover -s tests
+mdbook build docs
+mdbook build spec
+
+AGI_GAME_DIR=games/SQ2 python3 -B tools/compatibility_suite.py \
+  --report build/compatibility-suite/kq4_3002086_local.json
+```
+
+The focused run passed 58 tests. The full and aggregate runs each passed 362
+tests. Both books built, and the aggregate opcode-evidence freshness check
+passed. An initial aggregate invocation without `AGI_GAME_DIR` was rejected by
+the intentional no-default-game guard; rerunning with the explicit SQ2 input
+produced the successful report above.
+
+## 2026-07-10: KQ2 2.411 and LSL1 2.440 source-first profiles
+
+Goal: apply the same bounded cross-version workflow to the two earliest local
+interpreters and promote only disassembly-backed observable differences.
+
+Input and executable preparation:
+
+```bash
+python3 -B tools/game_census.py \
+  --game-dir games/KQ2 --game-dir games/LSL1
+
+python3 -B tools/decrypt_agi.py --game-dir games/KQ2 \
+  --output build/cross-version/kq2_agi.decrypted.exe
+
+file games/KQ2/AGI games/KQ2/SIERRA.COM games/LSL1/LL.COM
+```
+
+KQ2 is `Version 2.411` and uses the loader-managed `AGI` transform. LSL1 is
+`Version 2.440`; `LL.COM` is already a full 38 KiB MZ executable. Both games
+use split direct v2 resource records, and the census reports no record errors.
+
+Static table reports:
+
+```bash
+python3 -B tools/compare_interpreter_tables.py \
+  --left-label KQ2-2.411 --left-game-dir games/KQ2 \
+  --left-exe build/cross-version/kq2_agi.decrypted.exe \
+  --right-label LSL1-2.440 --right-game-dir games/LSL1 \
+  --right-exe games/LSL1/LL.COM \
+  --output build/cross-version/kq2_lsl1_table_comparison.md
+
+python3 -B tools/compare_interpreter_tables.py \
+  --left-label KQ2-2.411 --left-game-dir games/KQ2 \
+  --left-exe build/cross-version/kq2_agi.decrypted.exe \
+  --right-label KQ1-2.917 --right-game-dir games/KQ1 \
+  --right-exe build/cross-version/kq1_agi.decrypted.exe \
+  --output build/cross-version/kq2_kq1_table_comparison.md
+```
+
+Both early action tables start at data `0x061b`; condition tables start at
+`0x08e3`. The v2 geometry rule yields 170 actions. Dispatcher image `0x0291`
+compares with `0xa9`, independently confirming valid range `0x00..0xa9`.
+All 170 KQ2/LSL1 table records and all 19 condition handlers match. Restart is
+the only normalized action-handler difference: KQ2 `0x241f` always prompts,
+while LSL1 `0x2435` checks flag 16 first.
+
+Against 2.917, shared handler triage is limited to screen shake, save/restore,
+restart, heap diagnostics, and configured-message table records. The screen
+shake difference is an alternate display-mode-4 branch outside the target.
+The early heap format at data `0x09ff` is:
+
+```text
+heapsize: %u
+now: %u  max: %u
+max script: %d
+```
+
+The later `rm.0, etc.` line is absent.
+
+Configured-message correction: early table records for actions `0x97` and
+`0x98` contain argc 3, but the wrappers consume the message selector and then
+helpers KQ2 `0x1c43` / LSL1 `0x1c59` consume row, column, and width. Valid
+execution therefore advances four bytes. The original linear stats pass used
+three and drifted into false opcodes. `action_operand_count(...)` now applies
+the source-observed width, while stats preserve `table_argc=3` as evidence.
+
+Renderer/object report:
+
+```text
+build/cross-version/kq2_lsl1_subsystem_comparison.md
+```
+
+The 55 role pairs cover resource loading, view binding/selection, picture
+lifecycle and every command/raster helper, update lists, collision, control
+acceptance, placement, animation, and motion. Forty-nine normalize outright.
+The frame-mode report differs only in embedded jump-table bytes; selected
+branches match. Four `0xf0..0xf3` reports differ because KQ2 updates the low
+draw-state byte and LSL1 updates the containing word. The decoder initializes
+the word to zero and all raster reads use only the low byte, so the upper-byte
+difference is not observable in valid full-EGA output.
+
+The two observable picture differences are source direct:
+
+- KQ2 `0xf9` image `0x61f5` executes `lodsb; ret`, consuming and ignoring the
+  mode byte.
+- KQ2 `0xfa` image `0x625e` loops over coordinate pairs and calls ordinary
+  pixel writer `0x50fb` once per pair.
+- LSL1's complete pattern block `0x6294..0x6397` normalizes instruction for
+  instruction with KQ1's `0x6438..0x653b`, including mode, radius, shape, and
+  stipple handling.
+
+A version-aware local picture model now selects KQ2's early behavior with
+`PictureRenderer(..., pattern_brushes=False)`. A focused test confirms ignored
+mode and two single-pixel pair plots. A command-aware resource scan found no
+`0xf9`/`0xfa` in selected KQ2 pictures. Selected LSL1 pictures 2, 20, 29, 30,
+and 35 use `0xfa` but never `0xf9`, leaving the default radius zero.
+
+Both early frame-timer helpers at `0x0530` select directional four-loop mapping
+only when loop count equals four. Motion dispatch `0x0647` accepts modes 1..3.
+Collision, placement, control scan, update lists, movement, and boundary bodies
+match after relocation.
+
+Sound source map:
+
+| Role | KQ2 | LSL1 |
+| --- | ---: | ---: |
+| driver start | `0x7bc9` | `0x7cec` |
+| tick | `0x7c2b` | `0x7d4e` |
+| stop core | `0x7cca` | `0x7ded` |
+| event/tone output | `0x7ce9` | `0x7e0c` |
+| timer hook | `0x809a` | `0x81c3` |
+
+The early start path initializes four stream pointers, four countdowns to one,
+and four active words. It has none of the later envelope pointer/index/value
+arrays. The tick decrements active countdowns and emits only when consuming an
+event or terminator. Event attenuation is the control low nibble plus global
+adjustment byte `0x0020`, clamped to 15; there is no envelope or selector-2
+attenuation adjustment. Selector zero advances one channel and uses the
+PC-speaker path; every nonzero selector advances four channels.
+
+KQ2 writes both high and low non-PC tone bytes unconditionally. LSL1 writes
+the high byte, then omits the low byte when `(high & 0xe0) == 0xe0`. Local
+sound model switches cover selector-8 channel behavior and KQ2's unconditional
+low byte; `early_sound_attenuation_output(...)` covers the direct attenuation.
+
+Save source and existing-file confirmation:
+
+- KQ2 writer `0x2693`, restore `0x24af`;
+- LSL1 writer `0x26b9`, restore `0x24d5`;
+- each writer loads `0x05e1`, subtracts base address 2, and writes block-1
+  length `0x05df`;
+- that partition equals the first `0x05df` bytes of the 2.936 map and omits
+  final two-byte `saved_replay_count`;
+- KQ2 decoded `OBJECT`: item table `0x00ff`, maximum object index 16, 17
+  object records, 85 items, runtime block `0x0256`;
+- LSL1 decoded `OBJECT`: item table `0x003f`, maximum object index 16, 17
+  object records, 21 items, runtime block `0x0134`;
+- KQ2 logic 0 calls action `0x8e(60)`; LSL1 calls `0x8e(144)`; and
+- two local KQ2 saves and three local LSL1 saves confirm first-four block
+  lengths `05df/02db/0256/0078` and `05df/02db/0134/0120` respectively.
+
+No QEMU experiment was needed: the opcode bounds, restart branch, picture
+commands, sound event path, and exact serialized lengths are direct source or
+existing valid-file observations. Focused graphics, sound, save, table, and
+spec tests passed after modeling these variants.
+
+## 2026-07-10: same-version PQ1/2.917 and KQ3/2.936 cross-checks
+
+Goal: test whether the promoted KQ1 and SQ2 behavior was version-shaped or
+accidentally game-specific.
+
+KQ3 uses the loader transform and was decoded with its local key. PQ1 `AGI` is
+already MZ. Reports:
+
+```text
+build/cross-version/pq1_kq1_table_comparison.md
+build/cross-version/kq3_sq2_table_comparison.md
+```
+
+PQ1 and KQ1 have the same action/condition table bases, all 174 action records,
+all 19 condition records, and zero normalized handler differences. After MZ
+headers are removed, both images are 38,912 bytes and differ only at:
+
+```text
+0x5aa4: PQ1 50 / KQ1 4b
+0x5aa6: PQ1 00 / KQ1 31
+0x5aa7: PQ1 65 / KQ1 00
+```
+
+These bytes lie in the expected-game signature literal. All 55 same-address
+resource, renderer, object, and motion roles normalize identically.
+
+KQ3 and SQ2 have the same 176 actions and 19 conditions with zero table or
+handler differences. Their loaded image lengths are also 38,912 bytes. The
+only differences are signature bytes:
+
+```text
+0x5b6c: KQ3 4b / SQ2 53
+0x5b6e: KQ3 33 / SQ2 32
+```
+
+All 55 same-address subsystem roles match. This strongly supports treating the
+current gameplay rules as version profiles while keeping signatures and save
+dimensions as game data.
+
+Selected-game save derivation:
+
+- PQ1 decoded `OBJECT`: item table `0x004b`, maximum object index 19, 20
+  records, 25 inventory items, runtime block `0x016e`, 291-byte name pool;
+- PQ1 logic 0 executes `0x8e(250)`, giving block 4 length `0x01f4`;
+- valid local `PQSG.8` and `SQSG.9` confirm blocks
+  `05e1/035c/016e/01f4`; local `SQSG.1` is truncated before block 4 and is
+  excluded from valid evidence;
+- KQ3 decoded `OBJECT`: item table `0x00a5`, maximum object index 16, 17
+  records, 55 inventory items, runtime block `0x0307`, 610-byte name pool; and
+- KQ3 logic 0 executes `0x8e(127)`, giving block 4 length `0x00fe`.
+
+Local save helpers and tests now encode both sets of dimensions. KQ3 has no
+selected local save file, so its binary layout is source/game-metadata backed
+rather than existing-file confirmed.
+
+## 2026-07-10: reusable normalized symbolic-role matcher
+
+Added `tools/match_interpreter_roles.py` to make the recurring relocation pass
+repeatable. It requires explicit reference/target game directories and
+executables. Candidate entry points come from direct call/jump targets,
+action/condition handlers, same-address role anchors, and optional explicit
+candidates. Each reference role is disassembled and normalized with the same
+rules as the table comparator.
+
+Validation runs:
+
+```bash
+python3 -B tools/match_interpreter_roles.py \
+  --reference-label SQ2-2.936 --reference-game-dir games/SQ2 \
+  --reference-exe build/cleanroom/SQ2_AGI.decrypted.exe \
+  --target-label KQ3-2.936 --target-game-dir games/KQ3 \
+  --target-exe build/cross-version/kq3_agi.decrypted.exe \
+  --sq2-subsystems \
+  --output build/cross-version/kq3_sq2_role_matches.md
+
+python3 -B tools/match_interpreter_roles.py \
+  --reference-label SQ2-2.936 --reference-game-dir games/SQ2 \
+  --reference-exe build/cleanroom/SQ2_AGI.decrypted.exe \
+  --target-label KQ2-2.411 --target-game-dir games/KQ2 \
+  --target-exe build/cross-version/kq2_agi.decrypted.exe \
+  --sq2-subsystems \
+  --output build/cross-version/kq2_sq2_role_matches.md
+```
+
+KQ3 produced 48 unique and seven ambiguous exact matches, with zero unmatched
+roles. KQ2 produced 36 unique, five ambiguous, and 14 unmatched roles. The KQ2
+unmatched set corresponds to known source variants or indirect picture-command
+entries, demonstrating that the report is useful triage rather than a false
+claim of equivalence. Four focused matcher tests cover role parsing, candidate
+collection, relocation normalization, and report classification.

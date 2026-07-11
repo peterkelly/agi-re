@@ -23,6 +23,18 @@ from agi_save import (  # noqa: E402
     GR_V3_INVENTORY_ITEM_TABLE_SIZE,
     GR_V3_OBJECT_RECORD_COUNT,
     GR_V3_REPLAY_PAIR_COUNT,
+    EARLY_24XX_BLOCK1_LENGTH,
+    EARLY_24XX_BLOCK1_REGIONS,
+    KQ2_2411_BLOCK2_LENGTH,
+    KQ2_2411_BLOCK3_LENGTH,
+    KQ2_2411_BLOCK4_LENGTH,
+    KQ2_2411_INVENTORY_ITEM_COUNT,
+    KQ2_2411_OBJECT_RECORD_COUNT,
+    KQ3_2936_BLOCK2_LENGTH,
+    KQ3_2936_BLOCK3_LENGTH,
+    KQ3_2936_BLOCK4_LENGTH,
+    KQ3_2936_INVENTORY_ITEM_COUNT,
+    KQ3_2936_OBJECT_RECORD_COUNT,
     KQ4D_V3_BLOCK1_LENGTH,
     KQ4D_V3_BLOCK1_REGIONS,
     KQ4D_V3_BLOCK2_LENGTH,
@@ -37,6 +49,23 @@ from agi_save import (  # noqa: E402
     KQ1_2917_BLOCK4_LENGTH,
     KQ1_2917_INVENTORY_ITEM_COUNT,
     KQ1_2917_OBJECT_RECORD_COUNT,
+    KQ4_3002086_BLOCK1_LENGTH,
+    KQ4_3002086_BLOCK1_REGIONS,
+    KQ4_3002086_BLOCK2_LENGTH,
+    KQ4_3002086_BLOCK3_LENGTH,
+    KQ4_3002086_BLOCK4_LENGTH,
+    KQ4_3002086_INVENTORY_ITEM_COUNT,
+    KQ4_3002086_OBJECT_RECORD_COUNT,
+    LSL1_2440_BLOCK2_LENGTH,
+    LSL1_2440_BLOCK3_LENGTH,
+    LSL1_2440_BLOCK4_LENGTH,
+    LSL1_2440_INVENTORY_ITEM_COUNT,
+    LSL1_2440_OBJECT_RECORD_COUNT,
+    PQ1_2917_BLOCK2_LENGTH,
+    PQ1_2917_BLOCK3_LENGTH,
+    PQ1_2917_BLOCK4_LENGTH,
+    PQ1_2917_INVENTORY_ITEM_COUNT,
+    PQ1_2917_OBJECT_RECORD_COUNT,
     SAVE_HEADER_LENGTH,
     SQ2_BLOCK1_LENGTH,
     SQ2_BLOCK1_REGIONS,
@@ -57,6 +86,11 @@ from agi_save import (  # noqa: E402
     decode_gr_v3_object_file,
     decode_kq4d_v3_object_file,
     decode_kq1_2917_object_file,
+    decode_kq2_2411_object_file,
+    decode_kq3_2936_object_file,
+    decode_kq4_3002086_object_file,
+    decode_lsl1_2440_object_file,
+    decode_pq1_2917_object_file,
     gr_v3_object_inventory_save_xor,
     decode_sq2_object_file,
     load_save,
@@ -80,6 +114,23 @@ from agi_save import (  # noqa: E402
     split_kq1_2917_block2,
     split_kq1_2917_block3,
     split_kq1_2917_block4,
+    split_kq2_2411_block2,
+    split_kq2_2411_block3,
+    split_kq2_2411_block4,
+    split_kq3_2936_block2,
+    split_kq3_2936_block3,
+    split_kq3_2936_block4,
+    split_kq4_3002086_block1,
+    split_kq4_3002086_block2,
+    split_kq4_3002086_block3,
+    split_kq4_3002086_block4,
+    split_lsl1_2440_block2,
+    split_lsl1_2440_block3,
+    split_lsl1_2440_block4,
+    split_pq1_2917_block2,
+    split_pq1_2917_block3,
+    split_pq1_2917_block4,
+    split_early_24xx_block1,
     validate_state_regions,
     xor_with_repeating_key,
 )
@@ -88,6 +139,11 @@ from disassemble_logic import SQ2  # noqa: E402
 GR = ROOT / "games" / "GR"
 KQ4D = ROOT / "games" / "KQ4D"
 KQ1 = ROOT / "games" / "KQ1"
+KQ4 = ROOT / "games" / "KQ4"
+KQ2 = ROOT / "games" / "KQ2"
+LSL1 = ROOT / "games" / "LSL1"
+PQ1 = ROOT / "games" / "PQ1"
+KQ3 = ROOT / "games" / "KQ3"
 GR_SAVE = ROOT / "build" / "gr-v3-behavior" / "GRSG_001.1"
 
 
@@ -99,6 +155,117 @@ def sq2_save_paths() -> list[Path]:
 
 
 class SaveResourceTests(unittest.TestCase):
+    @unittest.skipUnless(PQ1.exists(), "local PQ1 game directory is not present")
+    def test_pq1_2917_save_dimensions_match_object_metadata_and_saves(self) -> None:
+        metadata = decode_pq1_2917_object_file((PQ1 / "OBJECT").read_bytes())
+        inventory = split_pq1_2917_block3(metadata.runtime_block)
+
+        self.assertEqual(metadata.object_record_count, PQ1_2917_OBJECT_RECORD_COUNT)
+        self.assertEqual(len(split_pq1_2917_block2(bytes(PQ1_2917_BLOCK2_LENGTH))), 20)
+        self.assertEqual(len(metadata.runtime_block), PQ1_2917_BLOCK3_LENGTH)
+        self.assertEqual(len(inventory.items), PQ1_2917_INVENTORY_ITEM_COUNT)
+        self.assertEqual(inventory.items[1].name, "Patrol Car Keys")
+        self.assertEqual(len(split_pq1_2917_block4(bytes(PQ1_2917_BLOCK4_LENGTH))), 250)
+        for save_path in (PQ1 / "PQSG.8", PQ1 / "SQSG.9"):
+            save = load_save(save_path)
+            self.assertEqual(
+                [block.length for block in save.blocks[:4]],
+                [
+                    SQ2_BLOCK1_LENGTH,
+                    PQ1_2917_BLOCK2_LENGTH,
+                    PQ1_2917_BLOCK3_LENGTH,
+                    PQ1_2917_BLOCK4_LENGTH,
+                ],
+            )
+
+    @unittest.skipUnless(KQ3.exists(), "local KQ3 game directory is not present")
+    def test_kq3_2936_save_dimensions_match_object_metadata(self) -> None:
+        metadata = decode_kq3_2936_object_file((KQ3 / "OBJECT").read_bytes())
+        inventory = split_kq3_2936_block3(metadata.runtime_block)
+
+        self.assertEqual(metadata.object_record_count, KQ3_2936_OBJECT_RECORD_COUNT)
+        self.assertEqual(len(split_kq3_2936_block2(bytes(KQ3_2936_BLOCK2_LENGTH))), 17)
+        self.assertEqual(len(metadata.runtime_block), KQ3_2936_BLOCK3_LENGTH)
+        self.assertEqual(len(inventory.items), KQ3_2936_INVENTORY_ITEM_COUNT)
+        self.assertEqual(inventory.items[1].name, "Chicken Feather*")
+        self.assertEqual(len(split_kq3_2936_block4(bytes(KQ3_2936_BLOCK4_LENGTH))), 127)
+
+    @unittest.skipUnless(KQ2.exists(), "local KQ2 game directory is not present")
+    def test_kq2_2411_save_dimensions_match_object_metadata_and_saves(self) -> None:
+        metadata = decode_kq2_2411_object_file((KQ2 / "OBJECT").read_bytes())
+        inventory = split_kq2_2411_block3(metadata.runtime_block)
+
+        self.assertEqual(EARLY_24XX_BLOCK1_REGIONS, SQ2_BLOCK1_REGIONS[:-1])
+        self.assertEqual(
+            len(split_early_24xx_block1(bytes(EARLY_24XX_BLOCK1_LENGTH))),
+            len(SQ2_BLOCK1_REGIONS) - 1,
+        )
+        self.assertEqual(metadata.object_record_count, KQ2_2411_OBJECT_RECORD_COUNT)
+        self.assertEqual(len(split_kq2_2411_block2(bytes(KQ2_2411_BLOCK2_LENGTH))), 17)
+        self.assertEqual(len(metadata.runtime_block), KQ2_2411_BLOCK3_LENGTH)
+        self.assertEqual(len(inventory.items), KQ2_2411_INVENTORY_ITEM_COUNT)
+        self.assertEqual(len(split_kq2_2411_block4(bytes(KQ2_2411_BLOCK4_LENGTH))), 60)
+        for save_path in sorted(KQ2.glob("KQ2SG.*")):
+            save = load_save(save_path)
+            self.assertEqual(
+                [block.length for block in save.blocks[:4]],
+                [
+                    EARLY_24XX_BLOCK1_LENGTH,
+                    KQ2_2411_BLOCK2_LENGTH,
+                    KQ2_2411_BLOCK3_LENGTH,
+                    KQ2_2411_BLOCK4_LENGTH,
+                ],
+            )
+
+    @unittest.skipUnless(LSL1.exists(), "local LSL1 game directory is not present")
+    def test_lsl1_2440_save_dimensions_match_object_metadata_and_saves(self) -> None:
+        metadata = decode_lsl1_2440_object_file((LSL1 / "OBJECT").read_bytes())
+        inventory = split_lsl1_2440_block3(metadata.runtime_block)
+
+        self.assertEqual(metadata.object_record_count, LSL1_2440_OBJECT_RECORD_COUNT)
+        self.assertEqual(len(split_lsl1_2440_block2(bytes(LSL1_2440_BLOCK2_LENGTH))), 17)
+        self.assertEqual(len(metadata.runtime_block), LSL1_2440_BLOCK3_LENGTH)
+        self.assertEqual(len(inventory.items), LSL1_2440_INVENTORY_ITEM_COUNT)
+        self.assertEqual(inventory.items[1].name, "Wallet")
+        self.assertEqual(len(split_lsl1_2440_block4(bytes(LSL1_2440_BLOCK4_LENGTH))), 144)
+        for save_path in sorted(LSL1.glob("LLLLLSG.*")):
+            save = load_save(save_path)
+            self.assertEqual(
+                [block.length for block in save.blocks[:4]],
+                [
+                    EARLY_24XX_BLOCK1_LENGTH,
+                    LSL1_2440_BLOCK2_LENGTH,
+                    LSL1_2440_BLOCK3_LENGTH,
+                    LSL1_2440_BLOCK4_LENGTH,
+                ],
+            )
+
+    @unittest.skipUnless(KQ4.exists(), "local KQ4 game directory is not present")
+    def test_kq4_3002086_object_metadata_defines_save_dimensions(self) -> None:
+        metadata = decode_kq4_3002086_object_file((KQ4 / "OBJECT").read_bytes())
+
+        self.assertEqual(KQ4_3002086_BLOCK1_REGIONS, SQ2_BLOCK1_REGIONS)
+        self.assertEqual(KQ4_3002086_BLOCK1_LENGTH, SQ2_BLOCK1_LENGTH)
+        self.assertEqual(
+            len(split_kq4_3002086_block1(bytes(KQ4_3002086_BLOCK1_LENGTH))),
+            len(SQ2_BLOCK1_REGIONS),
+        )
+        self.assertEqual(metadata.object_record_count, KQ4_3002086_OBJECT_RECORD_COUNT)
+        self.assertEqual(
+            len(split_kq4_3002086_block2(bytes(KQ4_3002086_BLOCK2_LENGTH))),
+            26,
+        )
+        self.assertEqual(len(metadata.runtime_block), KQ4_3002086_BLOCK3_LENGTH)
+        stored_block3 = gr_v3_object_inventory_save_xor(metadata.runtime_block)
+        inventory = split_kq4_3002086_block3(stored_block3)
+        self.assertEqual(len(inventory.items), KQ4_3002086_INVENTORY_ITEM_COUNT)
+        self.assertEqual(inventory.items[0].name, "?")
+        self.assertEqual(inventory.items[1].name, "Golden Ball")
+        self.assertEqual(
+            len(split_kq4_3002086_block4(bytes(KQ4_3002086_BLOCK4_LENGTH))),
+            250,
+        )
+
     @unittest.skipUnless(KQ1.exists(), "local KQ1 game directory is not present")
     def test_kq1_2917_object_metadata_defines_save_dimensions(self) -> None:
         metadata = decode_kq1_2917_object_file((KQ1 / "OBJECT").read_bytes())

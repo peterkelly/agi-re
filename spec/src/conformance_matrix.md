@@ -9,7 +9,7 @@ The classifications are:
 
 | Classification | Meaning |
 | --- | --- |
-| Common | The stated contract applies to both promoted profiles. |
+| Common | The stated contract applies to all promoted profiles. |
 | Profile variant | The profile selects a stated alternative. |
 | Game data | The format and interpretation are fixed, but counts, names, sizes, or values come from the selected game. |
 | Partial | Some observable behavior is specified, but the listed gap prevents a complete claim for that domain. |
@@ -17,14 +17,14 @@ The classifications are:
 
 An unlisted difference must not be inferred from a version-number similarity.
 
-The common core applies to profiles 2.917, 2.936, 3.002.102, and 3.002.149. The
-two-column tables compare 2.936 and 3.002.149, while separate tables select the
-2.917 and 3.002.102 variants.
+The common core applies to profiles 2.411, 2.440, 2.917, 2.936, 3.002.086,
+3.002.102, and 3.002.149. The two-column tables compare 2.936 and 3.002.149,
+while separate tables select the other promoted variants.
 
 ## Common behavioral core
 
-These contracts apply to 2.917, 2.936, 3.002.102, and 3.002.149 unless a
-profile-variant row below says otherwise:
+These contracts apply to 2.411, 2.440, 2.917, 2.936, 3.002.086, 3.002.102,
+and 3.002.149 unless a profile-variant row below says otherwise:
 
 | Domain | Contract |
 | --- | --- |
@@ -69,6 +69,34 @@ profile-variant row below says otherwise:
 | Block transform | No transform for block 3. | Block 3 is XOR-transformed with the specified repeating `Avis Durgan` key. |
 | Binary save interchange status | Defined for the mapped game/profile dimensions; reserved bytes use canonical initialization and byte preservation. | Defined for the mapped Gold Rush/profile dimensions; reserved bytes use canonical initialization and byte preservation. |
 
+### 2.411 variant selection
+
+| Domain | 2.411 behavior |
+| --- | --- |
+| Resource container | Four split family directories and five-byte direct volume records. |
+| Action and condition ranges | Actions `0x00..0xa9`; conditions `0x00..0x12`. |
+| Configured messages | `0x97` and `0x98` consume message, row, column, and width. |
+| Restart confirmation | Always display the confirmation prompt; `f16` does not bypass it. |
+| Heap diagnostic | Omit the `rm.0, etc.` line. |
+| Pattern commands | `0xf9` consumes and ignores one byte; `0xfa` writes one pixel per X,Y pair without seeds. |
+| Direction-selected loops | Exactly four loops use the four-loop table; larger counts do not receive automatic selection. |
+| Sound channels | Selector 0 uses channel 0; every nonzero selector uses all four channels. |
+| Sound command output | No attenuation envelopes or device-2 adjustment; always emit both non-PC tone bytes. |
+| Save envelope | Five blocks with a `0x05df` block 1 and no block-3 transform. |
+| Binary save interchange status | Defined for the mapped KQ2 dimensions. |
+
+### 2.440 variant selection
+
+| Domain | 2.440 behavior |
+| --- | --- |
+| Resource, opcode, configured-message, loop, and save profile | Same early boundaries as 2.411. |
+| Restart confirmation | `f16` bypasses the prompt and accepts restart immediately. |
+| Heap diagnostic | Omit the `rm.0, etc.` line. |
+| Pattern commands | Use the common shaped/stippled `0xf9`/`0xfa` behavior. |
+| Sound channels and attenuation | Early selector rule and no attenuation envelopes or device-2 adjustment. |
+| Tone-byte output | Suppress the low byte when the high byte's top three bits are all set. |
+| Binary save interchange status | Defined for the mapped LSL1 dimensions. |
+
 ### 2.917 variant selection
 
 | Domain | 2.917 behavior |
@@ -84,6 +112,23 @@ profile-variant row below says otherwise:
 | Pictures, views, and objects | The full-EGA command, raster, composition, movement, collision, animation, update-list, and refresh contracts are common. |
 | Save envelope | Five length-prefixed blocks with no block-3 transform. |
 | Binary save interchange status | Defined for the mapped KQ1 dimensions; reserved bytes use canonical initialization and byte preservation. |
+
+### 3.002.086 variant selection
+
+| Domain | 3.002.086 behavior |
+| --- | --- |
+| Resource container | Combined v3 directory and seven-byte volume records with direct, dictionary-expanded, or picture-nibble-expanded payloads. |
+| Action range and extra slots | `0x00..0xb1`; `0xb0` consumes one ignored byte, and `0xb1` sets the menu gate. |
+| Condition range | `0x00..0x12`. |
+| Script key-map capacity | 39 entries. |
+| Release-event gate action `0xad` | Increment modulo 256. |
+| Input-width actions | `0xa3` and `0xa4` retain their v2 effects. |
+| Immediate room aliases | None. |
+| Direction-selected loops | Four-or-more-loop table applies without `f20`. |
+| Exact-zero left proposal | Clamp to zero and report left-boundary code 4. |
+| Pictures, views, and objects | Other full-EGA command, raster, composition, movement, collision, animation, update-list, and refresh contracts are common. |
+| Save envelope and transform | Five length-prefixed blocks; block 3 uses the v3 repeating-key XOR transform. |
+| Binary save interchange status | Defined for the mapped full KQ4 dimensions; block 1 uses the 2.936 partition and reserved-state rules. |
 
 ### 3.002.102 variant selection
 
@@ -144,6 +189,18 @@ The following behavior is excluded from a current full-EGA conformance claim:
 
 ## Claim requirements
 
+A **2.411 full-EGA gameplay** claim requires the common core plus every 2.411
+opcode-range, restart, diagnostic, point-pattern, object-loop, and sound-output
+variant. A **2.411 KQ2 binary save interchange** claim additionally requires
+the mapped KQ2 dimensions, shortened block-1 partition, five-block mapping,
+first-match logic-resume lookup, replay reconstruction, and reserved-state
+rules.
+
+A **2.440 full-EGA gameplay** claim requires the common core plus every 2.440
+opcode-range, restart, diagnostic, pattern, object-loop, and sound-output
+variant. A **2.440 LSL1 binary save interchange** claim additionally requires
+the mapped LSL1 dimensions and the same early persistence rules.
+
 A **2.936 full-EGA gameplay** claim requires the common core, every 2.936
 variant, selected-game dimensions, and all non-persistence state transitions.
 A **2.936 binary save interchange** claim additionally requires the five-block
@@ -157,6 +214,23 @@ A **2.917 KQ1 binary save interchange** claim additionally requires the mapped
 KQ1 dimensions, five-block mapping, first-match logic-resume lookup, replay
 reconstruction, and canonical initialization or byte-preservation of reserved
 state as applicable.
+
+A **2.917 PQ1 binary save interchange** claim uses the same profile rules with
+the mapped PQ1 object, inventory, replay, signature, and logic-resume
+dimensions.
+
+A **2.936 KQ3 binary save interchange** claim uses the 2.936 profile rules with
+the mapped KQ3 object, inventory, replay, signature, and logic-resume
+dimensions.
+
+A **3.002.086 full-EGA gameplay** claim requires the common core plus every
+3.002.086 resource, opcode, input, menu, room, loop-selection, and exact-zero
+left-boundary variant.
+
+A **3.002.086 full KQ4 binary save interchange** claim additionally requires
+the mapped full-game dimensions, five-block mapping, block-3 transform,
+first-match logic-resume lookup, replay reconstruction, and canonical
+initialization or byte-preservation of reserved state as applicable.
 
 A **3.002.149 full-EGA gameplay** claim requires the common core plus every
 3.002.149 resource, opcode, input, menu, room, and object-loop variant.
@@ -174,5 +248,5 @@ the selected demo's dimensions, five-block mapping, block-3 transform,
 first-match logic-resume lookup, replay reconstruction, and canonical
 initialization or byte-preservation of reserved state as applicable.
 
-No claim for another interpreter version follows automatically from either
-promoted profile.
+No claim for another interpreter version follows automatically from a promoted
+profile.

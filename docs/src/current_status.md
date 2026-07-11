@@ -28,13 +28,38 @@ and modal behavior, while bitmap-identical text screenshots must declare a font
 set. The KQ4D/3.002.102 picture, view, and object-update comparison is now
 complete. Fifty-two role pairs cover the primary full-EGA renderer/object path
 and match Gold Rush after relocation; the remaining renderer differences are
-alternate display-mode branches outside the target. The highest-value
-remaining work is applying the same source-first workflow to 2.411 or 2.440,
-whose table geometry exposes only 170 action entries, followed by any concrete
-renderer edge behavior that still affects the portable full-EGA target.
+alternate display-mode branches outside the target. The highest-value future
+work is applying the completed workflow to newly supplied interpreter builds,
+followed by any concrete renderer edge behavior that still affects the portable
+full-EGA target.
 
-KQ1/2.917 is now the fourth promoted full-EGA profile. Its valid action range
-ends at `0xad`; all shared action and condition handlers match 2.936. The sole
+KQ2/2.411 and LSL1/2.440 are now separate promoted profiles. Both end at action
+`0xa9`, use exact-four-loop selection, lack later sound attenuation envelopes,
+and serialize a `0x05df` first save block. KQ2 has point-only pattern commands,
+always prompts for restart, and always emits both non-PC tone bytes. LSL1 has
+the later brush patterns, honors the `f16` restart bypass, and conditionally
+suppresses the low tone byte. KQ2 and LSL1 selected-game save dimensions are
+mapped and confirmed from existing save files.
+
+That same-version check is now complete. PQ1/KQ1 and KQ3/SQ2 have identical
+action, condition, and subsystem code; their loaded images differ only in game
+signature bytes. PQ1 and KQ3 save dimensions are mapped as selected-game data.
+The new `tools/match_interpreter_roles.py` performs normalized first-pass role
+relocation for future builds and reports unique, ambiguous, and unmatched
+candidates for manual source review.
+
+Full KQ4 is now separated from the KQ4D demo. The full game uses AGI
+3.002.086, a 178-action range ending at `0xb1`, and a distinct promoted
+profile. It combines the v3 inventory/save/restart/motion changes with the
+earlier increment-style release gate, 39 key mappings, direct room targets,
+and v2 input-width actions. Its two source-visible object variants are the
+2.936 four-or-more-loop rule and a left-boundary report for an exact-zero X
+proposal. Full KQ4 save dimensions are mapped as 26 object records, 45
+inventory entries, and 250 replay pairs. KQ4D remains the later 3.002.102 demo
+profile with its own smaller selected-game save dimensions.
+
+KQ1/2.917 remains a promoted full-EGA profile. Its valid action range ends at
+`0xad`; all shared action and condition handlers match 2.936. The sole
 renderer/object delta in the 52-role pass is exact-four-loop automatic
 selection, and the selected KQ1 save dimensions are mapped for binary
 interchange.
@@ -200,8 +225,8 @@ clearing.
 
 ## Immediate Next Work
 
-1. Apply the source-first comparison workflow to 2.411 or 2.440, beginning
-   with the source-confirmed 170-action boundary and shared-handler deltas.
+1. Apply the cross-version workflow to future local inputs and inspect every
+   unmatched role before deciding whether a new profile variant is needed.
 2. Continue v3 and other cross-version probes from source-mapped deltas only
    when the portable specification still has an observable ambiguity.
 3. Keep source-first renderer work going only when disassembly reveals a

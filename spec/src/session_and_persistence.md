@@ -152,6 +152,26 @@ The five conceptual blocks are:
 4. the configured resource replay-pair storage;
 5. variable-sized loaded-logic/cache resume state.
 
+For profile 2.411, the observed KQ2 state uses lengths:
+
+| Block | Length |
+| ---: | ---: |
+| 1 | 1503 (`0x05df`) |
+| 2 | 731 (`0x02db`) |
+| 3 | 598 (`0x0256`) |
+| 4 | 120 (`0x0078`) |
+| 5 | Variable. |
+
+For profile 2.440, the observed LSL1 state uses lengths:
+
+| Block | Length |
+| ---: | ---: |
+| 1 | 1503 (`0x05df`) |
+| 2 | 731 (`0x02db`) |
+| 3 | 308 (`0x0134`) |
+| 4 | 288 (`0x0120`) |
+| 5 | Variable. |
+
 For the observed profile 2.936 game data, block lengths are:
 
 | Block | Length |
@@ -170,6 +190,36 @@ For profile 2.917, the observed KQ1 state uses lengths:
 | 2 | 774 (`0x0306`) |
 | 3 | 328 (`0x0148`) |
 | 4 | 200 (`0x00c8`) |
+| 5 | Variable. |
+
+For profile 2.917, the observed PQ1 state uses lengths:
+
+| Block | Length |
+| ---: | ---: |
+| 1 | 1505 (`0x05e1`) |
+| 2 | 860 (`0x035c`) |
+| 3 | 366 (`0x016e`) |
+| 4 | 500 (`0x01f4`) |
+| 5 | Variable. |
+
+For profile 2.936, the observed KQ3 state uses lengths:
+
+| Block | Length |
+| ---: | ---: |
+| 1 | 1505 (`0x05e1`) |
+| 2 | 731 (`0x02db`) |
+| 3 | 775 (`0x0307`) |
+| 4 | 254 (`0x00fe`) |
+| 5 | Variable. |
+
+For profile 3.002.086, the observed full KQ4 state uses lengths:
+
+| Block | Length |
+| ---: | ---: |
+| 1 | 1505 (`0x05e1`) |
+| 2 | 1118 (`0x045e`) |
+| 3 | 710 (`0x02c6`) |
+| 4 | 500 (`0x01f4`) |
 | 5 | Variable. |
 
 For profile 3.002.149, the observed Gold Rush state uses lengths:
@@ -192,6 +242,25 @@ contract even though valid game operations do not address them. A newly
 initialized state uses the canonical bytes listed below. A save loaded for
 binary interchange preserves the bytes it supplied and emits them unchanged.
 
+## Profiles 2.411 and 2.440 observed early blocks
+
+Both early profiles use the first `0x05df` bytes of the profile 2.936 block-1
+partition. They include all fields through `display_bottom_row` and omit the
+later two-byte saved replay-checkpoint count. Reserved ranges within that
+prefix use the same canonical initialization and byte-preservation rules.
+
+The selected KQ2 data uses 17 consecutive `0x2b`-byte object records in block
+2. Its `0x0256`-byte block 3 contains 85 three-byte inventory entries followed
+by a 343-byte zero-terminated display-name pool. It configures 60 replay pairs,
+so block 4 is `0x0078` bytes.
+
+The selected LSL1 data also uses 17 object records. Its `0x0134`-byte block 3
+contains 21 three-byte inventory entries followed by a 245-byte display-name
+pool. It configures 144 replay pairs, so block 4 is `0x0120` bytes.
+
+Both profiles store block 3 directly without the v3 transform. Block 5 uses the
+common variable-length logic-resume grammar.
+
 ## Profile 2.917 observed KQ1 blocks
 
 The selected KQ1 data uses the profile 2.936 block-1 partition and reserved
@@ -206,6 +275,41 @@ entries and its remaining 247 bytes are the zero-terminated display-name pool.
 The block is stored directly, without the v3 transform.
 
 The selected game configures 100 replay-pair slots, so block 4 is `0x00c8`
+bytes. Block 5 uses the common variable-length logic-resume grammar.
+
+## Profile 2.917 observed PQ1 blocks
+
+PQ1 uses the same `0x05e1` block-1 partition. Block 2 contains 20 consecutive
+object records. Block 3 is `0x016e` bytes: 25 three-byte inventory entries
+followed by a 291-byte display-name pool. The selected game configures 250
+replay pairs, so block 4 is `0x01f4` bytes. Block 5 uses the common grammar.
+
+## Profile 2.936 observed KQ3 blocks
+
+KQ3 uses the same `0x05e1` block-1 partition. Block 2 contains 17 consecutive
+object records. Block 3 is `0x0307` bytes: 55 three-byte inventory entries
+followed by a 610-byte display-name pool. The selected game configures 127
+replay pairs, so block 4 is `0x00fe` bytes. Block 5 uses the common grammar.
+
+## Profile 3.002.086 observed full KQ4 blocks
+
+The selected full KQ4 data uses the profile 2.936 block-1 partition and
+reserved-state rules exactly. Block 1 is `0x05e1` bytes. The profile's menu
+interaction gate and incrementing key-release gate are not fields in this
+serialized block.
+
+Block 2 contains 26 consecutive `0x2b`-byte object records. The decoded
+inventory metadata header's maximum object index is 25, establishing that
+count.
+
+Block 3 is XOR-transformed on disk. Its decoded `0x02c6`-byte payload contains:
+
+| Position | Size | Portable state |
+| ---: | ---: | --- |
+| `0x0000` | 135 | Forty-five three-byte inventory entries. |
+| `0x0087` | 575 | Zero-terminated inventory display-name pool. |
+
+The selected game configures 250 replay-pair slots, so block 4 is `0x01f4`
 bytes. Block 5 uses the common variable-length logic-resume grammar.
 
 ## Profile 2.936 block 1
@@ -472,8 +576,8 @@ only a resume-offset lookup consulted during replayed logic loads.
 
 ## V3 block-3 transform
 
-Profiles 3.002.102 and 3.002.149 XOR-transform block 3 on disk with this
-repeating ASCII key:
+Profiles 3.002.086, 3.002.102, and 3.002.149 XOR-transform block 3 on disk with
+this repeating ASCII key:
 
 ```text
 Avis Durgan
@@ -524,9 +628,10 @@ instruction following the restore action.
 
 ## Restart
 
-Restart may request confirmation unless `f16` skips it. Cancellation continues
-after the action; sound has already stopped and normal prompt/input
-presentation is restored.
+Profile 2.411 always requests confirmation. In every other promoted profile,
+`f16` skips the prompt and accepts restart immediately. Cancellation continues
+after the action; sound has already stopped and normal prompt/input presentation
+is restored.
 
 Accepted restart:
 
@@ -540,9 +645,9 @@ Accepted restart:
 - reloads configured trace logic when present; and
 - aborts the current logic continuation.
 
-Profile 3.002.149 remembers whether the prompt marker was visible before
-confirmation. It redraws the marker after accepted restart and after canceled
-restart only when it had been visible on entry.
+Profiles 3.002.086, 3.002.102, and 3.002.149 remember whether the prompt marker
+was visible before confirmation. They redraw the marker after accepted restart
+and after canceled restart only when it had been visible on entry.
 
 ## Process termination
 
@@ -553,9 +658,11 @@ display mode, and terminate with process exit code zero.
 
 ## Reserved-state rule
 
-Every byte position in the observed profile 2.936 and 3.002.149 save blocks has
-a portable field or a reserved-state assignment. Valid operations do not read
-or modify the reserved records and padding as game state. A newly synthesized
-save uses their canonical values; restoring and re-saving an existing save
-preserves its supplied reserved bytes. Other interpreter/game profiles require
-independent save-layout maps before binary interchange can be claimed.
+Every byte position in the observed 2.411, 2.440, 2.917, 2.936, 3.002.086,
+3.002.102, and 3.002.149 save blocks has a portable field or a reserved-state
+assignment.
+Valid operations do not read or modify the reserved records and padding as game
+state. A newly synthesized save uses their canonical values; restoring and
+re-saving an existing save preserves its supplied reserved bytes. Other
+interpreter/game profiles require independent save-layout maps before binary
+interchange can be claimed.

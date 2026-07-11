@@ -11,7 +11,7 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT / "tools"))
 
-from disassemble_logic import dispatch_table_layout_for  # noqa: E402
+from disassemble_logic import TableEntry, action_operand_count, dispatch_table_layout_for  # noqa: E402
 
 
 class DispatchTableDetectionTests(unittest.TestCase):
@@ -41,6 +41,15 @@ class DispatchTableDetectionTests(unittest.TestCase):
 
     def test_kq4d_v3_tables_are_detected(self) -> None:
         self.assert_layout("KQ4D", "v3_combined", (0x0620, 0xB6, 0x0942, 0x13))
+
+    def test_kq4_3002086_shorter_v3_action_table_is_detected(self) -> None:
+        self.assert_layout("KQ4", "v3_combined", (0x061D, 0xB2, 0x092F, 0x13))
+
+    def test_early_configured_message_actions_consume_four_bytes(self) -> None:
+        early_entry = TableEntry(handler=0x1C01, argc=3, meta=0)
+        self.assertEqual(action_operand_count(0x97, early_entry), 4)
+        self.assertEqual(action_operand_count(0x98, early_entry), 4)
+        self.assertEqual(action_operand_count(0x96, early_entry), 3)
 
 
 if __name__ == "__main__":

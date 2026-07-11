@@ -5,6 +5,50 @@ the common rules in this book and any explicitly listed variants. Version
 numbers identify observed families; they do not imply that every build with a
 similar number has identical behavior.
 
+## AGI 2.411 profile
+
+The 2.411 profile is specified for full-EGA valid-data gameplay. It uses four
+split resource directories and direct five-byte-header volume records. Its
+valid action range is `0x00..0xa9`; conditions remain `0x00..0x12`.
+
+Configured-message actions `0x97` and `0x98` consume the same four operands as
+later profiles: message selector, row, column, and width. Restart action `0x80`
+always presents its confirmation prompt; `f16` does not bypass it. The heap
+diagnostic omits the later `rm.0, etc.` line.
+
+Picture commands `0xf9` and `0xfa` use the early point-plot profile. Command
+`0xf9` consumes and ignores one raw byte. Command `0xfa` reads coordinate pairs
+without seed bytes and writes one ordinary pixel per complete pair. It does not
+draw shaped or stippled brushes. Other full-EGA picture, view, object, motion,
+collision, composition, and refresh behavior follows the common contracts.
+Automatic direction-based loop selection uses the four-loop table only for
+views with exactly four loops.
+
+The early sound profile has no attenuation-envelope evolution between events.
+Only device selector `0` uses one channel and PC-speaker divisor output; every
+nonzero selector advances all four channels. Four-channel tone output always
+emits both bytes of the tone word. Event attenuation adds the global adjustment
+and clamps to `0x0f`, but receives no envelope or device-2 adjustment.
+
+The selected KQ2 data supplies the binary-save dimensions listed in the
+persistence chapter.
+
+## AGI 2.440 profile
+
+The 2.440 profile shares the 2.411 resource container, action range, condition
+range, configured-message encoding, exact-four-loop selection, early sound
+channel selection, absence of attenuation envelopes, and shortened save block
+1.
+
+It adds the shaped and stippled `0xf9`/`0xfa` pattern behavior specified in the
+picture chapter. Restart action `0x80` proceeds without displaying confirmation
+when `f16` is set. Four-channel tone output emits the high tone byte and
+suppresses the low byte when the high byte's top three bits are all set. Its
+heap diagnostic still omits the later `rm.0, etc.` line.
+
+The selected LSL1 data supplies the binary-save dimensions listed in the
+persistence chapter.
+
 ## AGI 2.917 profile
 
 The 2.917 profile is specified for full-EGA valid-data gameplay. It uses the
@@ -19,9 +63,9 @@ chapter, and uses the four-loop table only for a view with exactly four loops.
 A view with more than four loops does not receive automatic direction-based
 loop selection in this profile.
 
-The selected KQ1 data supplies the binary-save dimensions listed in the
-persistence chapter. Those counts and lengths are game-data properties, not
-universal constants for every 2.917 game.
+The selected KQ1 and PQ1 data supply separate binary-save dimensions listed in
+the persistence chapter. Those counts and lengths are game-data properties,
+not universal constants for every 2.917 game.
 
 ## AGI 2.936 profile
 
@@ -35,6 +79,36 @@ records as specified in [Resource Containers](./resource_containers.md).
 The valid action opcode range is `0x00..0xaf`. The valid condition opcode range
 is `0x00..0x12`, in addition to the structural condition markers described by
 the logic-bytecode specification.
+
+The selected SQ2 and KQ3 data supply separate binary-save dimensions listed in
+the persistence chapter.
+
+## AGI 3.002.086 profile
+
+The 3.002.086 profile is specified for full-EGA valid-data gameplay from the
+full KQ4 release. It uses the combined and compressed v3 resource container.
+Its valid action range is `0x00..0xb1`; conditions remain `0x00..0x12`.
+
+Action `0xb0` consumes one ignored byte and otherwise has no effect. Action
+`0xb1` sets the menu interaction gate. Shared action `0xad` increments the
+key-release event gate modulo 256, as in the v2 profiles. The script key map
+holds 39 entries. Immediate room destinations are not remapped, and input-width
+actions `0xa3` and `0xa4` retain their v2 effects.
+
+Its inventory-selector temporary state, block-3 save transform, restart
+prompt-marker handling, and motion-mode-4 preservation follow the later v3
+profiles. Its automatic direction-based loop selection follows 2.936: every
+view with four or more loops uses the four-direction table without an `f20`
+gate.
+
+This profile has one screen-boundary variant. A due movement proposal whose
+left X coordinate is exactly zero is clamped to zero and reports left-boundary
+code 4. Later promoted profiles accept exact zero without reporting a boundary;
+both behaviors clamp negative proposals to zero and report code 4.
+
+The selected full KQ4 data supplies the binary-save dimensions listed in the
+persistence chapter. Present-looking directory entries whose selected volume
+files are absent are outside this valid-data profile.
 
 ## AGI 3.002.149 profile
 

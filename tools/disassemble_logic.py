@@ -158,17 +158,19 @@ def logic_payload(logic_no: int) -> bytes:
 def dispatch_table_layout_for(agidata: bytes, layout_version: str) -> tuple[int, int, int, int]:
     action_base = find_table_by_meta_signature(agidata, ACTION_META_SIGNATURE, "action")
     cond_base = find_table_by_meta_signature(agidata, CONDITION_META_SIGNATURE, "condition")
-    if layout_version == "v3_combined":
-        return action_base, 0xB6, cond_base, 0x13
-    trailer_size = 0x20
+    trailer_size = 0x4A if layout_version == "v3_combined" else 0x20
     action_bytes = cond_base - action_base - trailer_size
     if action_bytes < 0 or action_bytes % 4:
         raise ValueError(
-            "v2 action/condition tables do not have the observed 0x20-byte trailer"
+            f"{layout_version} action/condition tables do not have the "
+            f"observed {trailer_size:#x}-byte trailer"
         )
     action_count = action_bytes // 4
-    if not 0x80 <= action_count <= 0xB0:
-        raise ValueError(f"implausible v2 action table count: {action_count:#x}")
+    maximum_count = 0xB6 if layout_version == "v3_combined" else 0xB0
+    if not 0x80 <= action_count <= maximum_count:
+        raise ValueError(
+            f"implausible {layout_version} action table count: {action_count:#x}"
+        )
     return action_base, action_count, cond_base, 0x13
 
 
@@ -398,6 +400,14 @@ ACTION_META_OVERRIDES = {
 }
 
 
+def action_operand_count(opcode: int, entry: TableEntry) -> int:
+    # In 2.411/2.440, the table records three for these actions, but their
+    # handlers consume the message selector plus row, column, and width.
+    if opcode in (0x97, 0x98) and entry.argc == 3:
+        return 4
+    return entry.argc
+
+
 def action_name(opcode: int, action_table_len: int) -> str:
     if action_table_len > 0xB0 and opcode in V3_ACTION_NAME_OVERRIDES:
         return V3_ACTION_NAME_OVERRIDES[opcode]
@@ -500,8 +510,9 @@ def disassemble_logic(logic_no: int, action_table: list[TableEntry], cond_table:
             lines.append(f"{at:04x}: action {opcode:02x} <no table entry>")
             continue
         entry = action_table[opcode]
-        args = list(code[ip : ip + entry.argc])
-        ip += entry.argc
+        argc = action_operand_count(opcode, entry)
+        args = list(code[ip : ip + argc])
+        ip += argc
         name = action_name(opcode, len(action_table))
         operand_meta = ACTION_META_OVERRIDES.get(opcode, entry.meta)
         lines.append(
@@ -566,7 +577,7 @@ def main() -> None:
                         continue
                     action_counts[opcode] += 1
                     if opcode < len(action_table):
-                        ip += action_table[opcode].argc
+                        ip += action_operand_count(opcode, action_table[opcode])
             except Exception as exc:  # pragma: no cover - diagnostic path
                 errors.append((logic_no, ip, str(exc)))
 
@@ -578,9 +589,15 @@ def main() -> None:
             if opcode < len(action_table):
                 entry = action_table[opcode]
                 name = action_name(opcode, len(action_table))
+                effective_argc = action_operand_count(opcode, entry)
+                table_note = (
+                    f" table_argc={entry.argc}"
+                    if effective_argc != entry.argc
+                    else ""
+                )
                 print(
                     f"{opcode:02x} {count:5d} h={entry.handler:04x} "
-                    f"argc={entry.argc} meta={entry.meta:02x} {name}"
+                    f"argc={effective_argc}{table_note} meta={entry.meta:02x} {name}"
                 )
         print("conditions")
         for opcode, count in cond_counts.most_common():

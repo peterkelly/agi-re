@@ -3,8 +3,7 @@
 This chapter defines the full-EGA picture command stream and its effect on the
 logical graphics state. It applies after any container-level expansion
 described in [Resource Containers](./resource_containers.md). The resulting
-bytes are interpreted identically for the promoted 2.936 and 3.002.149
-profiles.
+bytes are interpreted identically for all promoted profiles.
 
 ## Picture lifecycle
 
@@ -128,6 +127,15 @@ not observable for valid finite pictures; the final connected region is the
 required result.
 
 ## Pattern mode and plots
+
+Profile 2.411 uses an early point-plot variant:
+
+- `0xf9` consumes one raw byte and otherwise has no effect.
+- `0xfa` repeatedly consumes X,Y coordinate pairs with no seed bytes and
+  performs one ordinary pixel write for each complete pair.
+- Shape, radius, and stipple fields do not apply in this profile.
+
+The remaining promoted profiles use the pattern behavior below.
 
 Command `0xf9` consumes one raw mode byte. Its fields are:
 

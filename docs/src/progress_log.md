@@ -25896,3 +25896,265 @@ Progress updates and outcomes:
       only the intended project files and leave `run.sh` untouched."
 
       Action/result: Began final full-suite, mdBook, and diff validation.
+
+3345. Reported: "I’ll treat KQ4 as an independent evidence input and verify
+      its version, container, executable, opcode tables, and resource census
+      before assuming it matches KQ4D."
+
+      Action/result: Identified full KQ4 as AGI 3.002.086 with combined v3
+      resources, distinct from the KQ4D 3.002.102 demo.
+
+3346. Reported: "It is not the same interpreter build: full KQ4 reports
+      3.002.086, while the demo is 3.002.102. I’m comparing the dispatch tables
+      and source roles now so the version profile follows observed behavior."
+
+      Action/result: Generated full-KQ4/KQ4D and full-KQ4/SQ2 table reports.
+
+3347. Reported: "The first table report exposed a useful tooling bug: it
+      assumed every v3 build had 182 actions and was reading KQ4 trailer data
+      as opcodes. I’m deriving the v3 count from table geometry and adding a
+      regression test before trusting the comparison."
+
+      Action/result: Replaced the fixed v3 action count with the observed
+      `0x4a`-trailer geometry rule; KQ4 correctly parses 178 actions.
+
+3348. Reported: "Understood: KQ4D is the demo, while KQ4 is the full game. I’m
+      keeping those labels explicit throughout the evidence and spec so the
+      selected-game save dimensions are not mistaken for version constants."
+
+      Action/result: Renamed documentation sections to distinguish full KQ4
+      from the KQ4D demo and scoped save dimensions to each selected game.
+
+3349. Reported: "With the corrected bounds, all 178 shared KQ4/KQ4D action
+      contracts and all 19 conditions match. The actual opcode deltas are
+      narrow: KQ4 increments the release gate, its `0xb0` consumes one ignored
+      byte, and its valid action range ends at `0xb1`."
+
+      Action/result: Mapped KQ4's action boundary and shared handler variants.
+
+3350. Reported: "The source comparison is revealing an evolutionary midpoint:
+      KQ4 already has the v3 inventory, save, restart, and motion-mode changes,
+      but retains the earlier room, input-width, key-map, and release-gate
+      behavior. I’m finishing the renderer/object role pass before promotion."
+
+      Action/result: Compared 52 renderer, view, object, motion, and animation
+      roles against KQ4D after relocation.
+
+3351. Reported: "The save layout is distinct from the demo: full KQ4 keeps the
+      `0x05e1` first block, has 26 object records, 45 inventory entries, and
+      250 replay pairs. Its inventory block uses the v3 XOR transform."
+
+      Action/result: Added full KQ4 save constants, object decoding, block
+      splitters, and source-derived regression tests.
+
+3352. Reported: "The resource audit finds no immediate reference to KQ4’s
+      missing-volume picture/view entries. Picture selection is variable-based,
+      so I’m recording that as a valid-data exclusion rather than claiming the
+      entries are unreachable."
+
+      Action/result: Scoped absent-volume records outside the promoted profile
+      and preserved the variable-reference caveat.
+
+3353. Reported: "There is now enough source evidence to promote 3.002.086:
+      the full-EGA picture/view pipeline matches after relocation, with two
+      object-edge variants in loop selection and exact-zero left-boundary
+      reporting. I’m translating those into portable contracts."
+
+      Action/result: Added the 3.002.086 profile to the clean specification and
+      conformance matrix.
+
+3354. Reported: "The portable profile now captures KQ4 as an evolutionary
+      midpoint without exposing DOS implementation details. I’m completing the
+      evidence addresses, progress trackers, book builds, and full test pass."
+
+      Action/result: Updated the versions chapter, symbolic map, handoff state,
+      progress dashboard, and evidence ledger for full KQ4.
+
+3355. Reported: "The focused verification is clean: 58 KQ4/save/table/spec
+      tests pass, and both mdBooks build. I’m doing the full repository suite
+      and a final wording/data audit now."
+
+      Action/result: Confirmed the focused tests and both documentation builds.
+
+3356. Reported: "The full suite passes: 362 tests, including the resource
+      parsers, save maps, dispatch-table comparisons, renderer models, and
+      book-content checks. No QEMU run was needed because every promoted
+      difference was directly resolved in the disassembly."
+
+      Action/result: Completed the full local regression suite and retained
+      disassembly as the primary evidence for this profile.
+
+3357. Reported: "The aggregate runner’s first invocation failed because I
+      omitted the required `AGI_GAME_DIR`; resource-dependent modules correctly
+      refused to import. This is the intentional no-default-game safeguard, so
+      I’m rerunning with `games/SQ2` explicitly selected."
+
+      Action/result: Classified the failed aggregate invocation as a command
+      configuration error rather than a code regression.
+
+3358. Reported: "The explicitly configured aggregate manifest is clean: all
+      362 tests pass, both mdBooks build, and the generated opcode-evidence
+      chapter is current."
+
+      Action/result: Wrote the successful local compatibility report to
+      `build/compatibility-suite/kq4_3002086_local.json`.
+
+3359. Reported: "I’ll move directly into the highest-value remaining work:
+      source-first analysis of the 2.411 and 2.440 interpreters, beginning with
+      executable decoding and dispatch boundaries, then shared opcode handlers,
+      renderer/object roles, and save dimensions."
+
+      Action/result: Began independent KQ2/2.411 and LSL1/2.440 analysis.
+
+3360. Reported: "The two targets have clean direct-resource sets, but their
+      executable packaging differs: KQ2 has transformed `AGI` plus
+      `SIERRA.COM`, while LSL1 has neither filename. I’m identifying LSL1’s
+      executable before decoding anything."
+
+      Action/result: Identified LSL1 `LL.COM` as a complete 38 KiB MZ
+      interpreter; decoded KQ2 `AGI` with its local loader key.
+
+3361. Reported: "The table comparison is unusually clean. Versions 2.411 and
+      2.440 have identical 170-action and 19-condition contracts; only restart
+      handler `0x80` differs between them. Against 2.917, the investigation set
+      is limited to a handful of handlers and the `0x97`/`0x98` table records."
+
+      Action/result: Generated KQ2/LSL1, KQ2/KQ1, and LSL1/KQ1 static reports.
+
+3362. Reported: "A deeper source read shows `0x97`/`0x98` physically consume
+      four bytes in every build, although 2.411/2.440 record three in AGIDATA.
+      The raw early count makes linear disassembly drift, so I’m correcting the
+      analysis tool using handler-observed width."
+
+      Action/result: Added an effective operand-count rule and regression test
+      for early configured-message actions.
+
+3363. Reported: "The local save files exposed and corrected an important
+      detail: early block 1 is `0x05df`, not `0x05e1`. Relative to 2.917, the
+      omitted tail is exactly the two-byte saved replay-checkpoint count."
+
+      Action/result: Corrected the early save map and confirmed the first four
+      block lengths from two KQ2 and three LSL1 saves.
+
+3364. Reported: "The picture command dispatch tables reveal the first major
+      2.411/2.440 split. LSL1 already has the later pattern organization, while
+      KQ2 routes pattern setup and plotting to shorter routines."
+
+      Action/result: Proved KQ2 `0xf9` ignores its byte and `0xfa` plots one
+      pixel per coordinate pair.
+
+3365. Reported: "The complete role-pair report confirms the boundary cleanly:
+      view loading, line/fill rasterization, object composition, collision,
+      placement, animation, and motion match; only pattern behavior reaches
+      different full-EGA output."
+
+      Action/result: Generated the 55-role KQ2/LSL1 subsystem report and
+      classified nonobservable draw-state and embedded-table differences.
+
+3366. Reported: "Real-resource census adds a useful nuance: KQ2’s pictures
+      never invoke `0xf9` or `0xfa`; five LSL1 pictures use `0xfa` but retain
+      the default zero-radius mode."
+
+      Action/result: Recorded selected-game command usage separately from the
+      interpreter's valid-data capability.
+
+3367. Reported: "The high-level sound cache/load/start/stop paths match, but
+      the low-level driver does not normalize to 2.936. I’m following the
+      driver calls rather than assuming the later envelope model."
+
+      Action/result: Mapped early driver start, tick, stop, event output, and
+      timer-hook entries in both builds.
+
+3368. Reported: "The early sound boundary is substantive: neither profile has
+      attenuation envelopes; selector zero alone is single-channel; and 2.411
+      always writes both non-PC tone bytes while 2.440 conditionally suppresses
+      the low byte."
+
+      Action/result: Added early channel, tone-byte, and attenuation-output
+      switches to the local sound oracle.
+
+3369. Reported: "The focused model tests pass, including early single-pixel
+      patterns, both real save families, and early sound outputs. Both profiles
+      now have coverage across resources, opcodes, graphics, objects, sound,
+      restart, and persistence."
+
+      Action/result: Passed 142 focused tests before spec promotion.
+
+3370. Reported: "I’m writing the clean profiles in portable terms now, keeping
+      implementation evidence out of `spec/`; addresses and table anomalies
+      remain in the evidence book."
+
+      Action/result: Added separate 2.411 and 2.440 behavioral profiles,
+      conformance claims, and subsystem variants.
+
+3371. Reported: "The clean-spec promotion passes 152 focused tests and builds
+      successfully. I’m completing the evidentiary half, then I’ll cross-check
+      another game in the 2.917/2.936 families."
+
+      Action/result: Verified the profile specification and began final
+      evidence/tracker updates.
+
+3372. Reported: "The evidence now separates executable packaging, table
+      geometry, command targets, sound-driver variants, and save dimensions
+      from the portable contracts."
+
+      Action/result: Updated the versions chapter, symbolic map, executable
+      notes, and historical progress log for both early profiles.
+
+3373. Reported: "The early profiles are fully reflected in the evidence book,
+      clean spec, symbolic map, and progress dashboard. I’m continuing with
+      PQ1/2.917 and KQ3/2.936 same-version cross-checks."
+
+      Action/result: Advanced to additional-game profile validation.
+
+3374. Reported: "PQ1’s `AGI` is already MZ, while KQ3 uses the transformed
+      loader-managed form. I’m decoding only KQ3 before same-version table
+      comparison."
+
+      Action/result: Decoded KQ3 and preserved PQ1's direct executable image.
+
+3375. Reported: "PQ1/KQ1 match all 174 actions and 19 conditions; KQ3/SQ2
+      match all 176 actions and 19 conditions, with zero normalized handler
+      differences."
+
+      Action/result: Generated both same-version table reports.
+
+3376. Reported: "After removing MZ headers, PQ1/KQ1 differ by only three bytes
+      and KQ3/SQ2 by two; those bytes are embedded game signatures. All 55
+      subsystem roles match at the same addresses."
+
+      Action/result: Established strong same-version executable equivalence
+      apart from selected-game identity.
+
+3377. Reported: "PQ1 has 20 object records, 25 inventory entries, and 250
+      replay pairs; KQ3 has 17 records, 55 entries, and 127 pairs. I’m adding
+      these as game-data dimensions, not behavioral variants."
+
+      Action/result: Added save helpers and tests for PQ1 and KQ3 dimensions.
+
+3378. Reported: "The same-version cross-check is complete. With all locally
+      observed version families profiled, I’m building a reusable normalized
+      role matcher for future relocated interpreters."
+
+      Action/result: Began generalizing call-target and handler role matching.
+
+3379. Reported: "The role matcher finds every KQ3/SQ2 subsystem role and
+      returns KQ2’s known variants as review targets rather than false matches."
+
+      Action/result: Added `tools/match_interpreter_roles.py`, four tests, and
+      generated KQ3/KQ2 role reports.
+
+3380. Reported: "I’m documenting the matcher and updating the tracker, then
+      I’ll run the entire suite and both books as the natural stopping point
+      for this extended pass."
+
+      Action/result: Updated AGENTS, cross-version workflow, current status,
+      and remaining-work guidance for scalable future comparisons.
+
+3381. Reported: "The aggregate verification is clean: 374 tests pass, both
+      books build, and opcode evidence is current. I’m removing one stale
+      handoff sentence and completing the final repository audit."
+
+      Action/result: Wrote
+      `build/compatibility-suite/cross_version_profiles_local.json`; confirmed
+      no tracked or untracked change under `games/` was produced by this work.

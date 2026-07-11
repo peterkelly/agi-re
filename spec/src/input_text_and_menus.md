@@ -136,10 +136,10 @@ events:
 Some input paths normalize key words `0x0101` and `0x0301` to Enter
 `0x000d`, and `0x0201` and `0x0401` to Escape `0x001b`.
 
-The 2.936 profile's script key map holds 39 `(raw_key_word, status_number)`
-entries; profile 3.002.149 holds 49. A matching type-1 event becomes type 3
-with the configured status number. Processing that event makes the matching
-status condition true.
+Profiles 2.411, 2.440, 2.917, 2.936, 3.002.086, and 3.002.102 hold 39
+`(raw_key_word, status_number)` entries; profile 3.002.149 holds 49. A matching
+type-1 event becomes type 3 with the configured status number. Processing that
+event makes the matching status condition true.
 
 ## Raw-key condition
 
@@ -163,8 +163,9 @@ Selected extended keys have a pressed latch. A corresponding release clears
 the latch. When the profile's release-event gate is nonzero, that release also
 enqueues type-2 value zero.
 
-In profile 2.936, action `0xad` increments the byte gate modulo 256. In profile
-3.002.149, `0xad` sets the gate to one and `0xb5` clears it.
+In profiles 2.917, 2.936, and 3.002.086, action `0xad` increments the byte gate
+modulo 256. Profiles 2.411 and 2.440 do not expose that action. In profiles
+3.002.102 and 3.002.149, `0xad` sets the gate to one and `0xb5` clears it.
 
 ## Text geometry and surfaces
 
@@ -241,8 +242,8 @@ menu opening resumes from the remembered heading/item state.
 
 ## Menu interaction
 
-The menu-request action requests interaction only while `f14` is set. Profile
-3.002.149 adds a separate menu interaction gate: a zero value set by `0xb1`
+The menu-request action requests interaction only while `f14` is set. The v3
+profiles add a separate menu interaction gate: a zero value set by `0xb1`
 prevents a pending request from opening the modal menu; a nonzero value permits
 it.
 

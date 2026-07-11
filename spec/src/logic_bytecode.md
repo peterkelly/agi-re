@@ -67,8 +67,9 @@ Bytes `0x01..0xaf` are action opcodes in the 2.936 profile. Bytes
 `0xb0..0xfb` are not valid actions in that profile. Bytes `0xfc` and `0xfd`
 are condition-list markers and are invalid in the ordinary action stream.
 
-The 2.917 profile ends at `0xad`. Profiles 3.002.102 and 3.002.149 extend the
-action range through `0xb5` as specified in
+Profiles 2.411 and 2.440 end at `0xa9`. The 2.917 profile ends at `0xad`.
+Profile 3.002.086 extends the range through `0xb1`; profiles 3.002.102 and
+3.002.149 extend it through `0xb5`, as specified in
 [Version Profiles](./version_profiles.md).
 
 ## Conditional blocks
@@ -454,9 +455,9 @@ The complete resource and scheduling contract is in
 | `0x78` | none | Enable and redraw the input line. |
 | `0x79` | key low byte, key high byte, status number | Add a key mapping for the little-endian key word. A matching raw key becomes a mapped event carrying the status number. |
 
-Profiles 2.917, 2.936, and 3.002.102 accept at most 39 key-map entries. Mapped
-events set the status observed by condition `0x0c`. The 3.002.149 profile
-accepts 49 entries.
+Profiles 2.411, 2.440, 2.917, 2.936, 3.002.086, and 3.002.102 accept at most
+39 key-map entries. Mapped events set the status observed by condition `0x0c`.
+The 3.002.149 profile accepts 49 entries.
 
 ## Action opcodes: transient views and inventory UI
 
@@ -497,12 +498,20 @@ a chosen-item result.
 | `0x90` | message | Append current room, current input line, and the expanded message to `LOGFILE`. Failure to open the log returns without terminating the game. |
 | `0x91` | none | Save the current following-bytecode position as this logic's future resume position. |
 | `0x92` | none | Reset this logic's future resume position to its bytecode entry. Current execution continues normally. |
+
+In profile 2.411, action `0x80` always displays the restart confirmation even
+when `f16` is set. Other promoted profiles accept restart immediately while
+`f16` is set.
+
+Profiles 2.411 and 2.440 display three heap/resource diagnostic lines for
+action `0x87`: heap size; current and maximum use; and maximum script use.
+Later profiles also display an `rm.0, etc.` diagnostic line. These values do
+not define a required allocation strategy.
 | `0x93` | object, X, Y | Set current position, mark it newly positioned, and run placement without replacing the previous-position snapshot directly. |
 | `0x94` | object, X variable, Y variable | Variable-selected form of `0x93`. |
 
 The save-file envelope, replay sequence, and restore/restart transitions are in
-[Rooms, Replay, and Persistence](./session_and_persistence.md). Its named
-field-mapping gap still prevents full binary save-file conformance.
+[Rooms, Replay, and Persistence](./session_and_persistence.md).
 
 ## Action opcodes: trace and configured text
 
@@ -519,6 +528,9 @@ field-mapping gap still prevents full binary save-file conformance.
 The temporary configuration exists only for that display action. After the
 message window has been opened, the row, column, and width overrides are reset
 to the ordinary default/centered behavior.
+
+Profiles 2.411 and 2.440 use the same four-byte encoding listed above. The
+message selector is followed by row, column, and width.
 
 ## Action opcodes: menus
 
@@ -550,13 +562,21 @@ Heading and item navigation wrap through enabled entries.
 | `0xaa` | string slot | Copy up to 31 bytes of the current save-selector description/path buffer into the slot. |
 | `0xab` | none | Save the current resource replay-pair count as a rollback point. |
 | `0xac` | none | Restore the saved replay-pair count and place the next write after the restored final pair. |
-| `0xad` | none | Increment the key-release event gate modulo 256 in the v2 profiles. A nonzero gate permits selected tracked-key releases to enqueue a movement-type zero event. |
+| `0xad` | none | Increment the key-release event gate modulo 256 in the v2 and 3.002.086 profiles. A nonzero gate permits selected tracked-key releases to enqueue a movement-type zero event. |
 | `0xae` | horizon row | Rebuild the baseline-to-priority table: rows below the argument map to 4; rows from it upward rise from 5 toward 15 across the remaining 168-row picture height. |
 | `0xaf` | none at runtime | Do nothing and consume no following byte during execution, despite this opcode's one-byte scanner length metadata. |
 
 ## Version 3 extension actions
 
-Profiles 3.002.102 and 3.002.149 add:
+Profile 3.002.086 adds:
+
+| Opcode | Operands | Behavior |
+| ---: | --- | --- |
+| `0xb0` | one ignored byte | Consume the byte and otherwise do nothing. |
+| `0xb1` | gate value | Set the menu-interaction gate; zero blocks modal entry and nonzero permits it. |
+
+Profiles 3.002.102 and 3.002.149 extend this range through `0xb5` with these
+contracts:
 
 | Opcode | Operands | Behavior |
 | ---: | --- | --- |
@@ -567,7 +587,7 @@ Profiles 3.002.102 and 3.002.149 add:
 | `0xb4` | two variable operands | Consume two variable-index operands and otherwise do nothing. |
 | `0xb5` | none | Clear the key-release event gate. |
 
-In these profiles shared action `0xad` sets the key-release gate to one rather
+In the two later profiles shared action `0xad` sets the key-release gate to one rather
 than incrementing it. In 3.002.149, shared actions `0xa3` and `0xa4` do
 nothing; 3.002.102 retains their v2 effects. Other shared differences are
 listed in [Version Profiles](./version_profiles.md).
@@ -576,6 +596,6 @@ listed in [Version Profiles](./version_profiles.md).
 
 Every action opcode accepted by the 2.936 profile (`0x00..0xaf`) now has an
 operand and behavioral entry in this chapter. The 2.917 range is its
-`0x00..0xad` subset. The version-3 extension range `0xb0..0xb5` is also listed.
-Subsystem chapters may refine these summaries;
+`0x00..0xad` subset. The version-3 extension ranges `0xb0..0xb1` and
+`0xb0..0xb5` are also listed. Subsystem chapters may refine these summaries;
 when they do, the more detailed subsystem contract controls.

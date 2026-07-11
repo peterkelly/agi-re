@@ -61,6 +61,15 @@ better understood, or a new remaining-work item is discovered.
   animation, placement, collision, control acceptance, dirty rectangles, and
   motion. Primary full-EGA paths match after relocation; the only renderer
   deltas are retained alternate display-mode branches outside the target.
+- Full KQ4 / 3.002.086 now has a distinct promoted full-EGA profile. Its
+  geometry-derived v3 table contains 178 actions `0x00..0xb1`, rather than the
+  KQ4D demo's 182 actions. All shared parser contracts match KQ4D; action
+  `0xad` retains increment semantics, `0xb0` consumes one ignored byte, and
+  `0xb1` sets the menu gate. A 52-role source comparison finds two observable
+  object deltas: KQ4 uses the 2.936 four-or-more-loop rule and reports the left
+  boundary when a due proposed X coordinate is exactly zero. The selected
+  full-game save dimensions are mapped as 26 object records, 45 inventory
+  entries, and 250 replay pairs, with the v3 block-3 XOR transform.
 - KQ1 / 2.917 now has a promoted full-EGA profile. Decryption with KQ1's own
   loader key exposes 174 actions `0x00..0xad` and 19 conditions; every shared
   handler and parser contract matches 2.936. A 52-role subsystem pass finds one
@@ -68,6 +77,22 @@ better understood, or a new remaining-work item is discovered.
   four-loop table only for exactly four loops, not for larger loop counts. The
   selected KQ1 five-block save dimensions are mapped, including 18 object
   records, 27 inventory entries, and 100 replay pairs.
+- KQ2 / 2.411 and LSL1 / 2.440 now have separate promoted full-EGA profiles.
+  Both expose 170 actions `0x00..0xa9`, 19 conditions, exact-four-loop object
+  selection, and the shortened `0x05df` save block 1. KQ2's `0xf9` ignores its
+  operand and `0xfa` plots single pixels; LSL1 implements the later brush
+  patterns. KQ2 always prompts for restart and always emits both non-PC tone
+  bytes; LSL1 honors the `f16` restart bypass and conditionally suppresses the
+  low tone byte. Both early sound drivers lack attenuation envelopes and treat
+  only selector zero as single-channel. KQ2 and LSL1 save dimensions are
+  mapped and confirmed against five existing saves.
+- Same-version checks now anchor PQ1 to 2.917 and KQ3 to 2.936. PQ1/KQ1 loaded
+  images differ at only three game-signature bytes; KQ3/SQ2 differ at only two.
+  Every action, condition, and 55-role subsystem entry matches at the same
+  address. PQ1 and KQ3 selected-game save dimensions are mapped separately.
+  `tools/match_interpreter_roles.py` now automates first-pass normalized role
+  relocation for future builds while leaving ambiguous and unmatched entries
+  for source inspection.
 - Generated original-engine fixture builders now treat `games/` as immutable:
   they copy the selected game input to a generated destination, make copied
   files writable, and reject fixture destinations under `games/`. The v2
@@ -78,14 +103,16 @@ better understood, or a new remaining-work item is discovered.
   picture-only fixture and a generated picture-plus-view fixture distinctly.
 - A read-only multi-game census tool now inventories explicit local game
   directories without modifying `games/`. The current private-input snapshot
-  covers KQ1, KQ2, KQ3, KQ4D, LSL1, PQ1, SQ2, and GR, identifying v2 split
+  covers KQ1, KQ2, KQ3, KQ4, KQ4D, LSL1, PQ1, SQ2, and GR, identifying v2 split
   and v3 combined layouts, version strings, resource counts, transform mixes,
   and record-header errors that require later source inspection before they are
   modeled. `tools/disassemble_logic.py` now detects per-build action/condition
   table bases from the observed argc/meta signatures, including KQ4D v3 bases
   `0x0620`/`0x0942`. `tools/resource_reference_audit.py` now checks immediate
   script-visible resource references against unreadable directory entries; the
-  current KQ1/KQ4D focused audit finds no referenced unreadable sound entries.
+  current focused audits find no immediate reference to unreadable KQ1/KQ4D
+  sound entries or KQ4's missing-volume picture/view entries. KQ4 picture
+  selection is variable-based, so that last result is not a reachability proof.
 
 ## Behavioral Specification Coverage
 
@@ -95,8 +122,9 @@ better understood, or a new remaining-work item is discovered.
     separation from the evidence book.
 - [~] Version profiles
   - Current: `spec/src/version_profiles.md` defines the primary 2.936 profile
-    and promoted full-EGA 2.917, 3.002.102, and 3.002.149 profiles. KQ1, KQ4D,
-    and Gold Rush supply mapped profile-specific binary-save dimensions.
+    and promoted full-EGA 2.411, 2.440, 2.917, 3.002.086, 3.002.102, and
+    3.002.149 profiles. KQ2, LSL1, KQ1, full KQ4, KQ4D, and Gold Rush supply
+    mapped profile-specific binary-save dimensions.
   - Remaining: add further versions only after observable differences are
     mapped.
 - [x] Resource containers
@@ -789,9 +817,9 @@ source-mapped well enough to justify a targeted probe.
 
 ## Highest-Value Remaining Work
 
-1. Apply the source-first comparison workflow to 2.411 or 2.440. Their table
-   geometry exposes only 170 actions `0x00..0xa9`; inspect the dispatcher and
-   shared handlers before promoting that earlier boundary.
+1. Apply the completed profile matrix to future local interpreter inputs using
+   the census, table comparator, normalized role matcher, and game-data save
+   mapping workflow; add variants only for source-proven observable deltas.
 2. Continue v3 behavioral probes from source-mapped deltas only when the
    portable specification still has an observable ambiguity. Use synthetic v3
    resources when a focused confirmation requires them.

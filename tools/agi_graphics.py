@@ -365,9 +365,15 @@ def view_payload(view_no: int) -> bytes:
 
 
 class PictureRenderer:
-    def __init__(self, payload: bytes, clear: bool = True):
+    def __init__(
+        self,
+        payload: bytes,
+        clear: bool = True,
+        pattern_brushes: bool = True,
+    ):
         self.payload = payload
         self.pos = 0
+        self.pattern_brushes = pattern_brushes
         self.cells = bytearray([DEFAULT_CELL if clear else 0 for _ in range(WIDTH * HEIGHT)])
         self.draw_state = 0
         self.visual_value = 0
@@ -642,10 +648,16 @@ class PictureRenderer:
 
     def set_pattern_mode(self) -> None:
         value = self.read_raw_byte()
-        if value is not None:
+        if value is not None and self.pattern_brushes:
             self.pattern_mode = value
 
     def pattern_plot_command(self) -> None:
+        if not self.pattern_brushes:
+            while True:
+                point = self.read_coord_pair()
+                if point is None:
+                    return
+                self.write_pixel(*point)
         while True:
             if self.pattern_mode & 0x20:
                 value = self.read_data_byte()
@@ -693,8 +705,16 @@ class PictureRenderer:
                 self.write_cell(py * WIDTH + start_x + column)
 
 
-def render_picture(picture_no: int, clear: bool = True) -> RenderedPicture:
-    return PictureRenderer(picture_payload(picture_no), clear=clear).render(picture_no)
+def render_picture(
+    picture_no: int,
+    clear: bool = True,
+    pattern_brushes: bool = True,
+) -> RenderedPicture:
+    return PictureRenderer(
+        picture_payload(picture_no),
+        clear=clear,
+        pattern_brushes=pattern_brushes,
+    ).render(picture_no)
 
 
 def iter_view_frames(payload: bytes) -> Iterable[tuple[int, int, int]]:
