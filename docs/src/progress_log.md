@@ -27959,3 +27959,86 @@ expected optional-input skips. The compatibility-suite runner passed, both
 mdBooks built successfully, and `git diff --check` reported no whitespace
 errors. No game input was modified; generated audit files remain under
 disposable `build/`.
+
+### 2026-07-11 22:08
+
+Audited replacement MH1 and MH2 inputs after the user supplied alternate
+copies. Both now contain volume 3. Fresh census, reference-audit, and
+playthrough-index runs show zero skipped source logics: MH1 decodes all 66
+present logics, 237 pictures, and 138 views; MH2 decodes all 96 logics, 248
+pictures, and 181 views.
+
+Investigated the remaining two sound errors per game. MH1 entries 136 and 138
+point into non-header bytes in `MHVOL.0`; MH2 entries 215 and 216 select absent
+`MH2VOL.6`. None is referenced. MH1's other 99 sounds and MH2's other 193
+sounds all decode, and each valid set exactly equals that game's static sound
+reference set. Classified the four entries as inert directory-tail anomalies,
+not missing valid gameplay resources.
+
+Corrected a reference-audit operand-map bug found during closure checking. The
+tool had counted `set.loop`'s loop number as a view dependency and read the cel
+rather than view operand from `add.to.pic`. It now ignores `set.loop`, reads
+`add.to.pic` operand 0, and reports references absent from the complete readable
+set. Added synthetic coverage for those cases and reran both games with no
+unavailable references.
+
+Confirmed that replacement MH1 uses interpreter 3.002.102: its AGIDATA is
+byte-identical to KQ4D and its AGI differs only at two signature bytes. MH2
+retains the known 3.002.149/Gold Rush relationship. Updated the versions,
+game-analysis, symbolic-label, current-status, and progress documentation to
+preserve the old incomplete-copy findings as history while removing the
+current resource blocker.
+
+Verification passed 22 focused resource/census tests and all 436 deterministic
+tests with four expected optional-input skips. Both mdBooks built successfully,
+the project-level compatibility runner passed, and `git diff --check` reported
+no whitespace errors.
+
+### 2026-07-11 22:18
+
+Started a from-scratch reconstruction of the MH1 and MH2 playthrough chapters
+using the replacement complete resource sets. Deleted both prior partial
+chapters before beginning the new route analysis. The replacement work will
+derive story phases, room transitions, inventory dependencies, failure/retry
+paths, and terminal states from fresh logic indexes and disassembly rather
+than editing the former missing-resource narrative.
+
+### 2026-07-11 22:36
+
+Completed the from-scratch MH1 and MH2 playthrough reconstruction against the
+replacement complete resource sets. Fresh indexes covered all 66 MH1 and all
+96 MH2 present logics with no unreadable scripts. The analysis traced terminal
+incoming edges first, then worked backward through assignment phases, report
+parsers, inventory mutations, room transitions, retry branches, and late-game
+controllers.
+
+MH1's unique continuation ending is logic 162. Its incoming ship-flight edge
+requires the late authorization state, flight stage 12, and four independent
+bomb-region completion flags. The rebuilt route records the four assignments,
+the recognized MAD names, Modules A through D and their independent cockpit
+consumption, Alliance-computer state, and the four-target bombing requirement.
+
+MH2's unique continuation ending is logic 187. Its incoming edge from the
+wraparound maze requires maze state 4 and the player crossing the narrow top
+exit at X 130 through 143. The rebuilt route now includes the formerly missing
+Rat Mask/Full Flask, ring, hatchet, Orb-on-a-Stick, statue/Orb Card, lava and
+captive controller, helicopter, final-control, and toroidal-maze chains.
+
+Rendered fresh representative pictures referenced by both ending scripts into
+`build/playthrough/*-replacement/media/` as qualitative scene checks. No
+numerical score or maximum-score mutations exist in either game, so each
+chapter defines winning by its unique `To be continued...` terminal state.
+Both chapters explicitly retain exact report answers, movement, arcade timing,
+and late controller inputs as deterministic replay work rather than guessing.
+
+Validation passed all 436 deterministic tests with four expected optional-input
+skips. Both mdBooks and the project compatibility-suite runner completed
+successfully, and `git diff --check` reported no whitespace errors.
+
+### 2026-07-11 22:44
+
+Removed game-specific playthrough tracking from `PROGRESS.md` so it remains an
+engine reverse-engineering dashboard. Deleted the MH1/MH2 route, puzzle-input,
+and deterministic-playthrough backlog entries. Retained only MH1/MH2 references
+that provide interpreter-version, dispatch-table, or resource-container
+evidence relevant to the engine specification.

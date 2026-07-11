@@ -11913,3 +11913,88 @@ uses the selected radius-one family to apply the corresponding edge clamp and
 automatically falls back to KQ2's point behavior when no complete brush table
 exists. The games input directories were read only; all decoded images and the
 generated report remained under disposable `build/brush-audit/`.
+
+## Replacement MH1/MH2 resource-completeness audit
+
+The selected `games/MH1` and `games/MH2` inputs were replaced with alternate
+copies. A fresh census found that both now include volume 3. The checks were:
+
+```bash
+python3 -B tools/game_census.py \
+  --game-dir games/MH1 --game-dir games/MH2 \
+  --format markdown \
+  --output build/cross-version/mh_replacement_census.md
+python3 -B tools/resource_reference_audit.py \
+  --game-dir games/MH1 --game-dir games/MH2 \
+  --output build/cross-version/mh_replacement_reference_audit.json
+AGI_GAME_DIR=games/MH1 python3 -B tools/logic_playthrough_index.py \
+  --output build/playthrough/mh1-replacement/index.json
+AGI_GAME_DIR=games/MH2 python3 -B tools/logic_playthrough_index.py \
+  --output build/playthrough/mh2-replacement/index.json
+```
+
+MH1 now decodes all 66 present logics, 237 pictures, and 138 views. Its sound
+directory contains 101 present-looking entries. Entries 136 and 138 point into
+ordinary bytes in `MHVOL.0` rather than v3 record headers and are not referenced
+by decoded scripts. The remaining 99 sounds all decode, and the immediate
+reference audit finds exactly those same 99 sound numbers. Every statically
+addressable view also resolves.
+
+MH2 now decodes all 96 present logics, 248 pictures, and 181 views. Sound
+entries 215 and 216 select absent `MH2VOL.6`, but neither is referenced. The
+other 193 sounds all decode and exactly match the script-referenced sound set.
+No source logic is skipped in either replacement. The four sound-tail entries
+are classified as inert directory debris rather than missing valid gameplay
+resources.
+
+The first closure check falsely reported view 0 as unavailable in both games.
+Source and existing opcode evidence showed that
+`tools/resource_reference_audit.py` had treated `set.loop` operand 1 as a view
+number and had selected operand 2 instead of operand 0 from `add.to.pic`.
+Correcting those roles removed the false view-0 dependency. The tool now also
+reports `referenced_unavailable`, which compares all references with the
+readable set and therefore catches absent entries as well as malformed present
+ones. A synthetic test covers the corrected `set.loop`, `add.to.pic`, and
+absent-reference cases.
+
+The replacement MH1 interpreter is 3.002.102, not the former copy's
+3.002.107. Its `AGIDATA.OVL` is byte-identical to KQ4D's; the equal-length AGI
+executables differ at only two embedded signature bytes. Replacement MH2
+retains the previously classified 3.002.149 relationship with Gold Rush:
+equal-length AGIDATA files are byte-identical and the AGI files differ at the
+same 29 classified bytes. No file under `games/` was modified by the audit.
+
+## Replacement MH1/MH2 playthrough reconstruction
+
+The former MH1 and MH2 playthrough chapters were deleted before analysis so
+the complete replacements would not be fitted into the earlier incomplete
+narratives. Fresh indexes were generated from the commands above, and terminal
+logic was identified by searching for continuation messages and outgoing room
+edges. Incoming transition predicates were then traced backward through the
+current scripts.
+
+MH1 logic 162 has no outgoing transition. Its only normal incoming edge is
+logic 151 offset `0x0616`, guarded by the late-story flag, flight stage 12, and
+four separate bomb-region flags. Logic 154 consumes Modules A, B, C, and D at
+independent cockpit positions before entering logic 151. The phase variable
+used by the assignment scripts progresses through Bellevue Hospital, Grand
+Central Terminal, Greenwood Cemetery, and Alliance-computer orders. The shared
+MAD parser recognizes six named records, but recognized-name flags and report
+phase are separate; exact successful answer order remains a replay question.
+
+MH2 logic 187 has no outgoing transition. Its only incoming edge is logic 183
+offset `0x047f`, guarded by maze state 4, X greater than 129 and less than 144,
+and Y less than 24. Logic 183 wraps movement at all four edges and remaps its
+direction state, so reaching the same screen boundary in another maze state is
+not sufficient. Backward tracing found the complete late chain through the
+Rat Mask 1 and Full Flask consumption, hatchet and ring branches,
+Orb-on-a-Stick sequence, statue/Orb Card access, lava/slave controller,
+helicopter, logic 186 control sequence, and final maze.
+
+The terminal scripts reference multiple pictures rather than one static end
+screen. Representative MH1 pictures 76, 79, 89, 90, 130, and 189 and MH2
+pictures 19, 31, 35, 39, 205, 253, and 254 were rendered under
+`build/playthrough/` to corroborate scene identity. These renders were not used
+to infer control flow. Neither game contains conventional score or
+maximum-score mutations, so terminal reachability is the applicable winning
+criterion.

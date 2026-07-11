@@ -238,8 +238,8 @@ clearing.
 - `tools/game_census.py`: read-only multi-game resource/version/layout census
   for explicit local game directories.
 - `tools/resource_reference_audit.py`: compares immediate script-visible
-  resource references with readable/unreadable directory entries for explicit
-  local game directories.
+  resource references with the complete readable set for explicit local game
+  directories, including absent and malformed entries.
 - `tools/compare_interpreter_tables.py`: detects and compares dispatch-table
   contracts and normalized handler-entry shapes across two explicit local
   interpreter inputs.
@@ -256,9 +256,10 @@ clearing.
 
 ## Immediate Next Work
 
-1. Obtain complete MH1/MH2 resource sets before making whole-game claims for
-   those inputs. Apply the cross-version workflow to future complete inputs and
-   inspect every unmatched role before defining a new profile variant.
+1. Convert the fresh MH1/MH2 static winning-route specifications into
+   deterministic original-interpreter replays. The terminal predicates and
+   formerly missing late-game chains are now mapped; exact movement, report
+   answers, and arcade/control inputs remain.
 2. Continue v3 and other cross-version probes from source-mapped deltas only
    when the portable specification still has an observable ambiguity.
 3. Keep source-first renderer work going only when disassembly reveals a
@@ -277,8 +278,10 @@ clearing.
 
 The remaining open rows in `PROGRESS.md` are mostly conditional:
 
-- Most mapped cross-version work is no longer blocked. Whole-game MH1/MH2
-  claims remain blocked by their incomplete local resource sets; other work
+- Most mapped cross-version work is no longer blocked. Replacement MH1/MH2
+  inputs close their resource gaps, and fresh static route analyses now cover
+  their complete valid late-game scripts. Whole-game replay claims require
+  deterministic input capture rather than additional source files. Other work
   should be prioritized by the value of an observed version difference to the
   behavioral spec.
 - Non-EGA display/input paths are outside the current full-EGA compatibility

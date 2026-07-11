@@ -80,6 +80,9 @@ def make_agidata() -> bytes:
         put_table_entry(data, action_base, opcode, argc, meta)
     put_table_entry(data, action_base, 0x62, 1, 0x00)
     put_table_entry(data, action_base, 0x63, 2, 0x00)
+    put_table_entry(data, action_base, 0x1E, 1, 0x00)
+    put_table_entry(data, action_base, 0x2B, 2, 0x00)
+    put_table_entry(data, action_base, 0x7A, 7, 0x00)
     for opcode, (argc, meta) in enumerate(CONDITION_META_SIGNATURE):
         put_table_entry(data, condition_base, opcode, argc, meta)
     return bytes(data)
@@ -88,14 +91,38 @@ def make_agidata() -> bytes:
 def make_game(root: Path, *, include_bad_logic: bool = False) -> Path:
     game = root / "AUDIT"
     game.mkdir()
-    code = bytes([0x62, 0x02, 0x63, 0x22, 0x05, 0x00])
+    code = bytes(
+        [
+            0x62,
+            0x02,
+            0x63,
+            0x22,
+            0x05,
+            0x1E,
+            0x08,
+            0x2B,
+            0x01,
+            0x00,
+            0x7A,
+            0x07,
+            0x00,
+            0x00,
+            0x10,
+            0x20,
+            0x04,
+            0x00,
+            0x00,
+        ]
+    )
     logic_payload = len(code).to_bytes(2, "little") + code + b"\x00"
     logdir = bytearray(dir_entry(0, 0) + b"\xff\xff\xff")
     if include_bad_logic:
         logdir.extend(dir_entry(0, 0x80))
     (game / "LOGDIR").write_bytes(bytes(logdir))
     (game / "PICDIR").write_bytes(b"\xff\xff\xff")
-    (game / "VIEWDIR").write_bytes(b"\xff\xff\xff")
+    viewdir = bytearray(b"\xff\xff\xff" * 9)
+    viewdir[7 * 3 : 7 * 3 + 3] = dir_entry(0, 0x50)
+    (game / "VIEWDIR").write_bytes(bytes(viewdir))
     snddir = bytearray(b"\xff\xff\xff" * 35)
     snddir[2 * 3 : 2 * 3 + 3] = dir_entry(0, 0x40)
     snddir[34 * 3 : 34 * 3 + 3] = dir_entry(0, 0x70)
@@ -104,6 +131,7 @@ def make_game(root: Path, *, include_bad_logic: bool = False) -> Path:
     vol = bytearray(b"\x00" * 0x90)
     vol[0 : 5 + len(logic_payload)] = b"\x12\x34\x00" + len(logic_payload).to_bytes(2, "little") + logic_payload
     vol[0x40 : 0x48] = b"\x12\x34\x00\x03\x00snd"
+    vol[0x50 : 0x58] = b"\x12\x34\x00\x03\x00vie"
     vol[0x70 : 0x75] = b"BAD!!"
     (game / "VOL.0").write_bytes(bytes(vol))
     (game / "AGIDATA.OVL").write_bytes(make_agidata())
@@ -117,8 +145,11 @@ class ResourceReferenceAuditTests(unittest.TestCase):
             report = audit_game(game)
 
         self.assertEqual(report["references"]["sound"], [2, 34])
+        self.assertEqual(report["references"]["view"], [7, 8])
         self.assertEqual(report["resources"]["sound"]["readable"], [2])
+        self.assertEqual(report["resources"]["view"]["readable"], [7])
         self.assertEqual(report["referenced_unreadable"]["sound"], [34])
+        self.assertEqual(report["referenced_unavailable"]["view"], [8])
         self.assertEqual(report["unreferenced_unreadable"]["sound"], [])
         self.assertEqual(report["skipped_source_logics"], [])
 

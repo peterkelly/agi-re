@@ -22,7 +22,7 @@ not external AGI documentation.
 | `games/KQ3` | `AGIDATA.OVL` string `Version 2.936` | `AGI` is decoded with the selected game's `SIERRA.COM` key before disassembly | Split direct v2 resources | Same-version executable cross-check; KQ3 save dimensions are mapped |
 | `games/KQ4` | `AGIDATA.OVL` string `Version 3.002.086` | `AGI` is an MZ executable | Combined `KQ4DIR`; prefixed `KQ4VOL.N` files; v3 transforms | Full-game full-EGA resource, logic, input, persistence, renderer, and object profile is promoted |
 | `games/KQ4D` | `AGIDATA.OVL` string `Version 3.002.102` | `AGI` is an MZ executable | Combined `DMDIR`; prefixed `DMVOL.N` files; v3 transforms | Full-EGA resource, logic, input, persistence, renderer, and object profile is promoted |
-| `games/MH1` | `AGIDATA.OVL` string `Version 3.002.107` | `AGI` is an MZ executable | Combined `MHDIR`; prefixed `MHVOL.N` files; v3 transforms | Dispatch contracts and currently mapped full-EGA core match 3.002.102 after relocation |
+| `games/MH1` | `AGIDATA.OVL` string `Version 3.002.102` | `AGI` is an MZ executable | Combined `MHDIR`; prefixed `MHVOL.N` files; v3 transforms | Replacement copy is resource-complete for valid gameplay; AGIDATA matches KQ4D byte-for-byte and AGI differs only in two signature bytes |
 | `games/GR` | `AGIDATA.OVL` string `Version 3.002.149` | `AGI` is already an MZ executable | Combined `GRDIR`; prefixed `GRVOL.N` files; 7-byte record headers; dictionary and picture-nibble transforms | Decoding/parsing is implemented locally; generated fixtures can patch copied v3 directories/volumes with direct logic/view records and picture-nibble picture records under `build/` |
 | `games/MH2` | `AGIDATA.OVL` string `Version 3.002.149` | `AGI` is an MZ executable | Combined `MH2DIR`; prefixed `MH2VOL.N` files; v3 transforms | Same-version control proves the Gold Rush room aliases are build-specific |
 
@@ -55,9 +55,9 @@ The local snapshot found these version/layout groups:
 | `games/SQ2` | `Version 2.936` | v2 split | Two known out-of-range end entries remain record errors in the generic census. |
 | `games/KQ4` | `Version 3.002.086` | v3 combined | Full game; combined `KQ4DIR`/`KQ4VOL.N`. The selected copy lacks volumes 6 and 7, leaving pictures `150..151` and views `198..199` unreadable. |
 | `games/KQ4D` | `Version 3.002.102` | v3 combined | Combined `DMDIR`/`DMVOL.N`; dispatch tables are at AGIDATA offsets `0x0620`/`0x0942`. Decoded scripts reference clean sounds `70..79`; addressable tail anomalies are unreferenced, and triples beyond index 255 are inaccessible. |
-| `games/MH1` | `Version 3.002.107` | v3 combined | Combined `MHDIR`/`MHVOL.N`; readable scripts directly reference six unreadable views, so the selected copy is incomplete for full valid-data analysis. |
+| `games/MH1` | `Version 3.002.102` | v3 combined | Replacement copy: all 66 present logics, 237 pictures, and 138 views decode; all 99 script-addressable sounds decode. Two unreferenced sound-tail entries are inert anomalies. |
 | `games/GR` | `Version 3.002.149` | v3 combined | Combined `GRDIR`/`GRVOL.N`; all present records expand with the current v3 reader. |
-| `games/MH2` | `Version 3.002.149` | v3 combined | Combined `MH2DIR`/`MH2VOL.N`; readable scripts do not directly reference unreadable resources, but 31 unreadable logic records prevent a complete reachability claim. |
+| `games/MH2` | `Version 3.002.149` | v3 combined | Replacement copy: all 96 present logics, 248 pictures, and 181 views decode; all 193 script-addressable sounds decode. Two unreferenced sound-tail entries select absent volume 6. |
 
 This is an inventory for planning. The portable spec should only gain a
 version-specific rule when disassembly or a valid-resource dynamic check shows
@@ -833,13 +833,15 @@ Consequently that save cannot have been produced by the selected
 interpreter/metadata combination and is retained only as historical evidence,
 not as its binary interchange contract.
 
-### MH1 3.002.107 and MH2 3.002.149
+### MH1 and MH2 replacement copies
 
-MH1 has 182 actions and 19 conditions. Its contracts and every currently
-mapped full-EGA core handler match KQ4D 3.002.102 after relocation. The whole
-loaded images are not identical and MH1 is 64 bytes longer, so startup,
-diagnostic, and alternate paths not represented by the role map are not yet
-claimed equivalent.
+The replacement MH1 uses interpreter 3.002.102. Its `AGIDATA.OVL` is
+byte-identical to KQ4D's, and its equal-length `AGI` differs from KQ4D's at
+only two embedded game-signature bytes. This is stronger equivalence than the
+previously inspected MH1 3.002.107 copy, whose mapped full-EGA core matched
+KQ4D after relocation but whose image contained additional unmapped changes.
+The 3.002.107 observations remain historical cross-version evidence; they no
+longer describe the selected `games/MH1` input.
 
 MH2 and Gold Rush are both labeled 3.002.149 and their loaded images have the
 same length. Only 29 bytes differ. Those bytes classify completely as:
@@ -856,20 +858,19 @@ room aliases are a Gold Rush build feature, not universal 3.002.149 behavior.
 The startup allocation-size difference is retained as diagnostic/capacity
 evidence until a portable observable consequence is established.
 
-Both selected v3 copies contain present directory entries that the current
-census cannot read. The tolerant reference audit records unreadable source
-logics instead of aborting:
+The replacement resource census and corrected reference audit report:
 
-| Selected game | Skipped source logics | Direct references from readable scripts to unreadable resources |
-| --- | ---: | --- |
-| MH1 | `136` | Views `7`, `74`, `75`, `76`, `77`, and `85` |
-| MH2 | 31 logics | None observed |
+| Selected game | Readable logic/picture/view | Valid sounds | Inert sound anomalies |
+| --- | --- | ---: | --- |
+| MH1 | `66 / 237 / 138` | 99 | Entries 136 and 138 point into non-header bytes in `MHVOL.0`; unreferenced. |
+| MH2 | `96 / 248 / 181` | 193 | Entries 215 and 216 select absent `MH2VOL.6`; unreferenced. |
 
-MH1 is therefore incomplete for ordinary valid-data gameplay analysis. MH2's
-readable subset is internally clean for immediate references, but skipped
-logic resources mean absence of a reference is not a full reachability proof.
-The generated report is
-`build/cross-version/mh_resource_reference_audit.json`.
+No source logic is skipped, and every statically addressable resource resolves.
+For both games, the readable sound set exactly equals the script-referenced
+sound set. This closes the previous resource-completeness blocker while
+keeping the four present-looking tail entries outside valid-game semantics.
+The generated reports are `build/cross-version/mh_replacement_census.md` and
+`build/cross-version/mh_replacement_reference_audit.json`.
 
 ## Fixture Compatibility Notes
 

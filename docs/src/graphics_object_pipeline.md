@@ -282,7 +282,7 @@ The data offsets relocate as follows:
 | MG 2.915, KQ1/SQ1.22/PQ1 2.917 | `0x15cc` | `0x15ef` | `0x160f` |
 | SQ2/KQ3 2.936 | `0x15d6` | `0x15f9` | `0x1619` |
 | KQ4 3.002.086 | `0x1646` | `0x1669` | `0x1689` |
-| KQ4D 3.002.102, MH1 3.002.107 | `0x1658` | `0x167b` | `0x169b` |
+| KQ4D/replacement MH1 3.002.102; prior MH1 3.002.107 | `0x1658` | `0x167b` | `0x169b` |
 | GR/MH2 3.002.149 | `0x140d` | `0x1430` | `0x1450` |
 
 The reusable audit is `tools/brush_table_audit.py`; it requires every game

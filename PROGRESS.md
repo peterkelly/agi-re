@@ -31,8 +31,8 @@ better understood, or a new remaining-work item is discovered.
 - Main remaining risk areas: concrete picture/view edges exposed by future
   valid resources, compatibility-bundle breadth across additional versions,
   optional canonical initial save bytes for pristine 2.089/2.272 save
-  synthesis, and incomplete MH1/MH2 resource sets. All currently promoted
-  subsystems have standalone behavioral-specification chapters.
+  synthesis, and conditional error paths. All currently promoted subsystems
+  have standalone behavioral-specification chapters.
 - Picture/view resource retention is now source-modeled as ordered within each
   family. Discard actions truncate the selected resource and every later
   same-family retention; restore replay kinds 6 and 7 reproduce that ordering.
@@ -104,7 +104,9 @@ better understood, or a new remaining-work item is discovered.
 - Seven additional local inputs are inventoried. BC 2.439 matches the mapped
   LSL1 2.440 full-EGA core; MG 2.915 matches the mapped KQ1 2.917 core; and
   SQ1.22's 2.917 loaded image differs from KQ1 only in three signature bytes.
-  MH1 3.002.107 matches the currently mapped KQ4D 3.002.102 core. MH2 provides
+  The replacement MH1 uses 3.002.102: its AGIDATA is byte-identical to KQ4D
+  and its AGI differs only at two game-signature bytes. The previously audited
+  MH1 3.002.107 remains historical version evidence. MH2 provides
   a same-version 3.002.149 control for Gold Rush: the two loaded images differ
   by only 29 classified bytes, proving that room aliases `0x7e..0x80 -> 0x49`
   are Gold Rush-specific rather than universal to 3.002.149.
@@ -163,9 +165,13 @@ better understood, or a new remaining-work item is discovered.
   current focused audits find no immediate reference to unreadable KQ1/KQ4D
   sound entries or KQ4's missing-volume picture/view entries. KQ4 picture
   selection is variable-based, so that last result is not a reachability proof.
-  The tolerant audit now continues past unreadable source logics: MH1 readable
-  scripts directly reference six unreadable views, while MH2's readable subset
-  has no direct bad reference but omits 31 unreadable logics.
+  The replacement MH1/MH2 copies close the previous resource blocker: all 66
+  and 96 present logics decode, all present pictures/views decode, and every
+  statically addressable resource is readable. Each directory has two
+  unreferenced anomalous sound-tail entries outside valid-game semantics.
+  The audit now reports references to absent entries as well as malformed
+  present entries, and its corrected operand map treats `set.loop` as
+  non-resource state while reading `add.to.pic`'s first operand as the view.
 
 ## Behavioral Specification Coverage
 
@@ -178,13 +184,11 @@ better understood, or a new remaining-work item is discovered.
     and promoted full-EGA 2.089, 2.272, 2.411, 2.440, 2.917, 3.002.086,
     3.002.102, and 3.002.149 profiles. SQ1, XMAS, KQ2, LSL1, KQ1, full KQ4,
     KQ4D, and Gold Rush supply mapped profile-specific save dimensions.
-    Mapped-equivalent evidence now covers 2.439, 2.915, 3.002.107, and a second
+    Mapped-equivalent evidence now covers 2.439, 2.915, the historically
+    observed 3.002.107 build, and a second
     3.002.149 build. The early profiles record source-proven resource, opcode,
     picture, view, object, motion, input, inventory, sound, and persistence
     variants.
-  - Remaining inputs: MH1 is confirmed incomplete because readable scripts
-    directly reference six unreadable views. MH2 has no such reference in its
-    readable scripts, but 31 skipped logic resources prevent a complete audit.
 - [x] Resource containers
   - Current: `spec/src/resource_containers.md` specifies split v2 and combined
     v3 directories, packed entries, volume records, direct payloads,
@@ -692,15 +696,14 @@ source-mapped well enough to justify a targeted probe.
     picture/view discard in every promoted profile and confirms shipped scripts
     normally unwind retained resources in reverse load order.
     The new census distinguishes XMAS multi-disk packaging from installed v2
-    volume naming, and the tolerant reference audit classifies MH1 as incomplete
-    while leaving MH2 inconclusive because source logics are missing. Source
+    volume naming. Replacement MH1/MH2 inputs now decode every present logic,
+    picture, and view and every script-addressable sound. Source
     and resource-number analysis now caps directory sections at 256 addressable
     entries, preventing KQ4D's trailing directory-like bytes from becoming
     pseudo-resources. KQ1 sounds 34 through 37 are classified as offsets beyond
     `VOL.2`, not alternate record formats.
   - Remaining: loader error-path behavior only where needed by compatibility
-    tests; complete MH1/MH2 inputs are required before whole-game resource
-    claims.
+    tests.
 - [x] Logic resource format, messages, dispatch, and control flow
   - Evidence: logic resource docs, interpreter source pass, QEMU opcode probes.
   - Remaining: keep opcode tracker aligned with new findings.
@@ -932,8 +935,6 @@ source-mapped well enough to justify a targeted probe.
     original GR interpreter. `tools/resource_reference_audit.py` adds a
     script-visible reference check for deciding whether unreadable
     directory-looking entries are valid behavior candidates.
-  - Remaining: obtain complete MH1/MH2 resource sets before whole-game corpus
-    work.
 - [~] Final human-readable behavioral specification
   - Evidence: a separate clean-room mdBook now lives under `spec/`, with an
     explicit externally observable behavior boundary and conformance model.
@@ -954,20 +955,17 @@ source-mapped well enough to justify a targeted probe.
 
 ## Highest-Value Remaining Work
 
-1. Obtain complete MH1/MH2 resource sets before using them for whole-game
-   corpus claims. The current MH1 copy has six directly referenced unreadable
-   views; MH2 has 31 unreadable logic resources.
-2. Continue v3 behavioral probes from source-mapped deltas only when the
+1. Continue v3 behavioral probes from source-mapped deltas only when the
    portable specification still has an observable ambiguity. Use synthetic v3
    resources when a focused confirmation requires them.
-3. Continue source-first renderer work only when disassembly or a valid local
+2. Continue source-first renderer work only when disassembly or a valid local
    resource exposes a concrete edge not already modeled. Use QEMU as
    confirmation/regression evidence.
-4. Keep expanding `tools/compatibility_suite.py` when a new behavior is promoted
+3. Keep expanding `tools/compatibility_suite.py` when a new behavior is promoted
    to reusable evidence. Re-run the smoke or broad QEMU layer whenever the
    manifest changes.
-5. Establish canonical initial 2.089/2.272 reserved save bytes only if pristine
+4. Establish canonical initial 2.089/2.272 reserved save bytes only if pristine
    binary save synthesis for those selected games becomes a target.
-6. Treat non-EGA paths, analog waveform synthesis, menu arrow injection, invalid
+5. Treat non-EGA paths, analog waveform synthesis, menu arrow injection, invalid
    path UI, and out-of-memory UI as optional/conditional work unless the final
    compatibility target expands beyond current full-EGA valid-data behavior.

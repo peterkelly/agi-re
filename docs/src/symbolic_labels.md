@@ -869,7 +869,7 @@ address as part of the portable behavior.
 | `data.replay.capacity_count` | SQ1/XMAS `DS:0x0145` / `DS:0x0147` | Configured pair capacity and active pair count; block 4 serializes capacity pairs. |
 | `code.object.initialize_metadata` | MG image `0x0fa5` | Decodes current `OBJECT`, increments header byte `0x5a`, and allocates 91 records. |
 | `code.save.save_game_state` | MG image `0x2751` | Current source-derived blocks begin `0x05e1`, `0x0f49`, `0x0005`; bundled older save differs. |
-| `table.logic.action_dispatch` | BC 2.439 data `0x061b`; MG 2.915 data `0x061d`; MH1 3.002.107 data `0x0620`; MH2 3.002.149 data `0x0440` | Counts are 170, 174, 182, and 182. |
+| `table.logic.action_dispatch` | BC 2.439 data `0x061b`; MG 2.915 data `0x061d`; replacement MH1 3.002.102 data `0x0620`; MH2 3.002.149 data `0x0440` | Counts are 170, 174, 182, and 182. The prior MH1 3.002.107 copy used the same data offset. |
 | `table.logic.condition_dispatch` | BC data `0x08e3`; MG data `0x08f5`; MH1 data `0x0942`; MH2 data `0x0762` | Nineteen entries in each build. |
 | `code.room.switch_room_action` | MH2 image `0x19d4` | Reads the immediate room operand and calls ordinary room switch directly. |
 | `code.room.remap_reserved_room_target` | GR image `0x0062`; absent from MH2 | Gold Rush build helper mapping `0x7e..0x80` to `0x49`; not a universal 3.002.149 role. |
@@ -888,7 +888,7 @@ data offsets as universal constants.
 | KQ1/SQ1.22/PQ1 2.917 | `0x15cc` | `0x15ef` | `0x160f` | image `0x645d` | image `0x6438` |
 | SQ2/KQ3 2.936 | `0x15d6` | `0x15f9` | `0x1619` | image `0x6524` | image `0x64ff` |
 | KQ4 3.002.086 | `0x1646` | `0x1669` | `0x1689` | image `0x695d` | image `0x6938` |
-| KQ4D 3.002.102/MH1 3.002.107 | `0x1658` | `0x167b` | `0x169b` | image `0x6975` | image `0x6950` |
+| KQ4D/replacement MH1 3.002.102; prior MH1 3.002.107 | `0x1658` | `0x167b` | `0x169b` | image `0x6975` | image `0x6950` |
 | GR/MH2 3.002.149 | `0x140d` | `0x1430` | `0x1450` | image `0x689c` | image `0x6877` |
 
 SQ1 2.089 and XMAS 2.272 dispatch only through `0xf8`, so the pattern labels

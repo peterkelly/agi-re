@@ -1,262 +1,239 @@
 # Manhunter: New York Playthrough Analysis
 
-This chapter records a game-specific, clean-room reconstruction of the local
-`MH1` evidence set. It is intended to become a repeatable game-level
-conformance scenario and is not part of the portable AGI engine specification.
-The analysis uses only the local game resources, their decoded logic and
-messages, and locally rendered graphics.
+This chapter is a fresh clean-room reconstruction of a winning route through
+the replacement local `MH1` evidence set. It was derived from the current
+game's logic, messages, vocabulary, object list, pictures, and views. It does
+not reuse the earlier analysis of the incomplete copy, and no external
+walkthrough or AGI documentation was consulted.
 
-This reconstruction is **partial**. The selected game identifies itself as
-*Manhunter: New York*, version 1.22, dated August 31, 1988, and its QA record
-identifies interpreter 3.002.107. The local copy is incomplete: one present
-logic entry and multiple graphics entries point outside the available volume
-files. The readable resources establish the story phases, important state,
-inventory flow, and terminal sequence, but they cannot yet prove one complete
-playable path from start to finish.
+The result is a **static route specification**, not yet a replay script. The
+assignment order, required portable objects, late-game computer and ship
+chains, and terminal predicate are source-proven. Exact movement through every
+arcade sequence and the complete original-interpreter input stream still need
+dynamic reconstruction.
 
 ## Evidence Method
 
-The reusable logic index was generated with:
+The reusable index for this analysis was generated with:
 
 ```bash
 AGI_GAME_DIR=games/MH1 \
   python3 -B tools/logic_playthrough_index.py \
-  --output build/playthrough/mh1/index.json
+  --output build/playthrough/mh1-replacement/index.json
 ```
 
-MH1 uses a version 3 combined directory with prefix `MH`. The directory census
-found 165 logic entries, 256 picture entries, 145 view entries, and 139 sound
-entries. Of those, 66 logics, 237 pictures, 138 views, and 101 sounds are marked
-present. Sixty-five logics decode successfully and expose 11 parser conditions,
-138 explicit room switches, and 93 inventory mutations.
+The selected game uses interpreter 3.002.102 and the v3 combined resource
+layout. All 66 present logic resources decode. The game also contains 237
+pictures, 138 views, and 99 valid script-addressable sounds. Every resource
+reference made by readable logic resolves. Two malformed sound-directory tail
+entries are not referenced by any script and are irrelevant to the route.
 
-Logic 136 does not decode because its directory entry selects volume 3 at
-offset `0x1d323`, beyond the available `MHVOL.3` length of `0xfe00`. The
-inventory table initially associates the Crowbar with room 136, so this is not
-merely an unused directory artifact. Readable scripts also directly reference
-unavailable views 7, 74, 75, 76, 77, and 85. A qualitative picture sweep
-decoded 196 of the 237 present picture entries; the other 41 require absent or
-truncated volume data.
+The inventory table contains 28 slots. The route analysis traced every
+inventory mutation, every constant room switch, the travel map, the assignment
+phase variable, all recognized report names, and every incoming edge to the
+ending logic. Representative ending pictures were rendered locally to check
+scene identity; they show the antagonist, ship explosions, and the final
+aftermath, but the logic remains the authority for ordering.
 
-The indexer was made tolerant of this condition: it now records the resource
-number, volume, offset, and decode error in `unreadable_logics` and continues
-with the readable evidence. That behavior is important for inspecting future
-incomplete version sets without silently treating missing resources as empty
-ones.
+No logic assigns or changes a conventional numerical score or maximum-score
+value. For this game, “maximum score” therefore contributes no additional
+criterion: winning means reaching the unique continuation ending without
+entering a retry or death branch.
 
-## Completion Model
+## Story and Terminal State
 
-MH1 does not use a conventional adventure-game score. No readable logic
-assigns a maximum score, increments the normal score variable, or awards
-points. Consequently, there is no numeric maximum to optimize. A winning
-conformance scenario must instead reach the final narrative state through the
-required story progression.
+The player is a Manhunter in Orb-occupied New York. The Orb assignments begin
+with an explosion at Bellevue Hospital, continue with a missing maintenance
+robot at Grand Central Terminal and a dead Orb at Greenwood Cemetery, and end
+with illegal access to the Alliance computer. The investigations expose a
+resistance plot, Phil's double role, four ship modules, and the means to use an
+Orb ship against four targets.
 
-The central phase value begins at 1 and selects four Orb assignments:
+Logic 162 is the winning terminal sequence. It has no outgoing room transition
+and eventually displays `To be continued...`. Its only ordinary incoming edge
+is from the ship/bomb logic, logic 151. That edge is taken only when all of the
+following are true:
 
-| Phase | Assignment shown at headquarters |
+- the bomb flight is in its completion phase;
+- the late-story authorization flag is set;
+- the flight state has reached stage 12; and
+- all four distinct target-completion flags are set.
+
+The four flags are set by separate bomb-drop regions. A single successful drop
+cannot satisfy more than its own region, so the terminal predicate proves that
+the winning flight requires all four targets.
+
+## Global Route Constraints
+
+1. Keep the MAD, the game's tracking and travel interface. Major assignments
+   are reached through its map rather than a single continuous room graph.
+2. Preserve the Data Card until the report sequence has consumed its clue.
+   The card states: `Destroy the Lady, Before They are Ready` and identifies
+   Phil as a double agent and an Eye.
+3. Collect Module A, Module B, Module C, and Module D. The cockpit installation
+   logic removes each module from inventory at a separate control position;
+   all four positions are therefore genuine prerequisites.
+4. Preserve the key, crowbar, badges, medallion, and accumulated keycards until
+   their local access checks have been passed. The keycard inventory is encoded
+   as mutually exclusive “One Keycard” through “Thirteen Keycards” entries,
+   not thirteen independently carried cards.
+5. Treat deaths as retry branches rather than forward progress. Many fatal
+   scenes enter a shared rewind logic that explicitly returns to a few minutes
+   before the mistake.
+6. Complete all four bombing regions. Leaving the ship sequence after fewer
+   than four successful regions cannot reach logic 162.
+
+## Assignment and Report State
+
+The assignment phase is a four-state progression. The observable assignment
+messages are:
+
+| Phase | Assignment |
 | ---: | --- |
 | 1 | Investigate the explosion at Bellevue Hospital |
-| 2 | Find the missing maintenance robot from Grand Central Terminal |
+| 2 | Investigate the missing maintenance robot at Grand Central Terminal |
 | 3 | Investigate the dead Orb at Greenwood Cemetery |
-| 4 | Investigate illegal access to the Alliance computer |
+| 4 | Investigate illegal access at the Alliance computer |
 
-The phase-4 briefing also says that the Manhunter will be transferred to
-Chicago after the assignment. This is a promise of the ending, not itself the
-terminal state.
+Completing the first report advances the phase from 1 to 2. Later handoffs
+advance phases 2 to 3 and 3 to 4. The final assignment message promises a
+transfer to Chicago after the investigation, but the actual route instead
+continues into the Alliance computer and ship climax.
 
-The strongest readable completion contract appears later. Logic 151 controls
-a ship and accepts four bomb drops in four distinct target regions. It records
-each successful region separately; only when all four have been completed does
-it transfer to logic 162. Logic 162 runs the concluding cutscene and displays
-`To be continued...`. Reaching that sequence after all four bomb states is the
-winning terminal condition for this analysis.
+The report input uses the same full-name parser as the MAD occupant database.
+Recognized names include Harvey Osborne, Anna Osborne, Harold Jones, Phillipe
+Cook, Louis Redman, and Reno Davis, with spelling variants recorded in the
+game vocabulary. Recognition alone is not proof that a name is a correct
+answer for a particular report: recognized names set separate evidence flags,
+and the surrounding assignment state decides their consequence. The complete
+name order for an automated replay remains a dynamic validation item.
 
-## Runtime Story Model
+## Candidate Winning Route
 
-### Headquarters, MAD, and travel
+### Opening investigation and Bellevue
 
-A new game initializes phase 1 and gives the player MAD. MAD provides records,
-notes, and target tracking. The readable database includes Harvey Osborne,
-Harold Jones, Phillipe Cook, Louis Redman, Reno Davis, and Anna Osborne. Its
-tracking results identify Bellevue Hospital, Grand Central Terminal, Greenwood
-Cemetery, and the Alliance computer room as phase-relevant targets.
+1. Start the game, retain the MAD, and accept the Bellevue Hospital assignment.
+2. Use the MAD's occupant records, notes, tracking display, and travel map to
+   inspect the named people and assignment locations. The database recognizes
+   the suspects listed above and can track available targets.
+3. Follow the Bellevue investigation through its signal and room puzzles.
+   Obtain the key in logic 106 when the close-up prompt makes it available.
+4. Complete the first reporting cutscene. The report consumes typed names and
+   returns the player home for new orders; successful progression changes the
+   assignment phase to the missing-robot investigation.
 
-The travel interface exposes New York destinations as they become useful,
-including the player's home, 150 West 82nd Street, Vend-o-Deli, the Empire
-State Building, Trinity Church, 21 Pearl Street, Prospect Park, Flatbush Bar,
-Bellevue Hospital, the American Museum of Natural History, Strawberry Fields,
-Grand Central Terminal, Wretched Excess, Coney Island, Drier Offerman Park,
-Greenwood Cemetery, a Times Square theater, and Abdul's Pawn Shop. Travel
-availability is state-dependent; listing a destination here does not prove it
-is selectable in every phase.
+### Grand Central and the maintenance robot
 
-### Reports and phase changes
+1. Travel to Grand Central Terminal and follow the maintenance-robot trail.
+   The scripts warn that direct tampering makes the robot self-destruct.
+2. Complete the associated movement and close-up sequences rather than waiting
+   through the fatal branches.
+3. Recover Module B from the robot-remains area in logic 135. The module is
+   placed in inventory only after the appropriate action prompt and local
+   state are both active.
+4. Finish the report/assignment handoff that advances the story toward the
+   Greenwood Cemetery case.
 
-The Data Card shows this clue:
+### Greenwood, Coney Island, and the city evidence chain
 
-> The End is Near. The Way is Clear. Destroy the Lady, Before They are Ready.
-> Phil is Trouble. He's a Double. He's an Eye, That's no Lie!
+1. Investigate Greenwood Cemetery and the dead Orb. Continue following MAD
+   tracking targets and the travel destinations opened by the current phase.
+2. Obtain the Data Card and read its complete clue before reporting. The report
+   sequence can request up to three full names in this phase.
+3. At Coney Island, complete the carnival games needed by the prize logic.
+   The scripts expose Balloons and Darts, Kewpie Doll Baseball, and Rings and
+   Bottles, and make the Data Card, stuffed Orb items, and related prizes part
+   of this chain.
+4. In Central Park, use the MAD-derived route through the mined area. Wrong
+   paths trigger the mine death; the valid path leads past named landmarks.
+   Take the crowbar when its action becomes available.
+5. Complete the keycard/medallion and badge-selection chains. The game replaces
+   the current keycard-count item as the count changes and later offers badge
+   and badges inventory states for access checks.
 
-The report interface asks for one suspect name in phase 1 and three names in
-phase 3. The readable control flow captures and parses those entries, presents
-the report sequence, and changes phase 1 to phase 2. No explicit name-match
-predicate is visible in logic 131, so the exact semantic significance of each
-entered name remains to be verified in the original interpreter rather than
-guessed from the prose.
+### Collect the four ship modules
 
-Later assignments use a common completion flag. Returning home while that
-flag is set changes phase 2 to phase 3, or phase 3 to phase 4, and returns the
-player to the report/headquarters sequence. Bellevue logic 135 and the
-Alliance computer logic 149 can set this flag, but the complete conditions and
-ordering across every location have not yet been reduced to a route proof.
+The modules are acquired in four different room logics and installed at four
+different cockpit controls:
 
-### Four modules and the Alliance system
+| Module | Acquisition evidence | Required later behavior |
+| --- | --- | --- |
+| A | Logic 111, after the candle/match room sequence | Removed at its cockpit position |
+| B | Logic 135, in the maintenance-robot chain | Removed at its cockpit position |
+| C | Logic 113, after the button/close-up sequence | Removed at its cockpit position |
+| D | Logic 150, after the handle and guard-robot sequence | Removed at its cockpit position |
 
-Readable logic places four separately named modules in the world:
+The acquisition order can vary where the travel map permits it, but cockpit
+completion cannot be faked by carrying only one or two modules. The installer
+tests and consumes each named inventory entry independently.
 
-| Item | Acquisition logic | Observed role |
-| --- | ---: | --- |
-| Module A | 111 | One of four modules accepted by the late control system |
-| Module B | 135 | Found in the Bellevue/maintenance-robot sequence |
-| Module C | 113 | One of four modules accepted by the late control system |
-| Module D | 150 | One of four modules accepted by the late control system |
+### Alliance computer
 
-Logic 154 accepts the four modules in separate interactions and records four
-persistent installed states. Logic 149 presents the Alliance computer's
-repair, supply, defense, patrol, security, and operation interfaces. Its
-messages report four loaded bombs and include ship, transmitter, maintenance,
-and harvest controls. It also sets the common assignment-completion flag and
-can transfer into the final sequence of rooms.
+1. Reach the illegal Alliance computer after the fourth assignment opens.
+2. Navigate the restricted security and operations interface. Its visible
+   branches include Repair, Supply, Air Defense, Ground Patrol, Security,
+   Operation, Site Selector, transmitter control, and ship checks.
+3. Complete the repair and authorization states needed to make the main
+   computer operational. The interface reports four bombs loaded and exposes
+   the ship only after its internal state has advanced.
+4. Survive the room-security failures. Incorrect restricted access reaches a
+   fatal security response rather than a useful alternate route.
 
-### Ship sabotage
+### Cockpit and bombing flight
 
-Logic 152 offers entry to the ship and a keypad-driven movement interface.
-Logic 151 then tracks four independently completed bomb sites. Three target
-regions accept a bomb while the ship is in one movement mode and the fourth
-uses another. Re-entering an already completed region does not create a fifth
-required state. When all four states are set, the game leaves the flight scene
-for logic 162's ending.
+1. Enter the cockpit and install Modules A through D at their four matching
+   control positions. The visible controls use button and slider prompts.
+2. Complete the keypad/ship-control sequence. A wrong control can enter a death
+   or retry branch; the valid sequence reaches logic 151.
+3. Fly over each target region and press Enter to drop one bomb while the ship
+   is inside the region's valid bounds. Each successful region sets one of the
+   four completion flags.
+4. Continue until all four completion flags are set and the flight reaches
+   stage 12. The script then switches directly to logic 162.
+5. Allow the ending cutscene to complete. `To be continued...` is the unique
+   winning terminal marker for this evidence set.
 
-This gives a precise late-game compatibility assertion even before the entire
-route is known: one, two, or three distinct valid drops must not finish the
-game; the transition occurs only after all four have been recorded.
+## Required Inventory Ledger
 
-## Inventory Evidence
+| Item or state | Route role |
+| --- | --- |
+| MAD | Occupant records, tracking, notes, and travel |
+| Key | Early locked-room access |
+| Data Card | Report clue and suspect-name sequence |
+| Crowbar | Central Park/later physical access chain |
+| Keycard count and medallion | Progressive access state |
+| Badge or badges | Selection and access chain |
+| Modules A, B, C, D | Four independent cockpit installations |
 
-The inventory table contains 28 entries. Thirteen numbered keycards and the
-medallion begin in room 128, while several later objects have ordinary room
-owners. Two entries are unnamed.
+Stuffed Orb and Stuffed Orbs are carnival prize states. Their exact necessity
+on the shortest winning route remains to be confirmed by replay; they should
+not be omitted from an exploratory capture merely because the terminal logic
+does not test them directly.
 
-| Id | Name | Initial room or readable acquisition |
-| ---: | --- | --- |
-| 0-12 | One through Thirteen Keycards | Room 128 |
-| 13 | Medallion | Room 128 |
-| 14 | MAD | Given during initialization in logic 90 |
-| 15 | Data Card | Room 129 |
-| 16 | Module B | Logic 135 |
-| 17 | Unnamed | Not resolved |
-| 18 | Crowbar | Room 136, whose logic is unavailable |
-| 19 | Stuffed Orb | Room 129 |
-| 20 | Key | Logic 106 |
-| 21 | Unnamed | Not resolved |
-| 22 | Module A | Logic 111 |
-| 23 | Module C | Logic 113 |
-| 24 | Module D | Logic 150 |
-| 25 | Badges | Room 145 |
-| 26 | Stuffed Orbs | Room 129 |
-| 27 | Badge | Room 145 |
+## Deaths, Retries, and Dead Ends
 
-Logic 128 contains the large keycard/medallion interaction sequence. Logic 129
-contains Data Card and stuffed-Orb state, while logic 145 contains badge state.
-Because logic 136 is unavailable and the Crowbar starts there, the current
-input cannot establish whether the Crowbar is required for the winning route
-or exactly how it is obtained.
+- Tampering with the maintenance robot incorrectly allows it to self-destruct.
+- Losing timed action scenes, knife/arcade sequences, or guard encounters enters
+  the shared rewind presentation.
+- Wrong paths in Central Park detonate mines.
+- Incorrect badge, keycard, password, security, or cockpit choices can kill the
+  player or return to an earlier checkpoint.
+- The Alliance computer can eliminate an unauthorized user.
+- Incorrect ship keypad actions and missed bomb regions prevent the ending.
+- Reaching a visually advanced flight state with only one to three target flags
+  is not a winning terminal state.
 
-## Partial Candidate Route
+## Replay Work Still Required
 
-The following is a phase skeleton supported by readable state transitions. It
-is deliberately not presented as a complete command-by-command walkthrough.
+The static evidence is sufficient to define the terminal contract and the
+major dependency chain, but not yet a deterministic input file. A QEMU replay
+must still record:
 
-1. Complete the local game's opening verification, start a new game, receive
-   MAD, and view the phase-1 Bellevue assignment at headquarters.
-2. Use MAD records and tracking, investigate the available city locations, and
-   collect phase-relevant objects. Read the Data Card and submit the phase-1
-   report; its completion sequence changes the phase from 1 to 2.
-3. Follow the Grand Central maintenance-robot assignment. The readable route
-   network connects this broader investigation with Bellevue, the museum,
-   Trinity Church, and other city scenes. Acquire Module A, Module B, the key,
-   and any other accessible persistent items. Complete the assignment state
-   and return home to advance from phase 2 to phase 3.
-4. Investigate the Greenwood Cemetery assignment. The later readable network
-   includes Coney Island, Drier Offerman Park, the theater, Abdul's Pawn Shop,
-   and the cemetery. Collect the remaining accessible clues, keycards,
-   medallion, badges, and modules. Submit the three-name report when requested,
-   complete the assignment state, and return home to advance to phase 4.
-5. Investigate the Alliance computer. Acquire Modules C and D if not already
-   held, install all four modules through logic 154, and operate the Alliance
-   system in logic 149 until it exposes the final ship path with four bombs.
-6. Enter the ship, navigate to four distinct valid drop regions, and drop one
-   bomb in each. The fourth recorded region transfers to logic 162 and the
-   `To be continued...` conclusion.
+- exact movement coordinates and timing for each arcade room;
+- the accepted suspect-name order for every report phase;
+- the shortest valid carnival/keycard/badge route;
+- the Alliance computer menu selections and cockpit control order; and
+- the flight path and frame windows for the four bomb drops.
 
-The phase ordering and final four-bomb condition are strong evidence. Exact
-movement, exact object dependencies, the proper order of city puzzles, report
-answers, and Crowbar use remain provisional because the local input is
-incomplete and no original-interpreter replay has yet closed the route.
-
-## Failure and Recovery Evidence
-
-MH1 frequently presents a fatal event and then rewinds to shortly before the
-mistake rather than ending at DOS. Readable messages in the Bellevue, robot,
-computer, ship, and late-location logic include variants of "fatal mistake"
-and "back up to a few minutes before." This suggests that a conformance replay
-must distinguish a local retry from a full restart or terminal loss.
-
-The readable resources identify several broad failure classes:
-
-- tampering with or failing to act around the maintenance robot;
-- selecting an incorrect late control or ship button;
-- colliding with guarded or hazardous regions;
-- entering maze walls or using the wrong hall route;
-- failing timed scene interactions;
-- dropping bombs outside a valid target region.
-
-The exact state restored by each retry has not yet been audited. Automated
-replays should therefore checkpoint before dangerous scenes until the local
-rewind behavior is mapped.
-
-## What Is and Is Not Established
-
-The current evidence establishes:
-
-- the four assignments and their phase order;
-- the absence of a numeric score or maximum-score objective;
-- the MAD records, target locations, travel destinations, and Data Card clue;
-- the four-module late-game requirement;
-- the Alliance computer and four loaded bombs;
-- four distinct bomb-completion states and the transition to logic 162 only
-  when all four are set;
-- the final `To be continued...` narrative sequence.
-
-It does not yet establish:
-
-- a fully reachable puzzle-by-puzzle path through every phase;
-- whether logic 136 and the Crowbar are mandatory for completion;
-- exact report text accepted or rejected by the running interpreter;
-- exact controls, movement, timing, and retry-state restoration;
-- complete picture/view coverage for the missing local volume data.
-
-## Work Required for a Replay
-
-1. Obtain a complete MH1 evidence copy containing the bytes addressed by logic
-   136 and the currently unavailable picture and view records.
-2. Regenerate the logic index, resource-reference audit, and picture/view
-   sweeps, then compare their directory metadata with this incomplete copy.
-3. Trace every condition that sets the common assignment-completion flag and
-   reduce each phase to exact object, location, and interaction prerequisites.
-4. Verify report inputs, travel unlocks, the Crowbar chain, module installation
-   order, and retry restoration under the original 3.002.107 interpreter.
-5. Record a complete original-interpreter playthrough with phase, inventory,
-   module, bomb, and terminal-state checkpoints and package it as a deterministic
-   game-level compatibility scenario.
+Those observations should refine this chapter without weakening the proven
+terminal predicate above.

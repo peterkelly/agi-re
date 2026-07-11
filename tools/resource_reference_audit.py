@@ -69,8 +69,7 @@ IMMEDIATE_RESOURCE_OPERANDS = {
         0x1E: (0,),  # load_view
         0x20: (0,),  # discard_view
         0x29: (1,),  # set_object_resource
-        0x2B: (1,),  # set_object_subresource
-        0x7A: (2,),  # setup_transient_object
+        0x7A: (0,),  # setup_transient_object
         0x81: (0,),  # display_view_resource_text_like
     },
     "sound": {
@@ -221,8 +220,12 @@ def audit_game(game_dir: Path) -> dict[str, Any]:
     }
     for kind in KIND_ORDER:
         unreadable_numbers = {entry["number"] for entry in resources[kind]["unreadable"]}
+        readable_numbers = set(resources[kind]["readable"])
         referenced = set(references[kind])
         result.setdefault("referenced_unreadable", {})[kind] = sorted(referenced & unreadable_numbers)
+        result.setdefault("referenced_unavailable", {})[kind] = sorted(
+            referenced - readable_numbers
+        )
         result.setdefault("unreferenced_unreadable", {})[kind] = sorted(unreadable_numbers - referenced)
     return result
 

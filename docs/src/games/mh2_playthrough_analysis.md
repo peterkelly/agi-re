@@ -1,276 +1,258 @@
 # Manhunter: San Francisco Playthrough Analysis
 
-This chapter records a game-specific, clean-room reconstruction of the local
-`MH2` evidence set. It is intended to become a repeatable game-level
-conformance scenario and is not part of the portable AGI engine specification.
-The analysis uses only local game resources, decoded logic and messages, and
-locally rendered graphics.
+This chapter is a fresh clean-room reconstruction of a winning route through
+the replacement local `MH2` evidence set. It was derived from the current
+game's logic, messages, vocabulary, object list, pictures, and views. It does
+not reuse the earlier analysis of the incomplete copy, and no external
+walkthrough or AGI documentation was consulted.
 
-This reconstruction is **partial**. The game identifies itself as *Manhunter:
-San Francisco*, version 3.02, dated July 26, 1989, and its interpreter reports
-version 3.002.149. The local game copy lacks `MH2VOL.3`. Thirty-one present
-logic entries and large parts of the late graphics and sound sets select that
-volume, so the available evidence cannot establish the final winning state or
-a complete path to it.
+The result is a **static route specification**. The complete replacement input
+now exposes the late game that was absent from the former copy: the Rat and Orb
+item chain, the lava/slave controller, helicopter sequence, final control-room
+puzzle, wraparound movement maze, and ending. Their state dependencies and
+terminal edge are source-proven. Exact movement and a complete
+original-interpreter replay remain future work.
 
 ## Evidence Method
 
-The reusable logic index was generated with:
+The reusable index for this analysis was generated with:
 
 ```bash
 AGI_GAME_DIR=games/MH2 \
   python3 -B tools/logic_playthrough_index.py \
-  --output build/playthrough/mh2/index.json
+  --output build/playthrough/mh2-replacement/index.json
 ```
 
-MH2 uses a version 3 combined directory with prefix `MH2`. Its directory
-census advertises 96 present logics, 248 present pictures, 181 present views,
-and 195 present sounds. The available volumes provide:
+The selected game uses interpreter 3.002.149 and the v3 combined resource
+layout. All 96 present logic resources decode. The game also contains 248
+pictures, 181 views, and 193 valid script-addressable sounds. Every resource
+reference made by readable logic resolves. Two unreferenced sound-directory
+tail entries select an absent volume and are inert for valid gameplay.
 
-| Resource type | Readable | Unreadable because volume 3 is absent |
-| --- | ---: | ---: |
-| Logic | 65 | 31 |
-| Picture | 177 | 71 |
-| View | 114 | 67 |
-| Sound | 122 | 73 |
+The analysis traced every inventory mutation, room switch, recognized full
+name, assignment phase, and incoming terminal edge. Representative ending
+pictures were rendered locally and corroborate San Francisco, the antagonist,
+the Orb ship, and the ending montage. They are qualitative scene checks; logic
+control flow supplies the ordering evidence.
 
-The 65 readable logics expose six parser conditions, 135 explicit room
-switches, 32 inventory mutations, and no score events or maximum-score
-assignment. A qualitative picture sweep decoded all 177 pictures available
-from the present volumes.
+No script assigns or changes a conventional numerical score or maximum-score
+value. Winning is therefore defined by the unique continuation ending rather
+than a points total.
 
-The playthrough indexer was extended to treat a missing volume file as an
-explicit unreadable-resource result, alongside an invalid record or out-of-
-range offset. Each missing logic remains in the index with its advertised
-volume and offset instead of aborting the entire analysis.
+## Story and Terminal State
 
-## Missing Logic Boundary
+The story continues with a Manhunter operating in Orb-controlled San
+Francisco. Two explicit assignments direct the player to a burning boat at
+Pier 5 and a human displayed on the sign at Ghirardelli Square. The MAD
+database and tracker connect named occupants to Pier 5, Ghirardelli Square,
+Chinatown, and the Alliance computer. The investigation expands into Rat
+prizes and disguises, a historical Orb-on-a-Stick sequence, an Orb access
+card, captive humans, lava controls, a helicopter flight, and a final Orb
+facility.
 
-The unavailable logic numbers are:
+Logic 187 is the winning terminal sequence. It has no outgoing room transition
+and displays `To be continued...`. Its only incoming edge is from logic 183.
+The edge requires:
 
-```text
-131 132 133 161 164 165 168 170 171 173 174 175 176
-178 179 180 181 183 184 185 186 187 188 189 190 191
-192 193 194 195 196
-```
+- the maze to be in active movement phase;
+- maze state 4;
+- player X strictly between 129 and 144; and
+- player Y less than 24.
 
-These are not proved-unused directory artifacts. Logic 0's normal room
-dispatcher contains direct branches to many of them, including 131, 132, 133,
-164, 165, 168, 171, 173, 174, 176, 178, 179, 183, 184, 191, and 194. Readable
-logic 172 also switches to missing logic 175. The missing set therefore cuts
-through reachable room flow and includes most of the highest-numbered late-
-game logic.
+Thus the player must reach the narrow top exit while the maze is in state 4.
+Merely touching the top boundary in another state wraps the player elsewhere
+and does not end the game.
 
-Two inventory objects also begin in missing rooms: the Hatchet in room 165 and
-the Orb-on-a-Stick in room 170. Their acquisition conditions and later uses
-cannot be reconstructed from this copy.
+## Global Route Constraints
 
-## Completion Model
+1. Take both the ID Card and MAD in the opening sequence. The MAD provides the
+   occupant database, tracker, notes, and travel interface used by the two
+   assignments.
+2. Keep state-bearing evidence until its explicit use: the Rat's Paw, ring,
+   flask, Rat Mask 1, hatchet, statue, Orb Card, and Orb-on-a-Stick all have
+   later consumption or access checks.
+3. Prize choices are not equivalent. Rat Mask 1 is explicitly consumed in the
+   late chain; selecting only Rat Mask 2 does not satisfy that check.
+4. Preserve the Full Flask until the same late sequence that consumes Rat Mask
+   1. Entering its dependent scene with a broken or missing flask reaches an
+   explicit restore/death warning.
+5. Do not lose the Orb Card before the cell-access sequence. The game can
+   remove and later reacquire it, but the access machine still requires the
+   appropriate card state.
+6. Treat the many `back up a few minutes` branches as failures. They are useful
+   retry checkpoints, not alternate progress paths.
 
-MH2 does not use a numeric adventure score. None of the readable logics changes
-the conventional score variable or declares a maximum. Winning must therefore
-be defined by reaching the game's final story state, not by maximizing points.
+## Assignments and Name Input
 
-The present resources do **not** expose that final state. Readable logic 146
-contains the words `The End`, but its surrounding controls start and stop an
-in-world presentation called *The Glorius Union*. Logics 147 and 149 contain
-more Orb propaganda shown through the same local presentation mechanism. These
-are inspectable exhibits within the game, not evidence that the game itself has
-ended.
+The assignment controller advances a small phase value and presents two
+observable orders:
 
-Likewise, `YOU WON` and `Congratulations` messages in logics 102, 117, 119,
-122, and 123 belong to arcade or movement challenges. They signal success in a
-local minigame, not whole-game completion.
-
-Because the late room logics are absent, this chapter does not name a terminal
-logic or claim a complete winning route. The eventual compatibility scenario
-must identify the real final transition from a complete MH2 copy and verify it
-under the original interpreter.
-
-## Readable Story Progression
-
-### Opening pursuit
-
-Logics 153 and 154 date the opening September 4, 2004. The player recounts
-being forced to become a Manhunter for the Orbs in New York, pursuing a killer,
-and following him west aboard an alien ship. The opening sequence leads into
-San Francisco and logic 124, where the player can take an ID Card and the
-Manhunter Assignment Device, or MAD.
-
-### Orb assignments
-
-A phase value starts at 1. Each entry into logic 126 increments it, producing
-two readable assignments:
-
-| Phase after entry | Assignment |
+| Order | Assignment |
 | ---: | --- |
-| 2 | Investigate a boat burning at Pier 5 |
-| 3 | Investigate a human on the sign at Ghirardelli Square |
+| 1 | Investigate the burning boat at Pier 5 |
+| 2 | Investigate the human on the Ghirardelli Square sign |
 
-MAD supplies information and tracking for Tad Timov, Peter Brown, Phillipe
-Cook, Noah Goring, Mic Stone, and Zac West. Its readable target results include
-the Bank of Canton in Chinatown, Ghirardelli Square, Pier 5, and the Alliance
-computer room.
+Reports request full names and parse them through the MAD occupant database.
+Recognized names are Peter Brown, Noah Goring, Mic Stone, Tad Timov, and Zac
+West, with spelling variants in the vocabulary. The records associate targets
+with the Bank of Canton, Ghirardelli Square, Pier 5, and the Alliance computer.
+As in the New York game, recognition and correctness are separate: individual
+names set evidence flags, while assignment phase decides whether a resulting
+branch advances or punishes the player. Exact report-answer order remains a
+replay validation item.
 
-The travel interface exposes a San Francisco investigation network containing
-the warehouse, temple, Hyde Street Pier, Bank of Canton, Embarcadero Fountain,
-crash scene, Pier 5, Ferry Building, the Manhunter's apartment, Tad Timov's
-apartment, Transamerica Pyramid, doctor's house, laundry, private club, shop,
-cable-car barn, scientist's house, wax museum, and Ghirardelli Square.
-Availability is state-dependent; the list is not a claim that every destination
-can be selected immediately.
+## Candidate Winning Route
 
-### Readable investigation chains
+### Opening and city investigations
 
-The available rooms establish several connected object and clue groups:
+1. Start the game and take the ID Card and MAD in logic 124.
+2. Accept the Pier 5 assignment. Use the MAD records and tracker to inspect the
+   available named occupants and travel to the tracked location.
+3. Complete the burning-boat investigation, collect its evidence, and return
+   through the report sequence rather than a fatal or premature exit.
+4. Accept the Ghirardelli Square assignment and investigate the human on the
+   sign. Continue through the report and home-order sequences until the later
+   city locations become available.
 
-- Pier and waterfront rooms contain a Dragon Note, Newspaper, Mallet, broken
-  Fang, Laundry Receipt, and paths involving Alcatraz and a ladder.
-- Residential and institutional rooms provide a Driver's License, Empty Flask,
-  Cloth, Camera, Muzzle, Statue, Matchbook, letters, Empty Gun, Orb Card, and
-  Walking Stick.
-- A Three Aces game in logic 123 offers the Flashlight, Lantern, Rat Mask, Key,
-  and Medallion as prize choices. The local win does not itself end the game.
-- Logic 136 converts the Empty Flask to a Full Flask and supplies Letter 2.
-  Logic 142 uses the Fang as a cutting tool and supplies Letter 1.
-- Logic 138 reveals Orb directives and genetic work on Rat/Dog/Human subjects.
-  Its records say that test subjects failed in dry heat, that loyal subjects
-  are to be released near Fisherman's Wharf, and that the researcher now wants
-  to save mankind.
-- Logic 150 reports that a person emerging from the sewer has the Viewer and
-  that the Rats call Phil `King`, connecting the investigation back to the
-  pursued killer.
+### Evidence and tool chain
 
-The readable failure-message catalog also anticipates later robots, acid,
-rats, bats, gas, lava, slaves, gates, and a place described as Hell. Most of
-the room implementations for that material fall in missing volume 3, so these
-messages are clues to omitted gameplay rather than enough evidence to specify
-its solutions.
+The complete route draws on several city puzzles. Their proven inventory
+effects are:
 
-## Inventory Evidence
+| Item | Acquisition | Later dependency |
+| --- | --- | --- |
+| Ring | Logic 132 movement room | Consumed in logic 168 |
+| Rat's Paw | Logic 133 | Consumed by the associated Rat chain |
+| Empty Flask | Earlier city room | Filled to become Full Flask in logic 136 |
+| Rat Mask 1 | First row of the Three Aces prize logic | Consumed in logic 164 |
+| Hatchet | Logic 165 | Used in logics 165 and 175 |
+| Statue | Logic 128 | Consumed in the access chain in logic 176 |
+| Orb Card | Logic 147 | Required and transformed around logics 176/179 |
+| Orb-on-a-Stick | Logic 170 | Central late-story evidence |
 
-The inventory table contains 32 entries. The table below records the ordinary
-initial room owner and, where readable, the logic that can acquire or transform
-the item.
+1. Complete the movement rooms that yield the ring and Rat's Paw.
+2. Obtain the Empty Flask and fill it during the laboratory/evidence sequence,
+   producing the Full Flask.
+3. Win the Three Aces game and choose Rat Mask 1 from the first prize row. The
+   first row offers Flashlight, Rat Mask 1, and Key; the second offers Lantern,
+   Rat Mask 2, and Medallion. Additional play may supply another prize, but
+   Rat Mask 1 is the source-proven route requirement.
+4. Acquire the statue and Orb Card. The card scene presents Orb propaganda and
+   a direct take-card action; retain the resulting access state.
+5. Follow the Rat Mask 1 and Full Flask branch in logic 164. Both items are
+   removed by separate local states, proving that the scene requires more than
+   simply entering the room.
+6. Take the hatchet in logic 165 and use it where the next sequences consume
+   it. Follow the girl/inside transitions rather than leaving the chain.
+7. Use the ring in logic 168. That route switches directly to logic 170, where
+   the historical `July 2001` scene makes the Orb-on-a-Stick available.
+8. Take the Orb-on-a-Stick and continue through the outside/inside chain in
+   logics 172 and 175.
 
-| Id | Item | Initial room | Readable acquisition or transformation |
-| ---: | --- | ---: | --- |
-| 0 | nothing | 199 | Placeholder |
-| 1 | Dragon Note | 112 | Logic 112 |
-| 2 | ID Card | 124 | Logic 124 |
-| 3 | Newspaper | 112 | Logic 112 |
-| 4 | Scroll | 122 | Logic 122 |
-| 5 | Laundry Receipt | 111 | Logic 111; consumed in logic 134 |
-| 6 | Muzzle | 127 | Logic 127; also consumed/reacquired in readable scenes |
-| 7 | Fang | 111 | Logic 111 |
-| 8 | Walking Stick | 134 | Logic 163 |
-| 9 | Ring | 132 | Acquisition logic unavailable |
-| 10 | Rat's Paw | 133 | Acquisition logic unavailable; readable consumption in logic 139 |
-| 11 | Mallet | 109 | Logic 109 |
-| 12 | Driver's License | 115 | Logic 115 |
-| 13 | Empty Flask | 115 | Logic 115; converted in logic 136 |
-| 14 | MAD | 117 | Taken in logic 124 |
-| 15 | Cloth | 125 | Logic 125 |
-| 16 | Statue | 128 | Logic 128 |
-| 17 | Camera | 118 | Logic 118 |
-| 18 | Full Flask | 136 | Logic 136 |
-| 19 | Matchbook | 138 | Logic 138 |
-| 20 | Letter 1 | 142 | Logic 142 |
-| 21 | Empty Gun | 144 | Logic 144 |
-| 22 | Rat Mask 1 | 123 | Three Aces prize logic |
-| 23 | Hatchet | 165 | Acquisition logic unavailable |
-| 24 | Letter 2 | 136 | Logic 136 |
-| 25 | Orb-on-a-Stick | 170 | Acquisition logic unavailable |
-| 26 | Orb Card | 147 | Logic 147 |
-| 27 | Flashlight | 123 | Three Aces prize logic |
-| 28 | Lantern | 123 | Three Aces prize logic |
-| 29 | Rat Mask 2 | 123 | Three Aces prize logic |
-| 30 | Key | 123 | Three Aces prize logic |
-| 31 | Medallion | 123 | Three Aces prize logic |
+### Orb access and captive route
 
-The Three Aces logic exposes several prizes, but static availability does not
-prove that all prize branches can be collected in one playthrough. That choice
-structure must be traced before turning the inventory list into a required-
-items route.
+1. Reach the cell-door access machine in logic 176. It displays `SCANNING`,
+   then either `ACCESS DENIED...ELIMINATE!` or `ACCESS APPROVED`.
+2. Supply the required statue/card state. The logic removes the statue in one
+   access phase and manipulates the Orb Card in later phases; an absent or wrong
+   access item follows the elimination branch.
+3. Continue into the Orb facility rather than returning to an earlier city
+   room. Subsequent rooms lead to the lava, robot, and captive-human control
+   board.
 
-## Partial Candidate Route
+### Lava, robots, and slaves
 
-The following is the strongest route skeleton supported by the readable
-resources. It is not a command-by-command winning walkthrough.
+Logic 178 implements a board with visible locations and states labelled
+`Slavery`, `Hell - You are here`, `Freedom`, `Life`, and `The Digger`.
+Controls move robots or slaves, open and close gates, and move lava between
+sections. The script rejects any attempt to move robots or slaves into a
+section flooded with lava.
 
-1. Complete the local opening verification, follow the New York-to-San
-   Francisco pursuit, and take the ID Card and MAD in logic 124.
-2. Receive the Pier 5 burning-boat assignment. Use MAD records and tracking,
-   unlock the waterfront travel destinations, inspect the pier and nearby
-   rooms, and collect the readable notes, Mallet, Fang, Laundry Receipt,
-   Driver's License, and flask as their interactions become available.
-3. Return through the assignment flow and receive the Ghirardelli Square sign
-   assignment. Continue opening the residential, commercial, museum, cable-car,
-   and Ghirardelli destinations.
-4. Complete the readable object chains: use the laundry receipt, use the Fang
-   where cutting is required, transform the flask, collect both letters, and
-   inspect the scientist's directives describing the hybrid subjects and
-   Fisherman's Wharf release.
-5. Win the required local arcade or movement challenges and select prizes only
-   as demanded by subsequent object conditions. Collect the Matchbook, Empty
-   Gun, Orb Card, Walking Stick, and other accessible late objects.
-6. Follow the sewer/Viewer/Phil trail into the volume-3 room network. No exact
-   sequence after this boundary can be derived from the current files.
+1. Use the destination sensors to relocate lava away from a section before
+   moving occupants into it.
+2. Open only the gate needed for the current move, transfer the selected group,
+   and close or reposition the gate before changing the lava layout.
+3. Continue until the board's completion state enters logic 185. Numerous
+   partial states return from logic 178 to logic 185; these are controller
+   substeps rather than independent rooms.
+4. In the connected late rooms, recover the Orb Card state when offered and
+   follow the transitions through logics 179, 180, and 181. Logic 180 warns the
+   player to save before the stuck-handle sequence.
 
-The first five steps identify actionable investigation groups, not a proved
-single ordering. Missing rooms 131-133 already interrupt relatively early
-travel and object state, while rooms 164 onward remove substantial late-game
-logic. A complete copy is required to resolve alternate prize choices,
-dependencies, and the terminal state.
+### Helicopter and final facility
 
-## Failure and Retry Evidence
+1. Logic 181 feeds into the helicopter game in logic 161. Press Enter for more
+   lift while steering clear of the tower. A collision displays `You hit the
+   tower!`; the successful route displays `You won!!!` and continues.
+2. Return through the late controller in logic 185. Complete the button and
+   limited-flash interactions until its phase reaches the transition to logic
+   186.
+3. Logic 186 arranges a row of seven controlled objects and tests a multi-step
+   button sequence. Complete that sequence, then enter its lower target region;
+   the script assigns the next room as logic 183.
 
-Like MH1, MH2 often treats death as a narrated local retry. Readable logics use
-phrases such as "back up to a few minutes before your fatal mistake" and offer
-reincarnation or restart controls within arcade sequences. The failure catalog
-includes falling, incorrect controls, robots, acid, rats, bats, exhausted
-camera flashes, gas, lava, and releasing hazards into occupied areas.
+### Final wraparound maze
 
-The exact rewind state is not yet mapped. A future replay must distinguish:
+Logic 183 is a toroidal movement puzzle. The arrow directions change when the
+player crosses an edge:
 
-- local arcade failure followed by immediate restart;
-- narrated death followed by restoration to an earlier room state;
-- ordinary puzzle blockage with no state loss;
-- the true whole-game terminal sequence.
+| Edge crossed | Incoming directions | Wrapped destination and new direction |
+| --- | --- | --- |
+| Top | 1 or 2 | Bottom; 1 becomes 3, 2 becomes 4 |
+| Bottom | 3 or 4 | Top; 3 becomes 1, 4 becomes 2 |
+| Right | 1 or 3 | Left; 1 becomes 2, 3 becomes 4 |
+| Left | 4 or 2 | Right; 4 becomes 3, 2 becomes 1 |
 
-## What Is and Is Not Established
+1. Use the arrow keys to traverse the wraparound board and advance its internal
+   maze state to 4.
+2. In state 4, approach the top edge with X between 130 and 143 inclusive.
+3. Cross above Y 24. The script switches immediately to logic 187.
+4. Allow the ending montage to complete. `To be continued...` is the winning
+   terminal marker.
 
-The current evidence establishes:
+## Other Inventory and Optional Branches
 
-- the game identity and interpreter version;
-- the absence of numeric scoring in all readable logic;
-- the opening pursuit, acquisition of MAD and the ID Card, and two Orb
-  assignments;
-- the readable San Francisco travel network and MAD records;
-- the 32-entry inventory model and 32 readable inventory mutations;
-- the hybrid-subject and Fisherman's Wharf plot disclosures;
-- several local arcade success and death/retry contracts.
+The object table also contains a Dragon Note, Newspaper, Scroll, Laundry
+Receipt, Muzzle, Fang, Mallet, Driver's License, Cloth, Camera, two letters,
+Matchbook, Walking Stick, Empty Gun, Flashlight, Lantern, Rat Mask 2, Key, and
+Medallion. Several are required in earlier local puzzles even though the final
+logic does not inspect them directly. The Matchbook is initialized or acquired
+in logic 180, and the Walking Stick has a direct acquisition action in the
+late-city chain.
 
-It does not establish:
+Until a complete replay chooses and records every prize and side branch, these
+items should be classified as route candidates rather than discarded as
+optional solely from terminal reachability.
 
-- the actual whole-game terminal logic or final observable state;
-- a complete reachable path through either assignment and the later plot;
-- acquisition and use of objects owned by missing rooms;
-- the exact Three Aces prize combination required for completion;
-- late Hell/lava/slave puzzle semantics, movement, timing, or retry state;
-- complete picture, view, and sound coverage.
+## Deaths, Retries, and Dead Ends
 
-## Work Required for a Replay
+- Wrong report names can route to the shared failure/retry logic.
+- Movement rooms around the ring and Rat's Paw contain fatal branches.
+- Entering the late chain without the intact Full Flask triggers an explicit
+  warning that continuing will kill the player.
+- Choosing Rat Mask 2 instead of acquiring Rat Mask 1 leaves the source-proven
+  late consumption check unsatisfied.
+- Failed Orb-card scanning produces `ACCESS DENIED...ELIMINATE!`.
+- Moving robots or slaves into lava is rejected; incorrect board states can
+  strand the controller sequence.
+- The stuck-handle sequence explicitly warns the player to save.
+- Insufficient helicopter lift or lateral error hits the tower.
+- Wrong final-control button sequences do not enter the maze.
+- The maze's top edge is not an exit before state 4, or outside X 130..143.
 
-1. Obtain `MH2VOL.3` from the same MH2 release and confirm its directory and
-   resource headers match the existing files.
-2. Regenerate the logic index, resource-reference audit, and all graphics and
-   sound censuses. The expected first check is that all 31 missing logics and
-   their associated media become readable.
-3. Trace the complete assignment and room graph, inventory prerequisites,
-   Three Aces prize choices, late hazard solutions, and true final transition.
-4. Verify each death/retry class and exact restored state under interpreter
-   3.002.149.
-5. Record a full original-interpreter playthrough with assignment, inventory,
-   room, branch-choice, and terminal checkpoints, then package it as a
-   deterministic game-level compatibility scenario.
+## Replay Work Still Required
+
+The replacement resource set proves a complete terminal route exists, but an
+automated conformance replay still needs:
+
+- exact report-name order for both assignments;
+- the shortest city movement path and necessary side-item selections;
+- the number of Three Aces wins and complete prize choice sequence;
+- the exact lava/gate/robot/slave solution;
+- helicopter steering and lift timing;
+- the seven-object button solution in logic 186; and
+- an arrow-key sequence that reaches maze state 4 and the narrow top exit.
+
+QEMU observations should be used to resolve those inputs and to capture retry
+behavior, while the static predicates above remain the source of truth for
+what constitutes the winning terminal state.
