@@ -28042,3 +28042,63 @@ engine reverse-engineering dashboard. Deleted the MH1/MH2 route, puzzle-input,
 and deterministic-playthrough backlog entries. Retained only MH1/MH2 references
 that provide interpreter-version, dispatch-table, or resource-container
 evidence relevant to the engine specification.
+
+### 2026-07-12
+
+Began replacing the high-level SQ1.22 candidate route with a precise static-data
+playthrough state machine. The work will trace every selected score event back
+through parser words, room and position tests, inventory, flags, variables,
+object state, timers, and random branches in the immutable `games/SQ1.22`
+resources. The canonical reusable result will be JSON with a deterministic
+Graphviz renderer, accompanied by a detailed evidence chapter; no external AGI
+material or prior walkthrough is being consulted.
+
+The initial audit confirmed that the existing chapter is a prerequisite-level
+outline rather than a replay script. Its current index records conditions whose
+byte ranges enclose an action, but it does not reconstruct jumps and therefore
+cannot by itself express exact branch reachability. Full logic disassembly and
+control-flow tracing will be used for the new graph; the index remains a useful
+locator for score, inventory, parser, and room-transition sites.
+
+Movement analysis will combine every selected room logic with both the visual
+and priority/control channels of its picture. Required transitions will record
+the safe approach region and direction against control-line barriers, plus any
+logic action that changes priority, horizon, object control, or the picture's
+effective traversability. This is necessary to distinguish a syntactically
+present room edge from one the player can actually reach.
+
+Completed the first static pass over all SQ1.22 score sites and the principal
+room transitions. The remaining pass is tightening parser commands,
+timing/random branches, and priority/control constraints before encoding the
+canonical success-path state machine.
+
+Resolved three late-game ambiguities from full disassembly. The 6858 shutdown
+code is entered by physically walking across numbered keypad regions in room
+65; the disguise sequence requires entering the open laundry unit from its
+narrow baseline box; and gambling is a genuine random loss/win loop whose
+winnings saturate at 250 buckazoids. These will be represented as coordinate-
+sensitive and retrying graph edges rather than prose shortcuts.
+
+Created the canonical SQ1.22 JSON state graph with 45 selected score nodes
+totaling 202, explicit precondition nodes, movement/parser/wait edges, and
+retry cycles for gambling and guard dialogue. Replaced the candidate chapter
+with coordinate- and state-specific instructions tied to the rendered
+priority/control channels; verification of the renderer, tests, and both books
+is now in progress.
+
+The graph-specific tests and both mdBooks passed. A broad test run with
+`AGI_GAME_DIR=games/SQ1.22` exposed the suite's existing SQ2-bound assertions
+for resource hashes/counts, save names, and interpreter tables; those failures
+are unrelated to the new graph. The unchanged baseline suite is being rerun
+without the incompatible override, and both outcomes will be retained in the
+handoff.
+
+Verification completed. The focused graph tests pass; the standard SQ2-backed
+baseline passes all 438 tests with four expected skips; both mdBooks build;
+the Graphviz renderer regenerates the committed SVG; and `git diff --check`
+is clean. The SQ1.22-selected broad run's expected SQ2-bound failures remain a
+documented harness limitation, not a graph failure.
+
+Changed the SQ1.22 Graphviz renderer from left-to-right to top-to-bottom layout
+and added a focused assertion for the vertical rank direction. The committed
+SVG is being regenerated from the unchanged canonical JSON state graph.

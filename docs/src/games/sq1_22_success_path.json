@@ -1,0 +1,1866 @@
+{
+  "schema_version": 1,
+  "game": {
+    "title": "Space Quest: Chapter I",
+    "release": "SQ1.22",
+    "game_dir_input": "games/SQ1.22",
+    "interpreter": "2.917",
+    "maximum_score": 202
+  },
+  "provenance": {
+    "method": "Clean-room static analysis of local resources and locally documented interpreter behavior only.",
+    "inputs": [
+      "101 logic disassemblies",
+      "WORDS.TOK",
+      "OBJECT",
+      "visual plus priority/control picture renders"
+    ],
+    "limitations": [
+      "Coordinates are picture-space and predicates state width versus baseline.",
+      "Random edges require retry because static data cannot predict runtime seed.",
+      "Dynamic replay remains a future confirmation."
+    ]
+  },
+  "state_model": {
+    "room": "v0; previous v1; edge v2",
+    "score": "v3",
+    "money": "v124",
+    "inventory": "object room 0xff",
+    "position": "picture x/y",
+    "movement": "full baseline footprint must stay on allowed priority/control values; control 0/1 blocks unless logic overrides"
+  },
+  "phase_totals": {
+    "Arcada": 61,
+    "Kerona": 49,
+    "Ulence Flats": 43,
+    "Deltaur": 49
+  },
+  "score_route": [
+    "score_scientist",
+    "score_cartridge",
+    "score_keycard",
+    "score_bay",
+    "score_elevator",
+    "score_suit",
+    "score_gadget",
+    "score_platform",
+    "score_autonav",
+    "score_escape",
+    "score_landing",
+    "score_kit",
+    "score_glass",
+    "score_arch",
+    "score_geyser",
+    "score_acid",
+    "score_beams",
+    "score_boulder",
+    "score_orat_kill",
+    "score_orat_part",
+    "score_orat_return",
+    "score_cart_insert",
+    "score_cart_retrieve",
+    "score_ulence",
+    "score_skimmer_sale",
+    "score_beer",
+    "score_droid",
+    "score_ship",
+    "score_airlock",
+    "score_trunk",
+    "score_vent",
+    "score_vent_return",
+    "score_disguise",
+    "score_guard_talk",
+    "score_guard_yes",
+    "score_guard_kiss",
+    "score_grenade1",
+    "score_grenade2",
+    "score_pulseray",
+    "score_guard_kill",
+    "score_remote",
+    "score_forcefield",
+    "score_destruct",
+    "score_shuttle",
+    "score_launch"
+  ],
+  "nodes": [
+    {
+      "id": "start",
+      "phase": "Arcada",
+      "kind": "state",
+      "label": "New game",
+      "requirements": [
+        "score v3=0"
+      ]
+    },
+    {
+      "id": "pre_scientist",
+      "phase": "Arcada",
+      "kind": "precondition",
+      "label": "Ready: Wait for dying scientist",
+      "room": "1",
+      "requirements": [
+        "v33=1",
+        "remain in room 1"
+      ]
+    },
+    {
+      "id": "score_scientist",
+      "phase": "Arcada",
+      "kind": "score_action",
+      "label": "Wait for dying scientist",
+      "room": "1",
+      "score_delta": 2,
+      "evidence": [
+        {
+          "logic": 1,
+          "ip": "0700"
+        }
+      ]
+    },
+    {
+      "id": "pre_cartridge",
+      "phase": "Arcada",
+      "kind": "precondition",
+      "label": "Ready: Take cartridge",
+      "room": "1",
+      "requirements": [
+        "v50=2",
+        "f35",
+        "item1 absent",
+        "width x74..88 y104..114"
+      ]
+    },
+    {
+      "id": "score_cartridge",
+      "phase": "Arcada",
+      "kind": "score_action",
+      "label": "Take cartridge",
+      "room": "1",
+      "score_delta": 5,
+      "evidence": [
+        {
+          "logic": 1,
+          "ip": "03c8"
+        }
+      ]
+    },
+    {
+      "id": "pre_keycard",
+      "phase": "Arcada",
+      "kind": "precondition",
+      "label": "Ready: Take keycard",
+      "room": "3",
+      "requirements": [
+        "item5 absent",
+        "width x117..159 y57..79"
+      ]
+    },
+    {
+      "id": "score_keycard",
+      "phase": "Arcada",
+      "kind": "score_action",
+      "label": "Take keycard",
+      "room": "3",
+      "score_delta": 1,
+      "evidence": [
+        {
+          "logic": 3,
+          "ip": "0277"
+        }
+      ]
+    },
+    {
+      "id": "pre_bay",
+      "phase": "Arcada",
+      "kind": "precondition",
+      "label": "Ready: Open bay",
+      "room": "6",
+      "requirements": [
+        "v52=0",
+        "width x86..134 y125..136"
+      ]
+    },
+    {
+      "id": "score_bay",
+      "phase": "Arcada",
+      "kind": "score_action",
+      "label": "Open bay",
+      "room": "6",
+      "score_delta": 2,
+      "evidence": [
+        {
+          "logic": 6,
+          "ip": "00e0"
+        }
+      ]
+    },
+    {
+      "id": "pre_elevator",
+      "phase": "Arcada",
+      "kind": "precondition",
+      "label": "Ready: Unlock elevator",
+      "room": "7",
+      "requirements": [
+        "item5 carried",
+        "!f153",
+        "width x74..95 y125..131"
+      ]
+    },
+    {
+      "id": "score_elevator",
+      "phase": "Arcada",
+      "kind": "score_action",
+      "label": "Unlock elevator",
+      "room": "7",
+      "score_delta": 2,
+      "evidence": [
+        {
+          "logic": 7,
+          "ip": "0276"
+        }
+      ]
+    },
+    {
+      "id": "pre_suit",
+      "phase": "Arcada",
+      "kind": "precondition",
+      "label": "Ready: Take suit",
+      "room": "9",
+      "requirements": [
+        "v69=3",
+        "width x68..100 y94..110"
+      ]
+    },
+    {
+      "id": "score_suit",
+      "phase": "Arcada",
+      "kind": "score_action",
+      "label": "Take suit",
+      "room": "9",
+      "score_delta": 2,
+      "evidence": [
+        {
+          "logic": 9,
+          "ip": "04de"
+        }
+      ]
+    },
+    {
+      "id": "pre_gadget",
+      "phase": "Arcada",
+      "kind": "precondition",
+      "label": "Ready: Take gadget",
+      "room": "9",
+      "requirements": [
+        "v70=3",
+        "item3 absent",
+        "width x40..71 y94..110"
+      ]
+    },
+    {
+      "id": "score_gadget",
+      "phase": "Arcada",
+      "kind": "score_action",
+      "label": "Take gadget",
+      "room": "9",
+      "score_delta": 2,
+      "evidence": [
+        {
+          "logic": 9,
+          "ip": "0535"
+        }
+      ]
+    },
+    {
+      "id": "pre_platform",
+      "phase": "Arcada",
+      "kind": "precondition",
+      "label": "Ready: Extend platform",
+      "room": "8",
+      "requirements": [
+        "v52=1",
+        "!f54",
+        "baseline x109..125 y139..147"
+      ]
+    },
+    {
+      "id": "score_platform",
+      "phase": "Arcada",
+      "kind": "score_action",
+      "label": "Extend platform",
+      "room": "8",
+      "score_delta": 1,
+      "evidence": [
+        {
+          "logic": 8,
+          "ip": "02ca"
+        }
+      ]
+    },
+    {
+      "id": "pre_autonav",
+      "phase": "Arcada",
+      "kind": "precondition",
+      "label": "Ready: Engage AutoNav",
+      "room": "10",
+      "requirements": [
+        "f155 door",
+        "f44 belt",
+        "f188 power",
+        "!f81"
+      ]
+    },
+    {
+      "id": "score_autonav",
+      "phase": "Arcada",
+      "kind": "score_action",
+      "label": "Engage AutoNav",
+      "room": "10",
+      "score_delta": 2,
+      "evidence": [
+        {
+          "logic": 10,
+          "ip": "0380"
+        }
+      ]
+    },
+    {
+      "id": "pre_escape",
+      "phase": "Arcada",
+      "kind": "precondition",
+      "label": "Ready: Escape Arcada",
+      "room": "12",
+      "requirements": [
+        "launch reaches room12"
+      ]
+    },
+    {
+      "id": "score_escape",
+      "phase": "Arcada",
+      "kind": "score_action",
+      "label": "Escape Arcada",
+      "room": "12",
+      "score_delta": 15,
+      "evidence": [
+        {
+          "logic": 12,
+          "ip": "004a"
+        }
+      ]
+    },
+    {
+      "id": "pre_landing",
+      "phase": "Arcada",
+      "kind": "precondition",
+      "label": "Ready: Land on Kerona",
+      "room": "13",
+      "requirements": [
+        "landing reaches room13"
+      ]
+    },
+    {
+      "id": "score_landing",
+      "phase": "Arcada",
+      "kind": "score_action",
+      "label": "Land on Kerona",
+      "room": "13",
+      "score_delta": 25,
+      "evidence": [
+        {
+          "logic": 13,
+          "ip": "0055"
+        }
+      ]
+    },
+    {
+      "id": "pre_kit",
+      "phase": "Arcada",
+      "kind": "precondition",
+      "label": "Ready: Take survival kit",
+      "room": "14",
+      "requirements": [
+        "kit item11/22 available"
+      ]
+    },
+    {
+      "id": "score_kit",
+      "phase": "Arcada",
+      "kind": "score_action",
+      "label": "Take survival kit",
+      "room": "14",
+      "score_delta": 2,
+      "evidence": [
+        {
+          "logic": 14,
+          "ip": "0140"
+        }
+      ]
+    },
+    {
+      "id": "pre_glass",
+      "phase": "Kerona",
+      "kind": "precondition",
+      "label": "Ready: Take glass",
+      "room": "30",
+      "requirements": [
+        "item6 absent",
+        "width x32..102 y108..144"
+      ]
+    },
+    {
+      "id": "score_glass",
+      "phase": "Kerona",
+      "kind": "score_action",
+      "label": "Take glass",
+      "room": "30",
+      "score_delta": 3,
+      "evidence": [
+        {
+          "logic": 30,
+          "ip": "0223"
+        }
+      ]
+    },
+    {
+      "id": "pre_arch",
+      "phase": "Kerona",
+      "kind": "precondition",
+      "label": "Ready: Cross arch",
+      "room": "17",
+      "requirements": [
+        "!f177",
+        "width x76..98 y56..60"
+      ]
+    },
+    {
+      "id": "score_arch",
+      "phase": "Kerona",
+      "kind": "score_action",
+      "label": "Cross arch",
+      "room": "17",
+      "score_delta": 2,
+      "evidence": [
+        {
+          "logic": 17,
+          "ip": "0112"
+        }
+      ]
+    },
+    {
+      "id": "pre_geyser",
+      "phase": "Kerona",
+      "kind": "precondition",
+      "label": "Ready: Plug geyser",
+      "room": "26",
+      "requirements": [
+        "item2 carried",
+        "width x2..40 y135..160",
+        "!f84"
+      ]
+    },
+    {
+      "id": "score_geyser",
+      "phase": "Kerona",
+      "kind": "score_action",
+      "label": "Plug geyser",
+      "room": "26",
+      "score_delta": 4,
+      "evidence": [
+        {
+          "logic": 26,
+          "ip": "033e"
+        }
+      ]
+    },
+    {
+      "id": "pre_acid",
+      "phase": "Kerona",
+      "kind": "precondition",
+      "label": "Ready: Cross acid upper path",
+      "room": "27",
+      "requirements": [
+        "f84",
+        "!f178",
+        "baseline y<46"
+      ]
+    },
+    {
+      "id": "score_acid",
+      "phase": "Kerona",
+      "kind": "score_action",
+      "label": "Cross acid upper path",
+      "room": "27",
+      "score_delta": 3,
+      "evidence": [
+        {
+          "logic": 27,
+          "ip": "0357"
+        }
+      ]
+    },
+    {
+      "id": "pre_beams",
+      "phase": "Kerona",
+      "kind": "precondition",
+      "label": "Ready: Deflect beams",
+      "room": "28",
+      "requirements": [
+        "item6",
+        "!f121",
+        "x<70 y125..155"
+      ]
+    },
+    {
+      "id": "score_beams",
+      "phase": "Kerona",
+      "kind": "score_action",
+      "label": "Deflect beams",
+      "room": "28",
+      "score_delta": 5,
+      "evidence": [
+        {
+          "logic": 28,
+          "ip": "0298"
+        }
+      ]
+    },
+    {
+      "id": "pre_boulder",
+      "phase": "Kerona",
+      "kind": "precondition",
+      "label": "Ready: Kill spider",
+      "room": "19",
+      "requirements": [
+        "f97",
+        "!f165",
+        "width x37..64 y56..64"
+      ]
+    },
+    {
+      "id": "score_boulder",
+      "phase": "Kerona",
+      "kind": "score_action",
+      "label": "Kill spider",
+      "room": "19",
+      "score_delta": 5,
+      "evidence": [
+        {
+          "logic": 19,
+          "ip": "0416"
+        }
+      ]
+    },
+    {
+      "id": "pre_orat_kill",
+      "phase": "Kerona",
+      "kind": "precondition",
+      "label": "Ready: Kill Orat",
+      "room": "24",
+      "requirements": [
+        "item12",
+        "!f75",
+        "distance>=15"
+      ]
+    },
+    {
+      "id": "score_orat_kill",
+      "phase": "Kerona",
+      "kind": "score_action",
+      "label": "Kill Orat",
+      "room": "24",
+      "score_delta": 5,
+      "evidence": [
+        {
+          "logic": 24,
+          "ip": "04d5"
+        }
+      ]
+    },
+    {
+      "id": "pre_orat_part",
+      "phase": "Kerona",
+      "kind": "precondition",
+      "label": "Ready: Take Orat part",
+      "room": "24",
+      "requirements": [
+        "f75",
+        "item4 absent",
+        "width x112..152 y115..142"
+      ]
+    },
+    {
+      "id": "score_orat_part",
+      "phase": "Kerona",
+      "kind": "score_action",
+      "label": "Take Orat part",
+      "room": "24",
+      "score_delta": 2,
+      "evidence": [
+        {
+          "logic": 24,
+          "ip": "0351"
+        }
+      ]
+    },
+    {
+      "id": "pre_orat_return",
+      "phase": "Kerona",
+      "kind": "precondition",
+      "label": "Ready: Deliver Orat part",
+      "room": "29",
+      "requirements": [
+        "item4",
+        "f39"
+      ]
+    },
+    {
+      "id": "score_orat_return",
+      "phase": "Kerona",
+      "kind": "score_action",
+      "label": "Deliver Orat part",
+      "room": "29",
+      "score_delta": 10,
+      "evidence": [
+        {
+          "logic": 29,
+          "ip": "0341"
+        }
+      ]
+    },
+    {
+      "id": "pre_cart_insert",
+      "phase": "Kerona",
+      "kind": "precondition",
+      "label": "Ready: Insert cartridge",
+      "room": "31",
+      "requirements": [
+        "item1",
+        "!f32",
+        "width x75..98 y114..127"
+      ]
+    },
+    {
+      "id": "score_cart_insert",
+      "phase": "Kerona",
+      "kind": "score_action",
+      "label": "Insert cartridge",
+      "room": "31",
+      "score_delta": 5,
+      "evidence": [
+        {
+          "logic": 31,
+          "ip": "04c0"
+        }
+      ]
+    },
+    {
+      "id": "pre_cart_retrieve",
+      "phase": "Kerona",
+      "kind": "precondition",
+      "label": "Ready: Retrieve cartridge",
+      "room": "31",
+      "requirements": [
+        "f37",
+        "x67..98 y114..137"
+      ]
+    },
+    {
+      "id": "score_cart_retrieve",
+      "phase": "Kerona",
+      "kind": "score_action",
+      "label": "Retrieve cartridge",
+      "room": "31",
+      "score_delta": 5,
+      "evidence": [
+        {
+          "logic": 31,
+          "ip": "054c"
+        }
+      ]
+    },
+    {
+      "id": "pre_ulence",
+      "phase": "Ulence Flats",
+      "kind": "precondition",
+      "label": "Ready: Arrive Ulence",
+      "room": "35",
+      "requirements": [
+        "entered from33",
+        "score flag clear"
+      ]
+    },
+    {
+      "id": "score_ulence",
+      "phase": "Ulence Flats",
+      "kind": "score_action",
+      "label": "Arrive Ulence",
+      "room": "35",
+      "score_delta": 25,
+      "evidence": [
+        {
+          "logic": 35,
+          "ip": "017f"
+        }
+      ]
+    },
+    {
+      "id": "pre_skimmer_sale",
+      "phase": "Ulence Flats",
+      "kind": "precondition",
+      "label": "Ready: Sell skimmer final offer",
+      "room": "35",
+      "requirements": [
+        "v58=7",
+        "width x23..83 y132..161"
+      ]
+    },
+    {
+      "id": "score_skimmer_sale",
+      "phase": "Ulence Flats",
+      "kind": "score_action",
+      "label": "Sell skimmer final offer",
+      "room": "35",
+      "score_delta": 5,
+      "evidence": [
+        {
+          "logic": 35,
+          "ip": "06f4"
+        }
+      ]
+    },
+    {
+      "id": "pre_beer",
+      "phase": "Ulence Flats",
+      "kind": "precondition",
+      "label": "Ready: Drink third beer",
+      "room": "70",
+      "requirements": [
+        "v40=2",
+        "bartender v35=100 f41",
+        "money>=2"
+      ]
+    },
+    {
+      "id": "score_beer",
+      "phase": "Ulence Flats",
+      "kind": "score_action",
+      "label": "Drink third beer",
+      "room": "70",
+      "score_delta": 5,
+      "evidence": [
+        {
+          "logic": 70,
+          "ip": "0637"
+        }
+      ]
+    },
+    {
+      "id": "pre_droid",
+      "phase": "Ulence Flats",
+      "kind": "precondition",
+      "label": "Ready: Buy flight droid",
+      "room": "71",
+      "requirements": [
+        "v30=1",
+        "f39",
+        "v124>=45",
+        "!f60"
+      ]
+    },
+    {
+      "id": "score_droid",
+      "phase": "Ulence Flats",
+      "kind": "score_action",
+      "label": "Buy flight droid",
+      "room": "71",
+      "score_delta": 4,
+      "evidence": [
+        {
+          "logic": 71,
+          "ip": "0362"
+        }
+      ]
+    },
+    {
+      "id": "pre_ship",
+      "phase": "Ulence Flats",
+      "kind": "precondition",
+      "label": "Ready: Buy ship",
+      "room": "37",
+      "requirements": [
+        "f65",
+        "!f74",
+        "v71=0",
+        "v124>=214"
+      ]
+    },
+    {
+      "id": "score_ship",
+      "phase": "Ulence Flats",
+      "kind": "score_action",
+      "label": "Buy ship",
+      "room": "37",
+      "score_delta": 4,
+      "evidence": [
+        {
+          "logic": 37,
+          "ip": "028b"
+        }
+      ]
+    },
+    {
+      "id": "pre_airlock",
+      "phase": "Deltaur",
+      "kind": "precondition",
+      "label": "Ready: Enter inner airlock",
+      "room": "61",
+      "requirements": [
+        "jetpack",
+        "room45 handle open",
+        "f34 cycle"
+      ]
+    },
+    {
+      "id": "score_airlock",
+      "phase": "Deltaur",
+      "kind": "score_action",
+      "label": "Enter inner airlock",
+      "room": "61",
+      "score_delta": 1,
+      "evidence": [
+        {
+          "logic": 61,
+          "ip": "016e"
+        }
+      ]
+    },
+    {
+      "id": "pre_trunk",
+      "phase": "Deltaur",
+      "kind": "precondition",
+      "label": "Ready: Hide in trunk",
+      "room": "57",
+      "requirements": [
+        "room57",
+        "f76 open",
+        "close to trunk"
+      ]
+    },
+    {
+      "id": "score_trunk",
+      "phase": "Deltaur",
+      "kind": "score_action",
+      "label": "Hide in trunk",
+      "room": "57",
+      "score_delta": 3,
+      "evidence": [
+        {
+          "logic": 121,
+          "ip": "01df"
+        }
+      ]
+    },
+    {
+      "id": "pre_vent",
+      "phase": "Deltaur",
+      "kind": "precondition",
+      "label": "Ready: Enter vent",
+      "room": "53",
+      "requirements": [
+        "f82",
+        "v249=4",
+        "v81=1",
+        "score flag clear"
+      ]
+    },
+    {
+      "id": "score_vent",
+      "phase": "Deltaur",
+      "kind": "score_action",
+      "label": "Enter vent",
+      "room": "53",
+      "score_delta": 2,
+      "evidence": [
+        {
+          "logic": 121,
+          "ip": "04fd"
+        }
+      ]
+    },
+    {
+      "id": "pre_vent_return",
+      "phase": "Deltaur",
+      "kind": "precondition",
+      "label": "Ready: Return through grate",
+      "room": "53",
+      "requirements": [
+        "entered from52",
+        "!f201"
+      ]
+    },
+    {
+      "id": "score_vent_return",
+      "phase": "Deltaur",
+      "kind": "score_action",
+      "label": "Return through grate",
+      "room": "53",
+      "score_delta": 1,
+      "evidence": [
+        {
+          "logic": 53,
+          "ip": "00c9"
+        }
+      ]
+    },
+    {
+      "id": "pre_disguise",
+      "phase": "Deltaur",
+      "kind": "precondition",
+      "label": "Ready: Gain disguise",
+      "room": "53",
+      "requirements": [
+        "v72=3",
+        "v81!=3/4",
+        "width x60..74 y107..111"
+      ]
+    },
+    {
+      "id": "score_disguise",
+      "phase": "Deltaur",
+      "kind": "score_action",
+      "label": "Gain disguise",
+      "room": "53",
+      "score_delta": 5,
+      "evidence": [
+        {
+          "logic": 53,
+          "ip": "0282"
+        }
+      ]
+    },
+    {
+      "id": "pre_guard_talk",
+      "phase": "Deltaur",
+      "kind": "precondition",
+      "label": "Ready: v81=3; room!=50; guard distance<=30; !f204",
+      "room": "corridor",
+      "requirements": [
+        "TALK TO GUARD"
+      ]
+    },
+    {
+      "id": "score_guard_talk",
+      "phase": "Deltaur",
+      "kind": "score_action",
+      "label": "v81=3; room!=50; guard distance<=30; !f204",
+      "room": "corridor",
+      "score_delta": 1,
+      "evidence": [
+        {
+          "logic": 122,
+          "ip": "008f"
+        }
+      ]
+    },
+    {
+      "id": "pre_guard_yes",
+      "phase": "Deltaur",
+      "kind": "precondition",
+      "label": "Ready: f218 question; !f206",
+      "room": "corridor",
+      "requirements": [
+        "answer YES next cycle"
+      ]
+    },
+    {
+      "id": "score_guard_yes",
+      "phase": "Deltaur",
+      "kind": "score_action",
+      "label": "f218 question; !f206",
+      "room": "corridor",
+      "score_delta": 5,
+      "evidence": [
+        {
+          "logic": 122,
+          "ip": "0064"
+        }
+      ]
+    },
+    {
+      "id": "pre_guard_kiss",
+      "phase": "Deltaur",
+      "kind": "precondition",
+      "label": "Ready: v81=3; guard distance<=30; !f205",
+      "room": "corridor",
+      "requirements": [
+        "KISS GUARD"
+      ]
+    },
+    {
+      "id": "score_guard_kiss",
+      "phase": "Deltaur",
+      "kind": "score_action",
+      "label": "v81=3; guard distance<=30; !f205",
+      "room": "corridor",
+      "score_delta": 1,
+      "evidence": [
+        {
+          "logic": 122,
+          "ip": "0111"
+        }
+      ]
+    },
+    {
+      "id": "pre_grenade1",
+      "phase": "Deltaur",
+      "kind": "precondition",
+      "label": "Ready: Take first grenade",
+      "room": "51",
+      "requirements": [
+        "item15 available",
+        "!f38",
+        "width x117..133 y135..145"
+      ]
+    },
+    {
+      "id": "score_grenade1",
+      "phase": "Deltaur",
+      "kind": "score_action",
+      "label": "Take first grenade",
+      "room": "51",
+      "score_delta": 1,
+      "evidence": [
+        {
+          "logic": 51,
+          "ip": "0231"
+        }
+      ]
+    },
+    {
+      "id": "pre_grenade2",
+      "phase": "Deltaur",
+      "kind": "precondition",
+      "label": "Ready: Take second grenade",
+      "room": "51",
+      "requirements": [
+        "!f38",
+        "second score flag clear",
+        "same box"
+      ]
+    },
+    {
+      "id": "score_grenade2",
+      "phase": "Deltaur",
+      "kind": "score_action",
+      "label": "Take second grenade",
+      "room": "51",
+      "score_delta": 1,
+      "evidence": [
+        {
+          "logic": 51,
+          "ip": "023b"
+        }
+      ]
+    },
+    {
+      "id": "pre_pulseray",
+      "phase": "Deltaur",
+      "kind": "precondition",
+      "label": "Ready: Obtain pulseray",
+      "room": "51",
+      "requirements": [
+        "item13",
+        "item14 absent",
+        "service ready"
+      ]
+    },
+    {
+      "id": "score_pulseray",
+      "phase": "Deltaur",
+      "kind": "score_action",
+      "label": "Obtain pulseray",
+      "room": "51",
+      "score_delta": 3,
+      "evidence": [
+        {
+          "logic": 51,
+          "ip": "0307"
+        }
+      ]
+    },
+    {
+      "id": "pre_guard_kill",
+      "phase": "Deltaur",
+      "kind": "precondition",
+      "label": "Ready: Shoot room50 guard",
+      "room": "50",
+      "requirements": [
+        "item14",
+        "projectile11 within20 guard10",
+        "!f171"
+      ]
+    },
+    {
+      "id": "score_guard_kill",
+      "phase": "Deltaur",
+      "kind": "score_action",
+      "label": "Shoot room50 guard",
+      "room": "50",
+      "score_delta": 5,
+      "evidence": [
+        {
+          "logic": 119,
+          "ip": "05dd"
+        }
+      ]
+    },
+    {
+      "id": "pre_remote",
+      "phase": "Deltaur",
+      "kind": "precondition",
+      "label": "Ready: Take remote",
+      "room": "50",
+      "requirements": [
+        "f171",
+        "item16 absent",
+        "x70..86 y145..164"
+      ]
+    },
+    {
+      "id": "score_remote",
+      "phase": "Deltaur",
+      "kind": "score_action",
+      "label": "Take remote",
+      "room": "50",
+      "score_delta": 3,
+      "evidence": [
+        {
+          "logic": 50,
+          "ip": "03bd"
+        }
+      ]
+    },
+    {
+      "id": "pre_forcefield",
+      "phase": "Deltaur",
+      "kind": "precondition",
+      "label": "Ready: Disable forcefield",
+      "room": "50",
+      "requirements": [
+        "item16",
+        "f42",
+        "!f208"
+      ]
+    },
+    {
+      "id": "score_forcefield",
+      "phase": "Deltaur",
+      "kind": "score_action",
+      "label": "Disable forcefield",
+      "room": "50",
+      "score_delta": 3,
+      "evidence": [
+        {
+          "logic": 50,
+          "ip": "03e1"
+        }
+      ]
+    },
+    {
+      "id": "pre_destruct",
+      "phase": "Deltaur",
+      "kind": "precondition",
+      "label": "Ready: Enter 6858",
+      "room": "65",
+      "requirements": [
+        "v31=0",
+        "not accepted"
+      ]
+    },
+    {
+      "id": "score_destruct",
+      "phase": "Deltaur",
+      "kind": "score_action",
+      "label": "Enter 6858",
+      "room": "65",
+      "score_delta": 10,
+      "evidence": [
+        {
+          "logic": 65,
+          "ip": "01e7"
+        }
+      ]
+    },
+    {
+      "id": "pre_shuttle",
+      "phase": "Deltaur",
+      "kind": "precondition",
+      "label": "Ready: Reach shuttle bay",
+      "room": "62",
+      "requirements": [
+        "!f203"
+      ]
+    },
+    {
+      "id": "score_shuttle",
+      "phase": "Deltaur",
+      "kind": "score_action",
+      "label": "Reach shuttle bay",
+      "room": "62",
+      "score_delta": 1,
+      "evidence": [
+        {
+          "logic": 62,
+          "ip": "000f"
+        }
+      ]
+    },
+    {
+      "id": "pre_launch",
+      "phase": "Deltaur",
+      "kind": "precondition",
+      "label": "Ready: Launch shuttle",
+      "room": "62",
+      "requirements": [
+        "f35",
+        "launch idle"
+      ]
+    },
+    {
+      "id": "score_launch",
+      "phase": "Deltaur",
+      "kind": "score_action",
+      "label": "Launch shuttle",
+      "room": "62",
+      "score_delta": 3,
+      "evidence": [
+        {
+          "logic": 62,
+          "ip": "018a"
+        }
+      ]
+    },
+    {
+      "id": "rng_droid",
+      "phase": "Ulence Flats",
+      "kind": "random_retry",
+      "label": "Gamble to v124>=45",
+      "requirements": [
+        "save before wager"
+      ],
+      "randomness": "logic114 draws 1..100; logic115 applies result payout; reel delays random"
+    },
+    {
+      "id": "rng_ship",
+      "phase": "Ulence Flats",
+      "kind": "random_retry",
+      "label": "Gamble to v124>=214",
+      "requirements": [
+        "save after droid purchase"
+      ],
+      "randomness": "loss pays 0; wager 1/2/3; maximum payout 20/40/60; total saturates at 250"
+    },
+    {
+      "id": "rng_question",
+      "phase": "Deltaur",
+      "kind": "random_retry",
+      "label": "Wait for KQII question",
+      "requirements": [
+        "guard distance<=30",
+        "room!=50",
+        "v81=3"
+      ],
+      "randomness": "TALK TO GUARD repeats until branch sets f218"
+    },
+    {
+      "id": "victory",
+      "phase": "Deltaur",
+      "kind": "terminal",
+      "label": "Winning terminal state"
+    }
+  ],
+  "edges": [
+    {
+      "from": "start",
+      "to": "pre_scientist",
+      "kind": "progress",
+      "instruction": "console x74..88 y104..108"
+    },
+    {
+      "from": "pre_scientist",
+      "to": "score_scientist",
+      "kind": "player_action",
+      "instruction": "WAIT through warning/astral-body messages"
+    },
+    {
+      "from": "score_scientist",
+      "to": "pre_cartridge",
+      "kind": "progress",
+      "instruction": "right exit x>134 y<110 ->2->3"
+    },
+    {
+      "from": "pre_cartridge",
+      "to": "score_cartridge",
+      "kind": "player_action",
+      "instruction": "LOOK SCREEN; answer ASTRAL BODY; wait; GET CARTRIDGE"
+    },
+    {
+      "from": "score_cartridge",
+      "to": "pre_keycard",
+      "kind": "progress",
+      "instruction": "room2->6 via priority-band doorway"
+    },
+    {
+      "from": "pre_keycard",
+      "to": "score_keycard",
+      "kind": "player_action",
+      "instruction": "GET KEYCARD"
+    },
+    {
+      "from": "score_keycard",
+      "to": "pre_bay",
+      "kind": "progress",
+      "instruction": "never toggle closed; go room7"
+    },
+    {
+      "from": "pre_bay",
+      "to": "score_bay",
+      "kind": "player_action",
+      "instruction": "PRESS OPEN BAY DOOR; wait f30"
+    },
+    {
+      "from": "score_bay",
+      "to": "pre_elevator",
+      "kind": "progress",
+      "instruction": "trigger x98..114 y121..128 ->9"
+    },
+    {
+      "from": "pre_elevator",
+      "to": "score_elevator",
+      "kind": "player_action",
+      "instruction": "INSERT KEYCARD"
+    },
+    {
+      "from": "score_elevator",
+      "to": "pre_suit",
+      "kind": "progress",
+      "instruction": "open other closet"
+    },
+    {
+      "from": "pre_suit",
+      "to": "score_suit",
+      "kind": "player_action",
+      "instruction": "PRESS LEFT BUTTON; GET SUIT"
+    },
+    {
+      "from": "score_suit",
+      "to": "pre_gadget",
+      "kind": "progress",
+      "instruction": "airlock controls ->8"
+    },
+    {
+      "from": "pre_gadget",
+      "to": "score_gadget",
+      "kind": "player_action",
+      "instruction": "PRESS RIGHT BUTTON; GET GADGET"
+    },
+    {
+      "from": "score_gadget",
+      "to": "pre_platform",
+      "kind": "progress",
+      "instruction": "ENTER SHIP at x49..60 y88..102 ->10"
+    },
+    {
+      "from": "pre_platform",
+      "to": "score_platform",
+      "kind": "player_action",
+      "instruction": "PRESS PLATFORM BUTTON once"
+    },
+    {
+      "from": "score_platform",
+      "to": "pre_autonav",
+      "kind": "progress",
+      "instruction": "PULL THROTTLE"
+    },
+    {
+      "from": "pre_autonav",
+      "to": "score_autonav",
+      "kind": "player_action",
+      "instruction": "CLOSE DOOR; FASTEN BELT; PRESS POWER; PRESS AUTONAV"
+    },
+    {
+      "from": "score_autonav",
+      "to": "pre_escape",
+      "kind": "progress",
+      "instruction": "wait flight"
+    },
+    {
+      "from": "pre_escape",
+      "to": "score_escape",
+      "kind": "player_action",
+      "instruction": "WAIT automatic sequence"
+    },
+    {
+      "from": "score_escape",
+      "to": "pre_landing",
+      "kind": "progress",
+      "instruction": "room14"
+    },
+    {
+      "from": "pre_landing",
+      "to": "score_landing",
+      "kind": "player_action",
+      "instruction": "WAIT automatic sequence"
+    },
+    {
+      "from": "score_landing",
+      "to": "pre_kit",
+      "kind": "progress",
+      "instruction": "yields water12+knife19; UNFASTEN BELT; LEAVE POD"
+    },
+    {
+      "from": "pre_kit",
+      "to": "score_kit",
+      "kind": "player_action",
+      "instruction": "GET SURVIVAL KIT; OPEN SURVIVAL KIT"
+    },
+    {
+      "from": "score_kit",
+      "to": "pre_glass",
+      "kind": "progress",
+      "instruction": "upper/east control passages 30->18->19->16->17"
+    },
+    {
+      "from": "pre_glass",
+      "to": "score_glass",
+      "kind": "player_action",
+      "instruction": "GET GLASS"
+    },
+    {
+      "from": "score_glass",
+      "to": "pre_arch",
+      "kind": "progress",
+      "instruction": "32->25; GET ROCK x55..84 y144..153; left->26"
+    },
+    {
+      "from": "pre_arch",
+      "to": "score_arch",
+      "kind": "player_action",
+      "instruction": "walk north through arch"
+    },
+    {
+      "from": "score_arch",
+      "to": "pre_geyser",
+      "kind": "progress",
+      "instruction": "upper-left opened control passage ->27; never take room26 rock"
+    },
+    {
+      "from": "pre_geyser",
+      "to": "score_geyser",
+      "kind": "player_action",
+      "instruction": "PUT ROCK IN GEYSER; wait"
+    },
+    {
+      "from": "score_geyser",
+      "to": "pre_acid",
+      "kind": "progress",
+      "instruction": "left control opening ->28"
+    },
+    {
+      "from": "pre_acid",
+      "to": "score_acid",
+      "kind": "player_action",
+      "instruction": "follow upper priority channel"
+    },
+    {
+      "from": "score_acid",
+      "to": "pre_beams",
+      "kind": "progress",
+      "instruction": "27->26->29 through opened passages; accept task"
+    },
+    {
+      "from": "pre_beams",
+      "to": "score_beams",
+      "kind": "player_action",
+      "instruction": "USE GLASS ON BEAM; wait f121"
+    },
+    {
+      "from": "score_beams",
+      "to": "pre_boulder",
+      "kind": "progress",
+      "instruction": "19->20->24 lower/east opening"
+    },
+    {
+      "from": "pre_boulder",
+      "to": "score_boulder",
+      "kind": "player_action",
+      "instruction": "PUSH ROCK; wait hit"
+    },
+    {
+      "from": "score_boulder",
+      "to": "pre_orat_kill",
+      "kind": "progress",
+      "instruction": "remains x112..152 y115..142"
+    },
+    {
+      "from": "pre_orat_kill",
+      "to": "score_orat_kill",
+      "kind": "player_action",
+      "instruction": "THROW WATER AT ORAT; wait f75"
+    },
+    {
+      "from": "score_orat_kill",
+      "to": "pre_orat_part",
+      "kind": "progress",
+      "instruction": "20->17->32->25->26->29"
+    },
+    {
+      "from": "pre_orat_part",
+      "to": "score_orat_part",
+      "kind": "player_action",
+      "instruction": "GET ORAT PART"
+    },
+    {
+      "from": "score_orat_part",
+      "to": "pre_orat_return",
+      "kind": "progress",
+      "instruction": "wait access ->31"
+    },
+    {
+      "from": "pre_orat_return",
+      "to": "score_orat_return",
+      "kind": "player_action",
+      "instruction": "DROP ORAT PART"
+    },
+    {
+      "from": "score_orat_return",
+      "to": "pre_cart_insert",
+      "kind": "progress",
+      "instruction": "wait f37"
+    },
+    {
+      "from": "pre_cart_insert",
+      "to": "score_cart_insert",
+      "kind": "player_action",
+      "instruction": "INSERT CARTRIDGE; wait/read 6858"
+    },
+    {
+      "from": "score_cart_insert",
+      "to": "pre_cart_retrieve",
+      "kind": "progress",
+      "instruction": "enter/start skimmer; 78->33->35"
+    },
+    {
+      "from": "pre_cart_retrieve",
+      "to": "score_cart_retrieve",
+      "kind": "player_action",
+      "instruction": "GET CARTRIDGE"
+    },
+    {
+      "from": "score_cart_retrieve",
+      "to": "pre_ulence",
+      "kind": "progress",
+      "instruction": "wait buyer"
+    },
+    {
+      "from": "pre_ulence",
+      "to": "score_ulence",
+      "kind": "player_action",
+      "instruction": "WAIT automatic award"
+    },
+    {
+      "from": "score_ulence",
+      "to": "pre_skimmer_sale",
+      "kind": "progress",
+      "instruction": "get jetpack9+money; room38 GET BUCKAZOIDS x86..114 y108..119; bar"
+    },
+    {
+      "from": "pre_skimmer_sale",
+      "to": "score_skimmer_sale",
+      "kind": "player_action",
+      "instruction": "NO at v58=4; wait return; YES at v58=7"
+    },
+    {
+      "from": "score_skimmer_sale",
+      "to": "pre_beer",
+      "kind": "progress",
+      "instruction": "save; slot loop"
+    },
+    {
+      "from": "pre_beer",
+      "to": "score_beer",
+      "kind": "player_action",
+      "instruction": "BUY BEER then DRINK BEER; repeat exactly 3"
+    },
+    {
+      "from": "pre_droid",
+      "to": "score_droid",
+      "kind": "player_action",
+      "instruction": "cross selector x93..114 y65..69; BUY DROID"
+    },
+    {
+      "from": "pre_ship",
+      "to": "score_ship",
+      "kind": "player_action",
+      "instruction": "BUY SHIP"
+    },
+    {
+      "from": "score_ship",
+      "to": "pre_airlock",
+      "kind": "progress",
+      "instruction": "room57 trunk"
+    },
+    {
+      "from": "pre_airlock",
+      "to": "score_airlock",
+      "kind": "player_action",
+      "instruction": "TURN HANDLE at x70..89 y101..106; fly in; WAIT"
+    },
+    {
+      "from": "score_airlock",
+      "to": "pre_trunk",
+      "kind": "progress",
+      "instruction": "room53 exit; PUT JETPACK IN TRUNK; close; PUSH TRUNK; CLIMB TRUNK; OPEN VENT"
+    },
+    {
+      "from": "pre_trunk",
+      "to": "score_trunk",
+      "kind": "player_action",
+      "instruction": "OPEN TRUNK; ENTER TRUNK; WAIT transport"
+    },
+    {
+      "from": "score_trunk",
+      "to": "pre_vent",
+      "kind": "progress",
+      "instruction": "never closed-vent branch; traverse room52 grate"
+    },
+    {
+      "from": "pre_vent",
+      "to": "score_vent",
+      "kind": "player_action",
+      "instruction": "ENTER VENT"
+    },
+    {
+      "from": "score_vent",
+      "to": "pre_vent_return",
+      "kind": "progress",
+      "instruction": "open washer; x60..74 y107..111"
+    },
+    {
+      "from": "pre_vent_return",
+      "to": "score_vent_return",
+      "kind": "player_action",
+      "instruction": "WAIT room-entry award"
+    },
+    {
+      "from": "score_vent_return",
+      "to": "pre_disguise",
+      "kind": "progress",
+      "instruction": "SEARCH BODY for ID13; corridor !=50"
+    },
+    {
+      "from": "pre_disguise",
+      "to": "score_disguise",
+      "kind": "player_action",
+      "instruction": "ENTER WASHING MACHINE; wait v72=5/v81=3"
+    },
+    {
+      "from": "score_disguise",
+      "to": "pre_guard_talk",
+      "kind": "progress",
+      "instruction": "Move into a corridor other than room 50 and wait for a roaming guard to approach within distance 30."
+    },
+    {
+      "from": "pre_guard_talk",
+      "to": "score_guard_talk",
+      "kind": "player_action",
+      "instruction": "random dialogue loop"
+    },
+    {
+      "from": "pre_guard_yes",
+      "to": "score_guard_yes",
+      "kind": "player_action",
+      "instruction": "guard close"
+    },
+    {
+      "from": "score_guard_yes",
+      "to": "pre_guard_kiss",
+      "kind": "progress",
+      "instruction": "Keep or regain a guard distance of at most 30."
+    },
+    {
+      "from": "pre_guard_kiss",
+      "to": "score_guard_kiss",
+      "kind": "player_action",
+      "instruction": "priority corridor ->51; never shoot roaming guard"
+    },
+    {
+      "from": "score_guard_kiss",
+      "to": "pre_grenade1",
+      "kind": "progress",
+      "instruction": "wait next availability"
+    },
+    {
+      "from": "pre_grenade1",
+      "to": "score_grenade1",
+      "kind": "player_action",
+      "instruction": "wait droid not watching; GET GRENADE"
+    },
+    {
+      "from": "score_grenade1",
+      "to": "pre_grenade2",
+      "kind": "progress",
+      "instruction": "armory counter"
+    },
+    {
+      "from": "pre_grenade2",
+      "to": "score_grenade2",
+      "kind": "player_action",
+      "instruction": "GET GRENADE"
+    },
+    {
+      "from": "score_grenade2",
+      "to": "pre_pulseray",
+      "kind": "progress",
+      "instruction": "room50 align safely; F6"
+    },
+    {
+      "from": "pre_pulseray",
+      "to": "score_pulseray",
+      "kind": "player_action",
+      "instruction": "SHOW ID CARD"
+    },
+    {
+      "from": "score_pulseray",
+      "to": "pre_guard_kill",
+      "kind": "progress",
+      "instruction": "body x70..86 y145..164"
+    },
+    {
+      "from": "pre_guard_kill",
+      "to": "score_guard_kill",
+      "kind": "player_action",
+      "instruction": "press F6 until hit"
+    },
+    {
+      "from": "score_guard_kill",
+      "to": "pre_remote",
+      "kind": "progress",
+      "instruction": "move away"
+    },
+    {
+      "from": "pre_remote",
+      "to": "score_remote",
+      "kind": "player_action",
+      "instruction": "SEARCH BODY or GET REMOTE CONTROL"
+    },
+    {
+      "from": "score_remote",
+      "to": "pre_forcefield",
+      "kind": "progress",
+      "instruction": "keypad opening x69..87 y115..124 ->65"
+    },
+    {
+      "from": "pre_forcefield",
+      "to": "score_forcefield",
+      "kind": "player_action",
+      "instruction": "PRESS REMOTE BUTTON"
+    },
+    {
+      "from": "score_forcefield",
+      "to": "pre_destruct",
+      "kind": "progress",
+      "instruction": "countdown starts; 65->50->49->54->62 immediately"
+    },
+    {
+      "from": "pre_destruct",
+      "to": "score_destruct",
+      "kind": "player_action",
+      "instruction": "walk digit6 x89..97 y118..131; 8 x77..85 y136..148; 5 x77..85 y118..131; 8; ENTER x65..97 y80..90"
+    },
+    {
+      "from": "score_destruct",
+      "to": "pre_shuttle",
+      "kind": "progress",
+      "instruction": "ENTER SHIP at x0..24 y120..124; wait f35"
+    },
+    {
+      "from": "pre_shuttle",
+      "to": "score_shuttle",
+      "kind": "player_action",
+      "instruction": "WAIT room-entry award"
+    },
+    {
+      "from": "score_shuttle",
+      "to": "pre_launch",
+      "kind": "progress",
+      "instruction": "wait 43->63->64 victory"
+    },
+    {
+      "from": "pre_launch",
+      "to": "score_launch",
+      "kind": "player_action",
+      "instruction": "PRESS LAUNCH"
+    },
+    {
+      "from": "score_beer",
+      "to": "rng_droid",
+      "kind": "checkpoint",
+      "instruction": "Save; enter slot room"
+    },
+    {
+      "from": "rng_droid",
+      "to": "rng_droid",
+      "kind": "random_failure",
+      "instruction": "loss/insufficient: restore or wager again; never accept broke state"
+    },
+    {
+      "from": "rng_droid",
+      "to": "pre_droid",
+      "kind": "random_success",
+      "instruction": "continue at v124>=45"
+    },
+    {
+      "from": "score_droid",
+      "to": "rng_ship",
+      "kind": "checkpoint",
+      "instruction": "Save; return to slots if v124<214"
+    },
+    {
+      "from": "rng_ship",
+      "to": "rng_ship",
+      "kind": "random_failure",
+      "instruction": "loss/insufficient: restore or repeat"
+    },
+    {
+      "from": "rng_ship",
+      "to": "pre_ship",
+      "kind": "random_success",
+      "instruction": "continue at v124>=214"
+    },
+    {
+      "from": "score_guard_talk",
+      "to": "rng_question",
+      "kind": "random_wait",
+      "instruction": "wait close; TALK TO GUARD"
+    },
+    {
+      "from": "rng_question",
+      "to": "rng_question",
+      "kind": "random_failure",
+      "instruction": "other response: repeat on next close approach"
+    },
+    {
+      "from": "rng_question",
+      "to": "pre_guard_yes",
+      "kind": "random_success",
+      "instruction": "question sets f218"
+    },
+    {
+      "from": "score_launch",
+      "to": "victory",
+      "kind": "automatic",
+      "instruction": "wait through escape rooms"
+    }
+  ]
+}

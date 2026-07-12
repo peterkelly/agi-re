@@ -11998,3 +11998,35 @@ pictures 19, 31, 35, 39, 205, 253, and 254 were rendered under
 to infer control flow. Neither game contains conventional score or
 maximum-score mutations, so terminal reachability is the applicable winning
 criterion.
+
+## SQ1.22 precise success-path reconstruction
+
+The SQ1.22 work used only the immutable `games/SQ1.22` resources and the
+project's locally inferred decoders. The locator index was regenerated with
+`AGI_GAME_DIR=games/SQ1.22 python3 -B tools/logic_playthrough_index.py`, and all
+101 readable logics were disassembled. Every positive and negative `v3`
+mutation was traced through its enclosing branches and jumps; logic 104's 202
+assignment supplied the declared maximum.
+
+`WORDS.TOK` decoding resolved accepted parser synonym groups, while `OBJECT`
+decoding supplied inventory numbers. Visual and priority/control channels were
+rendered for pictures 1 through 71 under `build/playthrough/sq122/media/`.
+Movement conclusions use the control channel plus room-logic rectangle,
+horizon, priority, and ignore-block operations. The control renders were
+qualitative movement evidence; exact score predicates came from logic code.
+
+The late static pass resolved three important non-parser transitions. Logic 65
+maps walking rectangles to keypad values, so 6858 is entered by crossing digit
+regions 6, 8, 5, and 8 and then the ENTER region. Logic 53 requires the player
+width in x 60..74 with baseline y 107..111, an open washer state `v72=3`, and
+no existing disguise before its five-point laundry branch. Slot logics 113-115
+subtract the selected wager, choose result classes with random operations,
+apply wager-scaled payouts, and saturate a winning total at 250. These facts
+are represented by coordinate edges and retry loops in
+`docs/src/games/sq1_22_success_path.json`.
+
+The selected route contains 45 score nodes totaling 202: 61 Arcada, 49 Kerona,
+43 Ulence Flats, and 49 Deltaur. Alternative positive sites for the combined
+Orat/spider resolution, discounted/credit ship path, second vent branch, and
+roaming-guard shot are excluded. Dynamic confirmation remains outstanding;
+no QEMU observation was used to fill a static-evidence gap.
