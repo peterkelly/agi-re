@@ -12030,3 +12030,76 @@ The selected route contains 45 score nodes totaling 202: 61 Arcada, 49 Kerona,
 Orat/spider resolution, discounted/credit ship path, second vent branch, and
 roaming-guard shot are excluded. Dynamic confirmation remains outstanding;
 no QEMU observation was used to fill a static-evidence gap.
+
+## 2026-07-12: SQ1.22 persistent interpreter controller
+
+Goal: replace timing-sensitive manual QEMU play with a persistent semantic
+controller that pauses the original interpreter at cycle boundaries and
+exposes coherent state without modifying the private game input.
+
+Only local evidence was used. `tools/interpreter_controller.py` validates the
+decoded SQ1.22 executable SHA-256 as
+`97dbc528ff4588b424d8c4e43035d619588c0c6b4376cc1ddea1fb83cea67656`.
+Focused `ndisasm` reads of the local decoded image established cycle image
+`0x015b`, shared string-editor loop/call sites `0x0df2`/`0x0df5` with return
+`0x0df8`, and modal loop/call sites `0x1d1b`/`0x1d22` with return `0x1d25`.
+The profile uses the separately mapped 2.917 data locations rather than
+assuming the 2.936 offsets.
+
+The disposable session disk was produced with:
+
+```text
+python3 -B tools/interpreter_controller.py prepare \
+  --base-image build/freedos/freedos.img \
+  --game-dir games/SQ1.22 --dos-game-dir SQ122 \
+  --raw-output build/interpreter-controller/session/sq122.raw \
+  --output build/interpreter-controller/session/sq122.qcow2
+```
+
+The controller launched QEMU with QMP and GDB Unix sockets, `-S`, the generated
+INT-43h-compatible VGA ROM, and `-display cocoa,zoom-to-fit=on`. Runtime
+signature scanning found physical image base `0x63a0`; stopped registers gave
+DS `0x102f`. A first state read decoded 18 object records. The visual and
+priority endpoints read the live combined logical-buffer segment and produced
+160-by-168 PPM images.
+
+Initial input tests found two harness problems. QMP rejects key transitions
+while the VM is stopped, so a key press must be sent after debugger resume.
+An atomic press/release pair was not observed by the title logic because both
+transitions arrived before cycle input sampling; a semantic tap must keep the
+key down through one stop and release it through the next. More importantly,
+QEMU's real-mode GDB path honored the cycle breakpoint but not simultaneous UI
+breakpoints. Reinstalling the set after a debugger single-step did not change
+that result.
+
+A targeted run with only the string hook active stopped at image `0x0df2`,
+proving the static hook was correct. Interrupting a blocked all-hooks run gave
+image-relative IP `0x4523`; the aligned stack included the call chain ending in
+return `0x0df8`, again proving execution was inside the shared editor. This
+isolated the failure as an emulator debugger limitation rather than a wrong
+interpreter model.
+
+The final controller keeps one breakpoint active. It normally selects cycle
+`0x015b`. If a cycle does not return, it interrupts and reads 256 stack bytes;
+aligned return `0x0df8` selects the string hook, while `0x1d25` selects the
+modal hook. Accepting/dismissing switches back to the cycle hook. The hooks and
+all mutations are runtime debugger state against the disposable VM; no file in
+`games/SQ1.22` changed.
+
+Live confirmation followed this semantic chain:
+
+1. Stop at cycle 1 in room 67.
+2. Press Enter, interrupt the blocking cycle, and classify ordinary
+   `prompt_string_to_slot` input in logic 69 from return `0x0df8`.
+3. Submit `roger` one transition at a time and return to cycle 3 in room 2 with
+   previous room 69.
+4. Submit a normal `look` command, classify modal return `0x1d25`, and confirm
+   one red-border/white-interior screenshot box plus the interpreter
+   window-active word.
+5. Dismiss with Enter, return to cycle 13, and confirm both modal indicators
+   clear.
+
+Conclusion: persistent cycle stepping, shared string input, modal interaction,
+state reads, logical-buffer rendering, and independent dialog detection now
+work together against the real SQ1.22 interpreter. The one-breakpoint limit is
+documented as a QEMU harness constraint and is not AGI behavior.

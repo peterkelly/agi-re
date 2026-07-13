@@ -1816,3 +1816,39 @@ cannot represent the whole partition inside the legacy 1024-cylinder range.
 The MBR partition is explicitly LBA-addressed, the full FAT16 volume mounts,
 and file-count and boot checks pass. This warning is a geometry diagnostic, not
 a truncated filesystem or failed boot.
+
+## Persistent SQ1.22 interpreter controller
+
+`tests/test_interpreter_controller.py` covers the reusable non-QEMU parts of
+`tools/interpreter_controller.py`: high-bit-first flag decoding, 43-byte object
+records, visual/priority nibble rendering, PPM parsing, modal-border detection,
+nested state predicates, keyboard mapping, runtime-image signature discovery,
+verified SQ1.22 hook offsets, and stack classification for the shared string
+and modal waits.
+
+The live integration used a disposable qcow2 copy containing the explicitly
+selected `games/SQ1.22` input. The controller found runtime base `0x63a0` and
+DS `0x102f`, stopped at cycle image `0x015b`, and exposed 256 variables, 256
+flags, 18 object records, 25 inventory entries, four current logic-cache
+records, and a 160-by-168 priority PPM. Enter advanced past the title into the
+ordinary opcode-`0x73` string editor. Its interrupted stack contained return
+`0x0df8`; the semantic submit endpoint entered `roger` and returned to a cycle
+stop in room 2. Typing `look` entered a modal whose stack contained return
+`0x1d25`; the independent screenshot detector found one border and agreed with
+the interpreter window-active state. Dismissal returned to the cycle hook and
+both modal checks cleared.
+
+A targeted breakpoint experiment selected only the string hook and reached
+image `0x0df2` directly. Leaving cycle and UI hooks installed together did not
+reach the UI hook, establishing an observed one-execution-breakpoint
+restriction for this QEMU real-mode GDB path. The production controller keeps
+one hook active, interrupts and classifies a blocking stack when a cycle does
+not return, switches to the matching UI hook, and restores the cycle hook on
+acceptance. This emulator limitation is a harness property, not promoted AGI
+behavior.
+
+Final local verification passed 13 focused controller tests and all 451 tests
+in the explicit `AGI_GAME_DIR=games/SQ2` repository run, with four expected
+skips. Both mdBooks built successfully. Running discovery without an explicit
+game directory remains invalid by design and exits during imports that require
+resource evidence.

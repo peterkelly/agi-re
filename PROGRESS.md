@@ -28,6 +28,13 @@ better understood, or a new remaining-work item is discovered.
   (`170` QEMU-validated, `0x00` structural, and
   `0x6e`/`0x83`/`0x8e`/`0xaa`/`0xad` source-backed).
 - Logic condition opcodes: all 19 of 19 are QEMU-validated.
+- A persistent SQ1.22 interpreter controller now owns visible QEMU through QMP
+  and GDB, stops at every 2.917 cycle boundary, exposes variables, flags,
+  objects, inventory, logic-cache state, visual/priority buffers, screenshots,
+  modal detection, semantic input, predicates, and checkpoints over localhost
+  HTTP. Live integration reached the shared string editor, returned to room 2,
+  detected and dismissed a modal, and restored cycle control. QEMU's observed
+  one-breakpoint real-mode limit is handled by stack-classified hook switching.
 - Main remaining risk areas: concrete picture/view edges exposed by future
   valid resources, compatibility-bundle breadth across additional versions,
   optional canonical initial save bytes for pristine 2.089/2.272 save

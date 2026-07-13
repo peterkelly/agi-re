@@ -33,6 +33,7 @@
 
 # Interpreter Evidence
 
+- [Interpreter Controller](./interpreter_controller.md)
 - [QEMU VGA BIOS Compatibility](./qemu_vgabios.md)
 - [Logic Resources](./logic_resources.md)
 - [Logic Bytecode](./logic_bytecode.md)

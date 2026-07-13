@@ -28102,3 +28102,33 @@ documented harness limitation, not a graph failure.
 Changed the SQ1.22 Graphviz renderer from left-to-right to top-to-bottom layout
 and added a focused assertion for the vertical rank direction. The committed
 SVG is being regenerated from the unchanged canonical JSON state graph.
+
+Started the persistent interpreter-controller implementation with QMP for VM,
+input, screenshots, and checkpoints; GDB for cycle stops and coherent memory;
+and a localhost JSON API for semantic state and actions.
+
+The title Enter test exposed a press/release sequencing fault. Confirmed from
+static logic 69 that the following name field is the ordinary opcode-`0x73`
+shared input mode, not a startup-only editor.
+
+Interrupted the blocked editor and inspected its live registers and stack. The
+return chain contained `0x0df8`, exactly matching the local disassembly, while
+targeting only image `0x0df2` stopped reliably. This isolated a QEMU real-mode
+single-breakpoint constraint rather than an incorrect interpreter offset.
+
+Changed the controller to keep the cycle hook active normally, classify a
+blocking string/modal stack after a bounded interrupt, switch the one active
+hook to that UI, and restore the cycle hook when the UI exits.
+
+Completed live semantic integration: Enter reached shared string input,
+submitting `roger` returned to room 2 cycle control, `look` entered a detected
+modal, and dismissing it restored the cycle hook and cleared both modal oracles.
+
+Final verification passed: 13 focused controller tests, the 451-test
+SQ2-backed repository suite with four expected skips, both mdBook builds, and
+`git diff --check`. The controller and QEMU processes were stopped afterward.
+
+Audited `interpreter_controller.py` for SQ1.22-specific assumptions. Added a
+prominent non-generic warning, moved the runtime signature and blocking-stack
+return addresses into the version profile, marked the 2.917-only decoders and
+screen oracle, and made unsupported object-record widths fail explicitly.

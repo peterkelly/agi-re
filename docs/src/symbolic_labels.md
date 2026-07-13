@@ -818,12 +818,17 @@ and the one observable renderer/object delta.
 | `code.save.save_game_state` | image `0x2753` | Writes the common five-block envelope with first-block length `0x05e1`. |
 | `code.save.restore_game_state` | image `0x2512` | Reads the same five block roles and rebuilds restored references. |
 
-## Same-version PQ1 and KQ3 Associations
+## Same-version SQ1.22, PQ1, and KQ3 Associations
 
-PQ1/2.917 uses the same loaded-image addresses as KQ1/2.917 for every mapped
-role above. The loaded images differ only at three bytes in the expected-game
-signature literal. KQ3/2.936 likewise uses every existing SQ2/2.936 address;
-its loaded image differs from SQ2 at only two signature bytes. These exact
+SQ1.22/2.917 and PQ1/2.917 use the same loaded-image addresses as KQ1/2.917 for
+every mapped role above. Each loaded image differs only at three bytes in the
+expected-game signature literal. The SQ1.22 controller dynamically confirmed
+`code.engine.main_cycle` image `0x0150` with its repeated-cycle hook at
+`0x015b`, `code.input.edit_string` image `0x0da9` with visible loop `0x0df2`
+and wait return `0x0df8`, and `code.text.display_string` image `0x1ce8` with
+modal loop `0x1d1b` and wait return `0x1d25`. KQ3/2.936 likewise uses every
+existing SQ2/2.936 address; its loaded image differs from SQ2 at only two
+signature bytes. These exact
 same-address matches are stronger than relocation matches and require no new
 role labels.
 
