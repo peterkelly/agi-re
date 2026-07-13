@@ -34,6 +34,7 @@ import socket
 import subprocess
 import threading
 import time
+from collections import deque
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any
@@ -651,6 +652,21 @@ def detect_modal_borders(ppm: bytes) -> list[dict[str, int]]:
     return deduplicated
 
 
+def dialog_fingerprint(ppm: bytes, boxes: list[dict[str, int]]) -> str | None:
+    """Hash only detected dialog rectangles so animated backgrounds do not change identity."""
+    if not boxes:
+        return None
+    width, _, pixels = parse_ppm(ppm)
+    digest = hashlib.sha256()
+    for box in boxes:
+        digest.update(json.dumps(box, sort_keys=True).encode())
+        for y in range(box["top"], box["bottom"] + 1):
+            start = (y * width + box["left"]) * 3
+            end = (y * width + box["right"] + 1) * 3
+            digest.update(pixels[start:end])
+    return digest.hexdigest()[:24]
+
+
 def resolve_path(value: Any, path: str) -> Any:
     current = value
     for component in path.split("."):
@@ -673,6 +689,8 @@ def evaluate_predicate(state: dict[str, Any], predicate: dict[str, Any]) -> bool
         return all(evaluate_predicate(state, item) for item in predicate["all"])
     if "any" in predicate:
         return any(evaluate_predicate(state, item) for item in predicate["any"])
+    if "not" in predicate:
+        return not evaluate_predicate(state, predicate["not"])
     path = str(predicate.get("path", ""))
     operator = str(predicate.get("op", "eq"))
     actual = resolve_path(state, path)
@@ -692,7 +710,213 @@ def evaluate_predicate(state: dict[str, Any], predicate: dict[str, Any]) -> bool
     }
     if operator not in operations:
         raise ControllerError(f"unsupported predicate operator: {operator}")
-    return bool(operations[operator]())
+    try:
+        return bool(operations[operator]())
+    except (IndexError, TypeError) as exc:
+        raise ControllerError(
+            f"invalid value for predicate operator {operator} at {path}"
+        ) from exc
+
+
+STATE_SCALARS = (
+    "profile",
+    "version",
+    "cycle",
+    "state_revision",
+    "stop_reason",
+    "room",
+    "previous_room",
+    "entry_boundary",
+    "score",
+    "window_active",
+    "general_modal_active",
+    "current_logic",
+    "current_logic_resume_ip",
+)
+
+OBJECT_TRACE_FIELDS = (
+    "x",
+    "y",
+    "view",
+    "loop",
+    "cel",
+    "width",
+    "height",
+    "direction",
+    "motion_mode",
+    "cycle_mode",
+    "priority",
+    "flags",
+)
+
+
+def summarize_state(state: dict[str, Any]) -> dict[str, Any]:
+    """Return the stable, compact portion of a controller state snapshot."""
+    result = {key: state.get(key) for key in STATE_SCALARS if key in state}
+    objects = state.get("objects") or []
+    if objects:
+        ego = objects[0]
+        result["ego"] = {
+            key: ego.get(key)
+            for key in OBJECT_TRACE_FIELDS
+            if key in ego
+        }
+    return result
+
+
+def state_delta(before: dict[str, Any], after: dict[str, Any]) -> dict[str, Any]:
+    """Compute a compact semantic delta between two stopped states."""
+    delta: dict[str, Any] = {}
+    scalars: dict[str, dict[str, Any]] = {}
+    for key in STATE_SCALARS:
+        old = before.get(key)
+        new = after.get(key)
+        if old != new:
+            scalars[key] = {"before": old, "after": new}
+    if scalars:
+        delta["scalars"] = scalars
+
+    variable_changes = []
+    for index, (old, new) in enumerate(
+        zip(before.get("variables", []), after.get("variables", []), strict=False)
+    ):
+        if old != new:
+            variable_changes.append({"index": index, "before": old, "after": new})
+    if variable_changes:
+        delta["variables"] = variable_changes
+
+    flag_changes = []
+    for index, (old, new) in enumerate(
+        zip(before.get("flags", []), after.get("flags", []), strict=False)
+    ):
+        if old != new:
+            flag_changes.append({"index": index, "before": old, "after": new})
+    if flag_changes:
+        delta["flags"] = flag_changes
+
+    object_changes = []
+    before_objects = before.get("objects", [])
+    after_objects = after.get("objects", [])
+    for index in range(max(len(before_objects), len(after_objects))):
+        old_object = before_objects[index] if index < len(before_objects) else {}
+        new_object = after_objects[index] if index < len(after_objects) else {}
+        fields = {
+            key: {"before": old_object.get(key), "after": new_object.get(key)}
+            for key in OBJECT_TRACE_FIELDS
+            if old_object.get(key) != new_object.get(key)
+        }
+        if fields:
+            object_changes.append({"index": index, "fields": fields})
+    if object_changes:
+        delta["objects"] = object_changes
+    return delta
+
+
+def priority_value(buffer: bytes, width: int, x: int, y: int) -> int:
+    if x < 0 or y < 0 or x >= width or y * width + x >= len(buffer):
+        raise ControllerError(f"priority coordinate is outside the logical buffer: {x},{y}")
+    return buffer[y * width + x] >> 4
+
+
+def compress_cardinal_path(path: list[tuple[int, int]]) -> list[dict[str, int]]:
+    """Reduce a pixel path to its turns and final point."""
+    if not path:
+        return []
+    if len(path) == 1:
+        return [{"x": path[0][0], "y": path[0][1]}]
+    result: list[dict[str, int]] = []
+    previous_direction: tuple[int, int] | None = None
+    for index in range(1, len(path)):
+        old = path[index - 1]
+        new = path[index]
+        direction = (new[0] - old[0], new[1] - old[1])
+        if previous_direction is not None and direction != previous_direction:
+            turn = path[index - 1]
+            result.append({"x": turn[0], "y": turn[1]})
+        previous_direction = direction
+    end = path[-1]
+    result.append({"x": end[0], "y": end[1]})
+    return result
+
+
+def plan_priority_path(
+    buffer: bytes,
+    *,
+    width: int,
+    height: int,
+    start: tuple[int, int],
+    goal: tuple[int, int],
+    footprint_width: int = 1,
+    blocked_priorities: set[int] | None = None,
+    goal_tolerance: int = 0,
+    max_visited: int = 100_000,
+) -> dict[str, Any]:
+    """Find a local-room cardinal path for an ego baseline footprint.
+
+    This planner deliberately models only static priority/control acceptance.
+    Dynamic object collision and room-logic overrides remain execution guards.
+    """
+    if len(buffer) != width * height:
+        raise ControllerError("priority planner buffer dimensions do not match")
+    if footprint_width < 1 or footprint_width > width:
+        raise ControllerError("footprint_width must fit inside the logical screen")
+    if goal_tolerance < 0:
+        raise ControllerError("goal_tolerance cannot be negative")
+    blocked = blocked_priorities if blocked_priorities is not None else {0, 1}
+
+    def accepted(point: tuple[int, int]) -> bool:
+        x, y = point
+        if x < 0 or y < 0 or y >= height or x + footprint_width > width:
+            return False
+        return all(priority_value(buffer, width, px, y) not in blocked for px in range(x, x + footprint_width))
+
+    def at_goal(point: tuple[int, int]) -> bool:
+        return abs(point[0] - goal[0]) <= goal_tolerance and abs(point[1] - goal[1]) <= goal_tolerance
+
+    if not accepted(start):
+        raise ControllerError(f"start baseline footprint is blocked: {start}")
+    if not any(
+        accepted((x, y))
+        for y in range(max(0, goal[1] - goal_tolerance), min(height, goal[1] + goal_tolerance + 1))
+        for x in range(max(0, goal[0] - goal_tolerance), min(width, goal[0] + goal_tolerance + 1))
+    ):
+        raise ControllerError(f"goal baseline footprint is blocked: {goal}")
+
+    queue: deque[tuple[int, int]] = deque([start])
+    previous: dict[tuple[int, int], tuple[int, int] | None] = {start: None}
+    reached: tuple[int, int] | None = None
+    while queue:
+        current = queue.popleft()
+        if at_goal(current):
+            reached = current
+            break
+        if len(previous) >= max_visited:
+            raise ControllerError(f"priority path search exceeded {max_visited} visited points")
+        x, y = current
+        for candidate in ((x + 1, y), (x - 1, y), (x, y + 1), (x, y - 1)):
+            if candidate in previous or not accepted(candidate):
+                continue
+            previous[candidate] = current
+            queue.append(candidate)
+    if reached is None:
+        raise ControllerError(f"no priority path from {start} to {goal}")
+    path: list[tuple[int, int]] = []
+    cursor: tuple[int, int] | None = reached
+    while cursor is not None:
+        path.append(cursor)
+        cursor = previous[cursor]
+    path.reverse()
+    return {
+        "start": {"x": start[0], "y": start[1]},
+        "requested_goal": {"x": goal[0], "y": goal[1]},
+        "reached_goal": {"x": reached[0], "y": reached[1]},
+        "footprint_width": footprint_width,
+        "blocked_priorities": sorted(blocked),
+        "visited": len(previous),
+        "path_length": max(0, len(path) - 1),
+        "waypoints": compress_cardinal_path(path),
+        "path": [{"x": x, "y": y} for x, y in path],
+    }
 
 
 QCODE_BY_CHARACTER = {
@@ -718,6 +942,212 @@ def qcode_for_character(character: str) -> tuple[str, bool]:
     raise ControllerError(f"unsupported keyboard character: {character!r}")
 
 
+class InterpreterAdapter:
+    """Profile-owned packaging, memory decoding, and visible-state semantics."""
+
+    def __init__(self, profile: InterpreterProfile):
+        self.profile = profile
+
+    def validate_game(self, game_dir: Path) -> bytes:
+        raise NotImplementedError
+
+    def classify_blocking_stack(self, stack: bytes) -> str | None:
+        raise NotImplementedError
+
+    def read_variables(self, session: InterpreterSession) -> list[int]:
+        raise NotImplementedError
+
+    def read_flags(self, session: InterpreterSession) -> list[bool]:
+        raise NotImplementedError
+
+    def read_objects(self, session: InterpreterSession) -> list[dict[str, Any]]:
+        raise NotImplementedError
+
+    def read_inventory(self, session: InterpreterSession) -> list[dict[str, Any]]:
+        raise NotImplementedError
+
+    def read_logics(self, session: InterpreterSession) -> list[dict[str, Any]]:
+        raise NotImplementedError
+
+    def read_logical_buffer(self, session: InterpreterSession) -> bytes:
+        raise NotImplementedError
+
+    def state_fields(
+        self,
+        session: InterpreterSession,
+        variables: list[int],
+        flags: list[bool],
+        objects: list[dict[str, Any]],
+    ) -> dict[str, Any]:
+        raise NotImplementedError
+
+    def colorize_logical_buffer(self, buffer: bytes, channel: str) -> bytes:
+        raise NotImplementedError
+
+    def detect_modal_borders(self, ppm: bytes) -> list[dict[str, int]]:
+        raise NotImplementedError
+
+    def movement_control(self, direction: str) -> tuple[str, int]:
+        raise NotImplementedError
+
+    def movement_stop_key(self) -> str:
+        raise NotImplementedError
+
+    def default_blocked_priorities(self) -> set[int]:
+        raise NotImplementedError
+
+
+class SQ122Adapter(InterpreterAdapter):
+    """All locally evidenced SQ1.22 / AGI 2.917 assumptions."""
+
+    def validate_game(self, game_dir: Path) -> bytes:
+        return validate_profile(game_dir, self.profile)
+
+    def classify_blocking_stack(self, stack: bytes) -> str | None:
+        return classify_blocking_stack(stack, self.profile)
+
+    def read_variables(self, session: InterpreterSession) -> list[int]:
+        return list(session.read_data(self.profile.variables, 256))
+
+    def read_flags(self, session: InterpreterSession) -> list[bool]:
+        return unpack_flags(session.read_data(self.profile.flags, 32))
+
+    def read_objects(self, session: InterpreterSession) -> list[dict[str, Any]]:
+        start = session.read_word(self.profile.object_start_pointer)
+        end = session.read_word(self.profile.object_end_pointer)
+        if end < start or end - start > self.profile.object_record_size * 256:
+            raise ControllerError(f"invalid object table bounds {start:#x}..{end:#x}")
+        return parse_object_records(
+            session.read_data(start, end - start),
+            start,
+            self.profile.object_record_size,
+        )
+
+    def read_inventory(self, session: InterpreterSession) -> list[dict[str, Any]]:
+        start = session.read_word(self.profile.inventory_start_pointer)
+        end = session.read_word(self.profile.inventory_end_pointer)
+        if end < start or (end - start) % 3 or end - start > 3 * 256:
+            raise ControllerError(f"invalid inventory table bounds {start:#x}..{end:#x}")
+        table = session.read_data(start, end - start)
+        result: list[dict[str, Any]] = []
+        for index in range(len(table) // 3):
+            name_offset = u16le(table, index * 3)
+            marker = table[index * 3 + 2]
+            name = ""
+            try:
+                raw_name = session.read_data(start + name_offset, 128).split(b"\0", 1)[0]
+                name = raw_name.decode("cp437", errors="replace")
+            except (ControllerError, GdbRemoteError):
+                pass
+            result.append(
+                {
+                    "index": index,
+                    "name": name,
+                    "name_offset": name_offset,
+                    "room_or_marker": marker,
+                    "carried": marker == 0xFF,
+                }
+            )
+        return result
+
+    def read_logics(self, session: InterpreterSession) -> list[dict[str, Any]]:
+        records: list[dict[str, Any]] = []
+        pointer = session.read_word(self.profile.logic_cache_head)
+        seen: set[int] = set()
+        while pointer and pointer not in seen and len(records) < 256:
+            seen.add(pointer)
+            raw = session.read_data(pointer, 10)
+            records.append(
+                {
+                    "offset": pointer,
+                    "next": u16le(raw, 0),
+                    "logic": raw[2],
+                    "entry_ip": u16le(raw, 4),
+                    "resume_ip": u16le(raw, 6),
+                    "raw_hex": raw.hex(),
+                }
+            )
+            pointer = u16le(raw, 0)
+        current = session.read_word(self.profile.current_logic_pointer)
+        for record in records:
+            record["current"] = record["offset"] == current
+        return records
+
+    def read_logical_buffer(self, session: InterpreterSession) -> bytes:
+        segment = session.read_word(self.profile.logical_buffer_segment)
+        if not segment:
+            raise ControllerError("logical picture buffer has not been allocated")
+        return session.gdb.read_memory(
+            segment << 4,
+            self.profile.logical_width * self.profile.logical_height,
+        )
+
+    def state_fields(
+        self,
+        session: InterpreterSession,
+        variables: list[int],
+        flags: list[bool],
+        objects: list[dict[str, Any]],
+    ) -> dict[str, Any]:
+        current = next((record for record in self.read_logics(session) if record["current"]), None)
+        return {
+            "room": variables[0],
+            "previous_room": variables[1],
+            "entry_boundary": variables[2],
+            "score": variables[3],
+            "variables": variables,
+            "flags": flags,
+            "objects": objects,
+            "window_active": bool(session.read_word(self.profile.window_active)),
+            "general_modal_active": bool(
+                session.read_word(self.profile.general_modal_active)
+            ),
+            "current_logic": current["logic"] if current else None,
+            "current_logic_resume_ip": current["resume_ip"] if current else None,
+        }
+
+    def colorize_logical_buffer(self, buffer: bytes, channel: str) -> bytes:
+        return colorize_logical_buffer(
+            buffer,
+            channel,
+            self.profile.logical_width,
+            self.profile.logical_height,
+        )
+
+    def detect_modal_borders(self, ppm: bytes) -> list[dict[str, int]]:
+        return detect_modal_borders(ppm)
+
+    def movement_control(self, direction: str) -> tuple[str, int]:
+        controls = {
+            "up": ("up", 1),
+            "right": ("right", 3),
+            "down": ("down", 5),
+            "left": ("left", 7),
+        }
+        try:
+            return controls[direction]
+        except KeyError as exc:
+            raise ControllerError(
+                "direction must be left, right, up, or down"
+            ) from exc
+
+    def movement_stop_key(self) -> str:
+        return "kp_5"
+
+    def default_blocked_priorities(self) -> set[int]:
+        return {0, 1}
+
+
+ADAPTERS = {SQ122_PROFILE.name: SQ122Adapter(SQ122_PROFILE)}
+
+
+def adapter_for_profile(profile: InterpreterProfile) -> InterpreterAdapter:
+    try:
+        return ADAPTERS[profile.name]
+    except KeyError as exc:
+        raise ControllerError(f"no state adapter is registered for profile {profile.name}") from exc
+
+
 @dataclass
 class ManagedStop:
     reason: str
@@ -733,7 +1163,9 @@ class InterpreterSession:
     qmp: QmpClient
     gdb: GdbRemoteClient
     capture_dir: Path
+    adapter: InterpreterAdapter | None = None
     capture_every_cycle: bool = False
+    capture_logical_buffers: bool = False
     runtime_image_base: int | None = None
     data_segment: int | None = None
     breakpoints: dict[int, str] = field(default_factory=dict)
@@ -741,7 +1173,68 @@ class InterpreterSession:
     cycle: int = 0
     state_revision: int = 0
     cached_state: dict[str, Any] = field(default_factory=dict)
+    held_keys: set[str] = field(default_factory=set)
+    pending_releases: set[str] = field(default_factory=set)
+    trace_sequence: int = 0
+    trace_events: deque[dict[str, Any]] = field(
+        default_factory=lambda: deque(maxlen=20_000)
+    )
+    transaction_sequence: int = 0
+    transaction_cache: dict[str, tuple[str, dict[str, Any]]] = field(default_factory=dict)
+    checkpoint_controller_state: dict[str, dict[str, list[str]]] = field(default_factory=dict)
+    capture_sequence: int = 0
+    recorded_state: dict[str, Any] = field(default_factory=dict)
+    recorded_trace_sequence: int = 0
     lock: threading.RLock = field(default_factory=threading.RLock)
+
+    def __post_init__(self) -> None:
+        if self.adapter is None:
+            self.adapter = adapter_for_profile(self.profile)
+        elif self.adapter.profile != self.profile:
+            raise ControllerError("session adapter does not match the selected profile")
+
+    def _adapter(self) -> InterpreterAdapter:
+        if self.adapter is None:
+            raise ControllerError("session has no interpreter profile adapter")
+        return self.adapter
+
+    def record_trace_event(
+        self,
+        kind: str,
+        *,
+        state: dict[str, Any] | None = None,
+        details: dict[str, Any] | None = None,
+    ) -> dict[str, Any]:
+        self.trace_sequence += 1
+        event = {
+            "sequence": self.trace_sequence,
+            "kind": kind,
+            "cycle": self.cycle,
+            "state_revision": self.state_revision,
+        }
+        if state is not None:
+            event["state"] = summarize_state(state)
+        if details:
+            event["details"] = details
+        self.trace_events.append(event)
+        return event
+
+    def read_trace(self, since: int = 0, limit: int = 1000) -> dict[str, Any]:
+        if limit < 1 or limit > 20_000:
+            raise ControllerError("trace limit must be between 1 and 20000")
+        events = [event for event in self.trace_events if event["sequence"] > since][:limit]
+        return {
+            "since": since,
+            "latest_sequence": self.trace_sequence,
+            "events": events,
+            "truncated": bool(events and events[-1]["sequence"] < self.trace_sequence),
+        }
+
+    def input_state(self) -> dict[str, Any]:
+        return {
+            "held_keys": sorted(self.held_keys),
+            "pending_releases": sorted(self.pending_releases),
+        }
 
     def discover(self, wait_for_hook: bool = True) -> dict[str, Any]:
         with self.lock:
@@ -854,7 +1347,19 @@ class InterpreterSession:
         if stop.reason == "cycle_boundary":
             self.cycle += 1
         self.state_revision += 1
+        previous_state = self.cached_state
         self.cached_state = self.read_state()
+        self.record_trace_event(
+            "semantic_stop",
+            state=self.cached_state,
+            details={
+                "reason": stop.reason,
+                "address": stop.address,
+                "delta": state_delta(previous_state, self.cached_state)
+                if previous_state
+                else {},
+            },
+        )
         if self.capture_every_cycle and stop.reason == "cycle_boundary":
             self.capture_cycle()
         return stop
@@ -869,13 +1374,25 @@ class InterpreterSession:
         registers = stop.registers
         stack_address = ((registers["ss"] & 0xFFFF) << 4) + (registers["esp"] & 0xFFFF)
         stack = self.gdb.read_memory(stack_address, 256)
-        stop.reason = classify_blocking_stack(stack, self.profile) or stop.reason
+        stop.reason = self._adapter().classify_blocking_stack(stack) or stop.reason
         self.current_stop = stop
         self.state_revision += 1
+        previous_state = self.cached_state
         self.cached_state = self.read_state()
         if stop.reason in ("string_prompt_wait", "modal_wait"):
             self.select_breakpoints([stop.reason])
             self.cached_state = self.read_state()
+        self.record_trace_event(
+            "blocking_stop",
+            state=self.cached_state,
+            details={
+                "reason": stop.reason,
+                "address": stop.address,
+                "delta": state_delta(previous_state, self.cached_state)
+                if previous_state
+                else {},
+            },
+        )
         return stop
 
     def wait_for_semantic_stop(self, timeout: float = 2.0) -> ManagedStop:
@@ -950,6 +1467,82 @@ class InterpreterSession:
                 return {**state, "matched": False, "cycles_run": index, "stopped_early": True}
         return {**state, "matched": False, "cycles_run": max_cycles}
 
+    @staticmethod
+    def _named_predicates(
+        predicates: list[dict[str, Any]] | None,
+        prefix: str,
+    ) -> list[tuple[str, dict[str, Any]]]:
+        result = []
+        for index, item in enumerate(predicates or []):
+            if "predicate" in item:
+                result.append((str(item.get("name", f"{prefix}_{index}")), item["predicate"]))
+            else:
+                result.append((f"{prefix}_{index}", item))
+        return result
+
+    def run_until_guarded(
+        self,
+        predicate: dict[str, Any],
+        max_cycles: int,
+        *,
+        invariants: list[dict[str, Any]] | None = None,
+        abort_predicates: list[dict[str, Any]] | None = None,
+        timeout: float = 2.0,
+    ) -> dict[str, Any]:
+        named_invariants = self._named_predicates(invariants, "invariant")
+        named_aborts = self._named_predicates(abort_predicates, "abort")
+
+        def classify(state: dict[str, Any], cycles_run: int) -> dict[str, Any] | None:
+            if evaluate_predicate(state, predicate):
+                return {
+                    **state,
+                    "matched": True,
+                    "cycles_run": cycles_run,
+                    "guard_status": "target_matched",
+                }
+            for name, invariant in named_invariants:
+                if not evaluate_predicate(state, invariant):
+                    return {
+                        **state,
+                        "matched": False,
+                        "cycles_run": cycles_run,
+                        "guard_status": "invariant_failed",
+                        "failed_guard": name,
+                    }
+            for name, abort in named_aborts:
+                if evaluate_predicate(state, abort):
+                    return {
+                        **state,
+                        "matched": False,
+                        "cycles_run": cycles_run,
+                        "guard_status": "abort_matched",
+                        "failed_guard": name,
+                    }
+            if state.get("stop_reason") != "cycle_boundary":
+                return {
+                    **state,
+                    "matched": False,
+                    "cycles_run": cycles_run,
+                    "guard_status": "semantic_interruption",
+                }
+            return None
+
+        state = self.read_state()
+        classified = classify(state, 0)
+        if classified is not None:
+            return classified
+        for index in range(1, max_cycles + 1):
+            state = self.step_cycle(timeout)
+            classified = classify(state, index)
+            if classified is not None:
+                return classified
+        return {
+            **state,
+            "matched": False,
+            "cycles_run": max_cycles,
+            "guard_status": "timeout",
+        }
+
     def _require_data_segment(self) -> int:
         if self.data_segment is None:
             raise ControllerError("interpreter has not been discovered")
@@ -965,85 +1558,22 @@ class InterpreterSession:
         return u16le(self.read_data(offset, 2))
 
     def read_variables(self) -> list[int]:
-        return list(self.read_data(self.profile.variables, 256))
+        return self._adapter().read_variables(self)
 
     def read_flags(self) -> list[bool]:
-        return unpack_flags(self.read_data(self.profile.flags, 32))
+        return self._adapter().read_flags(self)
 
     def read_objects(self) -> list[dict[str, Any]]:
-        start = self.read_word(self.profile.object_start_pointer)
-        end = self.read_word(self.profile.object_end_pointer)
-        if end < start or end - start > self.profile.object_record_size * 256:
-            raise ControllerError(f"invalid object table bounds {start:#x}..{end:#x}")
-        return parse_object_records(
-            self.read_data(start, end - start),
-            start,
-            self.profile.object_record_size,
-        )
+        return self._adapter().read_objects(self)
 
     def read_inventory(self) -> list[dict[str, Any]]:
-        # PROFILE-SPECIFIC FORMAT: 3-byte entry and 0xff carried marker were
-        # validated for SQ1.22/2.917 only.
-        start = self.read_word(self.profile.inventory_start_pointer)
-        end = self.read_word(self.profile.inventory_end_pointer)
-        if end < start or (end - start) % 3 or end - start > 3 * 256:
-            raise ControllerError(f"invalid inventory table bounds {start:#x}..{end:#x}")
-        table = self.read_data(start, end - start)
-        result: list[dict[str, Any]] = []
-        for index in range(len(table) // 3):
-            name_offset = u16le(table, index * 3)
-            marker = table[index * 3 + 2]
-            name = ""
-            try:
-                raw_name = self.read_data(start + name_offset, 128).split(b"\0", 1)[0]
-                name = raw_name.decode("cp437", errors="replace")
-            except (ControllerError, GdbRemoteError):
-                pass
-            result.append(
-                {
-                    "index": index,
-                    "name": name,
-                    "name_offset": name_offset,
-                    "room_or_marker": marker,
-                    "carried": marker == 0xFF,
-                }
-            )
-        return result
+        return self._adapter().read_inventory(self)
 
     def read_logics(self) -> list[dict[str, Any]]:
-        # PROFILE-SPECIFIC FORMAT: record width/field offsets below are the
-        # observed SQ1.22/2.917 logic-cache representation.
-        head = self.profile.logic_cache_head
-        records: list[dict[str, Any]] = []
-        pointer = self.read_word(head)
-        seen: set[int] = set()
-        while pointer and pointer not in seen and len(records) < 256:
-            seen.add(pointer)
-            raw = self.read_data(pointer, 10)
-            records.append(
-                {
-                    "offset": pointer,
-                    "next": u16le(raw, 0),
-                    "logic": raw[2],
-                    "entry_ip": u16le(raw, 4),
-                    "resume_ip": u16le(raw, 6),
-                    "raw_hex": raw.hex(),
-                }
-            )
-            pointer = u16le(raw, 0)
-        current = self.read_word(self.profile.current_logic_pointer)
-        for record in records:
-            record["current"] = record["offset"] == current
-        return records
+        return self._adapter().read_logics(self)
 
     def read_logical_buffer(self) -> bytes:
-        segment = self.read_word(self.profile.logical_buffer_segment)
-        if not segment:
-            raise ControllerError("logical picture buffer has not been allocated")
-        return self.gdb.read_memory(
-            segment << 4,
-            self.profile.logical_width * self.profile.logical_height,
-        )
+        return self._adapter().read_logical_buffer(self)
 
     def read_state(self) -> dict[str, Any]:
         if self.data_segment is None:
@@ -1058,7 +1588,14 @@ class InterpreterSession:
         if vm.get("running"):
             if self.cached_state:
                 state = dict(self.cached_state)
-                state.update({"stop_reason": "running", "stale": True, "vm": vm})
+                state.update(
+                    {
+                        "stop_reason": "running",
+                        "stale": True,
+                        "input": self.input_state(),
+                        "vm": vm,
+                    }
+                )
                 return state
             return {
                 "profile": self.profile.name,
@@ -1074,9 +1611,7 @@ class InterpreterSession:
         flags = self.read_flags()
         objects = self.read_objects()
         stop_reason = self.current_stop.reason if self.current_stop else "running"
-        # PROFILE-SPECIFIC SEMANTICS: v0..v3 meanings are validated for the
-        # current SQ1.22/2.917 profile and must be checked for future profiles.
-        return {
+        state = {
             "profile": self.profile.name,
             "version": self.profile.version,
             "instrumented": True,
@@ -1086,17 +1621,11 @@ class InterpreterSession:
             "stop_address": self.current_stop.address if self.current_stop else None,
             "runtime_image_base": self.runtime_image_base,
             "data_segment": self.data_segment,
-            "room": variables[0],
-            "previous_room": variables[1],
-            "entry_boundary": variables[2],
-            "score": variables[3],
-            "variables": variables,
-            "flags": flags,
-            "objects": objects,
-            "window_active": bool(self.read_word(self.profile.window_active)),
-            "general_modal_active": bool(self.read_word(self.profile.general_modal_active)),
+            **self._adapter().state_fields(self, variables, flags, objects),
+            "input": self.input_state(),
             "vm": vm,
         }
+        return state
 
     def read_debug_state(self, stack_bytes: int = 64) -> dict[str, Any]:
         if self.qmp.query_status().get("running"):
@@ -1116,28 +1645,97 @@ class InterpreterSession:
         }
 
     def capture_cycle(self) -> Path:
-        path = self.capture_dir / f"cycle_{self.cycle:08d}.png"
-        self.qmp.screenshot(path, "png")
+        if self.qmp.query_status().get("running"):
+            raise ControllerError("cycle capture requires a semantic stop")
+        cycle_root = self.capture_dir / "cycles"
+        cycle_root.mkdir(parents=True, exist_ok=True)
+        if self.capture_sequence == 0:
+            existing_sequences = []
+            for path in cycle_root.glob("capture_*_cycle_*"):
+                try:
+                    existing_sequences.append(int(path.name.split("_", 2)[1]))
+                except (IndexError, ValueError):
+                    continue
+            self.capture_sequence = max(existing_sequences, default=0)
+        while True:
+            self.capture_sequence += 1
+            bundle_name = (
+                f"capture_{self.capture_sequence:08d}_cycle_{self.cycle:08d}"
+                f"_revision_{self.state_revision:08d}"
+            )
+            bundle = cycle_root / bundle_name
+            if not bundle.exists():
+                break
+        temporary_bundle = cycle_root / f".{bundle_name}.tmp"
+        if temporary_bundle.exists():
+            shutil.rmtree(temporary_bundle)
+        temporary_bundle.mkdir()
+        screenshot = temporary_bundle / "screen.png"
+        self.qmp.screenshot(screenshot, "png")
+        artifacts: dict[str, str] = {"screenshot": screenshot.name}
+        if self.capture_logical_buffers:
+            logical = self.read_logical_buffer()
+            visual = temporary_bundle / "visual.ppm"
+            priority = temporary_bundle / "priority.ppm"
+            visual.write_bytes(self._adapter().colorize_logical_buffer(logical, "visual"))
+            priority.write_bytes(self._adapter().colorize_logical_buffer(logical, "priority"))
+            artifacts.update({"visual": visual.name, "priority": priority.name})
+
+        state_snapshot = json.loads(json.dumps(self.cached_state or self.read_state()))
+        trace = self.read_trace(self.recorded_trace_sequence, limit=20_000)
         metadata = {
+            "schema_version": 1,
+            "capture_sequence": self.capture_sequence,
             "cycle": self.cycle,
             "state_revision": self.state_revision,
             "stop_reason": self.current_stop.reason if self.current_stop else None,
-            "room": self.cached_state.get("room"),
-            "score": self.cached_state.get("score"),
-            "file": path.name,
+            "state": state_snapshot,
+            "state_delta": state_delta(self.recorded_state, state_snapshot)
+            if self.recorded_state
+            else {},
+            "trace_events": trace["events"],
+            "input_events": [
+                event for event in trace["events"] if event["kind"].startswith("input_")
+            ],
+            "artifacts": artifacts,
+        }
+        temporary_metadata = temporary_bundle / "cycle.json"
+        temporary_metadata.write_text(
+            json.dumps(metadata, indent=2, sort_keys=True) + "\n",
+            encoding="utf-8",
+        )
+        temporary_bundle.replace(bundle)
+        metadata_path = bundle / "cycle.json"
+        manifest_record = {
+            "schema_version": 1,
+            "capture_sequence": self.capture_sequence,
+            "cycle": self.cycle,
+            "state_revision": self.state_revision,
+            "stop_reason": metadata["stop_reason"],
+            "room": state_snapshot.get("room"),
+            "score": state_snapshot.get("score"),
+            "bundle": str(bundle.relative_to(self.capture_dir)),
+            "metadata": metadata_path.name,
+            "screenshot_sha256": hashlib.sha256(
+                (bundle / screenshot.name).read_bytes()
+            ).hexdigest(),
         }
         self.capture_dir.mkdir(parents=True, exist_ok=True)
-        with (self.capture_dir / "captures.jsonl").open("a", encoding="utf-8") as stream:
-            stream.write(json.dumps(metadata, sort_keys=True) + "\n")
-        return path
+        with (self.capture_dir / "cycles.jsonl").open("a", encoding="utf-8") as stream:
+            stream.write(json.dumps(manifest_record, sort_keys=True) + "\n")
+        self.recorded_state = state_snapshot
+        self.recorded_trace_sequence = self.trace_sequence
+        return metadata_path
 
     def detect_dialog(self) -> dict[str, Any]:
         path = self.capture_dir / "dialog_probe.ppm"
         self.qmp.screenshot(path, "ppm")
-        boxes = detect_modal_borders(path.read_bytes())
+        ppm = path.read_bytes()
+        boxes = self._adapter().detect_modal_borders(ppm)
         return {
             "detected": bool(boxes),
             "boxes": boxes,
+            "dialog_id": dialog_fingerprint(ppm, boxes),
             "interpreter_window_active": (
                 bool(self.read_word(self.profile.window_active))
                 if self.data_segment is not None and not self.qmp.query_status().get("running")
@@ -1147,19 +1745,75 @@ class InterpreterSession:
         }
 
     def key_transition(self, qcode: str, down: bool, timeout: float = 2.0) -> dict[str, Any]:
-        """Deliver one physical transition while the VM runs to its next hook."""
+        """Deliver one physical transition and report delivery separately from outcome."""
         if self.qmp.query_status().get("running"):
             raise ControllerError("explicit key transitions require a semantic stop")
+        if down and qcode in self.held_keys:
+            delivery = {
+                "key": qcode,
+                "down": True,
+                "status": "already_held",
+                **self.input_state(),
+            }
+            return {**self.read_state(), "input_delivery": delivery}
+        if not down and qcode not in self.held_keys and qcode not in self.pending_releases:
+            delivery = {
+                "key": qcode,
+                "down": False,
+                "status": "already_released",
+                **self.input_state(),
+            }
+            return {**self.read_state(), "input_delivery": delivery}
+
+        self.record_trace_event(
+            "input_requested",
+            state=self.cached_state or None,
+            details={"key": qcode, "down": down},
+        )
         self.begin_resume()
         try:
             self.qmp.key_event(qcode, down)
         except QmpError as exc:
             if "VM not running" not in str(exc):
+                self.record_trace_event(
+                    "input_error",
+                    details={"key": qcode, "down": down, "error": str(exc)},
+                )
                 raise
+            if not down:
+                self.held_keys.add(qcode)
+                self.pending_releases.add(qcode)
+            self.record_trace_event(
+                "input_release_pending" if not down else "input_not_delivered",
+                details={"key": qcode, "down": down, "reason": "next_hook_won_race"},
+            )
             self.wait_for_stop(timeout)
-            raise ControllerError("VM reached the next hook before the key transition") from exc
+            delivery = {
+                "key": qcode,
+                "down": down,
+                "status": "release_pending" if not down else "not_delivered",
+                "reason": "VM reached the next hook before QMP accepted the transition",
+                **self.input_state(),
+            }
+            return {**self.cached_state, "input_delivery": delivery}
+        if down:
+            self.held_keys.add(qcode)
+            self.pending_releases.discard(qcode)
+        else:
+            self.held_keys.discard(qcode)
+            self.pending_releases.discard(qcode)
+        self.record_trace_event(
+            "input_delivered",
+            details={"key": qcode, "down": down},
+        )
         self.wait_for_semantic_stop(timeout)
-        return self.cached_state
+        delivery = {
+            "key": qcode,
+            "down": down,
+            "status": "delivered",
+            **self.input_state(),
+        }
+        return {**self.cached_state, "input_delivery": delivery}
 
     def send_key_down(self, qcode: str) -> dict[str, Any]:
         return self.key_transition(qcode, True)
@@ -1167,16 +1821,78 @@ class InterpreterSession:
     def send_key_up(self, qcode: str) -> dict[str, Any]:
         return self.key_transition(qcode, False)
 
+    def reconcile_pending_keys(self, max_attempts: int = 4) -> dict[str, Any]:
+        if max_attempts < 0 or max_attempts > 100:
+            raise ControllerError("release reconciliation attempts must be between 0 and 100")
+        attempts: list[dict[str, Any]] = []
+        for _ in range(max_attempts):
+            if not self.pending_releases:
+                break
+            for qcode in sorted(self.pending_releases):
+                state = self.send_key_up(qcode)
+                attempts.append(state.get("input_delivery", {}))
+                if state.get("stop_reason") not in (
+                    "cycle_boundary",
+                    "modal_wait",
+                    "string_prompt_wait",
+                ):
+                    break
+        status = "reconciled" if not self.pending_releases else "release_pending"
+        result = {
+            **self.read_state(),
+            "reconciliation": {
+                "status": status,
+                "attempts": attempts,
+                **self.input_state(),
+            },
+        }
+        self.record_trace_event(
+            "input_reconciliation",
+            state=result,
+            details=result["reconciliation"],
+        )
+        return result
+
+    def release_all_keys(self, max_attempts: int = 8) -> dict[str, Any]:
+        self.pending_releases.update(self.held_keys)
+        return self.reconcile_pending_keys(max_attempts)
+
     def tap_key(self, qcode: str, hold_cycles: int = 1) -> dict[str, Any]:
         if hold_cycles < 1:
             raise ControllerError("hold_cycles must be at least one")
+        if self.pending_releases:
+            reconciled = self.reconcile_pending_keys()
+            if self.pending_releases:
+                return {
+                    **reconciled,
+                    "input_delivery": {
+                        "key": qcode,
+                        "down": True,
+                        "status": "blocked_pending_releases",
+                        **self.input_state(),
+                    },
+                }
         state = self.send_key_down(qcode)
+        if state.get("input_delivery", {}).get("status") not in (
+            "delivered",
+            "already_held",
+        ):
+            return state
         if state.get("stop_reason") == "cycle_boundary" and hold_cycles > 1:
             state = self.run_cycles(hold_cycles - 1)
-        return self.send_key_up(qcode)
+        released = self.send_key_up(qcode)
+        release_status = released.get("input_delivery", {}).get("status")
+        released["tap"] = {
+            "key": qcode,
+            "hold_cycles": hold_cycles,
+            "status": "delivered" if release_status in ("delivered", "already_released") else release_status,
+            **self.input_state(),
+        }
+        return released
 
     def type_text(self, text: str, inter_key_cycles: int = 1) -> dict[str, Any]:
         state = self.read_state()
+        typed = 0
         for character in text:
             qcode, shifted = qcode_for_character(character)
             if shifted:
@@ -1184,9 +1900,23 @@ class InterpreterSession:
             state = self.tap_key(qcode, inter_key_cycles)
             if shifted:
                 state = self.send_key_up("shift")
+            if state.get("input_delivery", {}).get("status") in (
+                "not_delivered",
+                "blocked_pending_releases",
+            ):
+                break
+            typed += 1
             if state.get("stop_reason") != "cycle_boundary":
                 break
-        return state
+        return {
+            **state,
+            "text_input": {
+                "requested": len(text),
+                "typed": typed,
+                "complete": typed == len(text),
+                **self.input_state(),
+            },
+        }
 
     def type_host_text(self, text: str, delay_ms: float = 40.0) -> dict[str, Any]:
         """Type while uninstrumented or running, using bounded host-time delays.
@@ -1208,11 +1938,47 @@ class InterpreterSession:
             time.sleep(delay_ms / 2000.0)
         return {"sent": len(text), "vm": self.qmp.query_status()}
 
-    def dismiss_dialog(self, key: str = "ret", timeout: float = 10.0) -> dict[str, Any]:
+    def dismiss_dialog(
+        self,
+        key: str = "ret",
+        timeout: float = 10.0,
+        dialog_id: str | None = None,
+    ) -> dict[str, Any]:
+        oracle = self.detect_dialog()
+        if not oracle["detected"] and (
+            self.current_stop is None or self.current_stop.reason != "modal_wait"
+        ):
+            return {
+                **self.read_state(),
+                "dialog_action": {"status": "already_absent", "requested_id": dialog_id},
+            }
+        if dialog_id is not None and oracle.get("dialog_id") != dialog_id:
+            return {
+                **self.read_state(),
+                "dialog_action": {
+                    "status": "dialog_mismatch",
+                    "requested_id": dialog_id,
+                    "current_id": oracle.get("dialog_id"),
+                },
+            }
         if self.current_stop is None or self.current_stop.reason != "modal_wait":
-            raise ControllerError("controller is not stopped at a modal wait hook")
+            return {
+                **self.read_state(),
+                "dialog_action": {
+                    "status": "visible_but_not_at_modal_hook",
+                    "current_id": oracle.get("dialog_id"),
+                },
+            }
         self.select_breakpoints(["cycle_boundary"])
-        return self.tap_key(key)
+        state = self.tap_key(key)
+        return {
+            **state,
+            "dialog_action": {
+                "status": "dismissed",
+                "dialog_id": oracle.get("dialog_id"),
+                **self.input_state(),
+            },
+        }
 
     def submit_string(self, text: str, timeout: float = 10.0) -> dict[str, Any]:
         if self.current_stop is None or self.current_stop.reason != "string_prompt_wait":
@@ -1230,21 +1996,576 @@ class InterpreterSession:
         if state.get("stop_reason") == "string_prompt_wait":
             self.select_breakpoints(["cycle_boundary"])
             state = self.tap_key("ret")
-        return state
+        return {
+            **state,
+            "string_submission": {
+                "text_length": len(text),
+                "status": "submitted"
+                if state.get("stop_reason") != "string_prompt_wait"
+                else "still_waiting",
+                **self.input_state(),
+            },
+        }
+
+    def submit_command(self, text: str) -> dict[str, Any]:
+        if self.current_stop is None or self.current_stop.reason != "cycle_boundary":
+            return {
+                **self.read_state(),
+                "command_submission": {
+                    "status": "wrong_input_mode",
+                    "required_stop_reason": "cycle_boundary",
+                },
+            }
+        typed = self.type_text(text)
+        if not typed.get("text_input", {}).get("complete"):
+            return {
+                **typed,
+                "command_submission": {"status": "typing_incomplete", "text": text},
+            }
+        state = self.tap_key("ret")
+        return {
+            **state,
+            "command_submission": {
+                "status": "submitted",
+                "text": text,
+                **self.input_state(),
+            },
+        }
 
     def move_until(
         self,
         direction: str,
         predicate: dict[str, Any],
         max_cycles: int,
+        *,
+        invariants: list[dict[str, Any]] | None = None,
+        abort_predicates: list[dict[str, Any]] | None = None,
+        stop_at_end: bool = True,
     ) -> dict[str, Any]:
-        qcodes = {"left": "left", "right": "right", "up": "up", "down": "down"}
-        if direction not in qcodes:
-            raise ControllerError("direction must be left, right, up, or down")
-        self.tap_key(qcodes[direction])
-        result = self.run_until(predicate, max_cycles)
-        if result.get("stop_reason") == "cycle_boundary":
-            self.tap_key("kp_5")
+        qcode, direction_value = self._adapter().movement_control(direction)
+        start_state = json.loads(json.dumps(self.read_state()))
+        state = start_state
+        ego_direction = state["objects"][0]["direction"]
+        # This interpreter treats a repeated press of the active direction as
+        # a stop request.  Preserve matching movement instead of toggling it
+        # off when a modal or other semantic stop interrupted move_until.
+        if ego_direction != direction_value:
+            selected = self.tap_key(qcode)
+            if selected.get("input_delivery", {}).get("status") in (
+                "not_delivered",
+                "blocked_pending_releases",
+            ):
+                return {
+                    **selected,
+                    "movement": {
+                        "status": "direction_not_selected",
+                        "direction": direction,
+                        "delta": state_delta(start_state, selected),
+                    },
+                }
+        result = self.run_until_guarded(
+            predicate,
+            max_cycles,
+            invariants=invariants,
+            abort_predicates=abort_predicates,
+        )
+        final_state = result
+        stop_result: dict[str, Any] | None = None
+        if stop_at_end and result.get("stop_reason") == "cycle_boundary":
+            stop_result = self.stop_movement()
+            final_state = stop_result
+        return {
+            **final_state,
+            "movement": {
+                "status": result.get("guard_status", "unknown"),
+                "direction": direction,
+                "cycles_run": result.get("cycles_run", 0),
+                "target_matched": result.get("matched", False),
+                "failed_guard": result.get("failed_guard"),
+                "stopped": stop_result is not None,
+                "delta": state_delta(start_state, final_state),
+            },
+        }
+
+    def select_direction(self, direction: str) -> dict[str, Any]:
+        qcode, direction_value = self._adapter().movement_control(direction)
+        state = self.read_state()
+        current = state["objects"][0]["direction"]
+        if current == direction_value:
+            return {
+                **state,
+                "direction_action": {"status": "already_selected", "direction": direction},
+            }
+        result = self.tap_key(qcode)
+        return {
+            **result,
+            "direction_action": {"status": "selected", "direction": direction},
+        }
+
+    def stop_movement(self) -> dict[str, Any]:
+        state = self.read_state()
+        if not state.get("objects") or state["objects"][0]["direction"] == 0:
+            return {**state, "movement_stop": {"status": "already_stopped"}}
+        result = self.tap_key(self._adapter().movement_stop_key())
+        final = self.read_state()
+        return {
+            **final,
+            "movement_stop": {
+                "status": "stopped"
+                if final.get("objects", [{}])[0].get("direction") == 0
+                else "stop_requested",
+                "input_delivery": result.get("input_delivery"),
+            },
+        }
+
+    def move_waypoints(
+        self,
+        waypoints: list[dict[str, Any]],
+        *,
+        max_cycles_per_segment: int = 500,
+        tolerance: int = 0,
+        invariants: list[dict[str, Any]] | None = None,
+        abort_predicates: list[dict[str, Any]] | None = None,
+        preserve_room: bool = True,
+    ) -> dict[str, Any]:
+        if not waypoints:
+            raise ControllerError("at least one waypoint is required")
+        if tolerance < 0 or tolerance > 20:
+            raise ControllerError("waypoint tolerance must be between 0 and 20")
+        start_state = self.read_state()
+        room = start_state.get("room")
+        guards = list(invariants or [])
+        if preserve_room and room is not None:
+            guards.append(
+                {
+                    "name": "preserve_initial_room",
+                    "predicate": {"path": "room", "op": "eq", "value": room},
+                }
+            )
+        completed: list[dict[str, Any]] = []
+        state = start_state
+        for waypoint_index, waypoint in enumerate(waypoints):
+            axes = waypoint.get("axis_order", "x_then_y")
+            if axes not in ("x_then_y", "y_then_x"):
+                raise ControllerError("axis_order must be x_then_y or y_then_x")
+            axis_names = ("x", "y") if axes == "x_then_y" else ("y", "x")
+            for axis in axis_names:
+                if axis not in waypoint:
+                    continue
+                state = self.read_state()
+                actual = state["objects"][0][axis]
+                target = int(waypoint[axis])
+                if abs(actual - target) <= tolerance:
+                    continue
+                if axis == "x":
+                    direction = "right" if target > actual else "left"
+                else:
+                    direction = "down" if target > actual else "up"
+                increasing = direction in ("right", "down")
+                result = self.move_until(
+                    direction,
+                    {
+                        "path": f"objects.0.{axis}",
+                        "op": "ge" if increasing else "le",
+                        "value": target - tolerance if increasing else target + tolerance,
+                    },
+                    max_cycles_per_segment,
+                    invariants=guards,
+                    abort_predicates=abort_predicates,
+                )
+                completed.append(
+                    {
+                        "waypoint": waypoint_index,
+                        "axis": axis,
+                        "target": target,
+                        "direction": direction,
+                        "result": result.get("movement"),
+                    }
+                )
+                state = self.read_state()
+                if not result.get("movement", {}).get("target_matched"):
+                    return {
+                        **state,
+                        "waypoint_movement": {
+                            "status": "interrupted",
+                            "completed_segments": completed,
+                            "failed_waypoint": waypoint_index,
+                            "delta": state_delta(start_state, state),
+                        },
+                    }
+        return {
+            **state,
+            "waypoint_movement": {
+                "status": "completed",
+                "completed_segments": completed,
+                "delta": state_delta(start_state, state),
+            },
+        }
+
+    def plan_local_priority_path(
+        self,
+        goal_x: int,
+        goal_y: int,
+        *,
+        blocked_priorities: set[int] | None = None,
+        footprint_width: int | None = None,
+        goal_tolerance: int = 0,
+    ) -> dict[str, Any]:
+        state = self.read_state()
+        ego = state["objects"][0]
+        width = footprint_width or max(1, int(ego.get("width") or 1))
+        blocked = (
+            blocked_priorities
+            if blocked_priorities is not None
+            else self._adapter().default_blocked_priorities()
+        )
+        plan = plan_priority_path(
+            self.read_logical_buffer(),
+            width=self.profile.logical_width,
+            height=self.profile.logical_height,
+            start=(int(ego["x"]), int(ego["y"])),
+            goal=(goal_x, goal_y),
+            footprint_width=width,
+            blocked_priorities=blocked,
+            goal_tolerance=goal_tolerance,
+        )
+        return {"cycle": self.cycle, "room": state.get("room"), **plan}
+
+    def navigate_local_priority_path(
+        self,
+        goal_x: int,
+        goal_y: int,
+        *,
+        blocked_priorities: set[int] | None = None,
+        footprint_width: int | None = None,
+        goal_tolerance: int = 0,
+        max_cycles_per_segment: int = 500,
+        invariants: list[dict[str, Any]] | None = None,
+        abort_predicates: list[dict[str, Any]] | None = None,
+    ) -> dict[str, Any]:
+        plan = self.plan_local_priority_path(
+            goal_x,
+            goal_y,
+            blocked_priorities=blocked_priorities,
+            footprint_width=footprint_width,
+            goal_tolerance=goal_tolerance,
+        )
+        result = self.move_waypoints(
+            plan["waypoints"],
+            max_cycles_per_segment=max_cycles_per_segment,
+            tolerance=0,
+            invariants=invariants,
+            abort_predicates=abort_predicates,
+            preserve_room=True,
+        )
+        return {**result, "priority_navigation": {"plan": plan, "execution": result.get("waypoint_movement")}}
+
+    def wait_for_animation(
+        self,
+        path: str,
+        value: Any,
+        *,
+        max_cycles: int = 1000,
+        invariants: list[dict[str, Any]] | None = None,
+        abort_predicates: list[dict[str, Any]] | None = None,
+    ) -> dict[str, Any]:
+        result = self.run_until_guarded(
+            {"path": path, "op": "eq", "value": value},
+            max_cycles,
+            invariants=invariants,
+            abort_predicates=abort_predicates,
+        )
+        return {
+            **result,
+            "animation_wait": {
+                "status": result.get("guard_status"),
+                "path": path,
+                "value": value,
+                "cycles_run": result.get("cycles_run"),
+            },
+        }
+
+    def perform_semantic_action(self, action: dict[str, Any]) -> dict[str, Any]:
+        action_type = str(action.get("type", "noop"))
+        if action_type == "noop":
+            return self.read_state()
+        if action_type == "tap":
+            return self.tap_key(str(action["key"]), int(action.get("hold_cycles", 1)))
+        if action_type == "key_down":
+            return self.send_key_down(str(action["key"]))
+        if action_type == "key_up":
+            return self.send_key_up(str(action["key"]))
+        if action_type == "release_all_keys":
+            return self.release_all_keys(int(action.get("max_attempts", 8)))
+        if action_type == "type_text":
+            return self.type_text(
+                str(action.get("text", "")),
+                int(action.get("inter_key_cycles", 1)),
+            )
+        if action_type == "command":
+            return self.submit_command(str(action.get("text", "")))
+        if action_type == "submit_string":
+            return self.submit_string(str(action.get("text", "")))
+        if action_type == "dismiss_dialog":
+            return self.dismiss_dialog(
+                str(action.get("key", "ret")),
+                dialog_id=action.get("dialog_id"),
+            )
+        if action_type == "select_direction":
+            return self.select_direction(str(action["direction"]))
+        if action_type == "stop_movement":
+            return self.stop_movement()
+        if action_type == "move_until":
+            return self.move_until(
+                str(action["direction"]),
+                action["predicate"],
+                int(action.get("max_cycles", 1000)),
+                invariants=action.get("invariants"),
+                abort_predicates=action.get("abort_predicates"),
+                stop_at_end=bool(action.get("stop_at_end", True)),
+            )
+        if action_type == "waypoints":
+            return self.move_waypoints(
+                list(action["waypoints"]),
+                max_cycles_per_segment=int(action.get("max_cycles_per_segment", 500)),
+                tolerance=int(action.get("tolerance", 0)),
+                invariants=action.get("invariants"),
+                abort_predicates=action.get("abort_predicates"),
+                preserve_room=bool(action.get("preserve_room", True)),
+            )
+        if action_type == "navigate_priority":
+            return self.navigate_local_priority_path(
+                int(action["x"]),
+                int(action["y"]),
+                blocked_priorities=(
+                    set(action["blocked_priorities"])
+                    if "blocked_priorities" in action
+                    else None
+                ),
+                footprint_width=action.get("footprint_width"),
+                goal_tolerance=int(action.get("goal_tolerance", 0)),
+                max_cycles_per_segment=int(action.get("max_cycles_per_segment", 500)),
+                invariants=action.get("invariants"),
+                abort_predicates=action.get("abort_predicates"),
+            )
+        if action_type == "wait_for_state":
+            return self.run_until_guarded(
+                action["predicate"],
+                int(action.get("max_cycles", 1000)),
+                invariants=action.get("invariants"),
+                abort_predicates=action.get("abort_predicates"),
+            )
+        if action_type == "wait_for_animation":
+            return self.wait_for_animation(
+                str(action["path"]),
+                action.get("value", 0),
+                max_cycles=int(action.get("max_cycles", 1000)),
+                invariants=action.get("invariants"),
+                abort_predicates=action.get("abort_predicates"),
+            )
+        raise ControllerError(f"unsupported semantic action: {action_type}")
+
+    @staticmethod
+    def _postconditions(spec: dict[str, Any]) -> list[tuple[str, dict[str, Any]]]:
+        values: list[dict[str, Any]] = []
+        if "postcondition" in spec:
+            values.append(spec["postcondition"])
+        values.extend(spec.get("postconditions", []))
+        return InterpreterSession._named_predicates(values, "postcondition")
+
+    def execute_transaction(self, spec: dict[str, Any]) -> dict[str, Any]:
+        """Execute one idempotent semantic action against explicit state contracts."""
+        if not isinstance(spec.get("action", {}), dict):
+            raise ControllerError("transaction action must be an object")
+        canonical = json.dumps(spec, sort_keys=True, separators=(",", ":"))
+        fingerprint = hashlib.sha256(canonical.encode()).hexdigest()
+        idempotency_key = spec.get("idempotency_key")
+        if idempotency_key is not None:
+            idempotency_key = str(idempotency_key)
+            cached = self.transaction_cache.get(idempotency_key)
+            if cached:
+                cached_fingerprint, cached_result = cached
+                if cached_fingerprint != fingerprint:
+                    return {
+                        "status": "idempotency_conflict",
+                        "idempotency_key": idempotency_key,
+                        "existing_fingerprint": cached_fingerprint,
+                        "requested_fingerprint": fingerprint,
+                        "final_state": summarize_state(self.read_state()),
+                    }
+                replay = json.loads(json.dumps(cached_result))
+                replay["idempotent_replay"] = True
+                return replay
+
+        self.transaction_sequence += 1
+        transaction_id = f"tx-{self.transaction_sequence:08d}"
+        trace_start = self.trace_sequence
+        start_state = json.loads(json.dumps(self.read_state()))
+        postconditions = self._postconditions(spec)
+        postcondition_mode = str(spec.get("postcondition_mode", "any"))
+        if postcondition_mode not in ("any", "all"):
+            raise ControllerError("postcondition_mode must be any or all")
+        invariants = self._named_predicates(spec.get("invariants"), "invariant")
+
+        def matched_conditions(state: dict[str, Any]) -> list[str]:
+            return [name for name, predicate in postconditions if evaluate_predicate(state, predicate)]
+
+        def conditions_satisfied(state: dict[str, Any]) -> bool:
+            matched = matched_conditions(state)
+            if not postconditions:
+                return True
+            return len(matched) == len(postconditions) if postcondition_mode == "all" else bool(matched)
+
+        def failed_invariant(state: dict[str, Any]) -> str | None:
+            return next(
+                (name for name, predicate in invariants if not evaluate_predicate(state, predicate)),
+                None,
+            )
+
+        precondition = spec.get("precondition")
+        status: str
+        action_result: dict[str, Any] = {}
+        cycles_waited = 0
+        failure: str | None = None
+        if postconditions and conditions_satisfied(start_state):
+            status = "already_satisfied"
+        elif precondition is not None and not evaluate_predicate(start_state, precondition):
+            status = "precondition_failed"
+        elif failed_invariant(start_state) is not None:
+            status = "invariant_failed"
+            failure = failed_invariant(start_state)
+        else:
+            self.record_trace_event(
+                "transaction_started",
+                state=start_state,
+                details={"transaction_id": transaction_id, "fingerprint": fingerprint},
+            )
+            action_result = self.perform_semantic_action(spec.get("action", {}))
+            state = self.read_state()
+            failure = failed_invariant(state)
+            semantic_statuses = {
+                value.get("status")
+                for value in action_result.values()
+                if isinstance(value, dict) and "status" in value
+            }
+            rejected_statuses = {
+                "wrong_input_mode",
+                "typing_incomplete",
+                "dialog_mismatch",
+                "visible_but_not_at_modal_hook",
+                "direction_not_selected",
+                "blocked_pending_releases",
+            }
+            if failure is not None:
+                status = "invariant_failed"
+            elif postconditions and conditions_satisfied(state):
+                status = "succeeded"
+            elif not postconditions:
+                status = (
+                    "action_rejected"
+                    if semantic_statuses & rejected_statuses
+                    else "action_completed"
+                )
+            else:
+                max_cycles = int(spec.get("max_cycles", 1000))
+                status = "timeout"
+                for cycles_waited in range(1, max_cycles + 1):
+                    if state.get("stop_reason") != "cycle_boundary":
+                        status = "interrupted"
+                        break
+                    state = self.step_cycle(float(spec.get("cycle_timeout", 2.0)))
+                    failure = failed_invariant(state)
+                    if failure is not None:
+                        status = "invariant_failed"
+                        break
+                    if conditions_satisfied(state):
+                        status = "succeeded"
+                        break
+
+        final_state = self.read_state()
+        matched = matched_conditions(final_state)
+        pending = bool(self.pending_releases)
+        if postconditions and conditions_satisfied(final_state):
+            certainty = "observed_postcondition"
+        elif pending:
+            certainty = "uncertain_release_pending"
+        elif status in ("precondition_failed", "already_satisfied", "invariant_failed"):
+            certainty = "observed_without_input"
+        else:
+            certainty = "input_delivered_outcome_unverified"
+        state_keys = set(final_state)
+        action_metadata = {
+            key: value
+            for key, value in action_result.items()
+            if key not in state_keys or key in {
+                "input_delivery",
+                "tap",
+                "text_input",
+                "command_submission",
+                "string_submission",
+                "dialog_action",
+                "direction_action",
+                "movement_stop",
+                "movement",
+                "waypoint_movement",
+                "priority_navigation",
+                "animation_wait",
+                "reconciliation",
+            }
+        }
+        self.record_trace_event(
+            "transaction_finished",
+            state=final_state,
+            details={
+                "transaction_id": transaction_id,
+                "status": status,
+                "outcome_certainty": certainty,
+            },
+        )
+        trace = self.read_trace(trace_start, limit=20_000)["events"]
+        result = {
+            "transaction_id": transaction_id,
+            "idempotency_key": idempotency_key,
+            "fingerprint": fingerprint,
+            "status": status,
+            "outcome_certainty": certainty,
+            "matched_postconditions": matched,
+            "failed_invariant": failure,
+            "condition_evaluations": {
+                "precondition": (
+                    evaluate_predicate(start_state, precondition)
+                    if precondition is not None
+                    else None
+                ),
+                "postconditions": [
+                    {
+                        "name": name,
+                        "matched": evaluate_predicate(final_state, predicate),
+                    }
+                    for name, predicate in postconditions
+                ],
+                "invariants": [
+                    {
+                        "name": name,
+                        "satisfied": evaluate_predicate(final_state, predicate),
+                    }
+                    for name, predicate in invariants
+                ],
+            },
+            "cycles_waited": cycles_waited,
+            "start_state": summarize_state(start_state),
+            "final_state": summarize_state(final_state),
+            "delta": state_delta(start_state, final_state),
+            "input": self.input_state(),
+            "action": spec.get("action", {}),
+            "action_result": action_metadata,
+            "trace": trace,
+            "idempotent_replay": False,
+        }
+        if idempotency_key is not None:
+            if len(self.transaction_cache) >= 1000:
+                self.transaction_cache.pop(next(iter(self.transaction_cache)))
+            self.transaction_cache[idempotency_key] = (fingerprint, result)
         return result
 
     def checkpoint(self, name: str) -> dict[str, Any]:
@@ -1254,7 +2575,21 @@ class InterpreterSession:
         output = self.qmp.hmp(f"savevm {name}")
         if "Error" in output or "failed" in output.lower():
             raise ControllerError(output.strip())
-        return {"checkpoint": name, "cycle": self.cycle, "output": output.strip()}
+        self.checkpoint_controller_state[name] = {
+            "held_keys": sorted(self.held_keys),
+            "pending_releases": sorted(self.pending_releases),
+        }
+        self.record_trace_event(
+            "checkpoint_saved",
+            state=self.read_state(),
+            details={"checkpoint": name, **self.input_state()},
+        )
+        return {
+            "checkpoint": name,
+            "cycle": self.cycle,
+            "output": output.strip(),
+            "input": self.input_state(),
+        }
 
     def restore_checkpoint(self, name: str) -> dict[str, Any]:
         self.qmp.stop()
@@ -1265,8 +2600,27 @@ class InterpreterSession:
         packet = self.gdb.query_stop()
         self.current_stop = self._decode_stop(packet)
         self.state_revision += 1
+        controller_state = self.checkpoint_controller_state.get(name)
+        self.held_keys = set(controller_state.get("held_keys", [])) if controller_state else set()
+        self.pending_releases = (
+            set(controller_state.get("pending_releases", [])) if controller_state else set()
+        )
+        self.transaction_cache.clear()
+        self.recorded_state = {}
+        self.recorded_trace_sequence = self.trace_sequence
         self.cached_state = self.read_state()
-        return {"checkpoint": name, "restored": True, "output": output.strip()}
+        self.record_trace_event(
+            "checkpoint_restored",
+            state=self.cached_state,
+            details={"checkpoint": name, **self.input_state()},
+        )
+        return {
+            "checkpoint": name,
+            "restored": True,
+            "output": output.strip(),
+            "input": self.input_state(),
+            "idempotency_cache_cleared": True,
+        }
 
 
 class QemuProcess:
@@ -1331,8 +2685,29 @@ class ControllerApi:
         session = self.session
         if method == "GET" and path == "/v1/health":
             return self.json_response({"ok": True, "vm": session.qmp.query_status()})
+        if method == "GET" and path == "/v1/profile":
+            return self.json_response(
+                {
+                    "profile": session.profile.name,
+                    "version": session.profile.version,
+                    "adapter": type(session._adapter()).__name__,
+                    "logical_screen": {
+                        "width": session.profile.logical_width,
+                        "height": session.profile.logical_height,
+                    },
+                }
+            )
         if method == "GET" and path == "/v1/state":
             return self.json_response(session.read_state())
+        if method == "GET" and path == "/v1/input/state":
+            return self.json_response(session.input_state())
+        if method == "GET" and path == "/v1/trace":
+            return self.json_response(
+                session.read_trace(
+                    int(query.get("since", ["0"])[0]),
+                    int(query.get("limit", ["1000"])[0]),
+                )
+            )
         if method == "GET" and path == "/v1/variables":
             return self.json_response({"cycle": session.cycle, "variables": session.read_variables()})
         if method == "GET" and path == "/v1/flags":
@@ -1345,7 +2720,9 @@ class ControllerApi:
             return self.json_response({"cycle": session.cycle, "logics": session.read_logics()})
         if method == "GET" and path in ("/v1/picture/priority.ppm", "/v1/picture/visual.ppm"):
             channel = "priority" if "priority" in path else "visual"
-            ppm = colorize_logical_buffer(session.read_logical_buffer(), channel)
+            ppm = session._adapter().colorize_logical_buffer(
+                session.read_logical_buffer(), channel
+            )
             return 200, "image/x-portable-pixmap", ppm
         if method == "GET" and path in ("/v1/screenshot.ppm", "/v1/screenshot.png"):
             image_format = "png" if path.endswith("png") else "ppm"
@@ -1390,6 +2767,16 @@ class ControllerApi:
                     float(body.get("timeout", 2.0)),
                 )
             )
+        if method == "POST" and path == "/v1/cycles/run-until-guarded":
+            return self.json_response(
+                session.run_until_guarded(
+                    body["predicate"],
+                    int(body.get("max_cycles", 1000)),
+                    invariants=body.get("invariants"),
+                    abort_predicates=body.get("abort_predicates"),
+                    timeout=float(body.get("timeout", 2.0)),
+                )
+            )
         if method == "POST" and path == "/v1/input":
             action = body.get("action", "tap")
             if action == "down":
@@ -1408,18 +2795,103 @@ class ControllerApi:
                 return self.json_response(
                     session.type_host_text(str(body.get("text", "")), float(body.get("delay_ms", 40.0)))
                 )
+            if action == "reconcile":
+                return self.json_response(
+                    session.reconcile_pending_keys(int(body.get("max_attempts", 4)))
+                )
+            if action == "release_all":
+                return self.json_response(
+                    session.release_all_keys(int(body.get("max_attempts", 8)))
+                )
             raise ControllerError(f"unsupported input action: {action}")
         if method == "POST" and path == "/v1/dialog/dismiss":
-            return self.json_response(session.dismiss_dialog(str(body.get("key", "ret"))))
+            return self.json_response(
+                session.dismiss_dialog(
+                    str(body.get("key", "ret")),
+                    dialog_id=body.get("dialog_id"),
+                )
+            )
         if method == "POST" and path == "/v1/string-prompt/submit":
             return self.json_response(session.submit_string(str(body.get("text", ""))))
+        if method == "POST" and path == "/v1/semantic/command":
+            return self.json_response(session.submit_command(str(body.get("text", ""))))
+        if method == "POST" and path == "/v1/semantic/direction":
+            return self.json_response(session.select_direction(str(body["direction"])))
+        if method == "POST" and path == "/v1/semantic/stop-movement":
+            return self.json_response(session.stop_movement())
+        if method == "POST" and path == "/v1/semantic/wait":
+            return self.json_response(
+                session.wait_for_animation(
+                    str(body["path"]),
+                    body.get("value", 0),
+                    max_cycles=int(body.get("max_cycles", 1000)),
+                    invariants=body.get("invariants"),
+                    abort_predicates=body.get("abort_predicates"),
+                )
+            )
         if method == "POST" and path == "/v1/movement/run-until":
             return self.json_response(
                 session.move_until(
                     str(body["direction"]),
                     body["predicate"],
                     int(body.get("max_cycles", 1000)),
+                    invariants=body.get("invariants"),
+                    abort_predicates=body.get("abort_predicates"),
+                    stop_at_end=bool(body.get("stop_at_end", True)),
                 )
+            )
+        if method == "POST" and path == "/v1/movement/waypoints":
+            return self.json_response(
+                session.move_waypoints(
+                    list(body["waypoints"]),
+                    max_cycles_per_segment=int(body.get("max_cycles_per_segment", 500)),
+                    tolerance=int(body.get("tolerance", 0)),
+                    invariants=body.get("invariants"),
+                    abort_predicates=body.get("abort_predicates"),
+                    preserve_room=bool(body.get("preserve_room", True)),
+                )
+            )
+        if method == "POST" and path == "/v1/movement/plan":
+            return self.json_response(
+                session.plan_local_priority_path(
+                    int(body["x"]),
+                    int(body["y"]),
+                    blocked_priorities=(
+                        set(body["blocked_priorities"])
+                        if "blocked_priorities" in body
+                        else None
+                    ),
+                    footprint_width=body.get("footprint_width"),
+                    goal_tolerance=int(body.get("goal_tolerance", 0)),
+                )
+            )
+        if method == "POST" and path == "/v1/movement/navigate":
+            return self.json_response(
+                session.navigate_local_priority_path(
+                    int(body["x"]),
+                    int(body["y"]),
+                    blocked_priorities=(
+                        set(body["blocked_priorities"])
+                        if "blocked_priorities" in body
+                        else None
+                    ),
+                    footprint_width=body.get("footprint_width"),
+                    goal_tolerance=int(body.get("goal_tolerance", 0)),
+                    max_cycles_per_segment=int(body.get("max_cycles_per_segment", 500)),
+                    invariants=body.get("invariants"),
+                    abort_predicates=body.get("abort_predicates"),
+                )
+            )
+        if method == "POST" and path == "/v1/transactions":
+            return self.json_response(session.execute_transaction(body))
+        if method == "POST" and path == "/v1/captures/cycle":
+            capture = session.capture_cycle()
+            return self.json_response(
+                {
+                    "cycle": session.cycle,
+                    "state_revision": session.state_revision,
+                    "metadata": str(capture),
+                }
             )
         if method == "POST" and path == "/v1/checkpoints":
             return self.json_response(session.checkpoint(str(body["name"])))
@@ -1461,7 +2933,16 @@ def make_handler(api: ControllerApi) -> type[http.server.BaseHTTPRequestHandler]
                         body,
                         parse_qs(parsed.query),
                     )
-            except (ControllerError, QmpError, GdbRemoteError, KeyError, ValueError, socket.timeout) as exc:
+            except (
+                ControllerError,
+                QmpError,
+                GdbRemoteError,
+                IndexError,
+                KeyError,
+                TypeError,
+                ValueError,
+                socket.timeout,
+            ) as exc:
                 status, content_type, payload = ControllerApi.json_response(
                     {"error": type(exc).__name__, "message": str(exc)},
                     status=409,
@@ -1498,8 +2979,9 @@ def wait_for_client(path: Path, factory: Any, timeout: float = 10.0) -> Any:
 
 def serve(args: argparse.Namespace) -> int:
     profile = PROFILES[args.profile]
+    adapter = adapter_for_profile(profile)
     game_dir = args.game_dir.resolve()
-    image = validate_profile(game_dir, profile)
+    image = adapter.validate_game(game_dir)
     runtime_dir = args.runtime_dir.resolve()
     qemu = QemuProcess(
         disk=args.disk.resolve(),
@@ -1518,7 +3000,9 @@ def serve(args: argparse.Namespace) -> int:
             qmp=qmp,
             gdb=gdb,
             capture_dir=args.capture_dir.resolve(),
+            adapter=adapter,
             capture_every_cycle=args.capture_every_cycle,
+            capture_logical_buffers=args.capture_logical_buffers,
         )
         api = ControllerApi(session, qemu)
         server = http.server.ThreadingHTTPServer((args.host, args.port), make_handler(api))
@@ -1557,6 +3041,7 @@ def main() -> int:
     serve_parser.add_argument("--runtime-dir", type=Path, default=Path("build/interpreter-controller/runtime"))
     serve_parser.add_argument("--capture-dir", type=Path, default=Path("build/interpreter-controller/captures"))
     serve_parser.add_argument("--capture-every-cycle", action="store_true")
+    serve_parser.add_argument("--capture-logical-buffers", action="store_true")
     serve_parser.add_argument("--display", default="cocoa,zoom-to-fit=on")
     serve_parser.add_argument("--memory", type=int, default=16)
     serve_parser.add_argument("--host", default="127.0.0.1")

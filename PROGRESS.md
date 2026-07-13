@@ -32,9 +32,17 @@ better understood, or a new remaining-work item is discovered.
   and GDB, stops at every 2.917 cycle boundary, exposes variables, flags,
   objects, inventory, logic-cache state, visual/priority buffers, screenshots,
   modal detection, semantic input, predicates, and checkpoints over localhost
-  HTTP. Live integration reached the shared string editor, returned to room 2,
-  detected and dismissed a modal, and restored cycle control. QEMU's observed
-  one-breakpoint real-mode limit is handled by stack-classified hook switching.
+  HTTP. Profile-specific packaging, memory decoding, logical-screen handling,
+  and modal recognition now sit behind an explicit adapter boundary. The
+  generic orchestration layer adds postcondition-driven idempotent
+  transactions, guarded waits and waypoint movement, baseline-footprint
+  priority routing, key-release reconciliation, sequenced state/input traces,
+  stable dialog identities, and atomic cycle recording bundles. A clean live
+  validation exercised cycle-to-string and string-to-cycle transitions,
+  transaction replay, live priority planning, no-input dialog dismissal,
+  checkpoint restoration/cache invalidation, and repeated captures at one
+  state revision. QEMU's observed one-breakpoint real-mode limit is handled by
+  stack-classified hook switching.
 - Main remaining risk areas: concrete picture/view edges exposed by future
   valid resources, compatibility-bundle breadth across additional versions,
   optional canonical initial save bytes for pristine 2.089/2.272 save

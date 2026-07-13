@@ -88,6 +88,19 @@ produce that replacement engine.
   tools.
 - Mark uncertain interpretations as hypotheses until verified by another observation.
 
+## Playthrough development
+
+- Before developing, revising, or dynamically validating a game playthrough,
+  consult `docs/src/developing_playthroughs.md`. Follow its static-first
+  workflow: derive explicit state contracts from local logic and resources,
+  inspect visual and priority/control pictures, plan guarded experiments, and
+  treat interactive play as confirmation rather than solution guessing.
+- Before using the persistent QEMU controller for a playthrough, consult
+  `docs/src/interpreter_controller.md` for the supported profile, launch
+  procedure, HTTP API, input-mode handling, transactions, movement limits,
+  checkpoints, traces, recordings, and shutdown procedure. Do not assume the
+  current SQ1.22/2.917 adapter supports another game or interpreter build.
+
 ## Local inputs and generated artifacts
 
 - Game files are not committed. Keep private local copies under `games/` or

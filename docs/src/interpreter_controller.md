@@ -7,6 +7,10 @@ register interface behind JSON HTTP requests. The selected game is always
 explicit, and preparation copies it to a disposable disk under `build/`.
 Nothing under `games/` is modified.
 
+For the static-first analysis workflow, experiment design, failure diagnosis,
+and guidance on turning controller observations into a reusable state graph,
+see [Developing and Validating Playthroughs](./developing_playthroughs.md).
+
 > **Warning:** this is not yet a generic AGI controller. Only its QMP/GDB and
 > HTTP orchestration layers are intended to be version-neutral. The current
 > executable anchor, hooks, stack returns, DS layout, object/inventory/logic
@@ -30,8 +34,10 @@ launch assumptions.
 The normal debugger hook is image `0x015b`, at the start of each repeated
 interpreter cycle. QEMU pauses before the instruction executes, the controller
 reads coherent state, and an explicit API request steps off the hook and runs
-to the next hook. `--capture-every-cycle` writes a PNG plus one JSONL metadata
-record at every cycle stop.
+to the next hook. `--capture-every-cycle` writes an immutable bundle containing
+the screenshot, full state, state delta, trace events, and input transitions at
+every cycle stop. `--capture-logical-buffers` also stores the visual and
+priority channels from that same stop.
 
 This QEMU real-mode GDB path honored only one execution breakpoint reliably in
 the live SQ1.22 experiment. The controller therefore does not leave the cycle,
@@ -72,6 +78,8 @@ python3 -B tools/interpreter_controller.py serve \
   --display cocoa,zoom-to-fit=on \
   --runtime-dir build/interpreter-controller/runtime \
   --capture-dir build/interpreter-controller/captures \
+  --capture-every-cycle \
+  --capture-logical-buffers \
   --port 8765
 ```
 
@@ -94,6 +102,22 @@ The DOS wait remains an explicit caller responsibility because firmware and
 disk startup are outside the interpreter cycle model. After discovery,
 cycle-relative input methods should be used.
 
+## Architecture and profile adapters
+
+QMP/GDB lifecycle, transactions, traces, input reconciliation, movement, and
+recording are generic controller services. Interpreter packaging and memory
+semantics are owned by an explicit `InterpreterAdapter`. The current
+`SQ122Adapter` is responsible for validating/decrypting its selected input,
+classifying blocking stacks, decoding variables, flags, objects, inventory and
+logic-cache records, interpreting the logical screen, and supplying the modal
+screen oracle. It also owns the observed direction codes, movement keys, stop
+key, and default blocked-priority set. `InterpreterSession` no longer contains
+those profile-specific layouts or control values.
+
+A future profile must register both an `InterpreterProfile` and an adapter. A
+hash-only profile is insufficient and fails before the VM is interpreted.
+`GET /v1/profile` reports the selected profile and adapter.
+
 ## HTTP surface
 
 All endpoints bind to `127.0.0.1` by default. Mutating requests use JSON POST
@@ -101,63 +125,174 @@ bodies; state and image requests use GET.
 
 | Endpoint | Result |
 |---|---|
-| `GET /v1/state` | Cycle number, room, score, all variables and flags, object records, modal state, loaded-image base, and DS |
-| `GET /v1/variables`, `/flags`, `/objects` | Individual state families |
-| `GET /v1/inventory`, `/logics` | Inventory table and live logic-cache records |
-| `GET /v1/picture/priority.ppm` | Current 160 by 168 priority/control channel from the interpreter's combined logical buffer |
-| `GET /v1/picture/visual.ppm` | Current visual channel from the same buffer |
-| `GET /v1/screenshot.ppm`, `/screenshot.png` | Current VGA output through QMP `screendump` |
-| `GET /v1/dialog` | Red-border/white-interior modal boxes plus the interpreter window-active state when safely readable |
-| `POST /v1/cycles/step` | Execute through the next cycle or blocking semantic stop |
-| `POST /v1/cycles/run` | Execute a bounded number of cycles |
-| `POST /v1/cycles/run-until` | Execute until a nested state predicate matches or a bound is reached |
-| `POST /v1/input` | Key down, key up, cycle-relative tap/type, or bootstrap `host_type` |
-| `POST /v1/string-prompt/submit` | Enter text through the shared string editor and restore cycle control |
-| `POST /v1/dialog/dismiss` | Dismiss the classified modal and restore cycle control |
-| `POST /v1/movement/run-until` | Select a direction and run until a state predicate matches |
-| `POST /v1/checkpoints`, `/checkpoints/restore` | QEMU named checkpoint management on the qcow2 session disk |
-| `GET /v1/debug` | Stopped registers, stack bytes, image-relative IP, and the active semantic hook |
-| `POST /v1/vm/quit` | Quit QEMU and shut down the HTTP server |
+| `GET /v1/state` | Full coherent state, current logic/resume context, and held/pending key state |
+| `GET /v1/profile`, `/input/state`, `/trace` | Adapter identity, keyboard reconciliation state, or sequenced transition events |
+| `GET /v1/variables`, `/flags`, `/objects`, `/inventory`, `/logics` | Individual state families |
+| `GET /v1/picture/priority.ppm`, `/visual.ppm` | Current profile-decoded logical channels |
+| `GET /v1/screenshot.ppm`, `/screenshot.png` | Current VGA output through QMP |
+| `GET /v1/dialog` | Modal boxes, stable dialog ID, and interpreter-memory oracle |
+| `POST /v1/cycles/step`, `/run`, `/run-until` | Basic cycle execution |
+| `POST /v1/cycles/run-until-guarded` | Predicate wait with invariants and abort predicates |
+| `POST /v1/input` | Down/up/tap/type, bootstrap typing, release reconciliation, or release-all |
+| `POST /v1/semantic/command` | Submit one command-line string and Enter |
+| `POST /v1/string-prompt/submit` | Submit shared-editor text and restore cycle control |
+| `POST /v1/dialog/dismiss` | Idempotently dismiss a matching dialog instance |
+| `POST /v1/semantic/direction`, `/stop-movement`, `/wait` | Direction selection, explicit stop, or named state wait |
+| `POST /v1/movement/run-until`, `/waypoints` | Guarded single segment or multi-waypoint movement |
+| `POST /v1/movement/plan`, `/navigate` | Plan or execute a local priority-aware path |
+| `POST /v1/transactions` | Execute an idempotent state-contract action |
+| `POST /v1/captures/cycle` | Write a cycle-aligned recording bundle on demand |
+| `POST /v1/checkpoints`, `/checkpoints/restore` | Save/restore VM and controller keyboard state |
+| `GET /v1/debug` | Registers, stack, image-relative IP, and active hook |
+| `POST /v1/vm/quit` | Quit QEMU and shut down the server |
 
-Predicates address nested fields with dotted paths. For example, this request
-runs until ego's X coordinate is between 98 and 130 while the room remains 2:
+`GET /v1/trace` accepts `since` and `limit` query parameters. Every event has a
+monotonic sequence, cycle, revision, kind, compact state, and details. Events
+cover semantic stops, state deltas, requested/delivered/deferred input,
+transactions, reconciliation, and checkpoints.
+
+## Predicates, guards, and transactions
+
+Predicates address nested fields with dotted paths. Supported operators are
+`eq`, `ne`, `lt`, `le`, `gt`, `ge`, `in`, `contains`, `between`, `truthy`, and
+`falsy`, with recursive `all`, `any`, and `not` forms.
+
+`POST /v1/transactions` is the preferred mutation interface. A transaction
+contains an optional precondition, one semantic action, acceptable
+postconditions, invariants, a cycle bound, and an idempotency key:
 
 ```json
 {
-  "predicate": {
+  "idempotency_key": "open-bay-once",
+  "precondition": {
     "all": [
-      {"path": "room", "op": "eq", "value": 2},
-      {"path": "objects.0.x", "op": "between", "value": [98, 130]}
+      {"path": "room", "op": "eq", "value": 6},
+      {"path": "score", "op": "eq", "value": 8}
     ]
   },
-  "max_cycles": 500
+  "action": {"type": "command", "text": "press open bay door"},
+  "postconditions": [
+    {
+      "name": "door-state",
+      "predicate": {"path": "variables.52", "op": "eq", "value": 1}
+    },
+    {
+      "name": "score-award",
+      "predicate": {"path": "score", "op": "eq", "value": 10}
+    }
+  ],
+  "postcondition_mode": "all",
+  "invariants": [
+    {
+      "name": "stay-in-room",
+      "predicate": {"path": "room", "op": "eq", "value": 6}
+    }
+  ],
+  "max_cycles": 100
 }
 ```
 
-Supported predicate operators are `eq`, `ne`, `lt`, `le`, `gt`, `ge`, `in`,
-`contains`, `between`, `truthy`, and `falsy`, with recursive `all`, `any`, and
-`not` forms.
+The result separates `status` from `outcome_certainty`, lists every condition
+evaluation, includes compact start/final states and a semantic delta, and
+returns the trace slice. Reusing an idempotency key with the identical request
+returns the cached result without input. Reusing it with a different request
+returns `idempotency_conflict`. Restoring a checkpoint clears this cache because
+the game state has moved backward. The desired postcondition is checked before
+the precondition, so retrying an already-achieved operation remains a no-input
+`already_satisfied` result even when the transition's original precondition no
+longer holds.
 
-## State mappings
+Actions include `tap`, `key_down`, `key_up`, `release_all_keys`, `type_text`,
+`command`, `submit_string`, `dismiss_dialog`, `select_direction`,
+`stop_movement`, `move_until`, `waypoints`, `navigate_priority`,
+`wait_for_state`, and `wait_for_animation`.
 
-The SQ1.22 profile uses the locally verified 2.917 data layout: variables at
+## Reliable input and semantic UI operations
+
+Physical key delivery and game outcome are separate. The controller tracks
+`held_keys` and `pending_releases`. If key-down completes an action and the VM
+reaches its next hook before QMP accepts key-up, the response is HTTP 200 with
+`input_delivery.status = release_pending`; it is not a false action failure.
+The next tap first makes bounded reconciliation attempts, and callers can use
+`{"action":"reconcile"}` or `{"action":"release_all"}` explicitly.
+
+A transition that loses the race before key-down is reported as
+`not_delivered`. Transactions determine success from postconditions, so a
+blind retry is never required. Their `outcome_certainty` distinguishes an
+observed postcondition, a deferred release, and an unverified result.
+
+`GET /v1/dialog` hashes only the detected dialog rectangle, excluding animated
+background pixels. Passing that `dialog_id` to `/v1/dialog/dismiss` makes the
+operation idempotent: an absent dialog is `already_absent`, while a different
+dialog is `dialog_mismatch` and receives no input.
+
+## Guarded movement and priority planning
+
+`movement/run-until` preserves an already-active matching direction, because
+repeating it is a game-level stop toggle. It accepts invariants and positive
+abort predicates, then explicitly stops movement at the target or interruption.
+`movement/waypoints` composes cardinal segments with `x_then_y` or `y_then_x`
+ordering, per-segment cycle limits, coordinate tolerance, and optional
+initial-room preservation. Segment completion uses direction-aware crossing
+predicates rather than exact equality, so a step size greater than one cannot
+skip a coordinate forever.
+
+`movement/plan` performs a breadth-first search over the live priority channel.
+Acceptance tests every pixel in ego's baseline footprint, not only ego's left
+coordinate. Priorities 0 and 1 are blocked by default; callers can override
+the set for a room-specific hypothesis. The result contains the complete pixel
+path and a compressed list of turns. `movement/navigate` executes those turns
+with room preservation and the same guards.
+
+This planner is intentionally local to the current logical screen. It does not
+infer elevators, room transitions, dynamic object collision, horizons, or
+room-logic control overrides. Multi-room hypotheses should be supplied as
+explicit waypoint/transaction stages, and unexpected behavior should trip an
+invariant rather than trigger speculative movement.
+
+## Transition traces and cycle recordings
+
+Every semantic stop records the compact state and a delta covering scalar
+state, changed variables and flags, and changed object fields. The state also
+contains the current logic-cache record and resume IP visible at the stop.
+Transactions record their own predicate evaluations. This provides useful
+logic context without claiming to trace every opcode or internal condition
+branch inside a cycle.
+
+Cycle recording happens while QEMU remains stopped. Each directory under
+`CAPTURE_DIR/cycles/` contains `screen.png`, `cycle.json`, and optionally
+`visual.ppm` and `priority.ppm`. `cycle.json` contains the full state, delta
+from the previous recorded cycle, and all trace/input events since that cycle.
+The controller builds each uniquely sequenced directory under a temporary name
+and publishes it atomically. Only after the bundle is complete is a row
+appended to `cycles.jsonl`, including the screenshot SHA-256. Capture sequence,
+cycle, and state-revision numbers make image/state pairing explicit and permit
+multiple immutable captures of the same semantic stop.
+
+## SQ1.22 state mapping
+
+The `SQ122Adapter` uses the locally verified 2.917 data layout: variables at
 DS `0x0009`, packed high-bit-first flags at `0x0109`, object-table pointer
 globals at `0x0963`/`0x0965`, inventory globals at `0x0969` through `0x096d`,
 logic-cache globals at `0x096f` and `0x0979`, and the live logical-buffer
-segment at `0x1365`. Object records are decoded as the observed 43-byte 2.917
-records. The combined logical buffer is 160 by 168 bytes; its low nibble is the
-visual color and its high nibble is priority/control.
+segment at `0x1365`. Object records are the observed 43-byte layout. The
+combined logical buffer is 160 by 168 bytes; its low nibble is visual color and
+its high nibble is priority/control.
 
-The border detector is intentionally an independent screen oracle. It finds
-the observed red rectangular border with a predominantly white interior and
-does not depend solely on interpreter memory. A live `look` dialog produced
-one box and agreed with the interpreter's window-active word; after dismissal
-both checks became false.
+The border detector is an independent screen oracle. It finds the observed red
+rectangular border with a predominantly white interior and does not rely only
+on interpreter memory.
 
 ## Limits
 
-The controller is a version-specific research tool, not a generic replacement
-engine. New interpreter builds require a separately evidenced profile and hash.
-State reads are coherent at semantic stops; callers should not treat cached
-state returned while the VM is running as a fresh snapshot. Checkpoints and
-captures are generated artifacts under `build/` and are disposable.
+The controller is a research tool, not a replacement engine. Only SQ1.22's
+2.917 adapter is implemented. State reads are coherent at semantic stops;
+cached state while the VM is running is explicitly marked stale. Captures,
+checkpoints, and prepared disks are disposable artifacts under `build/`.
+
+QEMU's observed real-mode debugger path still permits one reliable execution
+breakpoint. Stack-classified hook switching handles the known cycle, modal, and
+shared-string modes, but unknown blocking loops still require new profile
+evidence. Deferred key releases preserve every cycle boundary and remain
+visible until QMP accepts them; the controller does not remove breakpoints or
+run through unrecorded cycles merely to manufacture an input window.

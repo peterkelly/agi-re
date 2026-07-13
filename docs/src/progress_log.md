@@ -28132,3 +28132,64 @@ Audited `interpreter_controller.py` for SQ1.22-specific assumptions. Added a
 prominent non-generic warning, moved the runtime signature and blocking-stack
 return addresses into the version profile, marked the 2.917-only decoders and
 screen oracle, and made unsupported object-record widths fail explicitly.
+
+## Playthrough Development Workflow
+
+User request:
+
+> Add a chapter to the docs that gives advice for developing playthroughs
+> including instructions on how to use the interpreter controller and the
+> general problem-solving lessons you described above.
+
+1. Reported: "I’ll turn the session’s lessons into a reusable workflow chapter
+   rather than an SQ1-specific walkthrough. I’ll anchor the controller examples
+   to its current API, cover static-first hypothesis building, guarded execution
+   and diagnosis, and clearly separate reusable techniques from the current
+   SQ1.22/2.917 limitations."
+
+   Action/result: Audited the existing playthrough analyses, state graph,
+   Graphviz renderer, static indexing/rendering tools, controller API chapter,
+   and book structure before drafting the workflow.
+
+2. Reported: "The chapter structure is now clear: a proof standard for each
+   playthrough edge, a static-resource workflow, a controller runbook, and a
+   failure-diagnosis loop. One point I’m making explicit is that the
+   controller’s local priority planner is a verifier for a room-level
+   hypothesis—not a substitute for tracing room logic or planning multi-room/
+   elevator routes."
+
+   Action/result: Added `developing_playthroughs.md`, linked it from the book
+   summary and controller chapter, and documented static analysis, state-graph
+   construction, semantic transactions, input modes, movement, priority
+   planning, waits, checkpoints, failure diagnosis, recording, and completion
+   criteria.
+
+3. Reported: "The first draft is in place and cross-linked from both the book
+   summary and the controller chapter. It includes concrete API examples for
+   inspection, transactions, movement, guarded waits, dialogs, input recovery,
+   checkpoints, recordings, and shutdown, plus a symptom-driven diagnostic
+   table. I’m validating the rendered book now and will correct any broken
+   examples or navigation before handing it over."
+
+   Action/result: Both mdBooks and `git diff --check` passed. The documented
+   static index, logic disassembly, visual/control rendering, and Graphviz
+   commands ran successfully against the selected SQ1.22 input; the chapter's
+   JSON and shell examples also passed syntax validation.
+
+## Playthrough Guidance in AGENTS.md
+
+User request:
+
+> Update AGENTS.md to mention the interpreter controller and developing
+> playthroughs chapters as something that should be consulted for playthroughs
+
+1. Reported: "I’ll add a concise playthrough-workflow rule to `AGENTS.md` that
+   points agents to both chapters before static reconstruction or
+   controller-driven replay, while preserving the existing clean-room and
+   explicit-game-directory requirements."
+
+   Action/result: Added a dedicated playthrough-development section requiring
+   consultation of `docs/src/developing_playthroughs.md` before playthrough
+   analysis or validation and `docs/src/interpreter_controller.md` before
+   controller-driven QEMU work. The guidance also preserves the current
+   adapter's explicit SQ1.22/2.917 limitation.

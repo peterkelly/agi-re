@@ -17,6 +17,7 @@
 
 # Game Playthrough Analyses
 
+- [Developing and Validating Playthroughs](./developing_playthroughs.md)
 - [Space Quest 1 2.2](./games/sq1_22_playthrough_analysis.md)
 - [Space Quest 2](./games/sq2_playthrough_analysis.md)
 - [King's Quest 1](./games/kq1_playthrough_analysis.md)
