@@ -3,10 +3,13 @@
 
 from __future__ import annotations
 
+import hashlib
 import json
 import sys
 import tempfile
+import types
 import unittest
+from dataclasses import replace
 from pathlib import Path
 
 
@@ -15,6 +18,8 @@ sys.path.insert(0, str(ROOT / "tools"))
 
 from interpreter_controller import (  # noqa: E402
     ControllerError,
+    DETERMINISTIC_RNG_SEED,
+    GdbRemoteClient,
     InterpreterSession,
     SQ122_PROFILE,
     adapter_for_profile,
@@ -27,6 +32,7 @@ from interpreter_controller import (  # noqa: E402
     find_runtime_image_base,
     parse_object_records,
     parse_ppm,
+    patch_deterministic_rng,
     plan_priority_path,
     qcode_for_character,
     state_delta,
@@ -152,6 +158,98 @@ class WaypointControllerStub:
 
 
 class InterpreterControllerTests(unittest.TestCase):
+    def test_deterministic_rng_patch_replaces_only_bios_tick_seed(self) -> None:
+        header_size = 0x200
+        decoded = bytearray(header_size + 0x8000)
+        decoded[:2] = b"MZ"
+        decoded[0x08:0x0A] = (header_size // 16).to_bytes(2, "little")
+        patch_offset = header_size + SQ122_PROFILE.random_seed_patch
+        state = SQ122_PROFILE.random_state.to_bytes(2, "little")
+        original = b"\xb4\x00\xcd\x1a\x89\x16" + state
+        decoded[patch_offset : patch_offset + len(original)] = original
+        profile = replace(
+            SQ122_PROFILE,
+            decrypted_sha256=hashlib.sha256(decoded).hexdigest(),
+        )
+
+        patched = patch_deterministic_rng(bytes(decoded), profile)
+
+        replacement = (
+            b"\xba"
+            + DETERMINISTIC_RNG_SEED.to_bytes(2, "little")
+            + b"\x90\x89\x16"
+            + state
+        )
+        self.assertEqual(
+            patched[patch_offset : patch_offset + len(replacement)],
+            replacement,
+        )
+        self.assertEqual(patched[:patch_offset], decoded[:patch_offset])
+        self.assertEqual(
+            patched[patch_offset + len(replacement) :],
+            decoded[patch_offset + len(replacement) :],
+        )
+
+    def test_breakpoint_removal_tolerates_qemu_already_absent_reply(self) -> None:
+        client = object.__new__(GdbRemoteClient)
+        client._request = lambda payload: "E22"  # type: ignore[method-assign]
+
+        client.remove_breakpoint(0x1234)
+
+    def test_checkpoint_restore_reinstalls_saved_breakpoint_reason(self) -> None:
+        class CheckpointQmp:
+            def stop(self) -> None:
+                pass
+
+            def hmp(self, command: str) -> str:
+                self.command = command
+                return ""
+
+        class CheckpointGdb:
+            def remove_breakpoint(self, address: int) -> None:
+                self.removed = address
+
+            def query_stop(self) -> str:
+                return "T05"
+
+            def single_step(self) -> str:
+                return "T05"
+
+        session = object.__new__(InterpreterSession)
+        session.qmp = CheckpointQmp()
+        session.gdb = CheckpointGdb()
+        session.state_revision = 0
+        session.breakpoints = {0x1234: "modal_wait"}
+        session.checkpoint_controller_state = {
+            "safe": {
+                "held_keys": [],
+                "pending_releases": [],
+                "breakpoint_reasons": ["cycle_boundary"],
+            }
+        }
+        session.transaction_cache = {"old": {}}
+        session.recorded_state = {"old": True}
+        session.recorded_trace_sequence = 0
+        session.trace_sequence = 4
+        session.cached_state = {}
+        selected: list[list[str]] = []
+        session._decode_stop = types.MethodType(lambda self, packet: None, session)
+        session.select_breakpoints = types.MethodType(
+            lambda self, reasons: selected.append(list(reasons)) or {}, session
+        )
+        session.read_state = types.MethodType(
+            lambda self: {"cycle": 1, "objects": []}, session
+        )
+        session.record_trace_event = types.MethodType(
+            lambda self, *args, **kwargs: {}, session
+        )
+
+        result = InterpreterSession.restore_checkpoint(session, "safe")
+
+        self.assertTrue(result["restored"])
+        self.assertEqual(selected, [["cycle_boundary"]])
+        self.assertEqual(session.transaction_cache, {})
+
     def test_move_until_preserves_matching_active_direction(self) -> None:
         from interpreter_controller import InterpreterSession
 

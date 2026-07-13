@@ -32,6 +32,7 @@ import json
 import shutil
 import socket
 import subprocess
+import tempfile
 import threading
 import time
 from collections import deque
@@ -62,6 +63,12 @@ EGA_PALETTE = (
     (0xFF, 0xFF, 0x55),
     (0xFF, 0xFF, 0xFF),
 )
+
+
+# The controller is a replay tool, so its generated SQ1.22 interpreter uses one
+# fixed nonzero seed instead of host BIOS ticks.  The original generator still
+# advances normally; only its nondeterministic initialization is replaced.
+DETERMINISTIC_RNG_SEED = 0x5EED
 
 
 class ControllerError(RuntimeError):
@@ -102,6 +109,8 @@ class InterpreterProfile:
     window_active: int
     general_modal_active: int
     mapped_status_bytes: int
+    random_state: int
+    random_seed_patch: int
     logical_width: int = 160
     logical_height: int = 168
     object_record_size: int = 43
@@ -146,6 +155,8 @@ SQ122_PROFILE = InterpreterProfile(
     window_active=0x0D15,
     general_modal_active=0x0615,
     mapped_status_bytes=0x1210,
+    random_state=0x1707,
+    random_seed_patch=0x7108,
 )
 
 
@@ -173,8 +184,7 @@ def decode_interpreter(game_dir: Path) -> bytes:
     return transform(loader, encrypted)
 
 
-def validate_profile(game_dir: Path, profile: InterpreterProfile) -> bytes:
-    decoded = decode_interpreter(game_dir)
+def validate_decoded_profile(decoded: bytes, profile: InterpreterProfile) -> bytes:
     digest = hashlib.sha256(decoded).hexdigest()
     if digest != profile.decrypted_sha256:
         raise ControllerError(
@@ -182,6 +192,44 @@ def validate_profile(game_dir: Path, profile: InterpreterProfile) -> bytes:
             f"{profile.decrypted_sha256}, got {digest}"
         )
     return mz_image(decoded)
+
+
+def validate_profile(game_dir: Path, profile: InterpreterProfile) -> bytes:
+    return validate_decoded_profile(decode_interpreter(game_dir), profile)
+
+
+def deterministic_rng_patch_bytes(
+    profile: InterpreterProfile,
+    seed: int = DETERMINISTIC_RNG_SEED,
+) -> tuple[bytes, bytes]:
+    """Return the evidenced original and fixed-seed instruction sequences."""
+    if not 1 <= seed <= 0xFFFF:
+        raise ControllerError("deterministic RNG seed must be between 1 and 65535")
+    state = profile.random_state.to_bytes(2, "little")
+    original = b"\xb4\x00\xcd\x1a\x89\x16" + state
+    replacement = b"\xba" + seed.to_bytes(2, "little") + b"\x90\x89\x16" + state
+    return original, replacement
+
+
+def patch_deterministic_rng(
+    decoded: bytes,
+    profile: InterpreterProfile,
+    seed: int = DETERMINISTIC_RNG_SEED,
+) -> bytes:
+    """Patch the generated interpreter copy to initialize its RNG predictably."""
+    validate_decoded_profile(decoded, profile)
+    header_size = u16le(decoded, 0x08) * 16
+    offset = header_size + profile.random_seed_patch
+    original, replacement = deterministic_rng_patch_bytes(profile, seed)
+    observed = decoded[offset : offset + len(original)]
+    if observed != original:
+        raise ControllerError(
+            f"{profile.name} RNG seed path mismatch at image {profile.random_seed_patch:#x}: "
+            f"expected {original.hex()}, got {observed.hex()}"
+        )
+    patched = bytearray(decoded)
+    patched[offset : offset + len(replacement)] = replacement
+    return bytes(patched)
 
 
 def prepare_session_disk(
@@ -192,7 +240,7 @@ def prepare_session_disk(
     raw_output: Path,
     qcow_output: Path,
 ) -> Path:
-    """Copy a private game into a disposable raw clone and convert to qcow2."""
+    """Copy a fixed-seed game into a disposable raw clone and convert to qcow2."""
     if not base_image.exists():
         raise ControllerError(f"base FreeDOS image does not exist: {base_image}")
     required = ("SIERRA.COM", "AGI", "AGIDATA.OVL")
@@ -202,6 +250,10 @@ def prepare_session_disk(
     if not dos_game_dir or len(dos_game_dir) > 8 or not dos_game_dir.isalnum():
         raise ControllerError("DOS game directory must be 1-8 alphanumeric characters")
 
+    loader = (game_dir / "SIERRA.COM").read_bytes()
+    decoded = decode_interpreter(game_dir)
+    patched_agi = transform(loader, patch_deterministic_rng(decoded, SQ122_PROFILE))
+
     raw_output.parent.mkdir(parents=True, exist_ok=True)
     qcow_output.parent.mkdir(parents=True, exist_ok=True)
     raw_output.unlink(missing_ok=True)
@@ -210,11 +262,20 @@ def prepare_session_disk(
     image = mtools_image(raw_output)
     remove_dos_dir(image, dos_game_dir)
     subprocess.run(["mmd", "-i", image, f"::/{dos_game_dir}"], check=True)
-    files = sorted(str(path) for path in game_dir.iterdir() if path.is_file())
-    subprocess.run(
-        ["mcopy", "-o", "-i", image, *files, f"::/{dos_game_dir}"],
-        check=True,
-    )
+    with tempfile.TemporaryDirectory(
+        prefix=f".{dos_game_dir.lower()}-deterministic-",
+        dir=raw_output.parent,
+    ) as temporary:
+        staged_game = Path(temporary)
+        for path in game_dir.iterdir():
+            if path.is_file() and path.name != "AGI":
+                shutil.copy2(path, staged_game / path.name)
+        (staged_game / "AGI").write_bytes(patched_agi)
+        files = sorted(str(path) for path in staged_game.iterdir() if path.is_file())
+        subprocess.run(
+            ["mcopy", "-o", "-i", image, *files, f"::/{dos_game_dir}"],
+            check=True,
+        )
     subprocess.run(
         ["qemu-img", "convert", "-f", "raw", "-O", "qcow2", str(raw_output), str(qcow_output)],
         check=True,
@@ -434,7 +495,11 @@ class GdbRemoteClient:
 
     def remove_breakpoint(self, address: int) -> None:
         reply = self._request(f"z0,{address:x},1")
-        if reply not in ("OK", ""):
+        # QEMU returns E22 when a real-mode software breakpoint has already
+        # disappeared, notably after a blocking-loop transition wins the
+        # input-delivery race.  Removal is idempotent from the controller's
+        # perspective, so treat that reply as an already-absent hook.
+        if reply not in ("OK", "", "E22"):
             raise GdbRemoteError(f"cannot remove breakpoint at {address:#x}: {reply}")
 
     def single_step(self, timeout: float = 5.0) -> str:
@@ -1244,6 +1309,16 @@ class InterpreterSession:
             if base is None:
                 base = find_runtime_image_base(self.gdb, self.image, self.profile)
             self.runtime_image_base = base
+            _, expected_rng_patch = deterministic_rng_patch_bytes(self.profile)
+            observed_rng_patch = self.gdb.read_memory(
+                base + self.profile.random_seed_patch,
+                len(expected_rng_patch),
+            )
+            if observed_rng_patch != expected_rng_patch:
+                raise ControllerError(
+                    "runtime interpreter does not contain the deterministic RNG patch; "
+                    "rebuild the disposable disk with the controller prepare command"
+                )
             # This QEMU real-mode GDB path reliably honors one execution
             # breakpoint at a time.  Normal operation therefore starts with
             # only the cycle hook and switches hooks when a blocking loop is
@@ -2578,6 +2653,7 @@ class InterpreterSession:
         self.checkpoint_controller_state[name] = {
             "held_keys": sorted(self.held_keys),
             "pending_releases": sorted(self.pending_releases),
+            "breakpoint_reasons": list(self.breakpoints.values()),
         }
         self.record_trace_event(
             "checkpoint_saved",
@@ -2593,14 +2669,32 @@ class InterpreterSession:
 
     def restore_checkpoint(self, name: str) -> dict[str, Any]:
         self.qmp.stop()
+        controller_state = self.checkpoint_controller_state.get(name)
+        breakpoint_reasons = (
+            list(controller_state.get("breakpoint_reasons", []))
+            if controller_state
+            else ["cycle_boundary"]
+        )
+        breakpoint_reasons = breakpoint_reasons or ["cycle_boundary"]
+        # QEMU's GDB stub does not reconcile software-breakpoint bookkeeping
+        # across loadvm. Remove the current hook before loading the snapshot;
+        # otherwise the first post-restore single-step fails with E22.
+        for address in self.breakpoints:
+            self.gdb.remove_breakpoint(address)
+        self.breakpoints.clear()
         output = self.qmp.hmp(f"loadvm {name}")
         if "Error" in output or "failed" in output.lower():
             raise ControllerError(output.strip())
         self.current_stop = None
         packet = self.gdb.query_stop()
         self.current_stop = self._decode_stop(packet)
+        # The snapshot was taken while stopped at its semantic hook. Step over
+        # that instruction before reinstalling the saved hook at the same
+        # address; adding it while EIP is still there also fails with E22.
+        packet = self.gdb.single_step()
+        self.current_stop = self._decode_stop(packet)
+        self.select_breakpoints(breakpoint_reasons)
         self.state_revision += 1
-        controller_state = self.checkpoint_controller_state.get(name)
         self.held_keys = set(controller_state.get("held_keys", [])) if controller_state else set()
         self.pending_releases = (
             set(controller_state.get("pending_releases", [])) if controller_state else set()
@@ -2691,6 +2785,10 @@ class ControllerApi:
                     "profile": session.profile.name,
                     "version": session.profile.version,
                     "adapter": type(session._adapter()).__name__,
+                    "randomness": {
+                        "mode": "fixed_seed",
+                        "seed": DETERMINISTIC_RNG_SEED,
+                    },
                     "logical_screen": {
                         "width": session.profile.logical_width,
                         "height": session.profile.logical_height,

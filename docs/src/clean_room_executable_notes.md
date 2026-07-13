@@ -12103,3 +12103,75 @@ Conclusion: persistent cycle stepping, shared string input, modal interaction,
 state reads, logical-buffer rendering, and independent dialog detection now
 work together against the real SQ1.22 interpreter. The one-breakpoint limit is
 documented as a QEMU harness constraint and is not AGI behavior.
+
+### SQ1.22 checkpoint hook-state correction (2026-07-13)
+
+During the dynamic completion playthrough, checkpoint `score8_keycard` was
+created at the ordinary cycle hook. Roger later entered a fatal room-2 modal,
+which made the controller select the modal hook. Loading the earlier QEMU
+checkpoint restored the interpreter CPU/memory state but left the controller's
+live GDB hook selection associated with the later modal interaction. Subsequent
+movement requests therefore failed to reach valid semantic stops and were
+interrupted at image offset `0xe256`.
+
+This was a harness-state defect, not observed game behavior. Controller
+checkpoints now record their active semantic breakpoint reasons together with
+held and pending keys. Restore reinstalls the saved reason before reading the
+restored state or accepting another mutation. A focused unit test confirms
+that a saved cycle reason is selected and the transaction cache is cleared on
+restore.
+
+### SQ1.22 deterministic controller RNG patch (2026-07-13)
+
+The completion playthrough needs reproducible game-visible random outcomes.
+Static inspection of the locally decoded SQ1.22/2.917 image found the shared
+generator at image `0x70f9`. Its state is word `DS:0x1707`. When that word is
+zero, image `0x7108..0x710f` executes bytes
+`b4 00 cd 1a 89 16 07 17`, reading BIOS ticks through interrupt `1a` and
+storing `DX` as the seed. The generator then advances the state with multiplier
+`0x7c4d` and increment one and returns the XOR of the state bytes.
+
+Direct calls to this generator occur at image `0x0c0b`, `0x3f8e`, `0x3fa8`,
+and `0x4f71`. The surrounding reductions identify approach-motion recovery,
+random-motion countdown, random direction, and the script action
+`random_range_to_var`. Thus the shared state covers the original engine's four
+source-backed game-randomness paths. The image contains two other interrupt
+`1a` calls at `0x4137` and `0x414c`; source inspection shows that they bound a
+startup display-adapter test and never feed `DS:0x1707` or a game random result.
+
+`tools/interpreter_controller.py prepare` now validates the pristine decoded
+hash and exact seed bytes, then changes only the disposable generated `AGI`
+copy. It replaces the eight bytes above with
+`ba ed 5e 90 89 16 07 17`: load fixed seed `0x5eed`, one padding `nop`, and
+store it to the same state word. The original zero-state guard, generator
+transition, and output mixing remain unchanged. The XOR transform was reapplied
+to create the DOS payload; no file under `games/SQ1.22` was modified.
+
+Runtime discovery reads the loaded patch bytes and rejects an older play disk
+instead of silently using BIOS time. `GET /v1/profile` reports fixed-seed mode
+and seed 24301. A focused unit test verifies that no byte outside the eight-byte
+seed sequence changes. The canonical disposable disk was rebuilt with:
+
+```text
+python3 -B tools/interpreter_controller.py prepare \
+  --base-image build/freedos/freedos.img \
+  --game-dir games/SQ1.22 --dos-game-dir SQ122 \
+  --raw-output build/interpreter-controller/session/sq122.raw \
+  --output build/interpreter-controller/session/sq122.qcow2
+```
+
+Reading `C:\\SQ122\\AGI` back from the generated raw disk, applying the local
+loader transform, and checking image `0x7108` produced
+`baed5e9089160717`, exactly matching the expected patch. The focused controller
+suite passed 38 tests.
+
+Cold-build reproducibility was checked independently of the existing `build/`
+tree. A new temporary directory under `/tmp` was used for an empty download
+cache, a freshly downloaded and verified FreeDOS archive, a newly formatted
+64 MiB base image, and new raw/qcow2 controller outputs. Running the ordinary
+controller `prepare` command against those fresh paths and reading the DOS
+`AGI` back again produced the same `baed5e9089160717` bytes at image `0x7108`.
+Thus deleting `build/` removes only generated artifacts: running
+`tools/setup_freedos_image.py --force` followed by the documented controller
+`prepare` command recreates the deterministic interpreter patch from tracked
+tool code and immutable `games/SQ1.22` input.

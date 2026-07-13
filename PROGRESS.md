@@ -42,7 +42,10 @@ better understood, or a new remaining-work item is discovered.
   transaction replay, live priority planning, no-input dialog dismissal,
   checkpoint restoration/cache invalidation, and repeated captures at one
   state revision. QEMU's observed one-breakpoint real-mode limit is handled by
-  stack-classified hook switching.
+  stack-classified hook switching. Generated SQ1.22 play disks now replace the
+  shared RNG's BIOS-tick initialization with fixed seed `0x5eed`; preparation
+  validates the pristine bytes and runtime discovery rejects stale unpatched
+  disks.
 - Main remaining risk areas: concrete picture/view edges exposed by future
   valid resources, compatibility-bundle breadth across additional versions,
   optional canonical initial save bytes for pristine 2.089/2.272 save

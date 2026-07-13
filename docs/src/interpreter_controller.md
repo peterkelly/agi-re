@@ -5,7 +5,9 @@ for cycle-stepped runs of a private original interpreter under QEMU. It wraps
 QEMU's QMP lifecycle/input/screenshot interface and its GDB remote memory and
 register interface behind JSON HTTP requests. The selected game is always
 explicit, and preparation copies it to a disposable disk under `build/`.
-Nothing under `games/` is modified.
+Nothing under `games/` is modified. The disposable SQ1.22 interpreter copy is
+patched to initialize its shared pseudorandom generator from the fixed seed
+`0x5eed` rather than the BIOS tick count.
 
 For the static-first analysis workflow, experiment design, failure diagnosis,
 and guidance on turning controller observations into a reusable state graph,
@@ -58,7 +60,16 @@ modal message, and a return to cycle control after each UI was accepted.
 
 ## Preparing and launching a session
 
-Create a disposable raw clone and qcow2 play disk:
+After deleting `build/`, recreate the base image first. This also rebuilds the
+derived VGA option ROM used by the controller:
+
+```bash
+python3 -B tools/setup_freedos_image.py --force
+```
+
+Then create a disposable raw clone and qcow2 play disk. The RNG patch is
+generated during this command; it is not copied from an earlier build
+artifact:
 
 ```bash
 python3 -B tools/interpreter_controller.py prepare \
@@ -68,6 +79,21 @@ python3 -B tools/interpreter_controller.py prepare \
   --raw-output build/interpreter-controller/session/sq122.raw \
   --output build/interpreter-controller/session/sq122.qcow2
 ```
+
+Preparation validates the pristine decoded interpreter hash and the original
+RNG seed instruction bytes before applying the patch. Rebuild play disks made
+with an older controller; runtime discovery rejects an interpreter that does
+not contain the fixed-seed instructions. The patch changes only initialization:
+the original state transition and output mixing remain intact, so random
+operations produce a repeatable sequence rather than one repeated value.
+
+All four source-backed game-randomness callers use this shared generator:
+approach-motion recovery, random-motion direction, random-motion duration, and
+the `random_range_to_var` action used by game scripts. The other two BIOS timer
+reads in the executable bound startup display-adapter detection and do not feed
+the random state. Checkpoint restore naturally restores the generator state as
+part of the VM snapshot. Repeating the same cycle-relative inputs from the same
+checkpoint therefore repeats subsequent random outcomes.
 
 Launch the persistent controller and visible Cocoa QEMU window:
 
@@ -117,6 +143,7 @@ those profile-specific layouts or control values.
 A future profile must register both an `InterpreterProfile` and an adapter. A
 hash-only profile is insufficient and fails before the VM is interpreted.
 `GET /v1/profile` reports the selected profile and adapter.
+It also reports the controller's fixed randomness mode and seed.
 
 ## HTTP surface
 
@@ -142,7 +169,7 @@ bodies; state and image requests use GET.
 | `POST /v1/movement/plan`, `/navigate` | Plan or execute a local priority-aware path |
 | `POST /v1/transactions` | Execute an idempotent state-contract action |
 | `POST /v1/captures/cycle` | Write a cycle-aligned recording bundle on demand |
-| `POST /v1/checkpoints`, `/checkpoints/restore` | Save/restore VM and controller keyboard state |
+| `POST /v1/checkpoints`, `/checkpoints/restore` | Save/restore VM, keyboard state, and active semantic hook |
 | `GET /v1/debug` | Registers, stack, image-relative IP, and active hook |
 | `POST /v1/vm/quit` | Quit QEMU and shut down the server |
 
@@ -289,6 +316,10 @@ The controller is a research tool, not a replacement engine. Only SQ1.22's
 2.917 adapter is implemented. State reads are coherent at semantic stops;
 cached state while the VM is running is explicitly marked stale. Captures,
 checkpoints, and prepared disks are disposable artifacts under `build/`.
+Checkpoint restore reinstalls the semantic breakpoint reason saved with the
+controller state before it accepts another mutation. This prevents a later
+modal or string interaction from leaving the restored VM paired with the wrong
+blocking hook.
 
 QEMU's observed real-mode debugger path still permits one reliable execution
 breakpoint. Stack-classified hook switching handles the known cycle, modal, and
