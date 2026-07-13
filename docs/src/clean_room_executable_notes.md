@@ -12175,3 +12175,114 @@ Thus deleting `build/` removes only generated artifacts: running
 `tools/setup_freedos_image.py --force` followed by the documented controller
 `prepare` command recreates the deterministic interpreter patch from tracked
 tool code and immutable `games/SQ1.22` input.
+
+### SQ1.22 live playthrough: room 1 corrections (2026-07-13)
+
+A fresh fixed-seed controller run disproved two assumptions in the static
+success path. After the room-69 name editor returned to room 2, the automatic
+alarm dialog came from logic 94. Entering room 1 left `f53` clear and the
+scientist countdown inactive. Logic 1 sets `f53` only on a room-1 exit. A
+bounded room 1 -> 2 -> 1 loop therefore proved necessary: the exit set `f53`,
+and the return initialized `v32=250` (observed as 247 at the first stopped
+state after room setup).
+
+At `v32=135`, logic 1 opened the scientist-entry dialog, then the collapse
+dialog and reached `v51=2`, `v34=6`. Waiting alone could not initialize
+`v33`; its only relevant assignment is at logic-1 offset `0x04a8`, after the
+`LOOK`/`EXAMINE` scientist branch and its wound-description modal. A failed
+`TALK TO SCIENTIST` experiment produced message 56 and left `v33=0`, proving
+that the talk branch is not the trigger. `LOOK AT SCIENTIST` produced message
+10; dismissing it advanced to `v51=4` and a decreasing `v33`. When `v33`
+reached one, dismissing messages 11 and 12 changed score `v3` from 0 to 2.
+
+At console position `(82,108)`, `LOOK AT SCREEN` entered the shared string
+editor. Submitting `ASTRAL BODY` set `v50=1`, `v35=4`; a bounded 205-cycle
+wait reached `v50=2` and `f35=true`. `GET CARTRIDGE` changed score from 2 to
+7 and inventory object 1 from room marker 0 to carried marker `0xff`. The
+coherent post-dialog state at controller cycle 943 was saved as checkpoint
+`score7_cartridge` and milestone capture sequence 3.
+
+### SQ1.22 live playthrough: Arcada routing and persistence (2026-07-13)
+
+All local walking in this run used the controller's breadth-first planner over
+the live priority channel. Room transitions, elevators, and airlock doors were
+separate guarded stages because the priority image alone does not describe
+those dynamic transitions.
+
+The route from room 2's upper doorway to the room-3 keycard is not a direct
+crossing of room 3. The dynamically confirmed path is room 3 upper-left,
+room-3 elevator down, room 3 lower-right, room 4 lower-left, room-4 elevator
+up, then left into room 3 upper-right. `GET KEYCARD` at `(152,67)` changed the
+score from 7 to 8 and carried inventory object 5. Room 3's elevator stops near
+baseline 67 and 151; its transfer requires a separate direction selection
+through the open doorway rather than treating the whole shaft as one priority
+path.
+
+The common room-encounter logic also invalidated an unguarded route through
+room 7. On entry it can set `v67=1` and a random countdown in `v138`; the safe
+hiding strip is only x 98..149, y 121..131. The fixed-seed run observed three
+armed entries (`v64` 81, 57, and 97) before a fourth entry produced `v64=34`
+and left `v67=0`. Leaving immediately for room 6 and re-entering on an armed
+roll avoided the fatal projectile sequence without guessing at movement.
+
+In room 6, `PRESS OPEN BAY DOOR` set `v52=1` and raised the score to 10.
+Room 7 required the dynamic elevator sequence after `INSERT KEYCARD`: approach
+the reader, wait for its door state to reach `v30=1`, then cross its right/up
+threshold into room 9. The insertion raised the score to 12.
+
+Live room-9 behavior reversed the closet labels in the static guide. `PRESS
+LEFT BUTTON` opened the gadget closet (`v70=3`), while `PRESS RIGHT BUTTON`
+opened the suit closet (`v69=3`). The `GET GADGET` predicate uses full ego
+width in x 40..71, so left coordinate 71 is too far right for the seven-pixel
+ego; x 61 succeeded and raised the score to 14. The suit pickup at x 79 raised
+the score to 16 and set variable `v81=1`. This variable is distinct from flag
+`f81`, which later records AutoNav.
+
+The room-9 airlock required `PRESS AIRLOCK BUTTON`, a priority-planned walk to
+the open doorway, and a separate leftward crossing into room 8. In room 8,
+`PRESS PLATFORM BUTTON` exactly once set `f54`, left `v52=1`, and raised the
+score to 17. After the platform animation and its modal, a newly planned path
+to `(53,101)` reached the pod; `ENTER SHIP` switched to room 10.
+
+Built-in F5/F7 persistence was tested before the long route. Slot 1 was first
+saved as `Score 7 cartridge`. F7 restored room 3, score 7, position `(73,151)`
+and the expected inventory after the controller handled the directory editor,
+slot selector, and confirmation as distinct semantic stops. F5 later
+overwrote slot 1 as `Score 19 prelaunch`. The save/restore selector and final
+confirmation are host-time input loops not covered by the normal cycle hook;
+the run temporarily selected the cycle breakpoint again after the confirming
+Enter and then reconciled held/released keys.
+
+### SQ1.22 live playthrough: launch and first Kerona state (2026-07-13)
+
+Room-10 command effects were verified independently. `CLOSE DOOR` set `f155`,
+`FASTEN BELT` set `f44`, `PRESS POWER` set `f188`, and `PRESS AUTONAV` set
+`f81` and raised the score from 17 to 19. Input must be reconciled after a
+modal or animation before submitting the next command: the first throttle
+attempt began while input was still settling and only the suffix `hrottle`
+reached the prompt. Submitting that partial text produced the expected parser
+error and no state change. After dismissal and key reconciliation, `PULL
+THROTTLE` set `f80` and began the launch.
+
+The observed automatic sequence is more detailed than the static route:
+room 10 -> room 8 (pod exits the bay) -> room 12 -> room 10 (in-flight pod) ->
+room 13 -> room 30 (landing animation) -> room 14. Logic 12 raised the score
+from 19 to 34 after its animation, then displayed the narrow-escape message.
+The in-flight room-10 logic waited 225 countdown cycles before its monitor
+message, then used a 27-cycle transition and 150-cycle exterior interval before
+room 13. These waits were bounded from the local disassembly rather than
+polling one cycle at a time.
+
+The first room-13 visit did **not** award 25 points. Logic 13's 25-point action
+is guarded by previous room 37, whereas the first approach arrived from room
+10. The live score therefore remained 34 through rooms 13 and 30. Room 14's
+`GET SURVIVAL KIT` raised it to 36 and carried object 11. `UNBUCKLE BELT` set
+`f31`, and `EXIT` returned to room 30.
+
+The global `OPEN SURVIVAL KIT` branch was then verified outside the pod. It
+cleared object 11, carried object 12 (Dehydrated Water), object 19 (Xenon Army
+Knife), and the opened-kit marker object 22. A live-priority plan moved the ego
+from `(40,106)` to `(40,111)` so its full baseline footprint satisfied room
+30's glass rectangle. `GET GLASS` carried object 6 and raised the score from 36
+to 39. Thus the old guide's claimed pre-Kerona score 61 is 25 points too high;
+that conditional award belongs to the later room-37 return path.

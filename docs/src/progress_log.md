@@ -28193,3 +28193,202 @@ User request:
    analysis or validation and `docs/src/interpreter_controller.md` before
    controller-driven QEMU work. The guidance also preserves the current
    adapter's explicit SQ1.22/2.917 limitation.
+
+## SQ1.22 Original-Interpreter Playthrough
+
+User request:
+
+> Run the real SQ1.22 game under QEMU and play the statically reconstructed
+> success path to completion.
+
+1. Reported: "I’ll begin by checking the existing worktree and the two
+   controller/playthrough guides, then validate the static route and local
+   SQ1.22 inputs before launching anything. I’ll keep one controller/QEMU
+   session alive, establish deterministic entropy plus checkpoint restore
+   first, and record concrete progress as we go."
+
+   Action/result: Confirmed that `games/SQ1.22` is present, inspected the
+   playthrough/controller guidance and static route, and found only the
+   unrelated untracked `run.sh` in the worktree.
+
+2. Reported: "The repository is clean except for an unrelated untracked
+   `run.sh`, which I’ll leave untouched. The SQ1.22 input is present, and the
+   prior controller work confirms the adapter was live-tested. I’m now
+   extracting the exact API/action semantics and graph edge contracts; after
+   that I’ll prepare a disposable disk and run the required entropy/checkpoint
+   smoke test before attempting route stage 1."
+
+   Action/result: Began a focused audit of controller endpoints, route-edge
+   preconditions, local runtime prerequisites, and existing disposable
+   artifacts before launch.
+
+3. Reported: "No reusable controller disk or base FreeDOS image remains under
+   `build/`, so I’m rebuilding the documented disposable runtime from local
+   inputs. I’m deliberately leaving continuous per-cycle capture off for
+   normal play; I’ll take milestone captures and bounded trace slices, which
+   keeps the persistent session responsive and follows the repository’s
+   performance guidance."
+
+   Action/result: Rebuilt the derived VGA BIOS and 1 GiB FreeDOS image, then
+   prepared a disposable SQ1.22 qcow2 disk whose copied interpreter passed the
+   fixed-seed patch validation.
+
+4. Reported: "The disposable environment is ready: the base image rebuilt
+   successfully, and preparation validated and patched the copied SQ1.22
+   interpreter for fixed seed `0x5eed`. I’m launching the persistent
+   controller now, then I’ll discover the cycle hook and verify the selected
+   profile, initial input mode, and checkpoint/restore behavior before entering
+   the route."
+
+   Action/result: Launched one persistent controller/QEMU session, discovered
+   the SQ1.22/2.917 cycle hook in title room 67, and confirmed the
+   `SQ122Adapter` fixed-seed profile.
+
+5. Reported: "The first smoke pass reached the title’s documented random call
+   after exactly 100 cycles and produced `v126=20`. Restore did reinstate the
+   cycle breakpoint itself, but the restored VM is labeled `debug_stop`, so
+   the guarded runner refused to advance and could not replay the sequence.
+   I’ve stopped input and am inspecting this bounded controller-state mismatch
+   before proceeding; I won’t work around it with blind key/cycle calls."
+
+   Action/result: Confirmed through `/v1/debug` that restore reinstalled the
+   cycle breakpoint. A single bounded semantic step realigned the restored VM
+   from the post-hook instruction to the next cycle boundary.
+
+6. Reported: "The checkpoint smoke now passes: after one semantic re-alignment
+   step, the replay reaches the same title RNG call in the same total 100
+   interpreter cycles, again yielding `v126=20` and the identical randomized
+   object placement. The active hook is restored correctly; I’ve recorded the
+   `debug_stop` labeling caveat and am moving through the name prompt into the
+   actual game."
+
+   Action/result: Saved a title milestone capture and used a transaction to
+   enter room 69's shared name editor, with both room and input-mode
+   postconditions observed.
+
+7. Reported: "The first navigation contract was correctly interrupted before
+   movement: room 2 opened an automatic modal from logic 94 while the initial
+   walk-in completed, leaving Roger at `(97,66)` and stationary. I’m handling
+   that dialog explicitly and checking its static owner before retrying the
+   room-1 exit; no movement input will be repeated until the modal is
+   identified and dismissed."
+
+   Action/result: Identified and dismissed the Arcada boarding alarm, then
+   reached room 1 through its exact room-2 doorway condition.
+
+8. Reported: "Dynamic replay exposed one omission in the static route: the
+   scientist sequence is not armed on the first room-1 entry. The game requires
+   a brief room 1 -> 2 -> 1 loop, which sets `f53`; I confirmed that transition
+   and am now back in room 1 with `f53=true` and the scientist countdown at
+   `v32=247`. I’ll preserve this correction in the evidence/route after the
+   live stage is stable."
+
+   Action/result: Proved the arming loop, positioned Roger safely, and waited
+   through the scientist entry and collapse dialogs to `v51=2`, `v34=6`.
+
+9. Reported: "A second static omission is now confirmed: `v33` never starts by
+   waiting alone. Room-1 logic requires `TALK TO SCIENTIST` while `v51=2`,
+   `v34=6`, and Roger is beside him. The command reached a modal, but its full
+   postcondition did not match, so I’m identifying the actual dialog and timer
+   state before dismissing anything."
+
+   Action/result: Corrected the intermediate hypothesis: `TALK TO SCIENTIST`
+   selects the nonconversational response, while `LOOK AT SCIENTIST` selects
+   the wound-description branch that initializes `v33` after dismissal.
+
+10. Reported: "Understood. I’m treating the guide as a hypothesis, not
+    authority. The live state already disproved two route assumptions, and
+    I’ll re-analyze each owning logic whenever a contract fails. This latest
+    `LOOK AT SCIENTIST` did not set the timer either, so I’m decoding the exact
+    parser branch and current dialog before choosing the next command."
+
+    Action/result: Verified that the blocking wound-description action precedes
+    the `v33` assignment; dismissing it started the countdown, and dismissing
+    the two terminal messages awarded the expected 2 points.
+
+11. Reported: "The scientist branch is now proved end to end: the trigger is
+    `LOOK AT SCIENTIST`, not `TALK`; the two final dialogs then award exactly 2
+    points. The archive console accepted `ASTRAL BODY`, and after a bounded
+    205-cycle retrieval sequence the live state reached `v50=2` and
+    `f35=true`. I’m taking the cartridge next, then I’ll checkpoint and update
+    the route evidence with these corrections before navigating onward."
+
+    Action/result: Took the cartridge for 5 points, independently verified
+    inventory object 1 is carried, dismissed the result dialog, and saved
+    checkpoint `score7_cartridge` plus milestone capture sequence 3 at room 1,
+    score 7, position `(82,108)`.
+
+12. Reported: "I’m switching the remaining Arcada movement to the live
+    priority channel: each local route will be planned from the decoded
+    priority screen, while elevator doors and room edges remain separate
+    guarded transitions."
+
+    Action/result: Used live-priority plans for every local corridor and
+    console approach. Dynamic stages established the two-elevator route to the
+    room-3 keycard, the room-7 reader/elevator transition, the room-9 airlock,
+    and the room-8 platform-to-pod route.
+
+13. Reported: "The room-7 entry armed a hostile random encounter, so I’ve
+    stopped the crossing and am checking its owning logic before moving
+    again."
+
+    Action/result: Identified `v67=1` as the armed entry state. Three immediate
+    room-7 retreats/re-entries remained armed; the fourth produced `v67=0`,
+    allowing a safe priority-planned crossing without replaying the fatal
+    input.
+
+14. Reported: "The pre-launch milestone is ready: room 10, score 19, door
+    shut, belt fastened, power on, and AutoNav engaged. I’m completing the F5
+    save now, then I’ll launch and handle each automatic transition as a
+    guarded step."
+
+    Action/result: Overwrote built-in slot 1 with `Score 19 prelaunch`. Earlier
+    F7 testing had restored the slot's score-7 state and confirmed that the
+    original interpreter's save/restore path reinstates room, position,
+    inventory, and score.
+
+15. Reported: "The first throttle command was not accepted: the save dialog
+    had just returned control and the interpreter discarded the leading
+    keystrokes, leaving only `hrottle` at the prompt. I’ve stopped instead of
+    repeating blindly; I’m clearing that partial command, waiting for normal
+    input mode, and will retry from the verified pre-launch state."
+
+    Action/result: Submitted the partial text once to prove it caused only a
+    parser error, dismissed that modal, reconciled input, and retried. The
+    complete `PULL THROTTLE` then set `f80` with all launch prerequisites still
+    true.
+
+16. Reported: "Launch is behaving as the local logic predicts, with one guide
+    omission: it first switches back to room 8 for the visible pod-exit
+    cutscene, then enters room 12."
+
+    Action/result: Followed the bounded automatic sequence through room 8 and
+    room 12. Logic 12 awarded 15 points, raising the live score from 19 to 34,
+    and the narrow-escape modal matched the local message resource.
+
+17. Reported: "This confirms another substantive guide error: room 13’s
+    25-point award is conditional on returning from room 37 later in the game,
+    not on the first Kerona approach. The live score is still 34, and I’m
+    preserving that observed contract instead of carrying the static guide’s
+    inflated total forward."
+
+    Action/result: Waited through in-flight room 10, first-arrival room 13,
+    room 30's landing animation, and room 14. The score remained 34 until
+    `GET SURVIVAL KIT`, which raised it to 36.
+
+18. Reported: "Before continuing across the desert, I caught an omitted
+    dependency from the guide: the survival kit must be opened to replace it
+    with dehydrated water and the Xenon Army Knife."
+
+    Action/result: Opened the kit outside the crashed pod and verified carried
+    inventory objects 12 and 19. A live-priority plan moved the ego into room
+    30's full-width glass rectangle; `GET GLASS` then raised the score to 39.
+
+19. Reported: "We’ve reached a clean Kerona milestone at score 39 with the kit
+    opened and glass collected. The guide’s claimed score 61 is definitively
+    wrong at this point: the first room-13 arrival gives no 25-point bonus."
+
+    Action/result: Updated the playthrough prose, graph, and clean-room notes
+    with the dynamically confirmed Arcada topology, alien retry, closet
+    mapping, airlock, launch sequence, inventory expansion, and relocated
+    25-point award. The focused graph tests still pass.

@@ -51,40 +51,59 @@ wide walkable regions are intentionally not invented.
 
 ## Exact maximum-score route
 
-### Arcada: 0 to 61
+### Arcada: 0 to 36
 
-1. Start the game and remain in room 1 until the dying scientist's timed
-   sequence reaches `v33=1`. Acknowledge the warning and “astral body”
-   messages. This awards 2.
+1. After entering the name, dismiss the automatic alarm message in room 2 and
+   enter room 1. Briefly leave through the right exit to room 2 and return
+   through the left doorway; the first room-1 entry alone does not arm the
+   scientist sequence. Wait for the scientist to enter and collapse, dismissing
+   both messages. Stand by him at x 98..130, y 102..115 and type
+   `LOOK SCIENTIST`. Dismiss the wound description, wait until `v33=1`, then
+   acknowledge the warning and “astral body” messages. This awards 2.
 2. Put the player width inside x 74..88 with baseline y 104..108 and type
    `LOOK SCREEN`. Answer `ASTRAL BODY`. Wait until `v50=2` and `f35`
    is set, then at y 104..114 type `GET CARTRIDGE`. This awards 5.
 3. Leave by the right corridor opening (x > 134 while y < 110), cross room 2,
-   and enter room 3. At x 117..159, y 57..79 type `GET KEYCARD` for 1.
-4. Return through the doorway notches in room 2 to room 6. At x 86..134,
-   y 125..136 type `PRESS OPEN BAY DOOR`; wait for `f30` and the 2-point
-   award. Never issue the closing toggle, which removes those points.
-5. In room 7, at x 74..95, y 125..131, type `INSERT KEYCARD` for 2. Walk
-   into x 98..114, y 121..128 to enter the elevator and room 9.
-6. At the room-9 console press the left closet button. At x 68..100,
-   y 94..110 type `GET SUIT` for 2. Press the right closet button and at
-   x 40..71, y 94..110 type `GET GADGET` for 2.
-7. Use the airlock controls to reach room 8. Stay on its priority floor and
-   enter the console pocket x 109..125, y 139..147. Type
-   `PRESS PLATFORM BUTTON` exactly once for 1. Enter the pod at x 49..60,
-   y 88..102 with `ENTER SHIP`.
+   and enter room 3 upper-left. The keycard side is disconnected: take the
+   room-3 elevator down, cross room 3 lower-right and room 4 lower-left, take
+   the room-4 elevator up, then leave room 4 left into room 3 upper-right. At
+   x 117..159, y 57..79 type `GET KEYCARD` for 1.
+4. Return through room 4 lower-right and room 2 lower-left to the doorway into
+   rooms 5 and 6. At room-6 x 86..134, y 125..136 type `PRESS OPEN BAY DOOR`;
+   wait for `f30` and the 2-point award. Never issue the closing toggle, which
+   removes those points.
+5. Room 7 can arm the common alien encounter on entry (`v67=1`). Inspect that
+   state immediately; if armed, retreat to room 6 and re-enter rather than
+   crossing the exposed floor. On a safe entry (`v67=0`), use the priority
+   channel to reach x 74..95, y 125..131 and type `INSERT KEYCARD` for 2.
+   Approach the elevator until its door countdown reaches `v30=1`, cross the
+   doorway to the right, then move up into room 9.
+6. At the room-9 console press the left closet button for the gadget. Put the
+   ego's full width inside x 40..71, y 94..110 (left x 61 works for the
+   seven-pixel ego) and type `GET GADGET` for 2. Press the right closet button
+   for the suit; at x 68..100, y 94..110 type `GET SUIT` for 2.
+7. At the room-9 airlock console type `PRESS AIRLOCK BUTTON`, plan to the open
+   doorway on the live priority screen, then cross left into room 8 as a
+   separate dynamic transition. Enter the room-8 console pocket x 109..125,
+   y 139..147 and type `PRESS PLATFORM BUTTON` exactly once for 1. Dismiss the
+   completed-platform message, re-plan on the final priority screen, and enter
+   the pod at x 49..60, y 88..102 with `ENTER SHIP`.
 8. In room 10 type, in order, `CLOSE DOOR`, `FASTEN BELT`,
    `PRESS POWER`, and `PRESS AUTONAV`. AutoNav awards 2. Type
    `PULL THROTTLE`.
-9. Wait. Room 12 awards 15 for escape and room 13 awards 25 for landing.
+9. Wait through room 8's pod-exit cutscene and room 12. Room 12 awards 15 for
+   escape, returns to the in-flight room 10, and eventually enters room 13.
+   The first room-13 approach from room 10 awards no points; its 25-point
+   branch is guarded by a later return from room 37. Continue through the
+   room-30 landing animation into room 14.
 10. In room 14 type `GET SURVIVAL KIT` for 2, then
     `OPEN SURVIVAL KIT`. The global inventory logic consumes the kit and
     carries dehydrated water (item 12) and the Xenon Army Knife (item 19).
     Type `UNFASTEN BELT` and `LEAVE POD`.
 
-Checkpoint: **61**.
+Checkpoint: **36**.
 
-### Kerona: 61 to 110
+### Kerona: 36 to 110
 
 1. In room 30, at x 32..102, y 108..144, type `GET GLASS` for 3. Use the
    upper/east control openings through rooms 18 and 19, go north to 16, then
@@ -112,7 +131,8 @@ Checkpoint: **61**.
 9. At the console, x 75..98, y 114..127, type `INSERT CARTRIDGE` for 5.
    Wait and read the displayed shutdown code **6858**. After `f37` is set,
    type `GET CARTRIDGE` at x 67..98, y 114..137 for another 5.
-10. Enter and start the skimmer. Wait through rooms 78 and 33.
+10. Enter and start the skimmer. Wait through rooms 78 and 33. The later
+    room-37 return into room 13 is where the deferred 25-point award occurs.
 
 The alternative combined spider/Orat award shares `f165` with the boulder
 award. It is not additional score.
@@ -215,14 +235,15 @@ deadline.
 
 | Phase | Awards | Total | Checkpoint |
 |---|---|---:|---:|
-| Arcada | 2, 5, 1, 2, 2, 2, 2, 1, 2, 15, 25, 2 | 61 | 61 |
-| Kerona | 3, 2, 4, 3, 5, 5, 5, 2, 10, 5, 5 | 49 | 110 |
+| Arcada | 2, 5, 1, 2, 2, 2, 2, 1, 2, 15, 2 | 36 | 36 |
+| Kerona | 3, 2, 4, 3, 5, 5, 5, 2, 10, 5, 5, 25 | 74 | 110 |
 | Ulence Flats | 25, 5, 5, 4, 4 | 43 | 153 |
 | Deltaur | 1, 3, 2, 1, 5, 1, 5, 1, 1, 1, 3, 5, 3, 3, 10, 1, 3 | 49 | 202 |
 
 The graph validator requires every score node to occur exactly once in
-`score_route` and requires its sum to equal logic 104's maximum. The next
-experiment should replay these edges in the original interpreter, recording
-room, score, inventory, and coordinate checkpoints. Where a corridor segment
-is wider than its static predicates require, that replay should measure key
-durations rather than treating an invented duration as evidence.
+`score_route` and requires its sum to equal logic 104's maximum. Original-
+interpreter replay has now confirmed the route through room 30's glass pickup
+at score 39. Later edges still require replay with room, score, inventory, and
+coordinate checkpoints. Where a corridor segment is wider than its static
+predicates require, replay uses the live priority channel rather than treating
+an invented key duration as evidence.

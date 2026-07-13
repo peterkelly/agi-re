@@ -8,7 +8,7 @@
     "maximum_score": 202
   },
   "provenance": {
-    "method": "Clean-room static analysis of local resources and locally documented interpreter behavior only.",
+    "method": "Clean-room static analysis of local resources plus bounded replay in the original local interpreter.",
     "inputs": [
       "101 logic disassemblies",
       "WORDS.TOK",
@@ -18,7 +18,7 @@
     "limitations": [
       "Coordinates are picture-space and predicates state width versus baseline.",
       "Random edges require retry because static data cannot predict runtime seed.",
-      "Dynamic replay remains a future confirmation."
+      "Dynamic replay is confirmed through the room-30 glass award at score 39; later edges remain pending."
     ]
   },
   "state_model": {
@@ -30,8 +30,8 @@
     "movement": "full baseline footprint must stay on allowed priority/control values; control 0/1 blocks unless logic overrides"
   },
   "phase_totals": {
-    "Arcada": 61,
-    "Kerona": 49,
+    "Arcada": 36,
+    "Kerona": 74,
     "Ulence Flats": 43,
     "Deltaur": 49
   },
@@ -41,12 +41,11 @@
     "score_keycard",
     "score_bay",
     "score_elevator",
-    "score_suit",
     "score_gadget",
+    "score_suit",
     "score_platform",
     "score_autonav",
     "score_escape",
-    "score_landing",
     "score_kit",
     "score_glass",
     "score_arch",
@@ -59,6 +58,7 @@
     "score_orat_return",
     "score_cart_insert",
     "score_cart_retrieve",
+    "score_landing",
     "score_ulence",
     "score_skimmer_sale",
     "score_beer",
@@ -350,19 +350,19 @@
     },
     {
       "id": "pre_landing",
-      "phase": "Arcada",
+      "phase": "Kerona",
       "kind": "precondition",
-      "label": "Ready: Land on Kerona",
+      "label": "Ready: Leave Kerona",
       "room": "13",
       "requirements": [
-        "landing reaches room13"
+        "previous room37"
       ]
     },
     {
       "id": "score_landing",
-      "phase": "Arcada",
+      "phase": "Kerona",
       "kind": "score_action",
-      "label": "Land on Kerona",
+      "label": "Leave Kerona",
       "room": "13",
       "score_delta": 25,
       "evidence": [
@@ -1284,7 +1284,7 @@
       "from": "start",
       "to": "pre_scientist",
       "kind": "progress",
-      "instruction": "console x74..88 y104..108"
+      "instruction": "name prompt -> dismiss room2 alarm -> room1 -> room2 (set f53) -> room1; wait for entry/collapse dialogs; at x98..130 y102..115 LOOK SCIENTIST; dismiss wound; wait v33=1"
     },
     {
       "from": "pre_scientist",
@@ -1308,7 +1308,7 @@
       "from": "score_cartridge",
       "to": "pre_keycard",
       "kind": "progress",
-      "instruction": "room2->6 via priority-band doorway"
+      "instruction": "room2 upper doorway -> room3 upper-left -> room3 elevator down -> room3 lower-right -> room4 lower-left -> room4 elevator up -> room3 upper-right"
     },
     {
       "from": "pre_keycard",
@@ -1320,7 +1320,7 @@
       "from": "score_keycard",
       "to": "pre_bay",
       "kind": "progress",
-      "instruction": "never toggle closed; go room7"
+      "instruction": "room3 upper-right -> room4; elevator down -> room4 lower-right -> room2 lower-left -> room5 -> room6"
     },
     {
       "from": "pre_bay",
@@ -1332,7 +1332,7 @@
       "from": "score_bay",
       "to": "pre_elevator",
       "kind": "progress",
-      "instruction": "trigger x98..114 y121..128 ->9"
+      "instruction": "enter room7; if v67=1 retreat to room6 and retry; on v67=0 use live priority path to keycard reader"
     },
     {
       "from": "pre_elevator",
@@ -1342,33 +1342,33 @@
     },
     {
       "from": "score_elevator",
-      "to": "pre_suit",
-      "kind": "progress",
-      "instruction": "open other closet"
-    },
-    {
-      "from": "pre_suit",
-      "to": "score_suit",
-      "kind": "player_action",
-      "instruction": "PRESS LEFT BUTTON; GET SUIT"
-    },
-    {
-      "from": "score_suit",
       "to": "pre_gadget",
       "kind": "progress",
-      "instruction": "airlock controls ->8"
+      "instruction": "wait elevator door; cross right and then up into room9; PRESS LEFT BUTTON"
     },
     {
       "from": "pre_gadget",
       "to": "score_gadget",
       "kind": "player_action",
-      "instruction": "PRESS RIGHT BUTTON; GET GADGET"
+      "instruction": "GET GADGET with full ego width inside x40..71"
     },
     {
       "from": "score_gadget",
+      "to": "pre_suit",
+      "kind": "progress",
+      "instruction": "PRESS RIGHT BUTTON"
+    },
+    {
+      "from": "pre_suit",
+      "to": "score_suit",
+      "kind": "player_action",
+      "instruction": "GET SUIT"
+    },
+    {
+      "from": "score_suit",
       "to": "pre_platform",
       "kind": "progress",
-      "instruction": "ENTER SHIP at x49..60 y88..102 ->10"
+      "instruction": "PRESS AIRLOCK BUTTON; live-priority path to doorway; cross left into room8; live-priority path to console"
     },
     {
       "from": "pre_platform",
@@ -1380,19 +1380,19 @@
       "from": "score_platform",
       "to": "pre_autonav",
       "kind": "progress",
-      "instruction": "PULL THROTTLE"
+      "instruction": "dismiss platform modal; re-plan on final priority image; ENTER SHIP; CLOSE DOOR; FASTEN BELT; PRESS POWER"
     },
     {
       "from": "pre_autonav",
       "to": "score_autonav",
       "kind": "player_action",
-      "instruction": "CLOSE DOOR; FASTEN BELT; PRESS POWER; PRESS AUTONAV"
+      "instruction": "PRESS AUTONAV"
     },
     {
       "from": "score_autonav",
       "to": "pre_escape",
       "kind": "progress",
-      "instruction": "wait flight"
+      "instruction": "PULL THROTTLE; wait room10 -> room8 pod-exit scene -> room12"
     },
     {
       "from": "pre_escape",
@@ -1402,21 +1402,9 @@
     },
     {
       "from": "score_escape",
-      "to": "pre_landing",
-      "kind": "progress",
-      "instruction": "room14"
-    },
-    {
-      "from": "pre_landing",
-      "to": "score_landing",
-      "kind": "player_action",
-      "instruction": "WAIT automatic sequence"
-    },
-    {
-      "from": "score_landing",
       "to": "pre_kit",
       "kind": "progress",
-      "instruction": "yields water12+knife19; UNFASTEN BELT; LEAVE POD"
+      "instruction": "dismiss escape message; wait in-flight room10 -> room13 -> room30 landing animation -> room14; first room13 arrival gives no points"
     },
     {
       "from": "pre_kit",
@@ -1428,7 +1416,7 @@
       "from": "score_kit",
       "to": "pre_glass",
       "kind": "progress",
-      "instruction": "upper/east control passages 30->18->19->16->17"
+      "instruction": "UNFASTEN BELT; LEAVE POD -> room30; use live priority path into glass rectangle"
     },
     {
       "from": "pre_glass",
@@ -1440,7 +1428,7 @@
       "from": "score_glass",
       "to": "pre_arch",
       "kind": "progress",
-      "instruction": "32->25; GET ROCK x55..84 y144..153; left->26"
+      "instruction": "upper/east control openings through rooms30->18->19->16->17; use live priority paths"
     },
     {
       "from": "pre_arch",
@@ -1452,7 +1440,7 @@
       "from": "score_arch",
       "to": "pre_geyser",
       "kind": "progress",
-      "instruction": "upper-left opened control passage ->27; never take room26 rock"
+      "instruction": "wait room32->25; GET ROCK x55..84 y144..153; leave left to room26"
     },
     {
       "from": "pre_geyser",
@@ -1464,7 +1452,7 @@
       "from": "score_geyser",
       "to": "pre_acid",
       "kind": "progress",
-      "instruction": "left control opening ->28"
+      "instruction": "use the opened upper-left passage into room27; never take the room26 rock"
     },
     {
       "from": "pre_acid",
@@ -1476,7 +1464,7 @@
       "from": "score_acid",
       "to": "pre_beams",
       "kind": "progress",
-      "instruction": "27->26->29 through opened passages; accept task"
+      "instruction": "continue left through room27's control opening into room28"
     },
     {
       "from": "pre_beams",
@@ -1488,7 +1476,7 @@
       "from": "score_beams",
       "to": "pre_boulder",
       "kind": "progress",
-      "instruction": "19->20->24 lower/east opening"
+      "instruction": "return 28->27->26->29 through opened passages; accept task; wait for surface return; reach room19"
     },
     {
       "from": "pre_boulder",
@@ -1500,7 +1488,7 @@
       "from": "score_boulder",
       "to": "pre_orat_kill",
       "kind": "progress",
-      "instruction": "remains x112..152 y115..142"
+      "instruction": "go east to room20 and take its lower/east control opening into room24; keep distance from the live Orat"
     },
     {
       "from": "pre_orat_kill",
@@ -1548,7 +1536,7 @@
       "from": "score_cart_insert",
       "to": "pre_cart_retrieve",
       "kind": "progress",
-      "instruction": "enter/start skimmer; 78->33->35"
+      "instruction": "wait f37; remain at console"
     },
     {
       "from": "pre_cart_retrieve",
@@ -1558,9 +1546,21 @@
     },
     {
       "from": "score_cart_retrieve",
+      "to": "pre_landing",
+      "kind": "progress",
+      "instruction": "enter and start skimmer; wait until the room37 return reaches room13"
+    },
+    {
+      "from": "pre_landing",
+      "to": "score_landing",
+      "kind": "player_action",
+      "instruction": "WAIT automatic room13 departure award"
+    },
+    {
+      "from": "score_landing",
       "to": "pre_ulence",
       "kind": "progress",
-      "instruction": "wait buyer"
+      "instruction": "wait through the remaining skimmer travel into room35"
     },
     {
       "from": "pre_ulence",
