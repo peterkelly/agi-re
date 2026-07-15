@@ -1,0 +1,83 @@
+name: Publish mdBook sites
+
+on:
+  push:
+    branches:
+      - main
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+concurrency:
+  group: github-pages
+  cancel-in-progress: false
+
+env:
+  MDBOOK_VERSION: "0.5.4"
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v7
+
+      - name: Configure GitHub Pages
+        uses: actions/configure-pages@v6
+
+      - name: Install mdBook
+        run: cargo install mdbook --version "$MDBOOK_VERSION" --locked
+
+      - name: Build both books
+        run: |
+          mkdir -p public
+
+          mdbook build docs \
+            --dest-dir "$GITHUB_WORKSPACE/public/docs"
+
+          mdbook build spec \
+            --dest-dir "$GITHUB_WORKSPACE/public/spec"
+
+      # GitHub expects an entry page at the artifact root.
+      - name: Create site index
+        run: |
+          cat > public/index.html <<'HTML'
+          <!doctype html>
+          <html lang="en">
+          <head>
+            <meta charset="utf-8">
+            <meta name="viewport" content="width=device-width, initial-scale=1">
+            <title>Project documentation</title>
+          </head>
+          <body>
+            <h1>Project documentation</h1>
+            <ul>
+              <li><a href="./docs/">Documentation</a></li>
+              <li><a href="./spec/">Specification</a></li>
+            </ul>
+          </body>
+          </html>
+          HTML
+
+      - name: Upload Pages artifact
+        uses: actions/upload-pages-artifact@v5
+        with:
+          path: public
+
+  deploy:
+    needs: build
+    runs-on: ubuntu-latest
+
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+
+    steps:
+      - name: Deploy GitHub Pages
+        id: deployment
+        uses: actions/deploy-pages@v5
+
