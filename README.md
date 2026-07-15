@@ -1,36 +1,56 @@
-# Clean-room AGI reverse engineering
+# AGI reverse engineering
 
-## Project deliverable and clean-room boundary
+[![docs](https://img.shields.io/badge/docs-online-blue)](https://peterkelly.github.io/agi-re/)
 
-The deliverable of this project is **not a replacement AGI engine**. It is a
-self-contained, human-readable specification of AGI's externally observable
-behavior. The specification must be detailed and accurate enough that a
-separate person or team can implement a compatible engine using the
-specification alone, without seeing the original DOS interpreter or this
-project's disassembly notes.
+Sierra On-Line's [Adventure Game Interpreter (AGI)](https://en.wikipedia.org/wiki/Adventure_Game_Interpreter)
+is the 1980s adventure-game system behind early *King's Quest*, *Space Quest*,
+*Leisure Suit Larry*, and related titles. An AGI game combines an interpreter
+with data-driven `LOGIC` scripts, vector-drawn `PICTURE` resources, animated
+`VIEW` loops and cels, `WORDS.TOK` vocabulary, `OBJECT` inventory data, sound,
+and saved-game state.
 
-This follows the clean-room separation used in projects such as Compaq's
-compatible PC BIOS work. The reverse-engineering side observes the original,
-records evidence, and writes an implementation-independent behavioral
-specification. A separate implementation side can then consume that
-specification without being exposed to the original implementation details.
+This repository asks a practical question: **what must a compatible AGI engine
+actually do?** It examines original DOS interpreters and game resources to
+recover their externally observable behavior, including differences between
+interpreter versions. The work covers the parts an AGI developer would expect:
+v2 and v3 directory/volume formats, logic opcodes, picture drawing and
+priority/control planes, view decoding and mirroring, animated-object and ego
+movement, text and parser behavior, menus, sound streams, and save/restore.
 
-The repository therefore has two distinct documentation sets:
+## What this project produces
 
-- `docs/` is the reverse-engineering evidence book. It may contain
-  disassembly, addresses, registers, DOS-specific implementation details,
-  hypotheses, commands, and QEMU observations.
-- `spec/` is the clean-room behavioral specification. It describes required
-  inputs, state transitions, outputs, timing, and version differences without
-  depending on how Sierra's DOS interpreter implemented them.
+The deliverable is **not a replacement engine**. It is a self-contained,
+human-readable behavioral specification detailed enough for an independent
+person or team to implement a compatible engine without seeing Sierra's
+interpreter or this project's disassembly notes.
 
-The analysis tools and compatibility tests support the specification by
-measuring behavior. They are not an attempt to build the replacement engine.
+The repository contains two separate mdBooks:
 
-This repository documents and tests a clean-room reverse engineering effort for
-Sierra's AGI interpreter. Game files are not included in the repository; keep
-private local copies under `games/` or another directory outside version
-control.
+- [`spec/`](spec/) is the implementation-facing behavioral specification. It
+  defines inputs, game-visible state, state transitions, rendered and sound
+  output, timing, persistence, and version-specific variants in portable terms.
+  [Read the published specification](https://peterkelly.github.io/agi-re/spec/).
+- [`docs/`](docs/) is the reverse-engineering evidence record. It contains the
+  disassembly observations, addresses, commands, hypotheses, corrections, and
+  original-engine experiments that support the specification.
+  [Read the published evidence book](https://peterkelly.github.io/agi-re/docs/).
+
+The scripts under `tools/` and the compatibility tests under `tests/` turn
+those observations into reproducible checks. They support the specification;
+they are not an unfinished replacement engine.
+
+## Clean-room boundary
+
+AGI-specific findings in this project are derived from locally held original
+binaries and game data, disassembly, and controlled experiments. Existing AGI
+documentation and source implementations are deliberately not used as
+reverse-engineering evidence. Evidence and implementation details remain in
+`docs/`; only portable, externally observable contracts are promoted to
+`spec/`.
+
+Original games and interpreter binaries are not distributed with this
+repository. Local evidence copies belong under ignored `games/` directories or
+another explicitly selected path outside version control.
 
 ## Requirements
 

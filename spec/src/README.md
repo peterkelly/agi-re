@@ -1,5 +1,7 @@
 # AGI Behavioral Specification
 
+[Project repository: peterkelly/agi-re](https://github.com/peterkelly/agi-re)
+
 This book specifies the externally observable behavior of the Adventure Game
 Interpreter family examined by the clean-room project. Its intended reader is
 an independent implementer who has not seen the original interpreter,

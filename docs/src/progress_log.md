@@ -28499,3 +28499,51 @@ User request:
     Action/result: The complete 482-test suite passed with four expected
     skips. A process-list check found no QEMU or persistent interpreter
     controller process running.
+
+## 2026-07-15: Public repository introduction
+
+1. Reported: "I’ll reshape the README’s opening for a public audience: a short
+   explanation of AGI, what this repository produces, and the clean-room
+   constraint, while keeping enough concrete terminology that AGI
+   practitioners can identify the scope immediately. I’ll preserve the
+   existing technical material below the introduction."
+
+   Action/result: Reviewed the existing root README and the two mdBook
+   introductions to establish the public-facing explanation and retain their
+   evidence/specification separation.
+
+2. Reported: "There are two pre-existing changes in `docs/book.toml` and
+   `spec/book.toml`, likely related to publication. I’m checking those diffs so
+   the README edit doesn’t overwrite or accidentally absorb them; the README
+   itself is currently clean."
+
+   Action/result: Confirmed that both changes add publication `site-url`
+   settings. Preserved them without modification and kept the README work
+   separate.
+
+3. Reported: "The existing publication-path edits are separate and will
+   remain untouched. I’m replacing only the README introduction, adding a
+   general AGI reference plus the resource and runtime vocabulary—LOGIC,
+   PICTURE, VIEW/cels, priority/control data, `WORDS.TOK`, `OBJECT`, and
+   volumes—that makes the project’s scope immediately legible to AGI
+   developers."
+
+   Action/result: Rewrote the introduction with an AGI overview and external
+   introductory link, a concise inventory of the reverse-engineered
+   subsystems, a clear statement that the deliverable is a specification, and
+   an explanation of the `docs/`/`spec/` clean-room boundary.
+
+4. Reported: "I’ll add a clear ‘read the published book’ link to each bullet
+   while retaining the repository-directory links for readers who want the
+   source."
+
+   Action/result: Added the public GitHub Pages URLs for the behavioral
+   specification and reverse-engineering evidence book to their corresponding
+   README bullets.
+
+5. Reported: "I’ll place a prominent ‘Project repository’ link directly below
+   each book title so it appears immediately on both landing pages, then
+   rebuild both books to verify the rendered sources."
+
+   Action/result: Added the `peterkelly/agi-re` GitHub link to the first page
+   of both the evidence and specification books.

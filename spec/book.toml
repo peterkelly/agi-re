@@ -8,3 +8,4 @@ title = "AGI Behavioral Specification"
 build-dir = "book"
 
 [output.html]
+site-url = "/agi-re/spec/"
