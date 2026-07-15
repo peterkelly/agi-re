@@ -100,6 +100,8 @@ class SpecBookTests(unittest.TestCase):
         self.assertIn("2.936 binary save interchange", matrix)
         self.assertIn("2.089 full-EGA gameplay", matrix)
         self.assertIn("2.089 SQ1 binary save interchange", matrix)
+        self.assertIn("2.230 full-EGA gameplay", matrix)
+        self.assertIn("2.230 XMAS.230 binary save interchange", matrix)
         self.assertIn("2.272 full-EGA gameplay", matrix)
         self.assertIn("2.272 XMAS binary save interchange", matrix)
         self.assertIn("2.411 full-EGA gameplay", matrix)
@@ -119,8 +121,10 @@ class SpecBookTests(unittest.TestCase):
     def test_early_profiles_are_promoted_for_full_ega_gameplay(self) -> None:
         profiles = (SPEC_SRC / "version_profiles.md").read_text(encoding="ascii")
         self.assertIn("## AGI 2.089 profile", profiles)
+        self.assertIn("## AGI 2.230 profile", profiles)
         self.assertIn("## AGI 2.272 profile", profiles)
         self.assertNotIn("## AGI 2.089 partial profile", profiles)
+        self.assertNotIn("## AGI 2.230 partial profile", profiles)
         self.assertNotIn("## AGI 2.272 partial profile", profiles)
 
     def test_picture_catalog_mentions_every_command(self) -> None:
@@ -136,6 +140,7 @@ class SpecBookTests(unittest.TestCase):
             "Payload structure",
             "Row decoding",
             "Stateful mirroring",
+            "Profile 2.230 loop orientation",
             "Baseline placement",
             "Transparency and priority composition",
             "Embedded display string",

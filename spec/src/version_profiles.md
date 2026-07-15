@@ -263,6 +263,44 @@ uses 17 runtime object records: this profile treats the metadata header's
 object value as a count, not as a maximum index. Saves use the four-block
 2.089 envelope specified in the persistence chapter.
 
+## AGI 2.230 profile
+
+The 2.230 profile is specified for full-EGA valid-data gameplay. It uses the
+split direct-resource container and stores inventory metadata in expanded
+plain form. It accepts actions `0x00..0x9a` and conditions `0x00..0x12`.
+
+Action `0x86` is the same zero-operand unconditional exit as profile 2.089.
+Actions `0x9b` and later are unavailable. Position actions `0x25` and `0x26`,
+however, use the 2.272 ordering: they update current and previous coordinates
+together without first removing drawn state. Both object partitions use
+drawing-key order with object number as the tie breaker.
+
+Views use the packed loop-header format defined in the view chapter. The low
+nibble is the cel count, bits `0x30` retain the shared loop's mutable
+orientation, and bits `0x40`/`0x80` enable loop-wide row mirroring when the
+selected orientation changes. Action `0x31` therefore masks the loop header to
+its low nibble before returning the highest valid cel index. This packed
+loop-level orientation is unique among the currently promoted profiles.
+
+Pictures dispatch commands only through `0xf8`. Automatic direction-loop
+selection is cadence-independent and applies the four-direction table only to
+exactly-four-loop views. The profile has six string slots and recognizes
+`0x270f` as the word-sequence tail terminator. Showing a prepared picture,
+object-distance overflow, and initial target-motion deferral follow the common
+early rules.
+
+Movement-clear actions follow profile 2.089: `0x4d` clears direction but leaves
+autonomous mode active, while `0x4e` leaves both unchanged and applies only the
+object-0 coupling/navigation effects. Inventory display is acknowledgement-only
+and never writes `v25`.
+
+Sound uses the 2.089 early output rule: selector zero advances one channel and
+every nonzero selector advances four; four-channel tones emit both bytes; and
+device 2 adds three to attenuation nibbles below eight without applying the
+global whole-byte adjustment. The selected XMAS.230 data uses 18 runtime
+object records, 200 replay pairs, and the five-block envelope and dimensions
+specified in the persistence chapter.
+
 ## AGI 2.272 profile
 
 The 2.272 profile is specified for full-EGA valid-data gameplay. It uses the

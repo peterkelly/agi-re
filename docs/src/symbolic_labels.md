@@ -839,37 +839,54 @@ address as part of the portable behavior.
 
 | Label | Build association | Notes/evidence |
 | --- | --- | --- |
-| `table.logic.action_dispatch` | SQ1 2.089 data `0x03e7`; XMAS 2.272 data `0x0417` | Geometry yields 155 and 161 action entries respectively. |
-| `table.logic.condition_dispatch` | SQ1 2.089 data `0x0679`; XMAS 2.272 data `0x06bb` | Nineteen condition entries in both builds. |
+| `table.logic.action_dispatch` | SQ1 2.089 data `0x03e7`; XMAS.230 2.230 data `0x03e7`; XMAS 2.272 data `0x0417` | Geometry yields 155, 155, and 161 action entries respectively. |
+| `table.logic.condition_dispatch` | SQ1 2.089 data `0x0679`; XMAS.230 2.230 data `0x0673`; XMAS 2.272 data `0x06bb` | Nineteen condition entries in all three builds. |
 | `code.system.confirm_exit_action` | SQ1/XMAS image `0x01e8` | SQ1 has no operand and exits unconditionally; XMAS consumes the later selector and confirmation branch. |
-| `opcode.action.set_object_pos` | SQ1 image `0x7141`; XMAS image `0x7196` | SQ1 erases drawn old state before snapshot update; XMAS writes current/snapshot coordinates directly. |
-| `opcode.action.set_object_pos_var` | SQ1 image `0x7199`; XMAS image `0x71d3` | Variable-coordinate form of the same ordering difference. |
+| `code.system.confirm_exit_action` | XMAS.230 image `0x01e8` | Same zero-operand unconditional exit as SQ1. |
+| `opcode.action.set_object_pos` | SQ1 image `0x7141`; XMAS.230 image `0x70fa`; XMAS image `0x7196` | SQ1 erases drawn old state before snapshot update; both XMAS builds write current/snapshot coordinates directly. |
+| `opcode.action.set_object_pos_var` | SQ1 image `0x7199`; XMAS.230 image `0x7137`; XMAS image `0x71d3` | Variable-coordinate form of the same ordering difference. |
+| `code.view.select_loop` | XMAS.230 image `0x350d` | Stores `loop_header & 0x0f` as cel count and applies packed loop orientation bits `0xc0`. |
+| `code.view.mirror_loop_rows` | XMAS.230 image `0x50af` | Mirrors every cel row in the selected packed loop, iterating by the header low nibble. |
+| `opcode.action.get_object_resource_loop_count` | XMAS.230 image `0x36e2` | Action `0x31` masks the selected loop header with `0x0f` before subtracting one. |
 | `code.menu.operand_advance_stubs` | XMAS image `0x8400..0x8404` | Actions `0x9c..0xa0` consume declared operands and otherwise return without menu state. |
-| `code.picture.decode_with_clear` | SQ1 image `0x5b84`; XMAS image `0x5c0d` | Early decoders clear state before entering relocated command scanners. |
-| `code.picture.command_scan` | SQ1 image `0x5baf`; XMAS image `0x5c38` | Both dispatch only picture commands `0xf0..0xf8`. |
-| `code.picture.read_coord_pair` | SQ1 image `0x5ce8`; XMAS image `0x5d71` | Relocated guarded coordinate reader. |
-| `code.picture.draw_line` | SQ1 image `0x5d19`; XMAS image `0x5da2` | Relocated line rasterizer. |
-| `code.picture.seed_fill` | SQ1 image `0x4ad4`; XMAS image `0x4aa6` | Relocated four-connected fill path. |
-| `code.object.frame_timer_update` | SQ1 image `0x05cc`; XMAS image `0x04c6` | Automatic direction-loop selection has no cadence-countdown gate. |
+| `code.picture.decode_with_clear` | SQ1 image `0x5b84`; XMAS.230 image `0x5b7f`; XMAS image `0x5c0d` | Early decoders clear state before entering relocated command scanners. |
+| `code.picture.command_scan` | SQ1 image `0x5baf`; XMAS.230 image `0x5baa`; XMAS image `0x5c38` | All dispatch only picture commands `0xf0..0xf8`. |
+| `code.picture.read_coord_pair` | SQ1 image `0x5ce8`; XMAS.230 image `0x5ce3`; XMAS image `0x5d71` | Relocated guarded coordinate reader. |
+| `code.picture.draw_line` | SQ1 image `0x5d19`; XMAS.230 image `0x5d14`; XMAS image `0x5da2` | Relocated line rasterizer. |
+| `code.picture.seed_fill` | SQ1 image `0x4ad4`; XMAS.230 image `0x4a3a`; XMAS image `0x4aa6` | Relocated four-connected fill path. |
+| `code.object.frame_timer_update` | SQ1 image `0x05cc`; XMAS.230 image `0x049a`; XMAS image `0x04c6` | Automatic direction-loop selection has no cadence-countdown gate. |
 | `code.object.rebuild_draw_update_lists` | SQ1 image `0x0524`; XMAS image `0x6151` | SQ1 draws the `0x0010`-clear partition in object-table order and then selection-sorts the set partition; XMAS builds and selection-sorts both partitions before drawing them in the same partition order. |
 | `code.object.flush_update_lists_restore` | SQ1 image `0x0515`; XMAS image `0x6117` | Restores prior rectangles for both builds using their respective array/list representations before composition. |
 | `code.object.refresh_update_lists` | SQ1 image `0x0533`; XMAS image `0x616e` | Updates dirty regions and saved positions for both partitions after drawing. |
+| `code.object.flush_update_lists_restore` | XMAS.230 image `0x6081` | Restores both drawing-key-sorted partitions; relocated XMAS 2.272 role. |
+| `code.object.rebuild_draw_update_lists` | XMAS.230 image `0x60bb` | Builds and sorts both partitions. |
+| `code.object.refresh_update_lists` | XMAS.230 image `0x60d8` | Refreshes both partitions after composition. |
 | `code.motion.update_objects` | SQ1 image `0x13c7`; XMAS image `0x13b7` | The movement body beginning at SQ1 `0x13d2` / XMAS `0x13bf` matches after relocation; SQ1 additionally brackets it with its older array-based restore/rebuild helpers. |
+| `code.motion.update_objects` | XMAS.230 image `0x1317` | Relocated XMAS 2.272 movement core. |
 | `opcode.action.show_picture_like` | SQ1 image `0x43e7`; XMAS image `0x43cc` | Both refresh and mark the picture shown without the later `f15` clear/text-window close prefix. |
+| `opcode.action.show_picture_like` | XMAS.230 image `0x436e` | Same retained-flag/window behavior. |
 | `opcode.action.object_distance_to_var` | SQ1 image `0x4061`; XMAS image `0x4043` | Both store the low byte of the active-object distance without the later saturation to `0xfe`. |
-| `opcode.action.clear_object_fields_21_22` | SQ1 image `0x652e`; XMAS image `0x657d` | SQ1 clears direction only; XMAS clears direction and autonomous-motion mode. Both apply the object-0 direction-coupling side effects. |
-| `opcode.action.clear_object_field_22_and_global` | SQ1 image `0x6567`; XMAS image `0x65ba` | SQ1 leaves autonomous-motion mode untouched and changes only object-0 coupling/navigation globals; XMAS clears autonomous-motion mode for every selected object. |
+| `opcode.action.object_distance_to_var` | XMAS.230 image `0x3fe5` | Same low-byte wrapping behavior. |
+| `opcode.action.clear_object_fields_21_22` | SQ1 image `0x652e`; XMAS.230 image `0x64e7`; XMAS image `0x657d` | SQ1 and XMAS.230 clear direction only; XMAS clears direction and autonomous-motion mode. All apply the object-0 direction-coupling side effects. |
+| `opcode.action.clear_object_field_22_and_global` | SQ1 image `0x6567`; XMAS.230 image `0x6520`; XMAS image `0x65ba` | SQ1 and XMAS.230 leave autonomous-motion mode untouched and change only object-0 coupling/navigation globals; XMAS clears autonomous-motion mode for every selected object. |
 | `opcode.action.move_object_to` | SQ1 image `0x6358`; XMAS image `0x63a7` | Stores target state but does not invoke the target-direction/completion helper added by 2.411. |
 | `opcode.action.move_object_to_var` | SQ1 image `0x63ce`; XMAS image `0x641d` | Variable-target form of the same deferred first-update rule. |
+| `opcode.action.move_object_to` | XMAS.230 image `0x6311` | Relocated deferred-start target-motion action. |
+| `opcode.action.move_object_to_var` | XMAS.230 image `0x6387` | Variable-target form. |
 | `opcode.action.show_inventory_selection` | SQ1 image `0x2e89`; XMAS image `0x2e87` | Early acknowledgement-only carried-item display; it has no interaction-flag branch and does not write `v25`. |
-| `opcode.condition.input_word_sequence` | SQ1 image `0x0965`; XMAS image `0x087d` | SQ1 is exact-count only; XMAS recognizes the `0x270f` tail terminator. |
-| `opcode.action.parse_string` | SQ1 image `0x1817`; XMAS image `0x17f7` | Both accept six string-slot selectors. |
-| `code.sound.driver_start` | SQ1 image `0x74f5`; XMAS image `0x7514` | Early one-versus-four-channel initialization. |
-| `code.sound.driver_tick` | SQ1 image `0x7557`; XMAS image `0x7576` | Relocated event/countdown scheduler without envelopes. |
+| `opcode.action.show_inventory_selection` | XMAS.230 image `0x2dcf` | Same acknowledgement-only behavior. |
+| `opcode.condition.input_word_sequence` | SQ1 image `0x0965`; XMAS.230 image `0x0851`; XMAS image `0x087d` | SQ1 is exact-count only; both XMAS builds recognize the `0x270f` tail terminator. |
+| `opcode.action.parse_string` | SQ1 image `0x1817`; XMAS.230 image `0x1759`; XMAS image `0x17f7` | All accept six string-slot selectors. |
+| `code.sound.driver_start` | SQ1 image `0x74f5`; XMAS.230 image `0x7478`; XMAS image `0x7514` | Early one-versus-four-channel initialization. |
+| `code.sound.driver_tick` | SQ1 image `0x7557`; XMAS.230 image `0x74da`; XMAS image `0x7576` | Relocated event/countdown scheduler without envelopes. |
 | `code.sound.driver_write_event` | SQ1 image `0x7615`; XMAS image `0x7634` | Both apply the device-2 `+3` helper; SQ1 then emits directly, while XMAS applies whole-byte adjustment and signed clamp. |
+| `code.sound.driver_write_event` | XMAS.230 image `0x7598` | Exact relocated match for the SQ1 direct-output rule. |
 | `code.save.save_game_state` | SQ1 image `0x2501`; XMAS image `0x24f5` | SQ1 writes four blocks; XMAS writes five. |
 | `code.save.restore_game_state` | SQ1 image `0x2335`; XMAS image `0x2315` | Reads each build's corresponding envelope. |
-| `data.save.early_block1` | SQ1/XMAS `DS:0x0002..0x03dc` | Complete 2.089/2.272 global-state partition; block-relative fields are specified in the persistence chapter. |
+| `code.save.save_game_state` | XMAS.230 image `0x2447` | Relocated XMAS 2.272 five-block writer. |
+| `code.save.restore_game_state` | XMAS.230 image `0x2279` | Relocated XMAS 2.272 five-block reader. |
+| `code.inventory.initialize_metadata_and_objects` | XMAS.230 image `0x0e50` | Reads the plain `OBJECT` header, increments its third byte, and allocates that many `0x2b`-byte runtime records; relocated XMAS 2.272 role at image `0x0e7c`. |
+| `data.save.early_block1` | SQ1/XMAS.230/XMAS `DS:0x0002..0x03dc` | Complete 2.089/2.230/2.272 global-state partition; block-relative fields are specified in the persistence chapter. |
 | `data.motion.rectangle` | SQ1/XMAS `DS:0x0133..0x0141` | Bounds, direction-coupling, prepared-picture, coupled-direction, and enable state used by corresponding script/runtime paths. |
 | `data.replay.capacity_count` | SQ1/XMAS `DS:0x0145` / `DS:0x0147` | Configured pair capacity and active pair count; block 4 serializes capacity pairs. |
 | `code.object.initialize_metadata` | MG image `0x0fa5` | Decodes current `OBJECT`, increments header byte `0x5a`, and allocates 91 records. |
@@ -896,7 +913,7 @@ data offsets as universal constants.
 | KQ4D/replacement MH1 3.002.102; prior MH1 3.002.107 | `0x1658` | `0x167b` | `0x169b` | image `0x6975` | image `0x6950` |
 | GR/MH2 3.002.149 | `0x140d` | `0x1430` | `0x1450` | image `0x689c` | image `0x6877` |
 
-SQ1 2.089 and XMAS 2.272 dispatch only through `0xf8`, so the pattern labels
+SQ1 2.089, XMAS.230 2.230, and XMAS 2.272 dispatch only through `0xf8`, so the pattern labels
 do not apply. KQ2 2.411 dispatches `0xf9` at image `0x61f5` and `0xfa` at
 `0x625e`, but has no shaped-brush tables: the former consumes and ignores one
 byte and the latter plots coordinate pairs as ordinary pixels.

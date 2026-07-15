@@ -17,7 +17,7 @@ The classifications are:
 
 An unlisted difference must not be inferred from a version-number similarity.
 
-The common core applies to profiles 2.089, 2.272, 2.411, 2.440, 2.917, 2.936,
+The common core applies to profiles 2.089, 2.230, 2.272, 2.411, 2.440, 2.917, 2.936,
 3.002.086, 3.002.102, and 3.002.149. The two-column tables compare 2.936 and
 3.002.149, while separate tables select the other promoted variants.
 
@@ -87,6 +87,26 @@ below says otherwise:
 | Sound output | Selector zero uses one channel; all others use four. Emit both tone bytes; device 2 adds 3 to low attenuation values below 8, then emit the control byte. |
 | Save envelope | Four blocks; no logic-resume block. Block 1 has a complete semantic partition. |
 | Binary save interchange status | Existing saves can be parsed and restored state can be preserved; pristine synthesis requires canonical initial reserved bytes that are not currently specified. |
+
+### 2.230 variant selection
+
+| Domain | 2.230 behavior |
+| --- | --- |
+| Resource container | Split direct resources; inventory metadata is stored expanded. |
+| Action and condition ranges | Actions `0x00..0x9a`; conditions `0x00..0x12`. |
+| Exit and menu actions | `0x86` is an unconditional zero-operand exit; `0x9b` and later are unavailable. |
+| Position and composition | Position actions update current/saved coordinates together. Both draw partitions use drawing-key order. |
+| View loop encoding | The loop-header low nibble is the cel count; upper bits hold mutable loop-wide orientation and mirroring state. Action `0x31` masks to the low nibble. |
+| Picture commands | Dispatch `0xf0..0xf8`; no pattern-command slots. |
+| Show picture | Same retained-`f15` and retained-window behavior as 2.089. |
+| Direction-selected loops | Same cadence-independent, exact-four behavior as 2.089. |
+| String and parser profile | Six string slots; `0x270f` has tail-terminator meaning. |
+| Object distance and target motion | Same wrapped distance and deferred first target update as 2.089. |
+| Movement-clear actions | Same as 2.089: `0x4d` clears direction but not autonomous mode; `0x4e` leaves both unchanged and only applies object-0 coupling/navigation effects. |
+| Inventory display | Always acknowledgement-only; never writes a selected item to `v25`. |
+| Sound output | Same as 2.089: selector zero uses one channel; all others use four; emit both tone bytes and apply only the device-2 low-attenuation adjustment. |
+| Save envelope | Five blocks with a semantically partitioned `0x03db` block 1. |
+| Binary save interchange status | Existing state bytes can be parsed and preserved; pristine synthesis requires canonical initial reserved bytes that are not currently specified. |
 
 ### 2.272 variant selection
 
@@ -233,6 +253,13 @@ composition, and sound variant. A **2.089 SQ1 binary save interchange** claim
 additionally requires the selected SQ1 dimensions and a supplied rule for
 canonical initial reserved bytes or preservation of bytes from an existing
 save/state image.
+
+A **2.230 full-EGA gameplay** claim requires the common core plus every 2.230
+resource, opcode-range, exit, packed-view-loop, picture, parser, object,
+motion, inventory, composition, and sound variant. A **2.230 XMAS.230 binary save interchange**
+claim additionally requires the selected XMAS.230
+dimensions and a supplied rule for canonical initial reserved bytes or
+preservation of bytes from an existing save/state image.
 
 A **2.272 full-EGA gameplay** claim requires the common core plus every 2.272
 resource, opcode-range, exit/menu-stub, picture, parser, object, motion,

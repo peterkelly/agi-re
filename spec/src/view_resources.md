@@ -15,9 +15,23 @@ All multi-byte offsets are unsigned little-endian values.
 | bytes 3 and 4 | Offset of an embedded zero-terminated display string, relative to the payload start. |
 | byte 5 onward | One two-byte loop offset per loop, relative to the payload start. |
 
-Each loop begins with a one-byte cel count followed by one two-byte cel offset
-per cel. A cel offset is relative to the start of its loop, not to the payload
-start.
+Except in profile 2.230, each loop begins with a one-byte cel count followed by
+one two-byte cel offset per cel. A cel offset is relative to the start of its
+loop, not to the payload start.
+
+Profile 2.230 packs cel count and mutable orientation state into the loop's
+first byte:
+
+| Bits | Meaning |
+| ---: | --- |
+| `0x0f` | Cel count. |
+| `0x30` | The loop number whose orientation the current shared row streams represent. |
+| `0x40` | Mirror every cel row when the stored orientation changes. |
+| `0x80` | Enable mutable loop-header orientation handling. |
+
+The packed form is followed by one two-byte cel offset per `low_nibble` cels.
+For action `0x31` and all loop/cel selection bounds, profile 2.230 likewise
+uses only the low nibble as the cel count.
 
 Each cel has this structure:
 
@@ -54,9 +68,14 @@ zero terminator appears.
 
 ## Stateful mirroring
 
-When control bit `0x80` is clear, selecting the cel does not change its row
-stream. When it is set, compare control bits `0x70` with the selected loop
-number masked to three bits:
+There are two profile-selected encodings for the same externally visible
+orientation behavior.
+
+### Per-cel orientation
+
+In every promoted profile except 2.230, when control bit `0x80` is clear,
+selecting the cel does not change its row stream. When it is set, compare
+control bits `0x70` with the selected loop number masked to three bits:
 
 - If they match, the row stream already has the requested orientation.
 - If they differ, mirror every row and replace bits `0x70` with the selected
@@ -66,6 +85,20 @@ The orientation field and mirrored row stream are mutable loaded-resource
 state. This matters when loop entries share the same cel data: a later
 selection compares against the cel's current orientation, not necessarily its
 original file bytes.
+
+### Profile 2.230 loop orientation
+
+When profile 2.230 selects a loop whose header bit `0x80` is set, it compares
+header bits `0x30` with the selected loop number. If they differ, it mirrors
+every cel's row stream when bit `0x40` is also set, then replaces bits `0x30`
+with the selected loop number. Cel control bytes retain only their ordinary
+transparent-color state; they do not carry the profile's orientation marker.
+
+The loop header and every mirrored row stream are mutable loaded-resource
+state. Loop entries may point to the same loop structure. Selecting one such
+entry can therefore mirror the shared cels and change the orientation later
+observed through another entry. Packed mutable-orientation loops in valid
+profile-2.230 data use selected loop numbers `0..3`.
 
 For each row, mirroring operates on runs as follows:
 
@@ -143,7 +176,10 @@ on whether it was already loaded before the preview.
 
 ## Profile applicability
 
-All promoted profiles use the same expanded view payload and cel behavior.
+All promoted profiles use expanded view payloads with the same header offsets,
+cel structure, row coding, placement, and composition. Profile 2.230 selects
+the packed loop-header count/orientation form; every other promoted profile
+selects the ordinary full-byte cel count and per-cel orientation form.
 Container storage may differ by profile, but container decoding finishes
 before this chapter's rules are applied.
 

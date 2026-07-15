@@ -25,7 +25,7 @@ and the pattern mode is zero.
 ## Command stream
 
 The decoder processes bytes until `0xff`. At command boundaries, bytes below
-`0xf0` are ignored. Profiles 2.089 and 2.272 dispatch commands `0xf0..0xf8`;
+`0xf0` are ignored. Profiles 2.089, 2.230, and 2.272 dispatch commands `0xf0..0xf8`;
 bytes `0xf9..0xfe` are ignored at command boundaries. Later profiles dispatch
 commands `0xf0..0xfa`. A valid later stream does not use `0xfb..0xfe` at a
 command boundary.
@@ -36,7 +36,7 @@ being consumed, so the main scanner processes that byte next.
 
 There are three exceptions in profiles that support pattern commands. The
 operand immediately following `0xf0`, `0xf2`, or `0xf9` is a raw byte: it is
-consumed even when its value is `0xf0` or greater. Profiles 2.089 and 2.272
+consumed even when its value is `0xf0` or greater. Profiles 2.089, 2.230, and 2.272
 have only the `0xf0` and `0xf2` exceptions because they do not dispatch
 `0xf9`.
 
@@ -132,7 +132,7 @@ required result.
 
 ## Pattern mode and plots
 
-Profiles 2.089 and 2.272 have no pattern-mode or pattern-plot commands. Their
+Profiles 2.089, 2.230, and 2.272 have no pattern-mode or pattern-plot commands. Their
 valid picture command vocabulary ends with seed fill at `0xf8`.
 
 Profile 2.411 uses an early point-plot variant:

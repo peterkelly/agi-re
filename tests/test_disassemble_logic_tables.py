@@ -17,6 +17,7 @@ from disassemble_logic import (  # noqa: E402
     decode_logic_messages,
     dispatch_table_layout_for,
 )
+from compare_gr_sq2_static import mz_image  # noqa: E402
 
 
 class DispatchTableDetectionTests(unittest.TestCase):
@@ -43,6 +44,25 @@ class DispatchTableDetectionTests(unittest.TestCase):
 
     def test_sq1_2089_uses_early_v2_table_trailer(self) -> None:
         self.assert_layout("SQ1", "v2_split", (0x03E7, 0x9B, 0x0679, 0x13))
+
+    def test_xmas_2230_v2_tables_are_detected(self) -> None:
+        self.assert_layout("XMAS.230", "v2_split", (0x03E7, 0x9B, 0x0673, 0x13))
+
+    def test_xmas_2230_last_cel_handler_masks_packed_loop_header(self) -> None:
+        game_dir = ROOT / "games" / "XMAS.230"
+        if not game_dir.exists():
+            self.skipTest("local XMAS.230 game directory is not present")
+        agidata = (game_dir / "AGIDATA.OVL").read_bytes()
+        action_base, action_count, _condition_base, _condition_count = (
+            dispatch_table_layout_for(agidata, "v2_split")
+        )
+        self.assertGreater(action_count, 0x31)
+        entry = action_base + 0x31 * 4
+        handler = agidata[entry] | (agidata[entry + 1] << 8)
+        image = mz_image((game_dir / "AGI.EXE").read_bytes())
+
+        self.assertEqual(handler, 0x36E2)
+        self.assertEqual(image[handler + 0x32 : handler + 0x35], b"\x25\x0f\x00")
 
     def test_xmas_2272_v2_tables_are_detected(self) -> None:
         self.assert_layout("XMAS", "v2_split", (0x0417, 0xA1, 0x06BB, 0x13))

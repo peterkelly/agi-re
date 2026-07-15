@@ -28392,3 +28392,110 @@ User request:
     with the dynamically confirmed Arcada topology, alien retry, closet
     mapping, airlock, launch sequence, inventory expansion, and relocated
     25-point award. The focused graph tests still pass.
+
+## 2026-07-15: XMAS.230 / AGI 2.230 profile
+
+1. Reported: "I’ll treat `games/XMAS.230` as a new evidence profile: first
+   inventory the executable/resources, then compare its dispatch tables and
+   mapped subsystems against the neighboring early interpreters before adding
+   any normative spec claims."
+
+   Action/result: Confirmed a clean worktree apart from the unrelated untracked
+   `run.sh`, kept `games/` read-only, and began a focused census of XMAS.230,
+   SQ1 2.089, and XMAS 2.272.
+
+2. Reported: "The local overlay identifies itself as `Version 2.230`. I’m
+   using 2.089 and 2.272 as the nearest source baselines and checking parser
+   contracts before interpreting relocated addresses as behavior changes."
+
+   Action/result: Identified a direct MZ interpreter and split direct v2
+   resources. Generated selected-game census and two dispatch-table comparison
+   reports under `build/cross-version/`.
+
+3. Reported: "The first table pass shows 2.230 is a hybrid rather than a
+   simple relocation of either neighbor. I’m manually reducing the small set
+   of changed handlers and then checking subsystem roles."
+
+   Action/result: Found 155 actions and 19 conditions. Against 2.089, six
+   shared action entries and two condition entries differed; against 2.272,
+   seven shared actions differed, all condition handlers matched, and 2.272
+   alone supplied actions `0x9b..0xa0`.
+
+4. Reported: "The new game directory became unreadable during the source
+   pass, so I’ve stopped rather than changing private evidence permissions.
+   Please restore access to `games/XMAS.230` and I’ll continue from the saved
+   comparison artifacts."
+
+   Action/result: Stopped all reads after a permissions failure and did not
+   chmod or otherwise mutate the private game input. No QEMU/controller
+   process was running.
+
+5. Reported: "Access is restored. I’m resuming at the key 2.230 anomaly:
+   several local view records encode flag bits in the loop header’s high
+   nibble, and the 2.230 `last.cel` handler explicitly masks them. I’m tracing
+   every cel-count consumer before promoting that behavior into the new spec
+   profile."
+
+   Action/result: Compared paired 2.230/2.272 view payloads and disassembled
+   loop selector `0x350d`, row-mirroring helper `0x50af`, and action `0x31` at
+   `0x36e2`. Confirmed packed low-nibble count plus mutable loop-wide
+   orientation and mirroring.
+
+6. Reported: "The view difference is now source-backed, not just a data
+   oddity. Version 2.230 stores mirroring state in the loop header (`count &
+   0x0f`, orientation in the upper bits) and mirrors every cel in the shared
+   loop when orientation changes; 2.272 stores orientation in each cel control
+   byte. I’m checking the remaining EGA/output and profile subsystems so the
+   new profile separates real contracts from relocated implementation."
+
+   Action/result: Confirmed six selected resources use `0xc4`/`0xc6` packed
+   loop headers where corresponding 2.272 resources use ordinary counts and
+   per-cel bit `0x80`. Mapped picture, movement, object, sound, save, input,
+   and EGA output roles.
+
+7. Reported: "The remaining source pass is closed: 2.230’s EGA overlay
+   entries normalize exactly against both neighboring builds, while its core
+   is a deliberate hybrid—2.272-style position/composition/parser/save
+   behavior, 2.089-style exit/motion-clear/sound behavior, plus the unique
+   loop-header view encoding. I’ve added deterministic model tests and am
+   promoting those contracts into the spec now."
+
+   Action/result: Added packed-loop header transition/count tests, a local
+   source-byte guard for action `0x31`, selected metadata/save-dimension tests,
+   and the new normative 2.230 profile and conformance rows.
+
+8. Reported: "The interpreter profile and clean-room evidence are in place.
+   I’m finishing the last source-level cross-check—XMAS 2.230’s startup
+   interpretation of the OBJECT header—then I’ll rerun the final consistency
+   checks and hand over the profile."
+
+   Action/result: Reopened the startup metadata/object initializer in 2.230
+   and its relocated 2.272 counterpart and recorded the matching header-count
+   and allocation path.
+
+9. Reported: "The OBJECT capacity is now tied to the executable path itself:
+   2.230 reads header byte `0x11`, increments it, and allocates 18 records of
+   `0x2b` bytes. That removes the last inference-only piece from the
+   save-envelope profile; I’m running the final book and diff checks now."
+
+   Action/result: Added the startup role to the stable symbolic map and
+   recorded the exact read, increment, and record-size multiplication evidence
+   in the executable notes.
+
+10. Reported: "The combined check stopped immediately because the tests
+    correctly reject an implicit game directory. I’m rerunning with the
+    suite’s documented SQ2 reference input explicitly selected; no analysis
+    result or file was affected."
+
+    Action/result: Repeated the focused verification with
+    `AGI_GAME_DIR=games/SQ2`; 161 tests passed with four expected skips, both
+    mdBooks built, and `git diff --check` passed.
+
+11. Reported: "Focused verification is green (161 tests, 4 expected skips),
+    both mdBooks build, and the diff is whitespace-clean. I’m doing one final
+    full-suite run against the explicit reference corpus so the handoff
+    reflects the exact current tree, including the last evidence note."
+
+    Action/result: The complete 482-test suite passed with four expected
+    skips. A process-list check found no QEMU or persistent interpreter
+    controller process running.

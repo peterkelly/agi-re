@@ -120,7 +120,7 @@ Direction values and coordinate deltas are:
 | 8 | up-left | -step | -step |
 
 When automatic loop selection is enabled, the direction may select a loop
-before cel timing. Profiles 2.089 and 2.272 perform this selection on every
+before cel timing. Profiles 2.089, 2.230, and 2.272 perform this selection on every
 eligible post-logic object pass, independently of the movement-cadence
 countdown. Profiles 2.411 and later perform it only when that countdown is
 `1`.
@@ -143,7 +143,7 @@ For views with four or more loops:
 | 1 | 3 |
 | 0 | no change |
 
-Profiles 2.089, 2.272, 2.411, 2.440, and 2.917 use the second table only for
+Profiles 2.089, 2.230, 2.272, 2.411, 2.440, and 2.917 use the second table only for
 exactly four loops; a view with more loops does not change automatically. Profiles 2.936
 and 3.002.086 use the table for every view with four or more loops. In profiles
 3.002.102 and 3.002.149, exactly-four-loop views always use it, while views
@@ -279,7 +279,7 @@ Starting target motion stores the target, saves the current step size, clears
 the completion flag, and temporarily adopts a nonzero step override. A zero
 override preserves the current step size.
 
-Profiles 2.089 and 2.272 stop after those setup changes. They retain the
+Profiles 2.089, 2.230, and 2.272 stop after those setup changes. They retain the
 object's previous direction until the next eligible target-motion update. If
 the object already satisfies the target, restoration of its saved step,
 clearing of target-motion mode, and setting of the completion flag are likewise
@@ -304,7 +304,7 @@ set the completion flag, clear the autonomous mode, and leave direction zero.
 Movement need not land on the exact target when the remaining distance is
 within one step.
 
-Except in profiles 2.089 and 2.272, the start action performs a target-direction
+Except in profiles 2.089, 2.230, and 2.272, the start action performs a target-direction
 calculation immediately. Subsequent automatic recalculation occurs in the
 pre-logic phase only when the object's movement-cadence countdown equals `1`.
 Without that cadence state, a one-shot call leaves the initial direction active
@@ -367,8 +367,8 @@ earlier equal-priority pixels under the cel composition rules.
 Profile 2.089 is the exception for ordering within the earlier partition. It
 draws that partition in ascending object-number order without sorting it by
 drawing key. It still sorts the later partition by drawing key and uses object
-number to break equal-key ties. Profile 2.272 and every later promoted profile
-sort both partitions by drawing key as described above.
+number to break equal-key ties. Profile 2.230 and every promoted profile from
+2.272 onward sort both partitions by drawing key as described above.
 
 For baseline-priority objects, the drawing key is baseline Y. In the promoted
 2.936 table mode, a fixed priority of zero maps before row 0 and a positive

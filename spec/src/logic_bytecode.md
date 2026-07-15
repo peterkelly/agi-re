@@ -313,6 +313,10 @@ Selecting a view, loop, or cel requires the referenced view to be loaded and
 the selected index to be valid for that view. Cel selection updates width and
 height before applying placement bounds.
 
+In profile 2.230, action `0x31` treats the selected loop header's low nibble as
+the cel count, subtracts one, and stores the resulting highest valid index.
+Other promoted profiles subtract one from the ordinary full-byte cel count.
+
 ## Action opcodes: priority and update participation
 
 | Opcode | Operands | Behavior |
@@ -470,7 +474,7 @@ The 3.002.149 profile accepts 49 entries.
 Inventory selection includes only items whose location is `0xff`. Its display
 uses a two-column list when needed. When the profile's inventory-interaction
 flag disables selection, the list is acknowledgement-only and does not produce
-a chosen-item result. Profiles 2.089 and 2.272 always use that
+a chosen-item result. Profiles 2.089, 2.230, and 2.272 always use that
 acknowledgement-only form, regardless of the flag.
 
 ## Action opcodes: persistence and session control
@@ -486,7 +490,7 @@ acknowledgement-only form, regardless of the flag.
 | `0x83` | none | Select object-0-to-`v6` direction coupling. |
 | `0x84` | none | Select `v6`-to-object-0 direction coupling and stop object 0 autonomous motion. |
 | `0x85` | object variable | Display object number, X, baseline Y, width, height, priority, and step size as a modal diagnostic. |
-| `0x86` | profile-dependent | In 2.089, consume no operand and terminate immediately. In later promoted profiles, consume a selector: `1` terminates immediately; other values request confirmation and terminate only when accepted. |
+| `0x86` | profile-dependent | In 2.089 and 2.230, consume no operand and terminate immediately. In other promoted profiles, consume a selector: `1` terminates immediately; other values request confirmation and terminate only when accepted. |
 | `0x87` | none | Display heap/resource diagnostic values modally. These values are diagnostic and do not define a required internal allocator layout. |
 | `0x88` | none | Stop sound, display the fixed pause message, wait for acknowledgement, and resume. |
 | `0x89` | none | Redraw the enabled input line from the accepted input buffer. |
@@ -546,8 +550,8 @@ message selector is followed by row, column, and width.
 | `0xa1` | none | If `f14` is set, request modal menu interaction on the input cycle. |
 
 Profile 2.272 accepts the menu action encodings `0x9c..0xa0`, consumes the
-operands listed above, and performs no menu operation. Profile 2.089 does not
-accept those action slots.
+operands listed above, and performs no menu operation. Profiles 2.089 and
+2.230 do not accept those action slots.
 
 Selecting an enabled item enqueues a mapped status event carrying its item ID.
 Escape exits without selection. Disabled items cannot produce selection events.

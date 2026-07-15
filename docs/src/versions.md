@@ -10,6 +10,7 @@ not external AGI documentation.
 | Local input | Version evidence | Executable form | Resource container | Fixture status |
 | --- | --- | --- | --- | --- |
 | `games/SQ1` | `AGIDATA.OVL` string `Version 2.089` | `SQ.EXE` is an MZ executable | Split direct v2 resources | Full-EGA gameplay profile promoted; selected save dimensions and semantic block map recorded |
+| `games/XMAS.230` | `AGIDATA.OVL` string `Version 2.230` | `AGI.EXE` is an MZ executable | Split direct v2 resources; selected copy contains `VOL.0` only | Full-EGA gameplay profile promoted; packed loop-header mirroring and selected save dimensions recorded |
 | `games/XMAS` | `AGIDATA.OVL` string `Version 2.272` | `AGI.EXE` is an MZ executable | Split direct v2 resources in a multi-disk distribution layout | Full-EGA gameplay profile promoted; menu stubs, exit selector, and selected save layout recorded |
 | `games/BC` | `AGIDATA.OVL` string `Version 2.439` | `AGI` is decoded with the selected game's `SIERRA.COM` key | Split direct v2 resources | Mapped full-EGA core matches 2.440 after relocation; selected save dimensions observed |
 | `games/KQ2` | `AGIDATA.OVL` string `Version 2.411` | `AGI` is decoded with the selected game's `SIERRA.COM` key before disassembly | Split direct v2 resources | Full-EGA resource, logic, input, persistence, renderer, object, and sound profile is promoted; KQ2 save dimensions are mapped |
@@ -43,6 +44,7 @@ The local snapshot found these version/layout groups:
 | Local input | Version string | Layout | Notes |
 | --- | --- | --- | --- |
 | `games/SQ1` | `Version 2.089` | v2 split | Direct records; 155 actions `0x00..0x9a`. |
+| `games/XMAS.230` | `Version 2.230` | v2 split | Direct records; 155 actions `0x00..0x9a`; selected copy contains only `VOL.0`. |
 | `games/XMAS` | `Version 2.272` | v2 split | Original multi-disk package records three disk numbers while selecting a single `VOL.0`; generic installed-layout record errors are packaging artifacts. |
 | `games/BC` | `Version 2.439` | v2 split | Direct records. |
 | `games/KQ2` | `Version 2.411` | v2 split | Direct `VOL.N` records. |
@@ -158,7 +160,7 @@ iteration order, and pixel writes otherwise match.
 | KQ4D/MH1 | `0x1658` | `0x167b` | `0x169b` |
 | GR/MH2 | `0x140d` | `0x1430` | `0x1450` |
 
-SQ1 2.089 and XMAS 2.272 have no such tables because their scanners end at
+SQ1 2.089, XMAS.230 2.230, and XMAS 2.272 have no such tables because their scanners end at
 `0xf8`. KQ2 2.411 has `0xf9`/`0xfa` but no shaped-brush tables: its mode byte
 is ignored and each coordinate pair produces one ordinary pixel write. The
 generated all-build report is reproducible with
@@ -714,66 +716,94 @@ reports under `build/cross-version/` use geometry-derived action counts; early
 v2 builds required recognizing the observed `0x26`-byte trailer in addition to
 the later `0x20`-byte trailer.
 
-### SQ1 2.089 and XMAS 2.272
+### SQ1 2.089, XMAS.230 2.230, and XMAS 2.272
 
-SQ1 accepts 155 actions `0x00..0x9a`; XMAS accepts 161 actions
-`0x00..0xa0`. Both retain 19 conditions. Direct disassembly establishes these
-early action differences:
+SQ1 and XMAS.230 each accept 155 actions `0x00..0x9a`; XMAS 2.272 accepts
+161 actions `0x00..0xa0`. All three retain 19 conditions. XMAS.230's action
+table begins at data offset `0x03e7`, its condition table at `0x0673`, and the
+usual `0x20`-byte trailer separates the tables. Direct disassembly establishes
+the following early profile selections:
 
-| Behavior | SQ1 2.089 | XMAS 2.272 |
-| --- | --- | --- |
-| Action `0x86` | No operands; stops sound, performs shutdown cleanup, and terminates. | One selector byte; `1` exits directly, while other values ask for confirmation. |
-| Action `0x9b` | Unavailable. | Consumes two bytes and has no other effect. |
-| Actions `0x9c..0xa0` | Unavailable. | Dispatch to operand-advance stubs at image `0x8400..0x8404`; no menu state is constructed. |
-| Position actions `0x25`/`0x26` | Write current coordinates, remove old rendered state if drawn, then update the previous-position snapshot. | Write current and previous coordinates together without first removing rendered state. |
-| Object composition | Earlier partition uses object-number order; later partition is drawing-key sorted. | Both partitions are drawing-key sorted. |
-| Picture scanner | Image `0x5baf` accepts `0xf0..0xf8`; `0xf9`/`0xfa` are not dispatched. | Image `0x5c38` has the same `0xf0..0xf8` boundary. |
-| Show picture | Refreshes and marks shown without clearing `f15` or closing an active text window. | Same. |
-| Automatic loop selection | Image `0x05cc` selects direction loops on every eligible pass, without testing cadence countdown `object[1]`. | Image `0x04c6` has the same cadence-independent rule. |
-| String slots | Parse action at image `0x1817` accepts selectors below 6. | Parse action at image `0x17f7` accepts selectors below 6. |
-| Word-sequence predicate | Image `0x0965` requires exact parser/pattern counts; `0x270f` is an ordinary identifier. | Image `0x087d` implements the later `0x270f` tail terminator. |
-| Object distance | Stores the low byte and wraps sums above `255`. | Same. |
-| Target-motion start | Defers direction/completion until the next eligible target update. | Same. |
-| Actions `0x4d`/`0x4e` | Leave autonomous mode active; `0x4d` clears direction and `0x4e` applies only object-0 globals. | Clear autonomous mode; `0x4d` also clears direction. |
-| Inventory display | Acknowledgement-only; does not write `v25`. | Same. |
-| Save envelope | Image `0x2501` writes four blocks and no logic-resume block. | Image `0x24f5` writes five blocks, including variable logic resumes. |
+| Behavior | SQ1 2.089 | XMAS.230 2.230 | XMAS 2.272 |
+| --- | --- | --- | --- |
+| Action `0x86` | No operands; stops sound, performs shutdown cleanup, and terminates. | Same zero-operand exit. | One selector byte; `1` exits directly, while other values ask for confirmation. |
+| Action `0x9b` | Unavailable. | Unavailable. | Consumes two bytes and has no other effect. |
+| Actions `0x9c..0xa0` | Unavailable. | Unavailable. | Dispatch to operand-advance stubs at image `0x8400..0x8404`; no menu state is constructed. |
+| Position actions `0x25`/`0x26` | Write current coordinates, remove old rendered state if drawn, then update the previous-position snapshot. | Write current and previous coordinates together without first removing rendered state. | Same as 2.230. |
+| Object composition | Earlier partition uses object-number order; later partition is drawing-key sorted. | Both partitions are drawing-key sorted. | Both partitions are drawing-key sorted. |
+| View orientation encoding | Ordinary loop count; selected data has no orientation flags. | Packed loop-header count and mutable orientation; see below. | Ordinary loop count; mirror state is in each cel control byte. |
+| Picture scanner | Image `0x5baf` accepts `0xf0..0xf8`; `0xf9`/`0xfa` are not dispatched. | Image `0x5baa` has the same boundary. | Image `0x5c38` has the same boundary. |
+| Show picture | Refreshes and marks shown without clearing `f15` or closing an active text window. | Same. | Same. |
+| Automatic loop selection | Image `0x05cc` selects direction loops on every eligible pass, without testing cadence countdown `object[1]`. | Image `0x049a` has the same cadence-independent rule. | Image `0x04c6` has the same rule. |
+| String slots | Parse action at image `0x1817` accepts selectors below 6. | Image `0x1759` accepts the same six slots. | Image `0x17f7` accepts the same six slots. |
+| Word-sequence predicate | Image `0x0965` requires exact parser/pattern counts; `0x270f` is an ordinary identifier. | Image `0x0851` implements the `0x270f` tail terminator. | Image `0x087d` implements the same terminator. |
+| Object distance | Stores the low byte and wraps sums above `255`. | Same. | Same. |
+| Target-motion start | Defers direction/completion until the next eligible target update. | Same. | Same. |
+| Actions `0x4d`/`0x4e` | Leave autonomous mode active; `0x4d` clears direction and `0x4e` applies only object-0 globals. | Same as 2.089. | Clear autonomous mode; `0x4d` also clears direction. |
+| Inventory display | Acknowledgement-only; does not write `v25`. | Same. | Same. |
+| Sound control output | Device 2 adjusts low attenuation values; no global whole-byte adjustment. | Exact relocated match for 2.089. | Adds the global whole-byte adjustment and signed clamp. |
+| Save envelope | Image `0x2501` writes four blocks and no logic-resume block. | Image `0x2447` writes five blocks. | Image `0x24f5` writes five blocks. |
 
-The XMAS string-equality predicate's shorter entry merely delegates to a
-normalization helper; its helper still removes ignored characters, normalizes
-case, and compares normalized strings. It is not an observable predicate
-difference.
+The 2.230 and 2.272 condition tables are exact normalized matches. Their
+shorter string-equality entry delegates to a normalization helper that removes
+ignored characters, normalizes case, and compares normalized strings. It is
+not an observable predicate difference from 2.089.
 
-Both games store `OBJECT` metadata directly rather than through the later
+All three games store `OBJECT` metadata directly rather than through the later
 repeating-key XOR. SQ1's plain header is `4e 00 11`, defining 26 inventory
 entries. Its startup path uses the third header byte directly as the runtime
-record count, so it allocates 17 records. XMAS uses `03 00 11`, defining one
-inventory entry; its startup path increments the third byte and therefore
-allocates 18 records. A format-only parser still exposes the shared header byte
-as `maximum_object_index`, but that name must not be used to infer SQ1 runtime
+record count, so it allocates 17 records. XMAS.230 and XMAS have byte-identical
+`OBJECT` files with header `03 00 11`, defining one inventory entry; their
+startup paths increment the third byte and therefore allocate 18 records. A
+format-only parser still exposes the shared header byte as
+`maximum_object_index`, but that name must not be used to infer SQ1 runtime
 capacity.
 
-The picture scanners are relocated copies of one another. SQ1 scanner
-`0x5baf` and XMAS scanner `0x5c38` subtract `0xf0` and accept only results
-through 8, proving a command vocabulary of `0xf0..0xf8`. Their command and
-raster helpers otherwise align after relocation: decode-with-clear at
-`0x5b84`/`0x5c0d`, coordinate reads at `0x5ce8`/`0x5d71`, line rasterization
-at `0x5d19`/`0x5da2`, and fill at `0x4ad4`/`0x4aa6`.
+XMAS.230 has a distinct view-loop encoding. Its loop-binding helper at image
+`0x350d` masks the loop header with `0x0f` before storing the cel count. When
+header bit `0x80` is set and bits `0x30` do not match the selected loop, it
+calls row-mirroring helper `0x50af` if bit `0x40` is set, then rewrites bits
+`0x30` with the selected loop. The helper mirrors every cel in the loop and
+uses the low nibble as its iteration count. Action `0x31` at `0x36e2`
+independently applies the same `and ax,0x000f` before subtracting one.
 
-Both sound drivers initialize four streams and countdowns, select one channel
-only when the hardware selector is zero, and use the same event scheduler.
-SQ1 event output `0x7615` always writes both tone bytes. For device 2, helper
+The selected `VOL.0` supplies direct data evidence for this source rule. Views
+10, 11, and 14 contain two references to a shared four-cel loop headed `0xc4`;
+views 16, 17, and 18 contain two references to a shared six-cel loop headed
+`0xc6`. Their corresponding 2.272 resources replace `0xc4`/`0xc6` with
+ordinary counts `0x04`/`0x06` and move bit `0x80` into each cel control byte.
+Across those six resources, lengths and offsets remain equal and only the loop
+orientation markers and matching cel-control markers change. This makes the
+packed loop-header rule observable for valid selected data rather than a dead
+decoder branch.
+
+The picture scanners are relocated copies of one another. SQ1 scanner
+`0x5baf`, XMAS.230 scanner `0x5baa`, and XMAS scanner `0x5c38` subtract
+`0xf0` and accept only results through 8, proving a command vocabulary of
+`0xf0..0xf8`. XMAS.230's decode-with-clear `0x5b7f`, coordinate reader
+`0x5ce3`, line rasterizer `0x5d14`, and fill `0x4a3a` are relocated matches
+for the corresponding 2.272 roles.
+
+All three sound drivers initialize four streams and countdowns and select one
+channel only when the hardware selector is zero. XMAS.230 start `0x7478` and
+tick `0x74da` match 2.272 after relocation, while event output `0x7598` is an
+exact relocated match for SQ1 `0x7615`. Both always write both tone bytes. For
+device 2, SQ1 helper
 `0x7657` increases control low nibbles below 8 by 3 before output; otherwise it
-emits `CL` unchanged. XMAS event output `0x7634` uses corresponding helper
+emits `CL` unchanged, and XMAS.230 follows the same rule. XMAS 2.272 event
+output `0x7634` uses corresponding helper
 `0x7680`, then adds the global adjustment to the entire control byte and
-applies its signed greater-than-15 clamp. Neither build has the later per-tick
+applies its signed greater-than-15 clamp. None of the three builds has the later per-tick
 attenuation envelopes.
 
 SQ1's save writer serializes block lengths `0x03db`, `17 * 0x2b = 0x02db`,
 the selected metadata runtime length `0x0153`, and twice the configured replay
-capacity. It then closes the file. XMAS serializes `0x03db`,
+capacity. It then closes the file. XMAS.230 and XMAS serialize `0x03db`,
 `18 * 0x2b = 0x0306`, metadata length `0x000f`, twice the configured replay
-capacity, and a variable logic-resume block. Their restore paths read the
-corresponding four- and five-block forms.
+capacity, and a variable logic-resume block. The selected XMAS.230 logic 0
+configures 200 replay pairs, giving block 4 length `0x0190`. Save/restore roles
+`0x2447`/`0x2279` are relocated matches for XMAS 2.272. The three restore paths
+read their corresponding four- or five-block forms.
 
 XMAS also retains three installation methods. `ORIGINAL.BAT` selects
 `VOL.ORG`, `LOGDIR.ORG`, and `PICDIR.ORG`; `LOGMETH.BAT` and `VOLMETH.BAT`
@@ -783,6 +813,11 @@ selected payload is named `VOL.0`, so an installed-layout census incorrectly
 reports missing `VOL.1`/`VOL.2`. This is packaging evidence, not malformed
 resource semantics.
 
+The selected XMAS.230 copy also contains only `VOL.0`, while its directories
+contain present entries naming volumes 1 and 2. The readable `VOL.0` resources
+are valid direct records. Missing-file errors for the other entries describe
+an incomplete selected package and are excluded from the valid-data profile.
+
 The remaining differing action entries were reduced against KQ2's 2.411
 handlers. Ordinary EGA input configuration, number entry, input-line
 disable/enable/refresh/erase, restart acceptance, and successful view-preview
@@ -790,7 +825,7 @@ output have the same portable effects. Their source differences are alternate
 display-mode branches, interrupt-timing guards, resource/file cleanup,
 temporary backing-storage organization, and joystick calibration. Together
 with the mapped resource, renderer, object, motion, sound, and save paths, this
-supports full-EGA gameplay profiles for both 2.089 and 2.272. Canonical initial
+supports full-EGA gameplay profiles for all three builds. Canonical initial
 reserved save bytes remain a separate binary-synthesis requirement.
 
 ### BC 2.439, MG 2.915, and SQ1.22 2.917

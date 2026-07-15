@@ -1805,7 +1805,7 @@ The builder performs these steps:
 generated default partition contains 2,095,104 sectors and reports roughly
 1,032,781,824 free bytes before private games are copied.
 
-The 1 GiB image was populated with all 16 current top-level private game
+The 1 GiB image was populated with all 16 then-current top-level private game
 directories. Recursive host/DOS file counts matched for every directory. After
 copying the games, the FAT volume reported 1,009,057,792 free bytes. QEMU booted
 the image through the generated INT-43h-compatible VGA BIOS and reached the
@@ -1852,3 +1852,25 @@ in the explicit `AGI_GAME_DIR=games/SQ2` repository run, with four expected
 skips. Both mdBooks built successfully. Running discovery without an explicit
 game directory remains invalid by design and exits during imports that require
 resource evidence.
+
+## XMAS.230 / AGI 2.230 profile guards
+
+The focused 2.230 compatibility additions are deterministic and do not require
+QEMU:
+
+- dispatch-table detection asserts data offsets `0x03e7`/`0x0673`, 155
+  actions, and 19 conditions for the selected local overlay;
+- a source-byte guard derives action `0x31` from that table and asserts the
+  handler's low-nibble mask before the last-cel subtraction;
+- the portable view model decodes packed cel count, mutable orientation, and
+  mirror-on-change bits, including forward and reverse orientation rewrites;
+- paired selected-resource evidence compares XMAS.230 view 10 with its 2.272
+  counterpart and proves the loop-header/per-cel marker migration; and
+- save tests parse plain XMAS.230 metadata and guard 18 object records, the
+  `0x03db`/`0x0306`/`0x000f` fixed blocks, and the selected logic's 200-pair
+  replay dimension (`0x0190`).
+
+These tests prove the promoted valid-data format and selected-game dimensions.
+They do not establish malformed packed-loop behavior, absent-volume resources,
+canonical pristine reserved save bytes, non-EGA adapters, or interactive
+joystick paths.

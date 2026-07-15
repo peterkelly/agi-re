@@ -206,7 +206,7 @@ def early_sound_attenuation_output(
 
 
 def early_20xx_device2_control_adjust(control_byte: int, hardware_selector: int) -> int:
-    """Apply the 2.089/2.272 device-2 pre-output attenuation adjustment."""
+    """Apply the 2.089/2.230/2.272 device-2 pre-output adjustment."""
 
     output = control_byte & 0xFF
     if hardware_selector == 2 and (output & 0x90) == 0x90 and (output & 0x0F) < 8:

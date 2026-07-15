@@ -60,6 +60,13 @@ The new `tools/match_interpreter_roles.py` performs normalized first-pass role
 relocation for future builds and reports unique, ambiguous, and unmatched
 candidates for manual source review.
 
+XMAS.230 is now identified as AGI 2.230 and has its own promoted full-EGA
+profile. It is a source-backed hybrid of the neighboring early builds: its
+position/composition/parser/save paths follow 2.272, while exit, motion-clear,
+and sound output follow 2.089. Its unique view format packs cel count and
+mutable orientation/mirroring state into the loop header; six selected view
+resources exercise that path. The selected save dimensions are also mapped.
+
 Full KQ4 is now separated from the KQ4D demo. The full game uses AGI
 3.002.086, a 178-action range ending at `0xb1`, and a distinct promoted
 profile. It combines the v3 inventory/save/restart/motion changes with the

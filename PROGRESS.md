@@ -48,7 +48,7 @@ better understood, or a new remaining-work item is discovered.
   disks.
 - Main remaining risk areas: concrete picture/view edges exposed by future
   valid resources, compatibility-bundle breadth across additional versions,
-  optional canonical initial save bytes for pristine 2.089/2.272 save
+  optional canonical initial save bytes for pristine 2.089/2.230/2.272 save
   synthesis, and conditional error paths. All currently promoted subsystems
   have standalone behavioral-specification chapters.
 - Picture/view resource retention is now source-modeled as ordered within each
@@ -154,6 +154,20 @@ better understood, or a new remaining-work item is discovered.
   leaves autonomous motion active in actions `0x4d` and `0x4e`; XMAS clears it.
   Both expose only the acknowledgement-only inventory display and never write
   an inventory selection to `v25`.
+- XMAS.230 / AGI 2.230 now has a separate source-backed full-EGA profile. It
+  accepts 155 actions `0x00..0x9a` and all 19 conditions. It combines
+  2.272-style direct position writes, two sorted composition partitions,
+  `0x270f` word-tail matching, and five-block save/restore with 2.089-style
+  zero-operand exit, motion-clear actions that retain autonomous mode, and
+  direct device-2-adjusted sound control output. Its distinct view format
+  stores cel count in the loop-header low nibble and mutable orientation/mirror
+  state in bits `0xc0`; loop selection mirrors every shared cel row on an
+  orientation change, and action `0x31`
+  masks the header before returning the last cel. Six selected view resources
+  exercise that format. The selected data maps 18 object records, one
+  inventory item, 200 replay pairs, and fixed save blocks `0x03db`, `0x0306`,
+  `0x000f`, and `0x0190` before the variable resume block. All EGA overlay
+  entry roles match the neighboring builds after normalization.
 - Original saves add selected-game dimensions for BC, MG, and SQ1.22. BC uses
   blocks `0x05df`, `0x02db`, `0x0135`, and `0x00fe`; MG uses `0x05df`,
   `0x0387`, `0x0005`, and `0x00dc`; SQ1.22 uses `0x05e1`, `0x0306`,
@@ -173,7 +187,7 @@ better understood, or a new remaining-work item is discovered.
   picture-only fixture and a generated picture-plus-view fixture distinctly.
 - A read-only multi-game census tool now inventories explicit local game
   directories without modifying `games/`. The current private-input snapshot
-  covers sixteen local games/builds, identifying v2 split and v3 combined
+  covers seventeen local games/builds, identifying v2 split and v3 combined
   layouts, version strings, resource counts, transform mixes, and record-header
   errors that require later source inspection before they are modeled.
   `tools/disassemble_logic.py` now detects per-build action/condition
@@ -199,9 +213,9 @@ better understood, or a new remaining-work item is discovered.
     separation from the evidence book.
 - [x] Version profiles
   - Current: `spec/src/version_profiles.md` defines the primary 2.936 profile
-    and promoted full-EGA 2.089, 2.272, 2.411, 2.440, 2.917, 3.002.086,
+    and promoted full-EGA 2.089, 2.230, 2.272, 2.411, 2.440, 2.917, 3.002.086,
     3.002.102, and 3.002.149 profiles. SQ1, XMAS, KQ2, LSL1, KQ1, full KQ4,
-    KQ4D, and Gold Rush supply mapped profile-specific save dimensions.
+    XMAS.230, KQ4D, and Gold Rush supply mapped profile-specific save dimensions.
     Mapped-equivalent evidence now covers 2.439, 2.915, the historically
     observed 3.002.107 build, and a second
     3.002.149 build. The early profiles record source-proven resource, opcode,
@@ -211,7 +225,7 @@ better understood, or a new remaining-work item is discovered.
   - Current: `spec/src/resource_containers.md` specifies split v2 and combined
     v3 directories, packed entries, volume records, direct payloads,
     dictionary expansion, picture-nibble expansion, and inventory metadata for
-    valid data. Profiles 2.089/2.272 store expanded `OBJECT` metadata directly;
+    valid data. Profiles 2.089/2.230/2.272 store expanded `OBJECT` metadata directly;
     later observed v2 profiles apply the repeating-key XOR transform.
 - [x] Core runtime state and cycle ordering
   - Current: `spec/src/runtime_state.md` defines portable variable, flag,
@@ -234,8 +248,8 @@ better understood, or a new remaining-work item is discovered.
     message XOR decoding, main-stream control flow, AND/OR/NOT condition
     grammar, all 19 condition opcodes, all 176 action opcodes `0x00..0xaf`,
     and v3 extension slots `0xb0..0xb5`. A structural test checks every accepted
-    profile opcode is represented. The 2.089 profile stops at `0x9a`
-    and has a zero-operand unconditional `0x86`; 2.272 stops at `0xa0`, uses
+    profile opcode is represented. The 2.089 and 2.230 profiles stop at `0x9a`
+    and have a zero-operand unconditional `0x86`; 2.272 stops at `0xa0`, uses
     the later `0x86` selector, and treats `0x9c..0xa0` as operand-consuming
     menu no-ops.
   - Remaining refinements belong to subsystem chapters, especially configured
@@ -245,7 +259,7 @@ better understood, or a new remaining-work item is discovered.
     lifecycle, scanner and operand boundaries, both drawing channels, all
     commands `0xf0..0xfa`, exact line rasterization, fill connectivity,
     pattern masks and stippling, and profile-specific right-edge writes. A
-    source-first audit now covers every local interpreter: 2.089/2.272 end at
+    source-first audit now covers every local interpreter: 2.089/2.230/2.272 end at
     `0xf8`; 2.411 has point-only `0xf9`/`0xfa`; complete v2 brushes use a
     filled radius-one mask and `0x0140` clamp; all observed v3 builds use a
     two-pixel radius-one center row and `0x013e` clamp. The renderer discovers
@@ -255,7 +269,9 @@ better understood, or a new remaining-work item is discovered.
   - Current: `spec/src/view_resources.md` defines view/loop/cel offsets,
     row-run decoding, transparent colors, mutable shared-cel mirroring,
     baseline and edge placement, per-pixel priority scanning, and transient
-    preview strings. A structural test guards the chapter's major contracts.
+    preview strings. The 2.230 packed loop-header count/orientation form is a
+    profile variant alongside the ordinary per-cel orientation form. Structural
+    and selected-resource tests guard both contracts.
 - [x] Object state, movement, collision, animation, and update ordering
   - Current: `spec/src/object_behavior.md` defines lifecycle, priority and
     horizon, placement search, cycle/cadence ordering, direction-based loop
@@ -295,7 +311,7 @@ better understood, or a new remaining-work item is discovered.
     byte-complete structural map: 1028-byte global block with explicit reserved
     state, 23 object records, decoded 131-entry inventory/name data, 50
     replay pairs, and the same variable logic-resume grammar.
-    The common 2.089/2.272 block 1 has a complete source-backed field
+    The common 2.089/2.230/2.272 block 1 has a complete source-backed field
     partition covering scalar state, replay capacity/count, 39 key mappings,
     six live and six reserved string records, and text/input/status fields.
     Canonical initial bytes remain unmapped. Original BC
@@ -309,7 +325,7 @@ better understood, or a new remaining-work item is discovered.
   - Remaining: map save layouts for additional profiles when promoted.
 - [x] Compatibility and version-conformance matrix
   - Current: `spec/src/conformance_matrix.md` separates the common core,
-    2.936/3.002.149 variants, game-data dimensions, partial domains,
+    early profiles including 2.230, 2.936/3.002.149 variants, game-data dimensions, partial domains,
     out-of-scope behavior, and requirements for gameplay/save-interchange
     claims. Structural tests guard its section and claim boundaries.
 
@@ -982,8 +998,8 @@ source-mapped well enough to justify a targeted probe.
 3. Keep expanding `tools/compatibility_suite.py` when a new behavior is promoted
    to reusable evidence. Re-run the smoke or broad QEMU layer whenever the
    manifest changes.
-4. Establish canonical initial 2.089/2.272 reserved save bytes only if pristine
-   binary save synthesis for those selected games becomes a target.
+4. Establish canonical initial 2.089/2.230/2.272 reserved save bytes only if
+   pristine binary save synthesis for those selected games becomes a target.
 5. Treat non-EGA paths, analog waveform synthesis, menu arrow injection, invalid
    path UI, and out-of-memory UI as optional/conditional work unless the final
    compatibility target expands beyond current full-EGA valid-data behavior.

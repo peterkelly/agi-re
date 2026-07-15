@@ -21,6 +21,7 @@ from agi_graphics import (  # noqa: E402
     ObjectDrawCandidate,
     PictureRenderer,
     RenderedFrame,
+    decode_view_loop_header,
     WIDTH,
     automatic_direction_loop,
     control_acceptance_scan,
@@ -49,7 +50,9 @@ from agi_graphics import (  # noqa: E402
     random_motion_update,
     target_axis_relation,
     target_direction,
+    update_packed_view_loop_orientation,
 )
+from agi_resources import read_resource_payload  # noqa: E402
 from disassemble_logic import SQ2, read_dir_entries, read_volume_payload  # noqa: E402
 from ppm_tools import non_background_bbox, read_ppm, unique_colors  # noqa: E402
 
@@ -568,6 +571,72 @@ class PictureRenderingTests(unittest.TestCase):
 
 
 class ViewRenderingTests(unittest.TestCase):
+    def test_packed_loop_header_exposes_count_and_mutable_orientation(self) -> None:
+        state = decode_view_loop_header(0xC4, packed_orientation=True)
+        self.assertEqual(state.cel_count, 4)
+        self.assertTrue(state.orientation_is_mutable)
+        self.assertTrue(state.mirror_rows_on_orientation_change)
+        self.assertEqual(state.orientation, 0)
+
+        rewritten, mirror = update_packed_view_loop_orientation(0xC4, 1)
+        self.assertEqual(rewritten, 0xD4)
+        self.assertTrue(mirror)
+        self.assertEqual(
+            update_packed_view_loop_orientation(rewritten, 1),
+            (0xD4, False),
+        )
+        self.assertEqual(
+            update_packed_view_loop_orientation(rewritten, 0),
+            (0xC4, True),
+        )
+
+    def test_packed_loop_header_limits_frame_iteration_to_low_nibble(self) -> None:
+        payload = bytes(
+            [
+                1, 1, 1, 0, 0, 7, 0,
+                0xC2, 5, 0, 9, 0,
+                1, 1, 0, 0,
+                1, 1, 0, 0,
+            ]
+        )
+        self.assertEqual(
+            list(iter_view_frames(payload, packed_loop_orientation=True)),
+            [(0, 0, 12), (0, 1, 16)],
+        )
+
+    @unittest.skipUnless(
+        (ROOT / "games" / "XMAS.230").exists()
+        and (ROOT / "games" / "XMAS").exists(),
+        "local XMAS 2.230 and 2.272 game directories are not present",
+    )
+    def test_xmas_2230_moves_mirroring_state_from_cels_to_loop_header(self) -> None:
+        early = read_resource_payload(ROOT / "games" / "XMAS.230", "view", 10)
+        later = read_resource_payload(ROOT / "games" / "XMAS", "view", 10)
+        early_loop = int.from_bytes(early[5:7], "little")
+        later_loop = int.from_bytes(later[5:7], "little")
+
+        self.assertEqual(early_loop, later_loop)
+        self.assertEqual(
+            decode_view_loop_header(
+                early[early_loop],
+                packed_orientation=True,
+            ).cel_count,
+            later[later_loop],
+        )
+        self.assertEqual(early[early_loop], 0xC4)
+        self.assertEqual(later[later_loop], 0x04)
+        for cel_no in range(4):
+            early_cel = early_loop + int.from_bytes(
+                early[early_loop + 1 + cel_no * 2 : early_loop + 3 + cel_no * 2],
+                "little",
+            )
+            later_cel = later_loop + int.from_bytes(
+                later[later_loop + 1 + cel_no * 2 : later_loop + 3 + cel_no * 2],
+                "little",
+            )
+            self.assertEqual(early[early_cel + 2], 0x01)
+            self.assertEqual(later[later_cel + 2], 0x81)
+
     def test_view_header_reserved_bytes_are_stable_in_local_resources(self) -> None:
         headers = {payload[:2] for _view_no, payload in iter_valid_resources("VIEWDIR")}
         self.assertEqual(headers, {b"\x01\x01"})

@@ -74,8 +74,8 @@ profile advances channels 0 through 3 and completes at the latest terminator
 among them. Channels that terminate earlier remain silent while the others
 continue.
 
-In profiles 2.089, 2.272, 2.411, and 2.440, device selector `0` selects the
-single-channel profile and every nonzero value selects all four channels. In profiles 2.917,
+In profiles 2.089, 2.230, 2.272, 2.411, and 2.440, device selector `0` selects
+the single-channel profile and every nonzero value selects all four channels. In profiles 2.917,
 2.936, 3.002.086, 3.002.102, and 3.002.149, selectors `0` and `8` select the
 single-channel profile; other values select all four channels.
 
@@ -96,7 +96,7 @@ silence sequence must follow the same divisors and tick schedule.
 ## Four-channel command output
 
 For the four-channel profile, a tone event emits the high byte and low byte of
-the tone word in profiles 2.089, 2.272, and 2.411. Every other promoted profile
+the tone word in profiles 2.089, 2.230, 2.272, and 2.411. Every other promoted profile
 emits the low byte unless the high byte has its top three bits set; in that
 case, only the high byte is emitted.
 
@@ -115,9 +115,9 @@ Attenuation commands combine a channel selector with a low-nibble attenuation:
 | 2 | `0xd0` |
 | 3 | `0xf0` |
 
-### Profile 2.089
+### Profiles 2.089 and 2.230
 
-This profile has no attenuation-envelope state. For device selector `2`, a
+These profiles have no attenuation-envelope state. For device selector `2`, a
 control byte whose low nibble is below 8 has that nibble increased by 3. It
 then emits the resulting control byte unchanged. The runtime global
 attenuation adjustment does not affect this output.

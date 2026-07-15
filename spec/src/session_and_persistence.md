@@ -149,7 +149,7 @@ repeat profile_block_count times:
 
 The displayed description is the zero-terminated prefix of the 31-byte header.
 
-Profiles 2.272 and later use five conceptual blocks:
+Profiles 2.230, 2.272, and later profiles use five conceptual blocks:
 
 1. global scalar, signature, string, parser, display, and session state;
 2. persistent drawable-object state;
@@ -177,7 +177,17 @@ For profile 2.272 and the selected XMAS data:
 | 4 | Twice the configured replay-pair capacity |
 | 5 | Variable |
 
-The source-backed 2.089/2.272 block-1 partition is:
+For profile 2.230 and the selected XMAS.230 data:
+
+| Block | Length |
+| ---: | ---: |
+| 1 | 987 (`0x03db`) |
+| 2 | 774 (`0x0306`), containing 18 object records |
+| 3 | 15 (`0x000f`) |
+| 4 | 400 (`0x0190`), containing 200 replay pairs |
+| 5 | Variable |
+
+The source-backed 2.089/2.230/2.272 block-1 partition is:
 
 | Offset | Size | Meaning |
 | ---: | ---: | --- |
@@ -746,13 +756,13 @@ display mode, and terminate with process exit code zero.
 
 ## Reserved-state rule
 
-Every byte position in the observed 2.089, 2.272, 2.411, 2.440, 2.917, 2.936,
+Every byte position in the observed 2.089, 2.230, 2.272, 2.411, 2.440, 2.917, 2.936,
 3.002.086, 3.002.102, and 3.002.149 save blocks has a portable field or a
 reserved-state assignment.
 Valid operations do not read or modify the reserved records and padding as game
 state. Restoring and re-saving an existing save preserves its supplied reserved
 bytes. A newly synthesized save for profiles 2.411 and later uses the canonical
-values stated by its selected profile. Profiles 2.089 and 2.272 require a
+values stated by its selected profile. Profiles 2.089, 2.230, and 2.272 require a
 caller-supplied initialization policy for reserved bytes because their
 canonical pristine values have not been established. Other interpreter/game
 profiles require independent byte maps before binary interchange can be

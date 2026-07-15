@@ -83,6 +83,12 @@ from agi_save import (  # noqa: E402
     SQ2_OBJECT_RECORD_FIELDS,
     SQ2_OBJECT_RECORD_SIZE,
     SQ2_REPLAY_PAIR_COUNT,
+    XMAS_2230_BLOCK1_LENGTH,
+    XMAS_2230_BLOCK2_LENGTH,
+    XMAS_2230_BLOCK3_LENGTH,
+    XMAS_2230_BLOCK4_LENGTH,
+    XMAS_2230_OBJECT_RECORD_COUNT,
+    XMAS_2230_REPLAY_PAIR_COUNT,
     XMAS_2272_BLOCK1_LENGTH,
     XMAS_2272_BLOCK2_LENGTH,
     XMAS_2272_OBJECT_RECORD_COUNT,
@@ -145,6 +151,7 @@ from agi_save import (  # noqa: E402
     validate_state_regions,
     xor_with_repeating_key,
 )
+from agi_resources import read_resource_payload  # noqa: E402
 from disassemble_logic import SQ2  # noqa: E402
 
 GR = ROOT / "games" / "GR"
@@ -157,6 +164,7 @@ PQ1 = ROOT / "games" / "PQ1"
 KQ3 = ROOT / "games" / "KQ3"
 SQ1 = ROOT / "games" / "SQ1"
 XMAS = ROOT / "games" / "XMAS"
+XMAS_2230 = ROOT / "games" / "XMAS.230"
 MG = ROOT / "games" / "MG"
 GR_SAVE = ROOT / "build" / "gr-v3-behavior" / "GRSG_001.1"
 
@@ -208,6 +216,30 @@ class SaveResourceTests(unittest.TestCase):
         self.assertEqual(XMAS_2272_OBJECT_RECORD_COUNT, metadata.object_record_count)
         self.assertEqual(XMAS_2272_BLOCK1_LENGTH, 0x03DB)
         self.assertEqual(XMAS_2272_BLOCK2_LENGTH, 18 * SQ2_OBJECT_RECORD_SIZE)
+        self.assertEqual(len(inventory.items), 1)
+        self.assertEqual(inventory.items[0].name, "Cartridge")
+
+    @unittest.skipUnless(
+        XMAS_2230.exists(),
+        "local XMAS.230 game directory is not present",
+    )
+    def test_xmas_2230_save_dimensions_follow_selected_metadata_and_logic(self) -> None:
+        metadata = parse_object_metadata_file((XMAS_2230 / "OBJECT").read_bytes())
+        inventory = split_inventory_block(
+            metadata.runtime_block,
+            item_table_size=metadata.item_table_size,
+        )
+        logic0 = read_resource_payload(XMAS_2230, "logic", 0)
+        code_length = int.from_bytes(logic0[:2], "little")
+        code = logic0[2 : 2 + code_length]
+
+        self.assertEqual(metadata.object_record_count, XMAS_2230_OBJECT_RECORD_COUNT)
+        self.assertEqual(XMAS_2230_BLOCK1_LENGTH, 0x03DB)
+        self.assertEqual(XMAS_2230_BLOCK2_LENGTH, 18 * SQ2_OBJECT_RECORD_SIZE)
+        self.assertEqual(XMAS_2230_BLOCK3_LENGTH, len(metadata.runtime_block))
+        self.assertEqual(XMAS_2230_REPLAY_PAIR_COUNT, 200)
+        self.assertEqual(XMAS_2230_BLOCK4_LENGTH, 400)
+        self.assertEqual(code[0x2A : 0x2C], b"\x8e\xc8")
         self.assertEqual(len(inventory.items), 1)
         self.assertEqual(inventory.items[0].name, "Cartridge")
 

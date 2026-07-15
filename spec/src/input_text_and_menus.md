@@ -27,7 +27,7 @@ Dictionary lookup is case-insensitive for ASCII letters.
 
 ## String slots
 
-Profiles 2.089 and 2.272 expose six 40-byte string slots `s0..s5`. Later
+Profiles 2.089, 2.230, and 2.272 expose six 40-byte string slots `s0..s5`. Later
 promoted profiles expose twelve slots `s0..s11`. Slot operations use
 zero-terminated byte strings within that fixed capacity.
 
@@ -105,7 +105,7 @@ dictionary identifier precedes the unknown token.
 Profile 2.089 does not recognize `0x270f` as a tail terminator. It first
 requires the pattern count to equal the parser count/error position, then
 compares every identifier using exact equality or the `0x0001` wildcard.
-Profile 2.272 and later use the tail-terminator behavior above.
+Profiles 2.230, 2.272, and later use the tail-terminator behavior above.
 
 ## Event queue
 
@@ -232,7 +232,7 @@ in `v25` and Escape stores `0xff`. When interaction is disabled, the same list
 is acknowledgement-only and does not produce a selection result. With no
 carried items, the UI displays its empty-inventory text.
 
-Profiles 2.089 and 2.272 have no interactive inventory variant. They always
+Profiles 2.089, 2.230, and 2.272 have no interactive inventory variant. They always
 display the acknowledgement-only carried-item list, do not consult the
 inventory-interaction flag, and leave `v25` unchanged.
 

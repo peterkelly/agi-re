@@ -12286,3 +12286,162 @@ from `(40,106)` to `(40,111)` so its full baseline footprint satisfied room
 30's glass rectangle. `GET GLASS` carried object 6 and raised the score from 36
 to 39. Thus the old guide's claimed pre-Kerona score 61 is 25 points too high;
 that conditional award belongs to the later room-37 return path.
+
+## 2026-07-15: XMAS.230 / AGI 2.230 profile
+
+Goal: identify the previously unobserved interpreter in `games/XMAS.230`,
+compare it with the neighboring local 2.089 and 2.272 builds without external
+AGI material, and promote every source-backed valid full-EGA difference as a
+new behavioral profile.
+
+### Read-only input inventory
+
+The investigation began with `git status --short`, focused file listings, MZ
+inspection, hashes, and local string extraction. No file under `games/` was
+modified. `AGIDATA.OVL` contains `Version 2.230`; `AGI.EXE` is an MZ executable
+whose loaded image is 33,792 bytes. Selected hashes are:
+
+- `AGI.EXE`: `875547deb3d83b7ed2dd7578d357f43b6a5843a9ac8de1332245df9f60ff4570`;
+- `AGIDATA.OVL`: `33a327736deb611df48d0d3232c1958b00af1b1cae5fba45ed3aadf88871af8a`;
+- `EGA_GRAF.OVL`: `cc0402c7dcea0c9b9e51262a8d455abbe0b3e86c0a39dd8f7ecb3e57ffe8ec2c`;
+- `OBJECT`: `10701142dc86bb5b19fadf812e4096ed5206ea51b10f826786872a9d07ee2477`;
+  and
+- `WORDS.TOK`: `4f816ed3917dc129e84a7620afd69448893d56ab8a47f99ebf10874da8294710`.
+
+`OBJECT` and `WORDS.TOK` are byte-identical to the local XMAS 2.272 copies.
+The split directories and `VOL.0` are not byte-identical. The selected 2.230
+copy contains only `VOL.0`, although present directory entries also name
+volumes 1 and 2. The read-only census therefore reports 15 readable logics, 9
+pictures, 100 views, and 10 sounds, all direct v2 records, plus missing-file
+errors for resources on the absent volumes. Those missing components are a
+selected-package limitation, not a new resource transform.
+
+Commands and generated reports used for this pass included:
+
+```text
+python3 -B tools/game_census.py --game-dir games/XMAS.230 \
+  --game-dir games/SQ1 --game-dir games/XMAS \
+  --output build/cross-version/xmas_2230_selected_census.json
+python3 -B tools/compare_interpreter_tables.py \
+  --left-label XMAS-2.230 --left-game-dir games/XMAS.230 \
+  --left-exe games/XMAS.230/AGI.EXE \
+  --right-label SQ1-2.089 --right-game-dir games/SQ1 \
+  --right-exe games/SQ1/SQ.EXE \
+  --output build/cross-version/xmas_2230_sq1_2089_tables.md
+python3 -B tools/compare_interpreter_tables.py \
+  --left-label XMAS-2.230 --left-game-dir games/XMAS.230 \
+  --left-exe games/XMAS.230/AGI.EXE \
+  --right-label XMAS-2.272 --right-game-dir games/XMAS \
+  --right-exe games/XMAS/AGI.EXE \
+  --output build/cross-version/xmas_2230_xmas_2272_tables.md
+python3 -B tools/match_interpreter_roles.py \
+  --reference-label XMAS-2.272 --reference-game-dir games/XMAS \
+  --reference-exe games/XMAS/AGI.EXE \
+  --target-label XMAS-2.230 --target-game-dir games/XMAS.230 \
+  --target-exe games/XMAS.230/AGI.EXE --sq2-subsystems \
+  --output build/cross-version/xmas_2230_early_role_matches.md
+```
+
+Loaded-image slices were written only under `build/cross-version/` and
+disassembled with `ndisasm -b 16 -o 0`. Resource payloads were read through
+the local `agi_resources` decoder. Focused Python comparisons enumerated view
+loop and cel offsets, compared corresponding 2.230/2.272 payload bytes, and
+normalized all seven EGA overlay entry routines.
+
+### Dispatch-table boundary and hybrid profile
+
+The 2.230 action table is at data offset `0x03e7` and contains 155 entries
+`0x00..0x9a`. Its condition table is at `0x0673` and contains the common 19
+entries `0x00..0x12`. The `0x20` bytes between those table geometries match
+the later early-v2 trailer, whereas SQ1 2.089 uses a `0x26`-byte trailer.
+
+Against SQ1 2.089, all 155 action parser contracts match; normalized action
+entries differ only at `0x25`, `0x26`, `0x31`, `0x3c`, `0x80`, and `0x81`.
+Against XMAS 2.272, the 155 shared entries have one parser-contract difference,
+the operand on `0x86`, and seven normalized entry differences: `0x31`, `0x4d`,
+`0x4e`, `0x77`, `0x81`, `0x86`, and `0x8b`. All 19 2.230/2.272 condition
+handlers match after relocation. The six unshared 2.272 actions are
+`0x9b..0xa0`.
+
+Manual source inspection classifies the portable choices:
+
+- `0x86` is the zero-operand unconditional exit used by 2.089. Actions
+  `0x9b` and later do not exist.
+- Position actions `0x25`/`0x26` at `0x70fa`/`0x7137` match 2.272: current
+  and previous coordinates are written together without first erasing drawn
+  state.
+- Action `0x3c` and list roles `0x6081`, `0x60bb`, and `0x60d8` restore,
+  build/sort, and refresh both drawing-key partitions as in 2.272.
+- Motion-clear actions `0x4d`/`0x4e` at `0x64e7`/`0x6520` are exact
+  relocated SQ1 matches. They retain autonomous mode; `0x4d` clears direction
+  and `0x4e` changes only object-0 coupling/navigation state.
+- The 2.230 word-sequence predicate `0x0851` matches 2.272 and implements the
+  `0x270f` tail terminator. String equality is also a relocated match.
+- Action `0x77` omits a conditional alternate-display helper added in 2.272;
+  its ordinary full-EGA input-line clear is unchanged. The differing restart,
+  successful view-preview, and joystick entries reduce to cleanup, temporary
+  allocation/diagnostic, and hardware paths without another valid full-EGA
+  output rule.
+
+### Packed view-loop orientation
+
+The unique valid-data difference is the 2.230 view-loop header. Loop selector
+`0x350d` reads the first loop byte, masks it with `0x0f`, and stores that low
+nibble as the object's cel count. If header bit `0x80` is set, it compares bits
+`0x30` with the selected loop. On a change, bit `0x40` requests helper
+`0x50af`, which iterates `header & 0x0f` cels and mirrors every encoded row in
+place. The selector then replaces header bits `0x30` with the new orientation.
+The header and shared row streams are therefore mutable loaded-resource state.
+
+Action `0x31` at image `0x36e2` independently reads the selected loop header,
+executes `and ax,0x000f`, subtracts one, and stores the highest valid cel index.
+The neighboring 2.089 and 2.272 handlers subtract one from the unmasked byte.
+
+Direct selected-resource comparison confirms the intended format migration:
+
+- views 10, 11, and 14 have two directory loops sharing one loop structure
+  whose 2.230 header is `0xc4`; and
+- views 16, 17, and 18 similarly use header `0xc6`.
+
+The corresponding 2.272 payloads have ordinary headers `0x04`/`0x06` and set
+bit `0x80` in each cel's control byte instead. The 2.230 cels leave that bit
+clear. Resource lengths, loop/cel offsets, dimensions, and row streams remain
+aligned, so the orientation marker moved from the loop header to the cel
+control byte between these two builds.
+
+### Other subsystem classification
+
+Exact normalized role matches relocate the 2.272 frame timer (`0x049a`),
+movement core (`0x1317`), parser (`0x1759`), save/restore
+(`0x2447`/`0x2279`), acknowledgement-only inventory (`0x2dcf`), collision
+(`0x3f0f`), wrapped distance (`0x3fe5`), retained-state show-picture
+(`0x436e`), picture decode/scanner/line/fill roles, control acceptance,
+placement, dirty rectangles, deferred target motion, and direct position
+actions. Manual call-site inspection resolves the short list wrappers as
+`0x6081` restore, `0x60bb` rebuild/sort, and `0x60d8` refresh.
+
+Sound start `0x7478` and tick `0x74da` share the early one-versus-four-channel
+scheduler. Output `0x7598` is an exact relocated SQ1 match: it emits both tone
+bytes and applies only the device-2 low-nibble-plus-three rule, without 2.272's
+global whole-byte addition and signed clamp.
+
+The picture scanner `0x5baa` accepts only `0xf0..0xf8`. All seven EGA overlay
+entry routines normalize exactly against both 2.089 and 2.272; their byte
+differences relocate interpreter globals and calls rather than changing the
+full-EGA output contract.
+
+The five-block save writer matches 2.272. Startup role `0x0e50` reads the third
+plain `OBJECT` header byte at `0x0e82`, increments the local record count at
+`0x0e9d`, and multiplies it by the `0x2b` record size at `0x0eaa`. The
+normalized 2.272 role at `0x0e7c` has the same sequence. Thus header byte
+`0x11` defines 18 runtime object records rather than merely suggesting that
+interpretation from the save-block constant. The metadata block is `0x000f`.
+Readable logic 0 calls action `0x8e(200)`, so selected block 4 contains 200
+replay pairs and is `0x0190` bytes. The resulting fixed lengths are `0x03db`,
+`0x0306`, `0x000f`, and `0x0190`, followed by the variable logic-resume
+block. Canonical pristine values for reserved early block-1 bytes remain
+unknown, as for the neighboring early profiles.
+
+Conclusion: AGI 2.230 is neither an alias of 2.089 nor 2.272. It is a
+source-backed hybrid with a distinct packed view-loop format, so it is promoted
+as a separate valid full-EGA behavioral profile.

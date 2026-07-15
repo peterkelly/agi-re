@@ -75,7 +75,7 @@ maximum_drawable_object_index:u8
 runtime_inventory_data[]
 ```
 
-Profiles 2.089 and 2.272 store these expanded bytes directly. The later
+Profiles 2.089, 2.230, and 2.272 store these expanded bytes directly. The later
 observed version-2 profiles XOR-decode the file byte for byte with the
 repeating ASCII key:
 

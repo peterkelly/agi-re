@@ -150,6 +150,46 @@ class RenderedFrame:
 
 
 @dataclass(frozen=True)
+class ViewLoopHeader:
+    cel_count: int
+    orientation_is_mutable: bool
+    mirror_rows_on_orientation_change: bool
+    orientation: int | None
+
+
+def decode_view_loop_header(
+    value: int,
+    *,
+    packed_orientation: bool = False,
+) -> ViewLoopHeader:
+    """Decode the profile-selected loop-header form."""
+
+    value &= 0xFF
+    if not packed_orientation:
+        return ViewLoopHeader(value, False, False, None)
+    return ViewLoopHeader(
+        value & 0x0F,
+        bool(value & 0x80),
+        bool(value & 0x40),
+        (value & 0x30) >> 4,
+    )
+
+
+def update_packed_view_loop_orientation(
+    value: int,
+    selected_loop: int,
+) -> tuple[int, bool]:
+    """Return the rewritten packed header and whether its cel rows must mirror."""
+
+    value &= 0xFF
+    state = decode_view_loop_header(value, packed_orientation=True)
+    if not state.orientation_is_mutable or state.orientation == selected_loop:
+        return value, False
+    rewritten = (value & 0xCF) | ((selected_loop << 4) & 0x30)
+    return rewritten, state.mirror_rows_on_orientation_change
+
+
+@dataclass(frozen=True)
 class ObjectDrawCandidate:
     object_no: int
     baseline_y: int
@@ -841,11 +881,18 @@ def render_picture(
     ).render(picture_no)
 
 
-def iter_view_frames(payload: bytes) -> Iterable[tuple[int, int, int]]:
+def iter_view_frames(
+    payload: bytes,
+    *,
+    packed_loop_orientation: bool = False,
+) -> Iterable[tuple[int, int, int]]:
     group_count = payload[2]
     for group_no in range(group_count):
         group_offset = u16le(payload, 5 + group_no * 2)
-        frame_count = payload[group_offset]
+        frame_count = decode_view_loop_header(
+            payload[group_offset],
+            packed_orientation=packed_loop_orientation,
+        ).cel_count
         for frame_no in range(frame_count):
             frame_offset = group_offset + u16le(payload, group_offset + 1 + frame_no * 2)
             yield group_no, frame_no, frame_offset
