@@ -12445,3 +12445,108 @@ unknown, as for the neighboring early profiles.
 Conclusion: AGI 2.230 is neither an alias of 2.089 nor 2.272. It is a
 source-backed hybrid with a distinct packed view-loop format, so it is promoted
 as a separate valid full-EGA behavioral profile.
+
+## 2026-07-17: paired original-interpreter picture-channel capture
+
+Actions performed using only local project files, private game inputs, and
+locally installed QEMU/tooling:
+
+- Inspected `tools/picture_batch.py`, `tools/picture_carousel.py`,
+  `tools/qemu_fixture.py`, `tools/qemu_snapshot.py`,
+  `tools/agi_resources.py`, and `tools/conformance_results.py` with focused
+  `sed` and `rg` queries.
+- Added `picture_priority_logic_payload`: load, prepare, and show the selected
+  picture, execute action `0x1d`, then retain a self-loop for the post-input
+  return path. During capture, `0x1d` remains blocked in its event wait with
+  the interpreter-generated priority/control display visible.
+- Added compact channel fixtures for v2 split and v3 combined layouts. They
+  copy interpreter support files, generate `LOGIC.0`, and copy the selected
+  picture record directly from its source volume. The record header and stored
+  data compare byte-for-byte before and after fixture construction, including
+  a GR `picture_nibble` record.
+- Added `tools/picture_screen_capture.py`. It enumerates present directory
+  entries from an explicit `--game-dir`, builds independent visual and priority
+  fixtures, restores a DOS-prompt snapshot between cases, records QEMU PPMs,
+  canonicalizes the 4-by-2 EGA display to 160 by 168 palette indexes, hashes
+  inputs and outputs, verifies private inputs remain unchanged, and writes a
+  versioned manifest.
+- Added a controlled picture payload `ff` preflight. The real interpreter must
+  display canonical visual indexes `[15]` and priority indexes `[4]` before
+  game captures are accepted.
+- Ran `AGI_GAME_DIR=games/SQ2 python3 -B -m unittest
+  tests.test_picture_screen_capture tests.test_conformance_results
+  tests.test_qemu_snapshot tests.test_qemu_fixture`; all 84 focused tests
+  passed.
+- Ran `AGI_GAME_DIR=games/SQ2 python3 -B
+  tools/picture_screen_capture.py --game-dir games/SQ2 --picture 1 --output
+  build/picture-screen-capture/sq2-preflight-smoke --boot-wait 5 --draw-wait
+  8`. The controlled preflight and both picture-1 channels succeeded.
+- Ran the pre-preflight SQ2 smoke and recorded canonical visual digest
+  `d3c661d1e39aa5eaa5a198cf921f185c207574814ac5d9b4dba18c37ad6aca85`
+  and priority digest
+  `6651ce3200b59fba722c7d15ab62a5ac46396b465d6d5d293721c2c2ddfc0ac9`.
+  The priority canonical frame contained 23,557 index-4 cells and 3,323
+  index-8 cells.
+- Ran `AGI_GAME_DIR=games/GR python3 -B tools/picture_screen_capture.py
+  --game-dir games/GR --picture 1 --output
+  build/picture-screen-capture/gr-smoke --boot-wait 5 --draw-wait 8`. Both
+  original-engine channels succeeded from the compressed v3 source record.
+  Canonical digests were
+  `5fcd3fb21d08bc51cf8f97a0ef71ab6517f3b94033e1d10038bde64cab14ca8b`
+  (visual) and
+  `23ff75a4e5a569015ccc4ca7fec63e77db3323864106c07f039e9bbcf785520b`
+  (priority).
+- Exported the SQ2 smoke manifest through `tools/conformance_results.py` and
+  compared the resulting bundle with itself. The stable cases
+  `picture_001/visual` and `picture_001/priority` both matched with zero pixel
+  differences.
+- Ran the complete SQ2 capture with `--draw-wait 3`. The two controlled
+  preflight cases and 148 game cases completed from one QEMU DOS-prompt
+  snapshot without a disk prompt or stalled interpreter. Reprocessing with
+  `--reuse-captures` produced a final summary of 74 readable pictures, 148
+  successful channels, zero errors, and one invalid source entry.
+- The invalid entry is picture 147 at volume 0 offset `0x2ffff`, beyond local
+  `VOL.0` length `0x112a5`. It is retained in `source_inventory` and excluded
+  from the readable-picture count, matching the earlier valid-resource
+  iterator's classification while making the reason explicit.
+- Compared every full-run canonical artifact with the independently derived
+  `RenderedPicture.visual_nibbles` or `control_nibbles` channel as applicable.
+  All 148 cases had zero pixel mismatches.
+- Exported `sq2-all-001/manifest.json` to a portable 148-case conformance
+  bundle and self-compared it. All 148 cases matched with zero failures.
+- Ran `python3 -B tools/compatibility_suite.py --game-dir games/SQ2 --report
+  build/compatibility-suite/picture_screen_capture_local_001.json` after the
+  implementation stabilized. The local suite passed 494 tests with four
+  expected skips; both mdBook builds and the opcode-evidence consistency check
+  also returned zero.
+- Replaced the private raw-index conformance artifact with canonical P6 PPM in
+  capture manifests and portable bundle version 2. The comparator requires
+  160 by 168, maximum value 255, and exact EGA palette colors, then hashes and
+  compares the decoded palette-index stream. Reprocessed the complete SQ2 set
+  from archival PPMs, retained 148/148 matches, and removed all 315 generated
+  `.ega` files from `build/`.
+- The two earliest picture-1 smoke manifests predated the controlled preflight
+  and could not be migrated mechanically. Regenerated both SQ2/v2 and GR/v3
+  smokes through the original interpreters in QEMU; each passed its new
+  preflight and both game channels with zero errors.
+- Ran the complete local compatibility layer after the PPM-only conversion.
+  `build/compatibility-suite/picture_screen_capture_ppm_only_001.json` records
+  494 passing tests with four expected skips, successful docs and spec builds,
+  and a successful opcode-evidence check. A workspace-wide file search found
+  zero remaining `.ega` files.
+
+Observations and boundaries:
+
+- QEMU `screendump` remains the archival evidence. Canonical PPM files are
+  deterministic derivatives of the upper-left 640 by 336 game area; they are
+  not local renderer predictions. The initially generated private raw-index
+  derivative was removed in favor of PPM-only artifacts.
+- The priority reference is the externally displayed `0x1d` channel. It is not
+  taken from controller memory, local priority reconstruction, or the clean
+  room renderer.
+- Each game/channel run begins from the same DOS-prompt snapshot, preventing
+  retained resources, input events, or prior priority mode from leaking across
+  observations.
+- The fixture changes only a generated copy under `build/`. Before/after
+  SHA-256 maps confirmed the selected source files were unchanged in both
+  smokes.

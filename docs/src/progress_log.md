@@ -28547,3 +28547,171 @@ User request:
 
    Action/result: Added the `peterkelly/agi-re` GitHub link to the first page
    of both the evidence and specification books.
+
+## 2026-07-17: original-interpreter picture channel capture
+
+1. Reported: "I’m starting the reference implementation: explicit game
+   selection, paired visual/priority QEMU captures, versioned manifests,
+   tests, and clean-room documentation. I’ll preserve the current unrelated
+   worktree changes and begin with the existing snapshot/fixture interfaces."
+
+   Action/result: Began a focused review of the existing picture batch,
+   fixture generation, resource-layout, QEMU snapshot, canonical-frame, and
+   conformance-export interfaces. Confirmed that the worktree's pre-existing
+   README and untracked-file changes are unrelated and will remain untouched.
+
+2. Reported: "The fixture design is now settled: each capture starts from a
+   restored DOS prompt, and the compact fixture contains the generated driver
+   plus the selected picture’s original stored volume record. Visual and
+   priority runs are independent, so timing or state from one channel cannot
+   contaminate the other."
+
+   Action/result: Added layout-neutral compact fixture generation for split
+   v2 and combined v3 resources, including a priority driver that reaches the
+   interpreter's blocking `0x1d` display. Added the initial capture tool,
+   canonical PPM generation, manifest plumbing, and
+   focused unit coverage for exact stored-record preservation.
+
+3. Reported: "The focused tests pass for both v2 split and v3 combined
+   fixtures, including byte-for-byte preservation of compressed picture
+   records. I’m moving to a two-channel SQ2 QEMU smoke capture now; this is the
+   first check that the priority fixture is caught while `0x1d` is visibly
+   blocked."
+
+   Action/result: Ran the SQ2 picture-1 visual/priority smoke through the real
+   2.936 interpreter. Both raw captures were 640 by 400, both canonical
+   artifacts were produced, the visual frame retained eleven palette indexes,
+   and the priority frame contained only indexes 4 and 8.
+
+4. Reported: "The SQ2 smoke succeeded: both 640×400 raw screenshots were
+   captured, canonicalized to 160×168, and the priority image contains only
+   the interpreter-displayed priority classes while the visual image retains
+   the scene palette. I also narrowed fixture inputs and manifest hashes so
+   save files and unrelated local artifacts cannot affect reproducibility.
+   Next I’m validating the same path with a compressed v3 picture."
+
+   Action/result: Ran the same picture-1 pair with the original GR v3
+   interpreter. Both captures succeeded, the copied picture retained its
+   original `picture_nibble` stored record, and the selected private input
+   hashes remained unchanged.
+
+5. Reported: "The v3 QEMU smoke also passed using the original compressed
+   picture record, and the synthetic preflight now proves—before accepting any
+   game captures—that visual blank is palette 15 and the real `0x1d` screen is
+   priority/control palette 4. The resulting manifest exports directly into
+   the existing conformance bundle format. I’m documenting the contract and
+   then I’ll run repeatability and broader validation."
+
+   Action/result: Added the controlled blank-picture preflight, verified it in
+   SQ2 QEMU, exported the paired SQ2 smoke manifest as two portable conformance
+   cases, and self-compared that bundle with two matches and zero failures.
+
+6. Reported: "Repeatability is confirmed: a second independent SQ2 run
+   produced identical preflight, visual, and priority canonical hashes. I’m
+   testing the largest SQ2 picture with a shorter per-case wait before deciding
+   whether the complete 74-picture validation can run efficiently without
+   weakening capture stability."
+
+   Action/result: Repeated SQ2 picture 1 with identical hashes, then captured
+   picture 45 with a three-second wait. Its canonical visual and priority
+   artifacts each had zero mismatches against the independently derived local
+   channels.
+
+7. Reported: "The largest SQ2 picture is stable at a three-second wait: its
+   visual and priority artifacts each have zero mismatches against the
+   independently derived local channels. I’m starting the complete 74-picture
+   reference validation now—150 QEMU cases including the two preflight
+   channels—with per-case progress enabled."
+
+   Action/result: Started the full present-resource SQ2 sweep using independent
+   snapshot-restored cases and a three-second draw wait.
+
+8. Reported a sequence of bounded progress updates from QEMU case 11 through
+   case 150.
+
+   Action/result: All two preflight and 148 readable-picture channel cases ran
+   to completion without a QEMU stall, disk prompt, or missing screenshot.
+
+9. Reported: "The QEMU sweep itself succeeded for all 74 readable SQ2
+   pictures—148/148 channel captures plus preflight. The manifest also exposed
+   one malformed trailing directory entry at picture 147 (`0x2ffff`, beyond
+   `VOL.0`), which the older ‘valid resources’ iterator intentionally skips.
+   I’m separating that source-integrity diagnostic from capture failures so
+   ‘all pictures’ means all readable picture resources while still preserving
+   the malformed entry in the evidence."
+
+   Action/result: Classified unreadable unfiltered directory entries as source
+   inventory diagnostics rather than picture-channel failures, retained strict
+   errors for explicitly requested invalid resources, and added a safe
+   `--reuse-captures` path for reprocessing completed long-run PPM sets.
+
+10. Reported: "The finalized full manifest now reports 74 readable pictures,
+    148 successful channel captures, zero capture errors, a passing preflight,
+    and one retained malformed-entry diagnostic. All 148 canonical frames also
+    match the independently derived visual/control channels pixel-for-pixel. I’m
+    finishing bundle export, test-suite integration, and book verification."
+
+    Action/result: Ran 85 focused tests successfully, exported all 148 picture
+    channels as portable conformance cases, and self-compared the bundle with
+    148 matches and zero failures.
+
+11. Reported: "The complete compatibility runner is green: 494 tests passed
+    with four expected skips, both mdBooks built, and the opcode-evidence check
+    passed. I’m recording that final verification in the evidence trail now."
+
+    Action/result: Confirmed all four commands in
+    `build/compatibility-suite/picture_screen_capture_local_001.json` returned
+    zero: the local unit suite, both documentation builds, and the opcode
+    evidence consistency check. `git diff --check` also passed.
+
+12. Reported: "I’ll remove `.ega` generation and make the canonical 160×168
+    PPM the sole portable frame artifact. I’ll update export/comparison logic,
+    tests, and the format documentation while preserving the raw QEMU PPM
+    evidence."
+
+    Action/result: Removed the private raw-index file output from the capture
+    manifest and conformance exporter. Version 2 artifacts are canonical P6
+    PPMs; comparison strictly decodes their dimensions and EGA colors, then
+    hashes and compares the recovered palette-index stream.
+
+13. Reported: "The implementation now treats PPM as the only frame file. The
+    SHA-256 remains over the decoded 160×168 palette-index stream, so harmless
+    PPM header differences cannot create false conformance failures; artifacts
+    are validated as exact-size P6 images using only the 16 defined EGA
+    colors."
+
+    Action/result: Updated the behavioral specification and compatibility
+    documentation to define the PPM-only artifact contract and version 2
+    bundle envelope.
+
+14. Reported: "The focused suite passes all 85 tests. I’m now reprocessing the
+    completed SQ2 capture set without rerunning QEMU, regenerating its manifest
+    and conformance bundle as version 2 PPM-only data, then removing the
+    obsolete generated `.ega` files from `build/`."
+
+    Action/result: Reprocessed all 148 SQ2 game channels plus the two preflight
+    captures from their archival PPMs, exported and self-compared 148 version 2
+    PPM artifacts with zero failures, and removed all 315 generated `.ega`
+    files under `build/`.
+
+15. Reported: "Two pre-preflight smoke manifests had no preflight result array,
+    so the mechanical migration could not preserve them. I’m regenerating those
+    two small picture-1 smokes from the real interpreters rather than
+    fabricating report content; the full 148-case reference remains
+    unaffected."
+
+    Action/result: Regenerated the SQ2/v2 and GR/v3 picture-1 visual, priority,
+    and controlled-preflight observations through QEMU. Both new PPM-only
+    manifests passed with two game captures and zero errors; the older SQ2
+    smoke bundle was exported again and self-compared successfully.
+
+16. Reported: "The full reference now contains 148 PPM artifacts and still
+    self-compares with zero failures; both v2 and v3 picture-1 smokes were
+    recaptured successfully. I’m running the repository-wide suite and both
+    books against the final PPM-only format."
+
+    Action/result: The local compatibility runner passed 494 tests with four
+    expected skips, built both mdBooks, and passed the opcode-evidence check.
+    Its report is
+    `build/compatibility-suite/picture_screen_capture_ppm_only_001.json`;
+    `git diff --check` passed and no `.ega` files remain in the workspace.

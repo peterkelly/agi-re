@@ -111,11 +111,12 @@ random motion remain deterministic and are included in the exhaustive layer.
 
 `tools/conformance_results.py` turns existing visual batch reports into a
 versioned, implementation-facing result bundle. For each successful capture it
-extracts the logical 160 by 168 game area as one row-major byte per EGA palette
-index, writes an optional `.ega` artifact, and records its SHA-256 digest. The
-companion comparator accepts bundles from any producer, identifies missing or
-unexpected cases, compares digests, and reports a pixel mismatch count and
-bounding box when both sides provide artifacts.
+extracts the logical 160 by 168 game area, writes a canonical binary PPM using
+the exact EGA palette, and records the SHA-256 digest of the decoded palette
+indexes. The companion comparator accepts bundles from any producer, validates
+and decodes their PPMs, identifies missing or unexpected cases, compares
+digests, and reports a pixel mismatch count and bounding box when both sides
+provide artifacts.
 
 The same bundle format supports a `values` observation for deterministic
 nonvisual results. Source reports may attach a JSON object under `values`; the
@@ -291,6 +292,85 @@ The first full present-picture batch matched all 74 valid local SQ2 picture
 resources with 0 mismatches. This run used packed picture fixtures that copy the
 minimal engine support files and store the generated `LOGIC.0` plus the tested
 picture payload in each fixture's `VOL.3`.
+
+### Original-interpreter visual and priority corpus
+
+`tools/picture_screen_capture.py` produces paired reference frames for every
+present picture in an explicitly selected game. Each channel is an independent
+fixture launched from a restored DOS-prompt snapshot. The visual fixture draws
+and shows the picture, then remains stable. The priority fixture performs the
+same draw and executes blocking action `0x1d`, so QEMU `screendump` observes the
+priority/control display produced by the interpreter rather than a locally
+reconstructed channel.
+
+The compact fixture copies only interpreter support files, generated
+`LOGIC.0`, and the selected picture's original stored volume record. This
+preserves direct v2 records and compressed/nibble-transformed v3 records
+byte-for-byte while leaving the selected private game directory unchanged.
+Before accepting game frames, the tool runs a controlled blank-picture
+preflight. Its canonical visual frame must contain only palette index 15 and
+its `0x1d` frame only palette index 4.
+
+Capture every present picture with:
+
+```bash
+python3 -B tools/picture_screen_capture.py \
+  --game-dir games/SQ2 \
+  --output build/picture-screen-capture/sq2-reference \
+  --boot-wait 5 --draw-wait 8
+```
+
+Use repeated `--picture N` options for a focused smoke run. The output keeps
+the archival 640 by 400 QEMU PPMs under `raw/`, canonical 160 by 168 PPMs under
+`canonical/`, and a versioned `manifest.json`. No private or project-specific
+image encoding is generated.
+The manifest records source-record transforms and hashes, interpreter/resource
+input hashes, QEMU and VGA-ROM identity, preflight evidence, capture hashes,
+and errors. It exits unsuccessfully if any requested present picture lacks
+either channel or if the preflight or input-immutability check fails. Invalid
+directory entries encountered during an unfiltered all-readable sweep remain
+in the source inventory but are not treated as pictures. When resuming artifact
+processing after a completed long run, `--reuse-captures` validates and reuses
+the existing raw PPM set without launching QEMU again.
+
+The first SQ2/2.936 smoke captured picture 1 visual and priority frames with
+canonical SHA-256 values `d3c661d1e39aa5eaa5a198cf921f185c207574814ac5d9b4dba18c37ad6aca85`
+and `6651ce3200b59fba722c7d15ab62a5ac46396b465d6d5d293721c2c2ddfc0ac9`.
+The preflight observed exactly visual index 15 and priority index 4. A GR/v3
+smoke preserved the original `picture_nibble` record and captured picture 1
+with visual digest `5fcd3fb21d08bc51cf8f97a0ef71ab6517f3b94033e1d10038bde64cab14ca8b`
+and priority digest `23ff75a4e5a569015ccc4ca7fec63e77db3323864106c07f039e9bbcf785520b`.
+
+The complete SQ2 run at
+`build/picture-screen-capture/sq2-all-001/manifest.json` captured both channels
+for all 74 readable pictures: 148 successful game frames, zero capture errors,
+and an unchanged-input check. It also retained the malformed trailing picture
+147 entry (`VOL.0:0x2ffff`, beyond the local volume) as one source-inventory
+diagnostic without treating it as a picture. All 148 canonical frames had zero
+pixel mismatches against the independently derived local visual/control
+channels. Exporting the manifest produced 148 portable cases, and its
+self-comparison reported 148 matches and zero failures.
+
+The post-implementation local compatibility run passed 494 tests with four
+expected skips. Both mdBook builds and the opcode-evidence consistency check
+also passed; its command-level report is
+`build/compatibility-suite/picture_screen_capture_local_001.json`.
+
+After replacing private raw-index artifacts with PPM-only bundle version 2,
+the same 494 tests and four expected skips passed again. Both books and the
+opcode-evidence check passed; the final report is
+`build/compatibility-suite/picture_screen_capture_ppm_only_001.json`.
+
+The capture manifest is directly accepted by the portable exporter:
+
+```bash
+python3 -B tools/conformance_results.py export \
+  build/picture-screen-capture/sq2-reference/manifest.json \
+  --output build/conformance-results/sq2-picture-channels.json \
+  --artifact-dir build/conformance-results/sq2-picture-channel-frames \
+  --suite-id sq2-2.936-picture-channels-v1 \
+  --profile 2.936-full-ega --producer original-dos-2.936
+```
 
 Prototype and validate a faster in-engine carousel:
 

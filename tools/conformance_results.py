@@ -15,7 +15,7 @@ from ppm_tools import read_ppm
 
 
 FORMAT_NAME = "agi-clean-room-conformance-results"
-FORMAT_VERSION = 1
+FORMAT_VERSION = 2
 FRAME_WIDTH = 160
 FRAME_HEIGHT = 168
 PIXEL_FORMAT = "ega16-indexed-row-major"
@@ -40,10 +40,15 @@ def canonical_frame_from_ppm(path: Path) -> bytes:
     x_scale, y_scale = 4, 2
     if image.width < FRAME_WIDTH * x_scale or image.height < FRAME_HEIGHT * y_scale:
         raise ValueError(f"{path}: image is too small for the canonical game area")
-    indexed = [
-        nearest_ega_index((image.rgb[index], image.rgb[index + 1], image.rgb[index + 2]))
-        for index in range(0, len(image.rgb), 3)
-    ]
+    color_indexes: dict[tuple[int, int, int], int] = {}
+    indexed = bytearray(image.pixel_count)
+    for pixel, offset in enumerate(range(0, len(image.rgb), 3)):
+        color = (image.rgb[offset], image.rgb[offset + 1], image.rgb[offset + 2])
+        palette_index = color_indexes.get(color)
+        if palette_index is None:
+            palette_index = nearest_ega_index(color)
+            color_indexes[color] = palette_index
+        indexed[pixel] = palette_index
     frame = bytearray()
     for y in range(FRAME_HEIGHT):
         for x in range(FRAME_WIDTH):
@@ -53,6 +58,31 @@ def canonical_frame_from_ppm(path: Path) -> bytes:
                 for source_x in range(x * x_scale, (x + 1) * x_scale):
                     counts[indexed[row + source_x]] += 1
             frame.append(counts.most_common(1)[0][0])
+    return bytes(frame)
+
+
+def canonical_ppm_bytes(frame: bytes) -> bytes:
+    """Encode one canonical indexed frame as a viewable binary PPM."""
+
+    if len(frame) != FRAME_WIDTH * FRAME_HEIGHT or any(pixel > 15 for pixel in frame):
+        raise ValueError("canonical frame must contain 26,880 EGA palette indexes")
+    rgb = b"".join(bytes(EGA_PALETTE[pixel]) for pixel in frame)
+    return f"P6\n{FRAME_WIDTH} {FRAME_HEIGHT}\n255\n".encode("ascii") + rgb
+
+
+def canonical_frame_from_artifact_ppm(path: Path) -> bytes:
+    """Decode a canonical PPM, requiring exact dimensions and EGA colors."""
+
+    image = read_ppm(path)
+    if (image.width, image.height, image.max_value) != (FRAME_WIDTH, FRAME_HEIGHT, 255):
+        raise ValueError(f"{path}: noncanonical PPM dimensions or maximum value")
+    palette_indexes = {color: index for index, color in enumerate(EGA_PALETTE)}
+    frame = bytearray()
+    for offset in range(0, len(image.rgb), 3):
+        color = tuple(image.rgb[offset : offset + 3])
+        if color not in palette_indexes:
+            raise ValueError(f"{path}: canonical PPM contains a non-EGA color {color}")
+        frame.append(palette_indexes[color])
     return bytes(frame)
 
 
@@ -98,7 +128,17 @@ def artifact_filename(case_id: str) -> str:
     stem = "".join(character if character.isalnum() else "_" for character in case_id).strip("_")
     stem = stem[:80] or "case"
     suffix = hashlib.sha256(case_id.encode("utf-8")).hexdigest()[:12]
-    return f"{stem}_{suffix}.ega"
+    return f"{stem}_{suffix}.ppm"
+
+
+def resolve_source_capture(report_path: Path, value: str) -> Path | None:
+    candidate = Path(value)
+    if candidate.is_absolute():
+        return candidate if candidate.is_file() else None
+    if candidate.is_file():
+        return candidate
+    adjacent = report_path.parent / candidate
+    return adjacent if adjacent.is_file() else None
 
 
 def export_reports(
@@ -118,7 +158,11 @@ def export_reports(
         report = json.loads(report_path.read_text(encoding="ascii"))
         if isinstance(report.get("results"), list):
             source_cases = [
-                (source_case, source_case.get("case_id"), source_case.get("status") == "match")
+                (
+                    source_case,
+                    source_case.get("case_id"),
+                    source_case.get("status") in ("match", "ok"),
+                )
                 for source_case in report["results"]
             ]
         elif isinstance(report.get("cases"), list) and isinstance(report.get("probe"), str):
@@ -143,10 +187,33 @@ def export_reports(
                 "source_report": os.path.relpath(report_path, output.parent),
             }
             capture_value = source_case.get("capture")
-            if isinstance(capture_value, str) and Path(capture_value).is_file():
-                frame = canonical_frame_from_ppm(Path(capture_value))
+            capture_path = (
+                resolve_source_capture(report_path, capture_value)
+                if isinstance(capture_value, str)
+                else None
+            )
+            canonical_value = source_case.get("canonical_ppm")
+            canonical_path = (
+                resolve_source_capture(report_path, canonical_value)
+                if isinstance(canonical_value, str)
+                else None
+            )
+            if canonical_path is not None:
+                frame = canonical_frame_from_artifact_ppm(canonical_path)
+                declared_digest = source_case.get("canonical_sha256")
+                actual_digest = hashlib.sha256(frame).hexdigest()
+                if declared_digest is not None and declared_digest != actual_digest:
+                    raise ValueError(f"{canonical_path}: canonical frame digest mismatch")
                 artifact_path = artifact_dir / artifact_filename(case_id)
-                artifact_path.write_bytes(frame)
+                artifact_path.write_bytes(canonical_ppm_bytes(frame))
+                exported["frame"] = frame_observation(
+                    frame,
+                    os.path.relpath(artifact_path, output.parent),
+                )
+            elif capture_path is not None:
+                frame = canonical_frame_from_ppm(capture_path)
+                artifact_path = artifact_dir / artifact_filename(case_id)
+                artifact_path.write_bytes(canonical_ppm_bytes(frame))
                 exported["frame"] = frame_observation(
                     frame,
                     os.path.relpath(artifact_path, output.parent),
@@ -217,12 +284,11 @@ def load_artifact(bundle_path: Path, case: dict[str, object]) -> bytes | None:
     artifact = frame.get("artifact")
     if not isinstance(artifact, str):
         return None
-    data = (bundle_path.parent / artifact).read_bytes()
+    artifact_path = bundle_path.parent / artifact
+    data = canonical_frame_from_artifact_ppm(artifact_path)
     expected = frame.get("sha256")
     if hashlib.sha256(data).hexdigest() != expected:
-        raise ValueError(f"{bundle_path}: artifact digest mismatch for {case.get('id')}")
-    if len(data) != FRAME_WIDTH * FRAME_HEIGHT or any(pixel > 15 for pixel in data):
-        raise ValueError(f"{bundle_path}: noncanonical frame artifact for {case.get('id')}")
+        raise ValueError(f"{bundle_path}: decoded frame digest mismatch for {case.get('id')}")
     return data
 
 

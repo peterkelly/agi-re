@@ -875,6 +875,10 @@ source-mapped well enough to justify a targeted probe.
   - Evidence: `tests/`, `tools/logic_interpreter_probe.py`,
     `tools/object_movement_probe.py`, `tools/object_overlay_probe.py`,
     `tools/picture_fuzz.py`, `tools/picture_batch.py`, QEMU snapshot support,
+    `tools/picture_screen_capture.py` paired original-interpreter visual and
+    priority/control capture with stored-record-preserving v2/v3 fixtures,
+    controlled channel preflight, archival and canonical PPM artifacts, and
+    versioned manifests,
     a 1,062-case picture fuzz corpus with 1,060 QEMU-safe cases and focused
     original-engine batches,
     packed picture fixtures, two-picture key-driven `tools/picture_carousel.py`
@@ -908,6 +912,17 @@ source-mapped well enough to justify a targeted probe.
     `tools/conformance_results.py` now exports a versioned, language-neutral
     visual result bundle and compares candidate bundles by canonical 160 by
     168 EGA-index frame digest, with artifact-backed pixel mismatch details.
+    Version 2 uses standard P6 PPM as its only frame artifact encoding; exact
+    EGA colors are decoded back to palette indexes for hashing and comparison.
+    It also accepts paired picture-channel manifests with stable
+    `picture_NNN/visual` and `picture_NNN/priority` case identifiers. Focused
+    SQ2/2.936 direct-record and GR/v3 compressed-picture QEMU smokes both
+    captured two channels successfully without modifying private inputs. The
+    complete SQ2 reference run then captured 148/148 channels for all 74
+    readable pictures, retained one malformed trailing directory entry as a
+    source diagnostic, matched all 148 canonical frames against the independent
+    local channels, and exported/self-compared 148 portable cases with zero
+    failures.
     The first 2.936 reference bundle contains 165/165 successful cases in
     `build/conformance-results/sq2_2936_reference.json`; its self-comparison
     passed all 165 cases with zero failures. The adapter now also accepts

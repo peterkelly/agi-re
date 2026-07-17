@@ -12,9 +12,11 @@ from agi_resources import (
     ResourceDirectoryLayout,
     ResourceFormatError,
     ResourceKind,
+    SPLIT_DIR_NAMES,
     detect_layout,
     encode_picture_nibbles,
     read_directory_entries,
+    read_volume_record,
     volume_path,
 )
 from agi_graphics import picture_payload, view_payload
@@ -577,6 +579,16 @@ def picture_logic_payload(picture_no: int, scratch_var: int = SCRATCH_VAR) -> by
     return logic_resource(load_show_picture_actions(picture_no, scratch_var) + self_loop())
 
 
+def picture_priority_logic_payload(picture_no: int, scratch_var: int = SCRATCH_VAR) -> bytes:
+    """Show one picture's priority/control channel and wait for input."""
+
+    return logic_resource(
+        load_show_picture_actions(picture_no, scratch_var)
+        + bytes([0x1D])
+        + self_loop()
+    )
+
+
 def picture_view_logic_payload(
     picture_no: int,
     view_no: int,
@@ -840,6 +852,177 @@ def copy_sq2_tree(destination: Path, *, game_dir: Path | None = None) -> None:
 
 def copy_minimal_picture_tree(destination: Path, *, game_dir: Path | None = None) -> None:
     copy_game_tree(destination, game_dir=game_dir, minimal_files=MINIMAL_PICTURE_FIXTURE_FILES)
+
+
+def _is_layout_volume_file(path: Path, layout: ResourceDirectoryLayout) -> bool:
+    upper = path.name.upper()
+    stem = "VOL." if layout.version == "v2_split" else f"{layout.prefix.upper()}VOL."
+    return upper.startswith(stem) and upper[len(stem) :].isdigit()
+
+
+def picture_support_file_names(game_dir: Path) -> set[str]:
+    """Return local files needed to launch a generated picture-only fixture."""
+
+    source_game = Path(game_dir)
+    layout = detect_layout(source_game)
+    directory_names = set(SPLIT_DIR_NAMES.values()) if layout.version == "v2_split" else {
+        layout.directory_path.name.upper() if layout.directory_path is not None else ""
+    }
+    exact_names = {"AGI", "HGC_FONT", "OBJECT", "WORDS.TOK", *directory_names}
+    executable_suffixes = {".BAT", ".COM", ".EXE", ".OVL"}
+    return {
+        path.name.upper()
+        for path in source_game.iterdir()
+        if path.is_file()
+        and not _is_layout_volume_file(path, layout)
+        and (path.name.upper() in exact_names or path.suffix.upper() in executable_suffixes)
+    }
+
+
+def copy_picture_support_tree(destination: Path, *, game_dir: Path) -> None:
+    """Copy interpreter/game support files while omitting original volumes."""
+
+    source_game = Path(game_dir)
+    minimal_files = picture_support_file_names(source_game)
+    copy_game_tree(destination, game_dir=source_game, minimal_files=minimal_files)
+
+
+def _fixture_child_case_insensitive(directory: Path, name: str) -> Path:
+    wanted = name.upper()
+    for child in directory.iterdir():
+        if child.name.upper() == wanted:
+            return child
+    raise FileNotFoundError(directory / name)
+
+
+def original_picture_record_bytes(game_dir: Path, picture_no: int) -> bytes:
+    """Return one source picture record exactly as stored in its volume."""
+
+    source_game = Path(game_dir)
+    layout = detect_layout(source_game)
+    record = read_volume_record(source_game, "picture", picture_no)
+    data = volume_path(source_game, layout, record.entry.volume).read_bytes()
+    size = len(record.header) + record.stored_length
+    raw = data[record.entry.offset : record.entry.offset + size]
+    if len(raw) != size:
+        raise ResourceFormatError(f"short raw picture record {picture_no}")
+    return raw
+
+
+def build_original_picture_channel_fixture(
+    picture_no: int,
+    channel: str,
+    destination: Path,
+    *,
+    game_dir: Path,
+) -> Path:
+    """Build a compact fixture using an original stored picture record."""
+
+    source_game = Path(game_dir)
+    source_layout = detect_layout(source_game)
+    picture = read_volume_record(source_game, "picture", picture_no)
+    return _build_picture_channel_fixture_from_record(
+        picture_no,
+        channel,
+        destination,
+        game_dir=source_game,
+        volume=picture.entry.volume,
+        picture_record=original_picture_record_bytes(source_game, picture_no),
+    )
+
+
+def build_synthetic_picture_channel_fixture(
+    picture_no: int,
+    channel: str,
+    picture_payload_bytes: bytes,
+    destination: Path,
+    *,
+    game_dir: Path,
+    volume: int,
+) -> Path:
+    """Build a compact channel fixture with controlled picture bytecode."""
+
+    source_game = Path(game_dir)
+    source_layout = detect_layout(source_game)
+    picture_record = (
+        volume_record(picture_payload_bytes, volume)
+        if source_layout.version == "v2_split"
+        else v3_picture_volume_record(picture_payload_bytes, volume)
+    )
+    return _build_picture_channel_fixture_from_record(
+        picture_no,
+        channel,
+        destination,
+        game_dir=source_game,
+        volume=volume,
+        picture_record=picture_record,
+    )
+
+
+def _build_picture_channel_fixture_from_record(
+    picture_no: int,
+    channel: str,
+    destination: Path,
+    *,
+    game_dir: Path,
+    volume: int,
+    picture_record: bytes,
+) -> Path:
+    if channel not in ("visual", "priority"):
+        raise ValueError("picture channel must be visual or priority")
+    source_game = Path(game_dir)
+    source_layout = detect_layout(source_game)
+    logic_payload = (
+        picture_logic_payload(picture_no)
+        if channel == "visual"
+        else picture_priority_logic_payload(picture_no)
+    )
+    logic_record = (
+        volume_record(logic_payload, volume)
+        if source_layout.version == "v2_split"
+        else v3_volume_record(logic_payload, volume)
+    )
+
+    copy_picture_support_tree(destination, game_dir=source_game)
+    destination_layout = detect_layout(destination)
+    source_volume = volume_path(source_game, source_layout, volume)
+    (destination / source_volume.name).write_bytes(logic_record + picture_record)
+
+    if destination_layout.version == "v2_split":
+        logdir = _fixture_child_case_insensitive(destination, "LOGDIR")
+        picdir = _fixture_child_case_insensitive(destination, "PICDIR")
+        logdir.write_bytes(patch_dir_entry(logdir.read_bytes(), 0, volume, 0))
+        picdir.write_bytes(
+            patch_dir_entry(
+                picdir.read_bytes(),
+                picture_no,
+                volume,
+                len(logic_record),
+            )
+        )
+    else:
+        if destination_layout.directory_path is None:
+            raise ResourceFormatError("combined directory layout is missing a path")
+        directory = destination_layout.directory_path.read_bytes()
+        directory = patch_combined_dir_entry(
+            directory,
+            destination_layout,
+            "logic",
+            0,
+            volume,
+            0,
+        )
+        directory = patch_combined_dir_entry(
+            directory,
+            destination_layout,
+            "picture",
+            picture_no,
+            volume,
+            len(logic_record),
+        )
+        destination_layout.directory_path.write_bytes(directory)
+
+    return destination
 
 
 def build_v3_logic_fixture(

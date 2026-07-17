@@ -12,7 +12,7 @@ A result bundle is a UTF-8 JSON object with these fields:
 | Field | Meaning |
 |---|---|
 | `format` | The literal `agi-clean-room-conformance-results`. |
-| `format_version` | Integer `1` for this format. |
+| `format_version` | Integer `2` for this format. |
 | `suite_id` | Stable identifier for the selected case set. |
 | `profile` | Interpreter behavior profile claimed by the producer. |
 | `producer` | Human-readable identifier for the producing engine or oracle. |
@@ -43,19 +43,38 @@ specified synchronization point. It has these fields:
 | `width` | `160` |
 | `height` | `168` |
 | `pixel_format` | `ega16-indexed-row-major` |
-| `sha256` | Lowercase hexadecimal SHA-256 digest of the canonical bytes. |
-| `artifact` | Optional path, relative to the bundle, containing those bytes. |
+| `sha256` | Lowercase hexadecimal SHA-256 digest of the decoded canonical palette-index stream. |
+| `artifact` | Optional path, relative to the bundle, containing a canonical PPM image. |
 
-The artifact contains exactly 26,880 bytes with no header. Each byte is one
-EGA palette index in the range 0 through 15. Bytes proceed left to right, then
-top to bottom. Coordinate `(0, 0)` is the upper-left pixel of the 160 by 168
-game area. The format contains logical pixels, independent of host window
-size, display scaling, aspect-ratio correction, or RGB palette calibration.
+The artifact is a binary P6 PPM with dimensions 160 by 168 and maximum value
+255. Every RGB pixel must be exactly one of the 16 EGA palette colors. Pixels
+proceed left to right, then top to bottom; coordinate `(0, 0)` is the
+upper-left pixel. For hashing and comparison, each RGB triple is mapped to its
+unique EGA palette index, yielding exactly 26,880 canonical bytes. This keeps
+the artifact directly viewable while making the comparison independent of PPM
+header layout.
 
 The digest is sufficient for an exact match. When both bundles provide valid
 artifacts, a comparator may additionally report the number and bounding box of
-differing logical pixels. Producers must verify that an artifact's digest
-matches its declared `sha256` before comparing it.
+differing logical pixels. Producers must decode and validate the PPM, then
+verify that the canonical palette-index digest matches its declared `sha256`
+before comparing it.
+
+### Picture-channel cases
+
+A picture reference suite represents the two logical channels as separate
+cases. The recommended stable identifiers are `picture_NNN/visual` and
+`picture_NNN/priority`, where `NNN` is the zero-padded decimal resource number.
+The visual case observes the normally presented picture. The priority case
+observes the diagnostic priority/control presentation after the same picture
+has been prepared, without view cels or later game-state overlays.
+
+Both cases use the canonical frame format above. In the priority case each
+pixel is the displayed EGA color corresponding to that cell's combined
+priority/control value. It is not an implementation's private priority-table
+index, memory byte, or reconstructed navigation classification. A producer may
+obtain the observation by any faithful means; the bundle comparison depends
+only on the externally presented canonical frame.
 
 ## Portable values
 

@@ -1,6 +1,6 @@
 # AGI Clean-Room Reverse Engineering
 
-[Project repository: peterkelly/agi-re](https://github.com/peterkelly/agi-re)
+Project repository: [https://github.com/peterkelly/agi-re](https://github.com/peterkelly/agi-re)
 
 This book is the reverse-engineering evidence record. It collects local-file
 observations, disassembly, addresses, commands, hypotheses, corrections, and

@@ -4,6 +4,7 @@
 from __future__ import annotations
 
 import json
+import hashlib
 import sys
 import tempfile
 import unittest
@@ -15,6 +16,8 @@ sys.path.insert(0, str(ROOT / "tools"))
 from conformance_results import (  # noqa: E402
     EGA_PALETTE,
     artifact_filename,
+    canonical_frame_from_artifact_ppm,
+    canonical_ppm_bytes,
     compare_bundles,
     export_reports,
     frame_observation,
@@ -41,6 +44,7 @@ class ConformanceResultTests(unittest.TestCase):
 
         self.assertNotIn("/", left)
         self.assertNotEqual(left, right)
+        self.assertTrue(left.endswith(".ppm"))
 
     def test_frame_observation_rejects_noncanonical_size(self) -> None:
         with self.assertRaisesRegex(ValueError, "26880"):
@@ -61,7 +65,8 @@ class ConformanceResultTests(unittest.TestCase):
             export_reports([report], reference, root / "frames", "suite", "2.936", "original")
             bundle = json.loads(reference.read_text(encoding="ascii"))
             self.assertEqual(bundle["cases"][0]["status"], "ok")
-            self.assertEqual((root / bundle["cases"][0]["frame"]["artifact"]).read_bytes(), pixels)
+            artifact = root / bundle["cases"][0]["frame"]["artifact"]
+            self.assertEqual(canonical_frame_from_artifact_ppm(artifact), pixels)
 
             comparison = compare_bundles(reference, reference)
             self.assertEqual(comparison["summary"], {"total": 1, "matches": 1, "failures": 0})
@@ -88,6 +93,76 @@ class ConformanceResultTests(unittest.TestCase):
             )
 
         self.assertEqual(bundle["cases"][0]["id"], "sample_probe/control")
+        self.assertEqual(bundle["cases"][0]["status"], "ok")
+
+    def test_export_accepts_relative_ok_picture_channel_capture(self) -> None:
+        with tempfile.TemporaryDirectory() as temp_dir:
+            root = Path(temp_dir)
+            capture = root / "raw" / "picture_001_priority.ppm"
+            capture.parent.mkdir()
+            write_scaled_ppm(capture, bytes([4]) * (160 * 168))
+            report = root / "manifest.json"
+            report.write_text(
+                json.dumps(
+                    {
+                        "format": "agi-original-picture-screen-captures",
+                        "format_version": 2,
+                        "results": [
+                            {
+                                "case_id": "picture_001/priority",
+                                "status": "ok",
+                                "capture": "raw/picture_001_priority.ppm",
+                            }
+                        ],
+                    }
+                ),
+                encoding="ascii",
+            )
+            bundle = export_reports(
+                [report],
+                root / "bundle.json",
+                root / "frames",
+                "suite",
+                "profile",
+                "original",
+            )
+
+        self.assertEqual(bundle["cases"][0]["id"], "picture_001/priority")
+        self.assertEqual(bundle["cases"][0]["status"], "ok")
+
+    def test_export_prefers_verified_canonical_picture_channel_ppm(self) -> None:
+        with tempfile.TemporaryDirectory() as temp_dir:
+            root = Path(temp_dir)
+            frame = bytes([8]) * (160 * 168)
+            artifact = root / "canonical" / "picture_001_priority.ppm"
+            artifact.parent.mkdir()
+            artifact.write_bytes(canonical_ppm_bytes(frame))
+            report = root / "manifest.json"
+            report.write_text(
+                json.dumps(
+                    {
+                        "results": [
+                            {
+                                "case_id": "picture_001/priority",
+                                "status": "ok",
+                                "capture": "missing.ppm",
+                                "canonical_ppm": "canonical/picture_001_priority.ppm",
+                                "canonical_sha256": hashlib.sha256(frame).hexdigest(),
+                            }
+                        ]
+                    }
+                ),
+                encoding="ascii",
+            )
+            bundle = export_reports(
+                [report],
+                root / "bundle.json",
+                root / "frames",
+                "suite",
+                "profile",
+                "original",
+            )
+
         self.assertEqual(bundle["cases"][0]["status"], "ok")
 
     def test_export_marks_known_failed_v3_probe_as_error(self) -> None:
@@ -153,7 +228,7 @@ class ConformanceResultTests(unittest.TestCase):
             root = Path(temp_dir)
             base = {
                 "format": "agi-clean-room-conformance-results",
-                "format_version": 1,
+                "format_version": 2,
                 "cases": [
                     {
                         "id": "restore",
@@ -182,7 +257,7 @@ class ConformanceResultTests(unittest.TestCase):
             values_observation({"elapsed": 1.5})
         bundle = {
             "format": "agi-clean-room-conformance-results",
-            "format_version": 1,
+            "format_version": 2,
             "cases": [{"id": "empty", "status": "ok"}],
         }
         with self.assertRaisesRegex(ValueError, "lacks an observation"):
@@ -191,7 +266,7 @@ class ConformanceResultTests(unittest.TestCase):
     def test_validation_rejects_malformed_known_observation_and_frame_artifact(self) -> None:
         malformed = {
             "format": "agi-clean-room-conformance-results",
-            "format_version": 1,
+            "format_version": 2,
             "cases": [{"id": "bad", "status": "ok", "frame": "not-an-object"}],
         }
         with self.assertRaisesRegex(ValueError, "frame observation must be an object"):
@@ -199,11 +274,11 @@ class ConformanceResultTests(unittest.TestCase):
 
         with tempfile.TemporaryDirectory() as temp_dir:
             root = Path(temp_dir)
-            pixels = bytes([16]) * (160 * 168)
-            artifact = root / "bad.ega"
-            artifact.write_bytes(pixels)
+            pixels = bytes(160 * 168)
+            artifact = root / "bad.ppm"
+            artifact.write_bytes(b"P6\n160 168\n255\n" + bytes([1, 2, 3]) * (160 * 168))
             case = {"id": "bad", "frame": frame_observation(pixels, artifact.name)}
-            with self.assertRaisesRegex(ValueError, "noncanonical frame artifact"):
+            with self.assertRaisesRegex(ValueError, "non-EGA color"):
                 load_artifact(root / "bundle.json", case)
 
     def test_compare_reports_pixel_difference_and_missing_case(self) -> None:
@@ -213,11 +288,11 @@ class ConformanceResultTests(unittest.TestCase):
             right_pixels = bytearray(left_pixels)
             right_pixels[161] = 7
             for name, pixels in (("left", left_pixels), ("right", right_pixels)):
-                artifact = root / f"{name}.ega"
-                artifact.write_bytes(pixels)
+                artifact = root / f"{name}.ppm"
+                artifact.write_bytes(canonical_ppm_bytes(bytes(pixels)))
                 bundle = {
                     "format": "agi-clean-room-conformance-results",
-                    "format_version": 1,
+                    "format_version": 2,
                     "cases": [{"id": "sample", "status": "ok", "frame": frame_observation(bytes(pixels), artifact.name)}],
                 }
                 (root / f"{name}.json").write_text(json.dumps(bundle), encoding="ascii")
@@ -230,7 +305,7 @@ class ConformanceResultTests(unittest.TestCase):
     def test_validation_rejects_duplicate_case_ids(self) -> None:
         bundle = {
             "format": "agi-clean-room-conformance-results",
-            "format_version": 1,
+            "format_version": 2,
             "cases": [{"id": "same", "status": "error"}, {"id": "same", "status": "error"}],
         }
         with self.assertRaisesRegex(ValueError, "duplicate case id"):
@@ -243,7 +318,7 @@ class ConformanceResultTests(unittest.TestCase):
             observation = frame_observation(frame)
             base = {
                 "format": "agi-clean-room-conformance-results",
-                "format_version": 1,
+                "format_version": 2,
                 "cases": [{"id": "sample", "status": "ok", "frame": observation}],
             }
             candidate = json.loads(json.dumps(base))

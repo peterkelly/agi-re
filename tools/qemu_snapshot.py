@@ -6,6 +6,7 @@ from __future__ import annotations
 import os
 import shutil
 import subprocess
+import sys
 import time
 from dataclasses import dataclass
 from pathlib import Path
@@ -162,6 +163,7 @@ def run_snapshot_qemu_cases(
     draw_wait: float,
     snapshot_name: str = "ready",
     vnc_display: str = "127.0.0.1:5",
+    progress: bool = False,
 ) -> None:
     """Boot once, save a DOS-prompt snapshot, and restore it between cases."""
     for case in cases:
@@ -191,7 +193,13 @@ def run_snapshot_qemu_cases(
         time.sleep(boot_wait)
         monitor_command(proc, f"savevm {snapshot_name}")
         time.sleep(1.0)
-        for case in cases:
+        for index, case in enumerate(cases, start=1):
+            if progress:
+                print(
+                    f"QEMU capture [{index}/{len(cases)}] {case.dos_dir}",
+                    file=sys.stderr,
+                    flush=True,
+                )
             monitor_command(proc, f"loadvm {snapshot_name}")
             time.sleep(0.5)
             monitor_type(proc, f"cd \\{case.dos_dir}\n")
