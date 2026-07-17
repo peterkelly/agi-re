@@ -9,6 +9,10 @@ with data-driven `LOGIC` scripts, vector-drawn `PICTURE` resources, animated
 `VIEW` loops and cels, `WORDS.TOK` vocabulary, `OBJECT` inventory data, sound,
 and saved-game state.
 
+<p align="center">
+  <img src="kq1.png" width="640">
+</p>
+
 This repository asks a practical question: **what must a compatible AGI engine
 actually do?** It examines original DOS interpreters and game resources to
 recover their externally observable behavior, including differences between
